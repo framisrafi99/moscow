@@ -1,0 +1,27 @@
+{
+  "id": "./produksi.html",
+  "name": "Moscow Supplies - staf produksi",
+  "short_name": "Moscow Produksi",
+  "description": "Form staf produksi Moscow Supplies",
+  "start_url": "./produksi.html",
+  "scope": "./",
+  "display": "minimal-ui",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "lang": "id",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
