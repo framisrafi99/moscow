@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Moscow Renon</title>
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-title" content="Moscow Renon">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="manifest" href="manifest-renon.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root { --bg:#111; --fg:#f4f4f4; --muted:#9a9a9a; --line:#2c2c2c; --accent:#f4f4f4; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  #app { position:fixed; inset:0; width:100%; height:100%; border:0; display:none; background:#fff; }
+  #atur { min-height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:32px 20px calc(32px + env(safe-area-inset-bottom)); text-align:center; }
+  #atur img { width:96px; height:96px; border-radius:22px; margin-bottom:18px; }
+  h1 { font-size:22px; margin:0 0 6px; letter-spacing:.5px; }
+  p { color:var(--muted); font-size:14px; line-height:1.5; margin:0 0 22px; max-width:340px; }
+  input { width:100%; max-width:360px; padding:14px; border-radius:12px; border:1px solid var(--line);
+    background:#1b1b1b; color:var(--fg); font-size:15px; }
+  button { margin-top:14px; width:100%; max-width:360px; padding:14px; border:0; border-radius:12px;
+    background:var(--accent); color:#111; font-size:16px; font-weight:600; }
+  .err { color:#ff8a80; font-size:13px; min-height:18px; margin-top:10px; }
+  .kecil { margin-top:28px; font-size:12px; color:#666; }
+</style>
+</head>
+<body>
+<iframe id="app" title="Moscow Renon" allow="clipboard-write; camera"></iframe>
+
+<div id="atur">
+  <img src="icon-192.png" alt="">
+  <h1>Moscow Renon</h1>
+  <p>Tempel link staf consignment Renon sekali saja. Link hanya disimpan di HP ini dan tidak dikirim ke mana pun.</p>
+  <input id="link" type="url" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/...">
+  <button id="simpan">Simpan dan buka</button>
+  <div class="err" id="err"></div>
+  <div class="kecil">Ganti link nanti: buka aplikasi dengan alamat ?atur=1</div>
+</div>
+
+<script>
+(function () {
+  var KUNCI = 'renon_link';
+  var KUNCI_DEV = 'renon_perangkat';
+  var app = document.getElementById('app');
+  var atur = document.getElementById('atur');
+
+  function baca() { try { return localStorage.getItem(KUNCI) || ''; } catch (e) { return ''; } }
+  function tulis(v) { try { localStorage.setItem(KUNCI, v); return true; } catch (e) { return false; } }
+  function sah(u) { return /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/(exec|dev)/.test(u); }
+
+  // Tanda perangkat disimpan di aplikasi ini (bukan di halaman Apps Script),
+  // supaya HP tidak menghapusnya dan izin perangkat tidak diminta ulang.
+  function acak() {
+    var a = 'abcdefghijklmnopqrstuvwxyz0123456789', s = '', b = new Uint8Array(24);
+    try { crypto.getRandomValues(b); } catch (e) { for (var j = 0; j < 24; j++) b[j] = Math.floor(Math.random() * 256); }
+    for (var i = 0; i < 24; i++) s += a.charAt(b[i] % 36);
+    return s;
+  }
+  function tandaPerangkat() {
+    try {
+      var d = localStorage.getItem(KUNCI_DEV);
+      if (!d || !/^[a-z0-9]{16,40}$/.test(d)) { d = acak(); localStorage.setItem(KUNCI_DEV, d); }
+      return localStorage.getItem(KUNCI_DEV) === d ? d : '';
+    } catch (e) { return ''; }
+  }
+
+  function buka(u) {
+    var d = tandaPerangkat();
+    if (d) u += (u.indexOf('?') === -1 ? '?' : '&') + 'dev=' + d;
+    app.src = u;
+    app.style.display = 'block';
+    atur.style.display = 'none';
+  }
+
+  var minta = new URLSearchParams(location.search).get('atur') === '1';
+  var simpanan = baca();
+  if (simpanan && sah(simpanan) && !minta) { buka(simpanan); }
+  else { document.getElementById('link').value = simpanan; }
+
+  document.getElementById('simpan').onclick = function () {
+    var u = document.getElementById('link').value.trim();
+    var err = document.getElementById('err');
+    if (!sah(u)) { err.textContent = 'Link harus diawali https://script.google.com/macros/s/...'; return; }
+    if (!tulis(u)) { err.textContent = 'HP ini tidak mengizinkan penyimpanan. Link tetap dibuka sekali ini.'; }
+    history.replaceState(null, '', location.pathname);
+    buka(u);
+  };
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>
