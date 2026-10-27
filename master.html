@@ -74,6 +74,8 @@
   <section data-bagian="dasbor" id="bDasbor"><div class="ksg">Memuat ringkasan…</div></section>
   <section data-bagian="jual" id="bJual"><div class="ksg">Memuat penjualan…</div></section>
   <section data-bagian="setuju" id="bSetuju"><div class="ksg">Memuat persetujuan…</div></section>
+  <section data-bagian="gudang" id="bGudang"><div class="ksg">Memuat gudang utama…</div></section>
+  <section data-bagian="purch" id="bPurch"><div class="ksg">Memuat purchasing…</div></section>
   <section data-bagian="__lama">
     <div class="cd">
       <h3 id="lamaJudul">Bagian ini belum pindah</h3>
@@ -92,7 +94,8 @@
   function $(i) { return document.getElementById(i); }
   var D = { beranda: null, ringkasan: null, setuju: null, request: null, pantau: null, aksi: [], waktu: {} }, sb = M.sb, BAGIAN = 'request';
   var KUNCI = { 'md:beranda': 'beranda', 'md:ringkasan': 'ringkasan', 'md:setuju': 'setuju', 'md:request': 'request', 'md:pantau': 'pantau',
-    'md:titip': 'titip', 'md:mkt': 'mkt', 'md:mkt:lalu': 'mktLalu', 'md:bh': 'bh', 'md:bh:lalu': 'bhLalu' };
+    'md:titip': 'titip', 'md:mkt': 'mkt', 'md:mkt:lalu': 'mktLalu', 'md:bh': 'bh', 'md:bh:lalu': 'bhLalu',
+    'md:gudang': 'gudang', 'md:beli:lalu': 'beliLalu' };
   function jumlahTunggu() { return (D.setuju && D.setuju.menunggu || 0) + (D.request && D.request.n || 0); }
 
   M.mulai({
@@ -127,7 +130,7 @@
     (h[0].data || []).forEach(function (x) { D[KUNCI[x.kunci]] = x.data; D.waktu[KUNCI[x.kunci]] = x.dibuat; });
     D.aksi = h[1].data || [];
     M.badge('setuju', jumlahTunggu());
-    gambarBeranda(); gambarDasbor(); gambarSetuju();
+    gambarBeranda(); gambarDasbor(); gambarSetuju(); gambarGudang(); gambarPurch();
     if (J.mulai) { gambarJual(); gambarJualIsi(); }
   }
 
@@ -663,6 +666,228 @@
       return '<tr><td>' + esc(c.ket) + '<small>' + esc(c.t) + (c.o ? ' · ongkir' : '') + '</small></td><td class="r angka">' + rp(c.nom) + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="ksg">Tidak ada biaya.</div>') +
       (x.ongkirManual ? '<div class="sb">Ditambah ongkir isian manual ' + rp(x.ongkirManual) + '</div>' : '') + '</div></div>';
     return h + '<p class="sb">Isian potongan marketplace, dana diterima, setoran, dan penerbitan invoice bagi hasil masih lewat menu Bagi hasil di Master Data lama.</p>';
+  }
+
+  // ======================= GUDANG UTAMA (gdPemilikData lama, mode gudang) =======================
+  var G = { bagian: 'stok', cari: '', cariOn: '' };
+  function tglId(s) { var p = String(s || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(s || ''); }
+  function cocok(teks, q) { q = String(q || '').trim().toLowerCase(); return !q || String(teks).toLowerCase().indexOf(q) !== -1; }
+  function kelompok(list) { var g = {}, u = []; list.forEach(function (x) { var k = x.kat || 'Lainnya'; if (!g[k]) { g[k] = []; u.push(k); } g[k].push(x); }); return u.map(function (k) { return { kat: k, list: g[k] }; }); }
+  function gambarGudang() {
+    var el = $('bGudang'), d = D.gudang;
+    if (!d) { el.innerHTML = '<div class="msg w">Data gudang utama belum tersedia. Tekan "Hitung ulang sekarang".</div>'; return; }
+    var O = d.online || {}, nKirim = (d.masukProd || []).length;
+    var h = '<p class="tl">Diperbarui ' + waktuPotret('gudang') + ' · perubahan dari staf gudang masuk paling lambat 30 menit</p>';
+    h += '<div class="chip" role="group" aria-label="Bagian gudang">' + [['stok', 'Stok gudang utama', fmt(d.stok.reduce(function (a, x) { return a + x.q; }, 0)) + ' pcs'], ['online', 'Stok online Kantor Packing', O.tot ? fmt(O.tot.pcs) + ' pcs' : ''], ['riwayat', 'Masuk & keluar', nKirim ? nKirim + ' kiriman menunggu' : (d.riwayat || []).length + ' catatan']].map(function (b) {
+      return '<button type="button" data-gb="' + b[0] + '" aria-pressed="' + (G.bagian === b[0]) + '"><span>' + b[1] + '</span><b>' + (b[2] || '&nbsp;') + '</b></button>'; }).join('') + '</div>';
+    h += '<div id="gIsi">' + (G.bagian === 'stok' ? isiStokGudang(d) : G.bagian === 'online' ? isiOnline(d) : isiRiwayatGudang(d)) + '</div>';
+    el.innerHTML = h;
+    el.querySelectorAll('[data-gb]').forEach(function (b) { b.onclick = function () { G.bagian = b.getAttribute('data-gb'); gambarGudang(); }; });
+    var c = $('gCari'); if (c) c.oninput = function () { var pos = c.selectionStart; if (G.bagian === 'stok') G.cari = c.value; else G.cariOn = c.value; gambarGudang(); var c2 = $('gCari'); c2.focus(); try { c2.setSelectionRange(pos, pos); } catch (e) { } };
+  }
+  function isiStokGudang(d) {
+    var tot = d.stok.reduce(function (a, x) { return a + x.q; }, 0), minus = d.stok.filter(function (x) { return x.q < 0; }).length;
+    var h = '<div class="kp"><div class="kt"><span class="l">Nilai stok (HPP)</span><span class="v angka">' + jt(d.nilai.hpp) + '</span><span class="k">' + rp(d.nilai.hpp) + '</span></div>' +
+      '<div class="kt"><span class="l">Nilai stok (harga jual)</span><span class="v angka">' + jt(d.nilai.jual) + '</span><span class="k">' + rp(d.nilai.jual) + '</span></div>' +
+      '<div class="kt"><span class="l">Total di gudang</span><span class="v angka">' + fmt(tot) + '</span><span class="k">pcs · ' + d.stok.length + ' jenis barang</span></div>' +
+      '<div class="kt"><span class="l">Perlu dicek</span><span class="v angka' + (minus || d.nilai.tanpaHpp ? ' mn' : '') + '">' + (minus + d.nilai.tanpaHpp) + '</span><span class="k">' + minus + ' stok minus · ' + d.nilai.tanpaHpp + ' tanpa HPP</span></div></div>';
+    var list = d.stok.filter(function (x) { return cocok(x.k + ' ' + x.n + ' ' + x.kat, G.cari); });
+    h += '<div class="cd"><div class="aksi-baris" style="margin-bottom:10px"><input class="isian" id="gCari" placeholder="Cari kode atau nama barang" value="' + esc(G.cari) + '"><a class="tbl" href="stok.html">Stok semua lokasi</a></div>';
+    if (!list.length) return h + '<div class="ksg">Tidak ada barang.</div></div>';
+    h += '<div class="gulir"><table class="tabel"><thead><tr><th>Barang</th><th class="r">Stok</th><th class="r">HPP</th><th class="r">Harga jual</th><th class="r">Nilai HPP</th></tr></thead><tbody>';
+    kelompok(list).forEach(function (g) {
+      h += '<tr><td colspan="5" style="background:#F7F9FB;font-weight:800">' + esc(g.kat) + '</td></tr>';
+      g.list.forEach(function (x) {
+        h += '<tr><td>' + esc(x.n) + '<small>' + esc(x.k) + (x.w && x.w.length ? ' · ' + x.w.map(function (w) { return esc(w.w) + ' ' + fmt(w.q); }).join(', ') : '') + '</small></td><td class="r angka' + (x.q < 0 ? ' mn' : '') + '">' + fmt(x.q) + '</td>' +
+          '<td class="r angka">' + (x.hpp ? rp(x.hpp) + (x.hs === 'awal' ? '<small>stok awal</small>' : '') : '<span class="label no">belum ada</span>') + '</td><td class="r angka">' + rp(x.hj) + '</td><td class="r angka">' + (x.hpp ? rp(x.q * x.hpp) : '–') + '</td></tr>';
+      });
+    });
+    return h + '</tbody></table></div><p class="sb">HPP dari PO terakhir (harga + bagian biaya tambahan). Barang yang belum punya PO memakai HPP stok awal. Harga jual dari daftar barang.</p></div>';
+  }
+  function isiOnline(d) {
+    var O = d.online;
+    if (!O || !O.ada) return '<div class="msg w">Stok awal online (sheet ONLINE_STOK_AWAL) belum diisi.</div>';
+    var T = O.tot, h = '<div class="kp"><div class="kt"><span class="l">Nilai stok online (HPP)</span><span class="v angka">' + jt(T.hpp) + '</span><span class="k">' + rp(T.hpp) + '</span></div>' +
+      '<div class="kt"><span class="l">Nilai (harga jual)</span><span class="v angka">' + jt(T.jual) + '</span><span class="k">selisih ' + rp(T.jual - T.hpp) + '</span></div>' +
+      '<div class="kt"><span class="l">Total pcs</span><span class="v angka">' + fmt(T.pcs) + '</span><span class="k">' + fmt(T.barang) + ' barang · kiriman gudang ' + fmt(T.kirim || 0) + ' pcs</span></div>' +
+      '<div class="kt"><span class="l">Terjual marketplace</span><span class="v angka">' + fmt(T.jualMp || 0) + '</span><span class="k">pcs sejak ' + esc(tglId(O.mulai)) + '</span></div></div>';
+    var cat = [];
+    if (T.minus) cat.push(T.minus + ' barang stoknya minus');
+    if (T.tanpaHpp) cat.push(T.tanpaHpp + ' barang ada stok tapi belum ada HPP');
+    if (T.tanpaHarga) cat.push(T.tanpaHarga + ' barang belum ada harga jual');
+    if (O.mp && O.mp.aktif) cat.push('Penjualan marketplace terakhir terbaca ' + O.mp.aktif);
+    if (cat.length) h += '<div class="msg w">' + cat.map(esc).join(' · ') + '</div>';
+    var list = O.list.filter(function (x) { return cocok(x.k + ' ' + x.n + ' ' + x.kat, G.cariOn); });
+    h += '<div class="cd"><div class="aksi-baris" style="margin-bottom:10px"><input class="isian" id="gCari" placeholder="Cari kode atau nama barang" value="' + esc(G.cariOn) + '"></div>';
+    if (!list.length) return h + '<div class="ksg">Tidak ada barang.</div></div>';
+    h += '<div class="gulir"><table class="tabel"><thead><tr><th>Barang</th><th class="r">Stok</th><th class="r">HPP</th><th class="r">Harga jual</th><th class="r">Nilai HPP</th></tr></thead><tbody>';
+    kelompok(list).forEach(function (g) {
+      var sub = 0, subQ = 0; g.list.forEach(function (x) { if (x.q > 0) { sub += x.q * x.hpp; subQ += x.q; } });
+      h += '<tr><td colspan="5" style="background:#F7F9FB;font-weight:800">' + esc(g.kat) + ' <span class="sb" style="font-weight:600">· ' + fmt(subQ) + ' pcs · ' + rp(sub) + '</span></td></tr>';
+      g.list.forEach(function (x) {
+        var rinci = ['awal ' + fmt(x.awal)]; if (x.kirim) rinci.push('+ kiriman ' + fmt(x.kirim)); if (x.jualMp) rinci.push('− terjual ' + fmt(x.jualMp));
+        h += '<tr' + (x.q ? '' : ' style="opacity:.55"') + '><td>' + esc(x.n) + '<small>' + esc(x.k) + ' · ' + rinci.join(' ') + '</small>' + (x.c ? '<small style="color:var(--merah)">' + esc(x.c) + '</small>' : '') + '</td><td class="r angka' + (x.q < 0 ? ' mn' : '') + '">' + fmt(x.q) + '</td>' +
+          '<td class="r angka">' + (x.hpp ? rp(x.hpp) : '–') + '</td><td class="r angka">' + (x.hj ? rp(x.hj) : '–') + '</td><td class="r angka">' + (x.hpp && x.q > 0 ? rp(x.q * x.hpp) : '–') + '</td></tr>';
+      });
+    });
+    return h + '</tbody></table></div><p class="sb">Stok siap kirim marketplace di Kantor Packing = stok awal + kiriman dari gudang utama − penjualan marketplace yang sudah diunggah.</p></div>';
+  }
+  function isiRiwayatGudang(d) {
+    var h = '', M2 = d.masukProd || [];
+    if (M2.length) h += '<div class="cd"><div class="kpl"><h3>Kiriman produksi belum diterima gudang</h3><span class="sb">' + M2.length + ' kiriman</span></div><table class="tabel"><tbody>' + M2.map(function (x) {
+      var it = x.items || []; return '<tr><td><b>' + esc(x.no || '') + '</b><small>' + esc(tglId(x.t)) + (x.p ? ' · ' + esc(x.p) : '') + '</small>' + (it.length ? '<small>' + it.map(function (i) { return esc(i.n) + (i.w ? ' ' + esc(i.w) : '') + ' ' + fmt(i.q); }).join(', ') + '</small>' : '') + '</td><td class="r angka">' + fmt(it.reduce(function (a, i) { return a + (Number(i.q) || 0); }, 0) || x.q || 0) + ' pcs</td></tr>'; }).join('') + '</tbody></table></div>';
+    var R = d.riwayat || [];
+    var warna = function (j) { return /masuk|terima/i.test(j) ? 'ok' : /keluar|kirim/i.test(j) ? 'biru' : 'abu'; };
+    h += '<div class="cd"><div class="kpl"><h3>Masuk &amp; keluar gudang utama</h3><span class="sb">' + R.length + ' catatan terakhir</span></div>' + (R.length ? R.map(function (x) {
+      var it = x.items || [], q = it.reduce(function (a, i) { return a + (Number(i.q) || 0); }, 0), rs = it.reduce(function (a, i) { return a + (Number(i.rs) || 0); }, 0);
+      return '<details class="grup" style="padding:10px 0"><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px"><span><b>' + esc(x.no) + '</b> <span class="label ' + warna(x.j) + '">' + esc(x.j) + '</span><small style="display:block;color:var(--abu);font-size:12.5px">' + esc(tglId(x.t)) + (x.st ? ' · ' + esc(x.st) : '') + (x.ke ? ' · ' + esc(x.ke) : '') + (x.p ? ' · ' + esc(x.p) : '') + '</small></span><span class="angka" style="white-space:nowrap">' + fmt(q) + ' pcs' + (rs ? ' <span class="label no">rusak ' + fmt(rs) + '</span>' : '') + '</span></summary>' +
+        '<table class="tabel" style="margin-top:6px"><tbody>' + it.map(function (i) { return '<tr><td>' + esc(i.n) + (i.w ? ' – ' + esc(i.w) : '') + '<small>' + esc(i.k) + '</small></td><td class="r angka">' + fmt(i.q) + (i.rs ? '<small>rusak ' + fmt(i.rs) + '</small>' : '') + '</td></tr>'; }).join('') + '</tbody></table>' + (x.c ? '<div class="sb">Catatan: ' + esc(x.c) + '</div>' : '') + '</details>';
+    }).join('') : '<div class="ksg">Belum ada catatan.</div>') + '</div>';
+    return h + '<p class="sb">Terima barang, kirim keluar, dan stok opname dicatat staf gudang lewat formulirnya. Koreksi catatan yang salah atau dobel masih lewat menu Gudang Utama di Master Data lama.</p>';
+  }
+
+  // ======================= PURCHASING (gdPemilikData lama, mode beli) =======================
+  var P = { bagian: 'tindak', cari: '', filter: '', buka: {}, beliB: 'ini' };
+  var PO_ST = ['Menunggu persetujuan', 'Disetujui', 'Dibayar', 'Dikirim supplier', 'Diterima sebagian', 'Selesai', 'Ditolak', 'Batal'];
+  function stafBayar(b) { return b === 'ShopeePay' || b === 'Kas Tunai'; }
+  function perluBayar(o) { return !stafBayar(o.bayar) && !o.wb && ['Menunggu persetujuan', 'Ditolak', 'Batal'].indexOf(o.st) === -1; }
+  function biayaBelum(o) { return ['Ditolak', 'Batal'].indexOf(o.st) === -1 ? (o.biaya || []).filter(function (b) { return b.sb !== 'Dibayar' && b.sb !== 'Batal'; }) : []; }
+  function warnaPo(st) { return /Menunggu/.test(st) ? 'w' : /Selesai/.test(st) ? 'ok' : /Ditolak|Batal/.test(st) ? 'no' : /Dikirim|sebagian/.test(st) ? 'biru' : 'abu'; }
+  function antrePo() {
+    var o = {};
+    D.aksi.forEach(function (a) { if (!/^gdPo|^gdBiaya/.test(a.fungsi) || !a.param) return; var k = a.param.no; if (!(k in o)) o[k] = a; });
+    return o;
+  }
+  function nTindakPo() { var d = D.gudang; return d ? d.po.filter(function (o) { return o.st === 'Menunggu persetujuan' || perluBayar(o) || biayaBelum(o).length; }).length : 0; }
+  function gambarPurch() {
+    var el = $('bPurch'), d = D.gudang;
+    M.badge('purch', nTindakPo());
+    if (!d) { el.innerHTML = '<div class="msg w">Data purchasing belum tersedia. Tekan "Hitung ulang sekarang".</div>'; return; }
+    var nT = nTindakPo();
+    var h = '<div id="msgPurch"></div><p class="tl">Diperbarui ' + waktuPotret('gudang') + '</p>';
+    h += '<div class="chip" role="group" aria-label="Bagian purchasing">' + [['tindak', 'Perlu tindakan', nT ? nT + ' PO' : 'Beres'], ['po', 'Semua PO', d.po.length + ' PO'], ['beli', 'Laporan pembelian', ''], ['hpp', 'HPP barang', d.hpp.akhir.length + ' barang']].map(function (b) {
+      return '<button type="button" data-pb="' + b[0] + '" aria-pressed="' + (P.bagian === b[0]) + '"><span>' + b[1] + '</span><b>' + (b[2] || '&nbsp;') + '</b></button>'; }).join('') + '</div>';
+    h += '<div id="pIsi">' + (P.bagian === 'tindak' ? isiTindakPo(d) : P.bagian === 'po' ? isiSemuaPo(d) : P.bagian === 'beli' ? isiBeli(d) : isiHpp(d)) + '</div>';
+    el.innerHTML = h;
+    el.querySelectorAll('[data-pb]').forEach(function (b) { b.onclick = function () { P.bagian = b.getAttribute('data-pb'); gambarPurch(); }; });
+    el.querySelectorAll('[data-bl]').forEach(function (b) { b.onclick = function () { P.beliB = b.getAttribute('data-bl'); gambarPurch(); }; });
+    el.querySelectorAll('[data-po-a]').forEach(function (b) { b.onclick = function () { aksiPo(b); }; });
+    var c = $('pCari'); if (c) c.oninput = function () { var pos = c.selectionStart; P.cari = c.value; gambarPurch(); var c2 = $('pCari'); c2.focus(); try { c2.setSelectionRange(pos, pos); } catch (e) { } };
+    var f = $('pFilter'); if (f) f.onchange = function () { P.filter = f.value; gambarPurch(); };
+  }
+  function kartuPo(o, d, perlu) {
+    var antre = antrePo()[o.no], tunggu = antre && antre.status === 'menunggu', ms = new Date(D.waktu.gudang || 0).getTime();
+    var biaya = (o.biaya || []).reduce(function (a, b) { return a + b.v; }, 0), belum = biayaBelum(o), buka = perlu || P.buka[o.no], hi = d.hariIni;
+    var h = '<div class="cd" data-no="' + esc(o.no) + '"><div class="rq-kpl"><h3>' + esc(o.sup) + '</h3><span class="sb">' + esc(o.no) + ' · ' + esc(tglId(o.t)) + ' · ' + esc(o.asal) + ' · ' + esc(o.bayar) + ' · oleh ' + esc(o.p) + '</span></div>' +
+      '<div class="rq-mt" style="margin-top:6px"><span class="label ' + warnaPo(o.st) + '">' + esc(o.st) + '</span><span class="label biru">' + rp(o.tot) + '</span>' + (biaya ? '<span class="label abu">+ biaya ' + rp(biaya) + '</span>' : '') +
+      (perluBayar(o) ? '<span class="label no">belum dibayar</span>' : '') + (belum.length ? '<span class="label no">' + belum.length + ' biaya belum dibayar</span>' : '') +
+      (o.sisa > 0 && ['Ditolak', 'Batal'].indexOf(o.st) === -1 ? '<span class="label abu">belum datang ' + fmt(o.sisa) + ' pcs</span>' : '') + (o.rusak ? '<span class="label no">rusak ' + fmt(o.rusak) + '</span>' : '') + '</div>';
+    if (buka) {
+      h += '<div class="gulir"><table class="tabel"><thead><tr><th>Barang</th><th class="r">Qty</th><th class="r">Datang</th><th class="r">Harga</th><th class="r">Subtotal</th></tr></thead><tbody>' + o.items.map(function (it) {
+        return '<tr><td>' + esc(it.n) + (it.w ? ' – ' + esc(it.w) : '') + '<small>' + esc(it.k) + '</small></td><td class="r angka">' + fmt(it.q) + '</td><td class="r angka">' + fmt(it.d) + '</td><td class="r angka">' + rp(it.h) + '</td><td class="r angka">' + rp(it.s) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+      if ((o.biaya || []).length) h += '<table class="tabel"><tbody>' + o.biaya.map(function (b) { return '<tr><td>' + esc(b.j) + '<small>' + esc(tglId(b.t)) + (b.c ? ' · ' + esc(b.c) : '') + ' · ' + esc(b.bayar) + '</small></td><td class="r angka">' + rp(b.v) + '<small>' + esc(b.sb) + (b.tr ? ' (' + esc(b.tr) + ')' : '') + '</small></td></tr>'; }).join('') + '</tbody></table>';
+      h += (o.c ? '<div class="sb">Catatan staf: ' + esc(o.c) + '</div>' : '') + (o.cp ? '<div class="sb">Catatan manajemen Moscow Supplies: ' + esc(o.cp) + '</div>' : '') + (o.resi ? '<div class="sb">Resi: ' + esc(o.resi) + '</div>' : '') +
+        '<div class="sb">Diajukan ' + esc(o.wa) + (o.ws ? ' · diputuskan ' + esc(o.ws) : '') + (o.wb ? ' · dibayar ' + esc(o.wb) : '') + (o.tr ? ' (' + esc(o.tr) + ')' : '') + '</div>';
+    }
+    h += catatanAntre(antre, ms);
+    if (tunggu) return h + '</div>';
+    var ak = '';
+    if (o.st === 'Menunggu persetujuan') {
+      ak += '<div class="mini"><label>Catatan (wajib bila ditolak)<input class="isian" data-f="cat" maxlength="200"></label><label>Tanggal bayar<input class="isian" type="date" data-f="tgl" value="' + esc(hi) + '" max="' + esc(hi) + '"></label></div>' +
+        '<div class="aksi-baris"><button type="button" class="tbl pri" data-po-a="setuju">Setujui</button><button type="button" class="tbl" data-po-a="setujuBayar">Setujui &amp; sudah dibayar</button><button type="button" class="tbl" data-po-a="tolak">Tolak</button></div>';
+    } else if (perluBayar(o)) {
+      ak += '<div class="aksi-baris" style="margin-top:8px"><input class="isian" type="date" data-f="tgl" value="' + esc(hi) + '" max="' + esc(hi) + '" style="flex:0 1 170px"><button type="button" class="tbl pri" data-po-a="bayar">Tandai sudah dibayar (' + rp(o.tot) + ')</button></div>';
+    }
+    belum.forEach(function (b) {
+      ak += '<div class="aksi-baris" style="margin-top:8px"><span class="sb" style="flex:1 1 200px">' + esc(b.j) + ' ' + rp(b.v) + ' (' + esc(b.bayar) + ')</span><input class="isian" type="date" data-f="tgl-' + b.id + '" value="' + esc(hi) + '" max="' + esc(hi) + '" style="flex:0 1 170px"><button type="button" class="tbl" data-po-a="biaya" data-id="' + b.id + '">Tandai biaya dibayar</button></div>';
+    });
+    var bisaBatal = ['Batal', 'Ditolak'].indexOf(o.st) === -1 && !o.items.some(function (it) { return it.d > 0; });
+    ak += '<div class="aksi-baris" style="margin-top:8px">' + (perlu ? '' : '<button type="button" class="tbl" data-po-a="detail">' + (buka ? 'Tutup rincian' : 'Rincian') + '</button>') +
+      (bisaBatal ? '<button type="button" class="tbl" data-po-a="batal">Batalkan PO</button>' : '') + '</div>';
+    if (bisaBatal && P.buka['batal:' + o.no]) ak += '<div class="mini" style="background:#FDF3F2;padding:10px;border-radius:12px"><label>Alasan pembatalan<input class="isian" data-f="alasan" maxlength="200"></label>' +
+      (o.wb || (o.biaya || []).some(function (b) { return b.tr; }) ? '<label class="cek"><input type="checkbox" data-f="batalUang" checked> Batalkan juga uang keluarnya di accounting</label>' : '') +
+      '<div class="aksi-baris" style="align-self:end"><button type="button" class="tbl pri" data-po-a="batalYa">Ya, batalkan PO ini</button></div></div>';
+    return h + ak + '</div>';
+  }
+  function isiTindakPo(d) {
+    var t = d.tindak, list = d.po.filter(function (o) { return o.st === 'Menunggu persetujuan' || perluBayar(o) || biayaBelum(o).length; });
+    var h = '<div class="kp"><div class="kt"><span class="l">Menunggu persetujuan</span><span class="v angka">' + t.setuju + '</span><span class="k">PO</span></div>' +
+      '<div class="kt"><span class="l">PO belum dibayar</span><span class="v angka">' + jt(t.nilaiBayar) + '</span><span class="k">' + t.bayar + ' PO</span></div>' +
+      '<div class="kt"><span class="l">Biaya belum dibayar</span><span class="v angka">' + jt(t.nilaiBiaya) + '</span><span class="k">' + t.biaya + ' biaya</span></div>' +
+      '<div class="kt"><span class="l">Dalam perjalanan</span><span class="v angka">' + t.jalan + '</span><span class="k">PO belum datang semua</span></div></div>';
+    if (t.prod) h += '<div class="msg w">' + t.prod + ' kiriman produksi belum dikonfirmasi diterima staf gudang.</div>';
+    h += list.length ? list.map(function (o) { return kartuPo(o, d, true); }).join('') : '<div class="cd"><div class="aman">Tidak ada PO yang perlu disetujui atau dibayar.</div></div>';
+    return h + '<p class="sb">Keputusan dari sini diterapkan ke Google Sheets paling lambat 5 menit kemudian. Pembayaran otomatis tercatat di accounting. Cetak PO masih lewat menu Purchasing di Master Data lama.</p>';
+  }
+  function isiSemuaPo(d) {
+    var list = d.po.filter(function (o) { return (!P.filter || o.st === P.filter) && cocok(o.no + ' ' + o.sup + ' ' + o.items.map(function (i) { return i.n; }).join(' '), P.cari); });
+    var h = '<div class="cd"><div class="aksi-baris"><input class="isian" id="pCari" placeholder="Cari no PO, supplier, atau barang" value="' + esc(P.cari) + '"><select class="st-order" id="pFilter"><option value="">Semua status</option>' + PO_ST.map(function (s) { return '<option' + (s === P.filter ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></div></div>';
+    return h + (list.length ? list.slice(0, 120).map(function (o) { return kartuPo(o, d, false); }).join('') : '<div class="cd"><div class="ksg">Tidak ada PO.</div></div>');
+  }
+  function isiBeli(d) {
+    var L = P.beliB === 'ini' ? d.laporan : (D.beliLalu && D.beliLalu.laporan), h = pilihBulan('bl', P.beliB);
+    if (!L) return h + '<div class="msg w">Laporan bulan lalu belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    h += '<p class="tl">' + esc(namaBulan(L.bulan)) + '</p><div class="kp"><div class="kt"><span class="l">Total pembelian</span><span class="v angka">' + jt(L.barang + L.biaya) + '</span><span class="k">' + rp(L.barang + L.biaya) + '</span></div>' +
+      '<div class="kt"><span class="l">Nilai barang</span><span class="v angka">' + jt(L.barang) + '</span><span class="k">' + L.n + ' PO</span></div>' +
+      '<div class="kt"><span class="l">Biaya tambahan</span><span class="v angka">' + jt(L.biaya) + '</span><span class="k">ongkir cargo, pajak, dll.</span></div></div>';
+    h += '<div class="dua"><div class="cd"><h3>Per supplier</h3>' + (L.sup.length ? '<table class="tabel"><tbody>' + L.sup.map(function (s) { return '<tr><td><b>' + esc(s.n) + '</b><small>' + esc(s.asal) + ' · ' + s.po + ' PO' + (s.biaya ? ' · biaya ' + rp(s.biaya) : '') + '</small></td><td class="r angka">' + rp(s.tot) + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada pembelian bulan ini.</div>') + '</div>';
+    h += '<div class="cd"><h3>Perubahan harga beli</h3><p class="sb" style="margin-top:-4px">Dibanding PO sebelumnya untuk barang yang sama.</p>' + (L.naik.length ? '<table class="tabel"><tbody>' + L.naik.map(function (x) { return '<tr><td>' + esc(x.n) + '<small>' + esc(x.sup) + ' · ' + esc(tglId(x.t)) + ' (dulu ' + esc(tglId(x.tDulu)) + ')</small></td><td class="r angka">' + rp(x.kini) + '<small>dulu ' + rp(x.dulu) + ' · <b style="color:var(--' + (x.pc > 0 ? 'merah' : 'hijau') + ')">' + (x.pc > 0 ? '+' : '') + String(x.pc).replace('.', ',') + '%</b></small></td></tr>'; }).join('') + '</tbody></table>' : '<div class="ksg">Tidak ada perubahan harga.</div>') + '</div></div>';
+    h += '<div class="cd"><div class="kpl"><h3>Per barang</h3><span class="sb">' + L.brg.length + ' barang</span></div>' + (L.brg.length ? '<div class="gulir"><table class="tabel"><thead><tr><th>Barang</th><th class="r">Qty</th><th class="r">Rata-rata</th><th class="r">Total</th></tr></thead><tbody>' + L.brg.map(function (x) { return '<tr><td>' + esc(x.n) + (x.w ? ' – ' + esc(x.w) : '') + '<small>' + esc(x.k) + '</small></td><td class="r angka">' + fmt(x.q) + '</td><td class="r angka">' + rp(x.q ? x.tot / x.q : 0) + '</td><td class="r angka">' + rp(x.tot) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="ksg">–</div>') + '</div>';
+    return h;
+  }
+  function isiHpp(d) {
+    var H = d.hpp, akhir = H.akhir.slice().sort(function (a, b) { return a.n < b.n ? -1 : 1; });
+    var h = '<div class="cd"><div class="kpl"><h3>HPP terakhir per barang</h3><span class="sb">' + akhir.length + ' barang dari PO</span></div><p class="sb" style="margin-top:-4px">HPP = harga satuan + bagian biaya tambahan PO (ongkir cargo, bill kedua, pajak), dibagi menurut nilai barang.</p>' +
+      (akhir.length ? '<div class="gulir"><table class="tabel"><thead><tr><th>Barang</th><th class="r">Harga beli</th><th class="r">HPP</th><th>PO</th></tr></thead><tbody>' + akhir.map(function (x) {
+        return '<tr><td>' + esc(x.n) + '<small>' + esc(x.k) + '</small></td><td class="r angka">' + rp(x.h) + '</td><td class="r angka"><b>' + rp(x.hpp) + '</b></td><td>' + esc(x.no) + '<small>' + esc(tglId(x.t)) + ' · ' + esc(x.sup) + '</small></td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="ksg">Belum ada PO.</div>') + '</div>';
+    H.perPo.slice(0, 20).forEach(function (p) {
+      h += '<details class="cd"><summary style="cursor:pointer"><b>' + esc(p.no) + '</b> · ' + esc(tglId(p.t)) + ' · ' + esc(p.sup) + '<span class="sb" style="display:block">Barang ' + rp(p.barang) + ' + biaya ' + rp(p.biaya) + '</span></summary><table class="tabel"><thead><tr><th>Barang</th><th class="r">Qty</th><th class="r">Harga</th><th class="r">HPP / pcs</th></tr></thead><tbody>' + p.items.map(function (x) {
+        return '<tr><td>' + esc(x.n) + (x.w ? ' – ' + esc(x.w) : '') + '</td><td class="r angka">' + fmt(x.q) + '</td><td class="r angka">' + rp(x.h) + '</td><td class="r angka"><b>' + rp(x.hpp) + '</b></td></tr>'; }).join('') + '</tbody></table></details>';
+    });
+    return h;
+  }
+  async function aksiPo(b) {
+    var a = b.getAttribute('data-po-a'), kartu = b.closest('[data-no]'), no = kartu.getAttribute('data-no'), d = D.gudang;
+    var o = d.po.filter(function (x) { return x.no === no; })[0]; if (!o) return;
+    var nilai = function (f) { var i = kartu.querySelector('[data-f="' + f + '"]'); return i ? (i.type === 'checkbox' ? i.checked : i.value.trim()) : ''; };
+    var pesanP = function (t, ok) { $('msgPurch').innerHTML = '<div class="msg ' + (ok ? 'ok' : 'bad') + '">' + esc(t) + '</div>'; window.scrollTo(0, 0); };
+    if (a === 'detail') { P.buka[no] = !P.buka[no]; gambarPurch(); return; }
+    if (a === 'batal') { P.buka['batal:' + no] = !P.buka['batal:' + no]; gambarPurch(); return; }
+    var tok = function () { return 'md' + Date.now() + '-' + Math.random().toString(36).slice(2, 7); };
+    var kirim = [];
+    if (a === 'setuju' || a === 'setujuBayar') {
+      kirim.push({ fungsi: 'gdPoPutus', param: { no: no, setuju: true, catatan: nilai('cat'), token: tok() }, ringkas: 'Setujui ' + no + ' (' + o.sup + ', ' + rp(o.tot) + ')' });
+      if (a === 'setujuBayar') {
+        var t1 = nilai('tgl') || d.hariIni;
+        if (!confirm('Setujui ' + no + ' dan tandai sudah dibayar ' + rp(o.tot) + ' lewat ' + o.bayar + ' tanggal ' + tglId(t1) + '? Pembayaran otomatis tercatat di accounting.')) return;
+        kirim.push({ fungsi: 'gdPoBayar', param: { no: no, tanggal: t1, token: tok() }, ringkas: no + ' dibayar ' + rp(o.tot) + ' (' + o.bayar + ', ' + tglId(t1) + ')' });
+      }
+    } else if (a === 'tolak') {
+      var c = nilai('cat'); if (c.length < 3) { pesanP('Tulis alasan penolakan ' + no + ' di kolom catatan.'); return; }
+      if (!confirm('Tolak ' + no + '?')) return;
+      kirim.push({ fungsi: 'gdPoPutus', param: { no: no, setuju: false, catatan: c, token: tok() }, ringkas: 'Tolak ' + no + ': ' + c });
+    } else if (a === 'bayar') {
+      var t2 = nilai('tgl') || d.hariIni;
+      if (!confirm('Tandai ' + no + ' sudah dibayar ' + rp(o.tot) + ' lewat ' + o.bayar + ' tanggal ' + tglId(t2) + '? Pembayaran otomatis tercatat di accounting.')) return;
+      kirim.push({ fungsi: 'gdPoBayar', param: { no: no, tanggal: t2, token: tok() }, ringkas: no + ' dibayar ' + rp(o.tot) + ' (' + o.bayar + ', ' + tglId(t2) + ')' });
+    } else if (a === 'biaya') {
+      var id = Number(b.getAttribute('data-id')), bi = o.biaya.filter(function (x) { return x.id === id; })[0], t3 = nilai('tgl-' + id) || d.hariIni;
+      if (!bi || !confirm('Tandai ' + bi.j + ' ' + rp(bi.v) + ' ' + no + ' sudah dibayar tanggal ' + tglId(t3) + '? Otomatis tercatat di accounting.')) return;
+      kirim.push({ fungsi: 'gdBiayaBayar', param: { no: no, id: id, tanggal: t3, token: tok() }, ringkas: bi.j + ' ' + no + ' dibayar ' + rp(bi.v) });
+    } else if (a === 'batalYa') {
+      var al = nilai('alasan'); if (al.length < 3) { pesanP('Tulis alasan pembatalan ' + no + '.'); return; }
+      var bu = kartu.querySelector('[data-f="batalUang"]') ? nilai('batalUang') : true;
+      if (!confirm('Batalkan ' + no + ' (' + o.sup + ', ' + rp(o.tot) + ')?' + (bu && o.wb ? ' Uang keluarnya di accounting ikut dibatalkan.' : ''))) return;
+      kirim.push({ fungsi: 'gdPoBatalMgmt', param: { no: no, alasan: al, batalUang: bu, token: tok() }, ringkas: 'Batalkan ' + no + ': ' + al });
+    } else return;
+    b.disabled = true;
+    for (var i = 0; i < kirim.length; i++) {
+      var r = await sb.from('md_aksi').insert({ fungsi: kirim[i].fungsi, param: kirim[i].param, ringkas: String(kirim[i].ringkas).slice(0, 200) });
+      if (r.error) { pesanP('Gagal mengirim: ' + r.error.message); b.disabled = false; return; }
+    }
+    P.buka['batal:' + no] = false;
+    await muatAksi(); gambarPurch();
+    pesanP(kirim.map(function (k) { return k.ringkas; }).join(' · ') + '. Diterapkan ke Google Sheets paling lambat 5 menit lagi.', true);
   }
 
   // ======================= PERSETUJUAN: pembungkus 3 bagian =======================
