@@ -139,6 +139,7 @@
     (h[0].data || []).forEach(function (x) { D[KUNCI[x.kunci]] = x.data; D.waktu[KUNCI[x.kunci]] = x.dibuat; });
     D.aksi = h[1].data || [];
     M.badge('setuju', jumlahTunggu());
+    U.gaji = null;
     gambarBeranda(); gambarDasbor(); gambarSetuju(); gambarGudang(); gambarPurch(); gambarProduksi(); gambarUang();
     if (J.mulai) { gambarJual(); gambarJualIsi(); }
     if (AT.mulai) gambarAtur();
@@ -861,17 +862,84 @@
     var el = $('bUang'); if (!el) return;
     var t = D.tpb, nCek = t && t.cek ? t.cek.filter(function (c) { return !c.ok; }).length : 0;
     var h = '<p class="tl">Laporan bulan ini diperbarui sekitar sejam sekali; harga dan tutup buku tiap 3 jam · ' + waktuPotret('acc') + '</p>';
-    h += '<div class="chip" role="group" aria-label="Bagian accounting">' + [['lap', 'Laporan bulanan', D.acc ? 'laba ' + jt(D.acc.lr.bersih) : ''], ['trx', 'Transaksi', D.acc ? D.acc.rinci.length + ' catatan' : ''], ['hbb', 'Harga bahan & kemasan', ''], ['naik', 'Kenaikan harga', D.hrgnaik ? D.hrgnaik.list.length + ' catatan' : ''], ['tpb', 'Tutup buku', t ? (nCek ? nCek + ' perlu dibereskan' : 'siap') : '']].map(function (b) {
+    h += '<div class="chip" role="group" aria-label="Bagian accounting">' + [['lap', 'Laporan bulanan', D.acc ? 'laba ' + jt(D.acc.lr.bersih) : ''], ['trx', 'Transaksi', D.acc ? D.acc.rinci.length + ' catatan' : ''], ['hbb', 'Harga bahan & kemasan', ''], ['naik', 'Kenaikan harga', D.hrgnaik ? D.hrgnaik.list.length + ' catatan' : ''], ['tpb', 'Tutup buku', t ? (nCek ? nCek + ' perlu dibereskan' : 'siap') : ''], ['gaji', 'Gaji', U.gaji && U.gaji.lalu ? (U.gaji.lalu.status === 'Menunggu' ? 'perlu disetujui' : U.gaji.lalu.nama) : '']].map(function (b) {
       return '<button type="button" data-ub="' + b[0] + '" aria-pressed="' + (U.bagian === b[0]) + '"><span>' + b[1] + '</span><b>' + (b[2] || '&nbsp;') + '</b></button>'; }).join('') + '</div>';
-    try { h += U.bagian === 'lap' ? isiLapUang() : U.bagian === 'trx' ? isiTrx() : U.bagian === 'hbb' ? isiHbb() : U.bagian === 'naik' ? isiNaik() : isiTpb(); }
+    if (U.bagian === 'gaji' && !U.gaji && !U.gajiMuat) muatGaji();
+    try { h += U.bagian === 'lap' ? isiLapUang() : U.bagian === 'trx' ? isiTrx() : U.bagian === 'hbb' ? isiHbb() : U.bagian === 'naik' ? isiNaik() : U.bagian === 'gaji' ? isiGaji() : isiTpb(); }
     catch (e) { h += '<div class="msg bad">Bagian ini gagal ditampilkan: ' + esc(e.message) + '</div>'; }
     el.innerHTML = h;
     var pasang = function (attr, fn) { el.querySelectorAll('[data-' + attr + ']').forEach(function (b) { b.onclick = function () { fn(b.getAttribute('data-' + attr)); gambarUang(); }; }); };
-    pasang('ub', function (v) { U.bagian = v; }); pasang('ubl', function (v) { U.b = v; }); pasang('uar', function (v) { U.arah = v; });
+    pasang('ub', function (v) { U.bagian = v; }); pasang('ubl', function (v) { U.b = v; }); pasang('uar', function (v) { U.arah = v; }); pasang('gjp', function (v) { U.gp = v; }); pasang('gjr', function (v) { U.gr = U.gr === v ? null : v; });
+    el.querySelectorAll('[data-gja]').forEach(function (b) { b.onclick = function () { putusGaji(b); }; });
     ['uQ', 'uQh', 'uQn'].forEach(function (id) { var c = $(id); if (c) c.oninput = function () { var pos = c.selectionStart; U[{ uQ: 'q', uQh: 'qh', uQn: 'qn' }[id]] = c.value; gambarUang(); var c2 = $(id); c2.focus(); try { c2.setSelectionRange(pos, pos); } catch (e) { } }; });
     var on = el.querySelector('[data-ub][aria-pressed="true"]');
     if (on && on.parentNode.scrollWidth > on.parentNode.clientWidth) on.parentNode.scrollLeft = Math.max(0, on.offsetLeft - on.parentNode.offsetLeft - 16);
   }
+
+  // ---------- Gaji (gjData / gjPutus lama; data di tabel gaji_potret, hanya manajemen) ----------
+  U.gp = 'lalu'; U.gr = null; U.gaji = null; U.gajiMuat = false;
+  async function muatGaji() {
+    U.gajiMuat = true;
+    var r = await sb.from('gaji_potret').select('kunci,data,dibuat');
+    U.gajiMuat = false;
+    U.gaji = { galat: r.error ? r.error.message : '' };
+    (r.data || []).forEach(function (x) { U.gaji[x.kunci.replace('gaji:', '')] = x.data; U.gaji['w' + x.kunci.replace('gaji:', '')] = x.dibuat; });
+    gambarUang();
+  }
+  function isiGaji() {
+    var G2 = U.gaji;
+    if (!G2) return '<div class="ksg">Memuat data gaji…</div>';
+    if (G2.galat) return '<div class="msg bad">Data gaji gagal dimuat: ' + esc(G2.galat) + '</div>';
+    var d = G2[U.gp], h = pilihSub('gjp', U.gp, [['lalu', 'Bulan lalu'], ['ini', 'Bulan ini']]);
+    if (!d) return h + '<div class="msg w">Data gaji belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var T = d.total || {}, st = d.status, warna = { Disetujui: 'ok', Menunggu: 'w', Draft: 'abu', Ditolak: 'no', Kosong: 'abu' }[st] || 'abu';
+    var antre = null; D.aksi.forEach(function (a) { if (!antre && a.fungsi === 'gjPutus' && a.param && a.param.per === d.per) antre = a; });
+    var tunggu = antre && antre.status === 'menunggu';
+    h += '<div class="cd"><div class="rq-kpl"><h3>Gaji ' + esc(d.nama) + '</h3><span class="label ' + warna + '">' + esc(st === 'Kosong' ? 'Belum diisi admin' : st) + '</span></div><p class="sb" style="margin:6px 0 0">Diperbarui ' + (G2['w' + U.gp] ? new Date(G2['w' + U.gp]).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : '–') + ' · THP = gaji pokok + uang makan + lembur + bonus − BPJS karyawan − telat − kasbon</p>' + catatanAntre(antre, new Date(G2['w' + U.gp] || 0).getTime());
+    if (st !== 'Kosong') h += '<div class="kp" style="margin:12px 0 0"><div class="kt"><span class="l">Total THP dibayar</span><span class="v angka">' + jt(T.thp) + '</span><span class="k">' + rp(T.thp) + ' · ' + T.n + ' orang</span></div>' +
+      '<div class="kt"><span class="l">Beban gaji</span><span class="v angka">' + jt(T.bruto) + '</span><span class="k">sebelum potongan BPJS karyawan &amp; kasbon</span></div>' +
+      '<div class="kt"><span class="l">BPJS ditanggung PT</span><span class="v angka">' + jt(T.bp) + '</span><span class="k">' + rp(T.bp) + '</span></div>' +
+      '<div class="kt"><span class="l">Total biaya gaji perusahaan</span><span class="v angka">' + jt(T.biaya) + '</span><span class="k">' + rp(T.biaya) + '</span></div></div>';
+    if (!tunggu) {
+      if (st === 'Menunggu') h += '<div class="mini" style="margin-top:12px"><label style="grid-column:1/-1">Catatan (wajib bila dikembalikan ke admin)<input class="isian" id="gjCat" maxlength="200"></label></div><div class="aksi-baris"><button type="button" class="tbl pri" data-gja="setuju">Setujui gaji ' + esc(d.nama) + '</button><button type="button" class="tbl" data-gja="tolak">Kembalikan ke admin</button></div>';
+      else if (st === 'Disetujui') h += '<div class="mini" style="margin-top:12px"><label style="grid-column:1/-1">Alasan membuka kembali (wajib)<input class="isian" id="gjCat" maxlength="200"></label></div><div class="aksi-baris"><button type="button" class="tbl" data-gja="buka">Buka kembali (jadi Draft)</button></div>';
+      else h += '<p class="sb" style="margin-top:10px">' + (st === 'Kosong' ? 'Admin payroll belum mengisi gaji periode ini.' : 'Admin payroll belum mengirim gaji periode ini untuk disetujui.') + ' Daftar di bawah ' + (st === 'Kosong' ? 'masih perkiraan dari data tetap tiap staf.' : 'masih bisa berubah.') + '</p>';
+    }
+    h += '</div>';
+    var rows = d.rows || [], kel = [];
+    rows.forEach(function (x) { if (kel.indexOf(x.kel) === -1) kel.push(x.kel); });
+    h += '<div class="cd"><div class="kpl"><h3>Per staf</h3><span class="sb">klik nama untuk rincian</span></div><div class="gulir"><table class="tabel"><thead><tr><th>Nama</th><th class="r hp-x">Gaji pokok</th><th class="r hp-x">Tambahan</th><th class="r hp-x">Potongan</th><th class="r">THP</th></tr></thead><tbody>';
+    kel.forEach(function (k) {
+      h += '<tr><td colspan="5" style="background:#F7F9FB;font-weight:800">' + esc(k) + '</td></tr>';
+      rows.filter(function (x) { return x.kel === k; }).forEach(function (x) {
+        var tambah = (x.um || 0) + (x.lb || 0) + (x.bn || 0), potong = (x.bk || 0) + (x.tl || 0) + (x.ks || 0), buka = U.gr === x.n;
+        h += '<tr><td><button type="button" data-gjr="' + esc(x.n) + '" style="all:unset;cursor:pointer;font-weight:700">' + esc(x.n) + '</button><small>' + esc(x.div || '') + (x.baru ? ' · belum diisi admin' : x.st && x.st !== st ? ' · ' + esc(x.st) : '') + '</small></td><td class="r angka hp-x">' + rp(x.gp) + '</td><td class="r angka hp-x">' + rp(tambah) + '</td><td class="r angka hp-x">' + (potong ? '−' + rp(potong) : rp(0)) + '</td><td class="r angka"><b>' + rp(x.thp) + '</b></td></tr>';
+        if (buka) {
+          var baris = [['Gaji pokok', x.gp], ['Uang makan', x.um], ['Lembur', x.lb], ['Bonus', x.bn], ['BPJS karyawan', -x.bk], ['Telat', -x.tl], ['Kasbon', -x.ks]].filter(function (b) { return b[1]; });
+          h += '<tr><td colspan="5" style="background:#F7F9FB"><div class="rk" style="background:#fff">' + baris.map(function (b) { return '<div' + (b[1] < 0 ? ' class="mn"' : '') + '><span>' + b[0] + '</span><b class="angka">' + rp(b[1]) + '</b></div>'; }).join('') + '<div class="gs"></div><div class="hasil"><span>THP</span><b class="angka">' + rp(x.thp) + '</b></div>' + (x.bp ? '<div><span>BPJS ditanggung PT (tidak memotong THP)</span><b class="angka">' + rp(x.bp) + '</b></div>' : '') + '</div>' +
+            (x.cat ? '<p class="sb">Catatan: ' + esc(x.cat) + '</p>' : '') + (x.oleh ? '<p class="sb">Diisi ' + esc(x.oleh) + (x.wi ? ' · ' + esc(x.wi) : '') + '</p>' : '') +
+            (x.slip ? '<div class="aksi-baris" style="margin-top:8px">' + (x.wa ? '<a class="tbl pri" target="_blank" rel="noopener" href="https://wa.me/' + esc(x.wa) + '?text=' + encodeURIComponent('Halo ' + x.n + ', berikut slip gaji ' + d.nama + ' dari Moscow Supplies: ' + x.slip) + '">Kirim slip lewat WA</a>' : '<span class="sb">Nomor WA belum diisi di data staf.</span>') + '<a class="tbl" target="_blank" rel="noopener" href="' + esc(x.slip) + '">Buka slip</a></div>' : '') + '</td></tr>';
+        }
+      });
+    });
+    h += '</tbody></table></div></div>';
+    var per = d.periode || [];
+    h += '<div class="cd"><h3>Riwayat periode</h3>' + (per.length ? '<table class="tabel"><tbody>' + per.map(function (x) { return baris2('<b>' + esc(x.nama) + '</b><small>' + esc(x.st) + '</small>', rp(x.tot)); }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada.</div>') + '</div>';
+    return h + '<p class="sb">Data gaji disimpan terpisah dan hanya bisa dibuka akun manajemen. Isian lembur, bonus, telat, dan kasbon tetap dikerjakan admin payroll lewat formulirnya. Cetak rekap gaji masih lewat menu Gaji di Master Data lama. Keputusan dari sini diterapkan paling lambat 5 menit kemudian.</p>';
+  }
+  async function putusGaji(b) {
+    var aksi = b.getAttribute('data-gja'), d = U.gaji[U.gp], cat = ($('gjCat') ? $('gjCat').value.trim() : '');
+    var salah = function (t) { $('bUang').insertAdjacentHTML('afterbegin', '<div class="msg bad">' + esc(t) + '</div>'); window.scrollTo(0, 0); };
+    if ((aksi === 'tolak' || aksi === 'buka') && cat.length < 3) { salah(aksi === 'tolak' ? 'Tulis alasan dikembalikan supaya admin tahu apa yang harus diperbaiki.' : 'Tulis alasan membuka kembali.'); return; }
+    var kata = { setuju: 'Setujui gaji ' + d.nama + ' (total THP ' + rp(d.total.thp) + ')', tolak: 'Kembalikan gaji ' + d.nama + ' ke admin', buka: 'Buka kembali gaji ' + d.nama }[aksi];
+    if (!confirm(kata + '?')) return;
+    b.disabled = true;
+    var r = await sb.from('md_aksi').insert({ fungsi: 'gjPutus', param: { per: d.per, aksi: aksi, catatan: cat }, ringkas: (kata + (cat ? ': ' + cat : '')).slice(0, 200) });
+    if (r.error) { salah('Gagal mengirim: ' + r.error.message); b.disabled = false; return; }
+    await muatAksi(); gambarUang();
+    $('bUang').insertAdjacentHTML('afterbegin', '<div class="msg ok">' + esc(kata) + '. Diterapkan paling lambat 5 menit lagi' + (aksi === 'setuju' ? '; sesudah itu tombol kirim slip lewat WA muncul di rincian tiap staf.' : '.') + '</div>');
+  }
+
   function lapPilih() { return U.b === 'ini' ? D.acc : D.accLalu; }
   function isiLapUang() {
     var d = lapPilih(), h = pilihSub('ubl', U.b, [['ini', 'Bulan ini'], ['lalu', 'Bulan lalu']]);
@@ -1075,7 +1143,7 @@
       '<p class="sb">Link formulir order / laporan untuk tiap toko dan reseller. Jangan bagikan link satu toko ke toko lain. Menambah pelanggan atau mengubah diskon masih lewat menu Pelanggan &amp; Link di Master Data lama.</p>';
     h += '</div><div class="cd"><h3>Aplikasi baru</h3><table class="tabel"><tbody>' + [['Master Data', 'master.html', 'manajemen Moscow Supplies'], ['Kendali Bisnis', 'kendali.html', 'manajemen, Mike, kendali bisnis'], ['Stok', 'stok.html', 'manajemen, accounting, gudang, staf toko (lokasinya sendiri)'], ['Kasir Toko Offline', 'kasir.html', 'staf toko offline']].map(function (a) {
       return '<tr><td><b>' + a[0] + '</b><small>Untuk ' + esc(a[2]) + ' · masuk dengan akun Google yang terdaftar</small></td><td class="r"><button type="button" class="tbl" data-salin-url="' + esc(dasar + a[1]) + '">Salin link</button></td></tr>'; }).join('') + '</tbody></table></div>';
-    return h + '<div class="cd"><h3>Masih di Master Data lama</h3><p class="sb" style="margin:0">Gaji masih dibuka lewat Master Data lama dan dipindah paling akhir.</p></div>';
+    return h;
   }
 
   // ---------- Akses & perangkat ----------
