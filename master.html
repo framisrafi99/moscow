@@ -66,6 +66,7 @@
   .rk .mn { color:var(--merah); }
   .rk .hasil { font-size:15px; font-weight:800; }
   .tabel td.mn { color:var(--merah); font-weight:700; }
+  html.m-m .hp-x { display:none; }
 </style>
 </head>
 <body>
@@ -95,7 +96,7 @@
   var D = { beranda: null, ringkasan: null, setuju: null, request: null, pantau: null, aksi: [], waktu: {} }, sb = M.sb, BAGIAN = 'request';
   var KUNCI = { 'md:beranda': 'beranda', 'md:ringkasan': 'ringkasan', 'md:setuju': 'setuju', 'md:request': 'request', 'md:pantau': 'pantau',
     'md:titip': 'titip', 'md:mkt': 'mkt', 'md:mkt:lalu': 'mktLalu', 'md:bh': 'bh', 'md:bh:lalu': 'bhLalu',
-    'md:gudang': 'gudang', 'md:beli:lalu': 'beliLalu' };
+    'md:gudang': 'gudang', 'md:beli:lalu': 'beliLalu', 'md:pengadaan': 'pengadaan', 'md:tanpa': 'tanpa' };
   function jumlahTunggu() { return (D.setuju && D.setuju.menunggu || 0) + (D.request && D.request.n || 0); }
 
   M.mulai({
@@ -759,14 +760,15 @@
     return o;
   }
   function nTindakPo() { var d = D.gudang; return d ? d.po.filter(function (o) { return o.st === 'Menunggu persetujuan' || perluBayar(o) || biayaBelum(o).length; }).length : 0; }
+  function nAjuanTunggu() { return (D.pengadaan ? D.pengadaan.tunggu || 0 : 0) + (D.tanpa ? D.tanpa.baru || 0 : 0); }
   function gambarPurch() {
     var el = $('bPurch'), d = D.gudang;
-    M.badge('purch', nTindakPo());
+    M.badge('purch', nTindakPo() + nAjuanTunggu());
+    if (P.bagian === 'ajuan' || P.bagian === 'rencana') { gambarPengadaan(el); return; }
     if (!d) { el.innerHTML = '<div class="msg w">Data purchasing belum tersedia. Tekan "Hitung ulang sekarang".</div>'; return; }
     var nT = nTindakPo();
     var h = '<div id="msgPurch"></div><p class="tl">Diperbarui ' + waktuPotret('gudang') + '</p>';
-    h += '<div class="chip" role="group" aria-label="Bagian purchasing">' + [['tindak', 'Perlu tindakan', nT ? nT + ' PO' : 'Beres'], ['po', 'Semua PO', d.po.length + ' PO'], ['beli', 'Laporan pembelian', ''], ['hpp', 'HPP barang', d.hpp.akhir.length + ' barang']].map(function (b) {
-      return '<button type="button" data-pb="' + b[0] + '" aria-pressed="' + (P.bagian === b[0]) + '"><span>' + b[1] + '</span><b>' + (b[2] || '&nbsp;') + '</b></button>'; }).join('') + '</div>';
+    h += chipPurch();
     h += '<div id="pIsi">' + (P.bagian === 'tindak' ? isiTindakPo(d) : P.bagian === 'po' ? isiSemuaPo(d) : P.bagian === 'beli' ? isiBeli(d) : isiHpp(d)) + '</div>';
     el.innerHTML = h;
     el.querySelectorAll('[data-pb]').forEach(function (b) { b.onclick = function () { P.bagian = b.getAttribute('data-pb'); gambarPurch(); }; });
@@ -774,6 +776,11 @@
     el.querySelectorAll('[data-po-a]').forEach(function (b) { b.onclick = function () { aksiPo(b); }; });
     var c = $('pCari'); if (c) c.oninput = function () { var pos = c.selectionStart; P.cari = c.value; gambarPurch(); var c2 = $('pCari'); c2.focus(); try { c2.setSelectionRange(pos, pos); } catch (e) { } };
     var f = $('pFilter'); if (f) f.onchange = function () { P.filter = f.value; gambarPurch(); };
+  }
+  function chipPurch() {
+    var d = D.gudang, g = D.pengadaan, nT = nTindakPo(), nA = nAjuanTunggu(), nR = g ? (g.ring.Kritis || 0) + (g.ring['Saatnya pesan'] || 0) : 0;
+    return '<div class="chip" role="group" aria-label="Bagian purchasing">' + [['tindak', 'PO perlu tindakan', d ? (nT ? nT + ' PO' : 'Beres') : ''], ['ajuan', 'Pengajuan staf', nA ? nA + ' menunggu' : 'Beres'], ['rencana', 'Rencana belanja', nR ? nR + ' perlu dibeli' : ''], ['po', 'Semua PO', d ? d.po.length + ' PO' : ''], ['beli', 'Laporan pembelian', ''], ['hpp', 'HPP barang', d ? d.hpp.akhir.length + ' barang' : '']].map(function (b) {
+      return '<button type="button" data-pb="' + b[0] + '" aria-pressed="' + (P.bagian === b[0]) + '"><span>' + b[1] + '</span><b>' + (b[2] || '&nbsp;') + '</b></button>'; }).join('') + '</div>';
   }
   function kartuPo(o, d, perlu) {
     var antre = antrePo()[o.no], tunggu = antre && antre.status === 'menunggu', ms = new Date(D.waktu.gudang || 0).getTime();
@@ -846,6 +853,141 @@
     });
     return h;
   }
+  // ---------- Pengadaan: pengajuan staf & rencana belanja (pgdData / pgdAksi / pgsTanpaData lama) ----------
+  P.ajF = 'aktif'; P.rSt = 'perlu'; P.rKel = ''; P.rCari = '';
+  var WARNA_RB = { 'Kritis': 'no', 'Saatnya pesan': 'w', 'Aman': 'ok', 'Berlebih': 'w', 'Belum ada data': 'abu' };
+  var WARNA_AJ = { 'Menunggu': 'w', 'Disetujui': 'biru', 'Dipesan': 'biru', 'Diterima': 'ok', 'Ditolak': 'no', 'Batal': 'no' };
+  function angkaId(n, d) { n = Number(n) || 0; var f = Math.pow(10, d || 0); n = Math.round(n * f) / f; var p = String(Math.abs(n)).split('.'); return (n < 0 ? '-' : '') + p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (p[1] ? ',' + p[1] : ''); }
+  function itemRobot(g, kel, k) { if (!k) return null; for (var i = 0; i < g.items.length; i++) if (g.items[i].kel === kel && g.items[i].k === k) return g.items[i]; return null; }
+  function infoRobot(x) { return 'stok ' + angkaId(x.stok, 2) + ' ' + esc(x.s) + (x.transit ? ' + ' + angkaId(x.transit, 2) + ' di jalan' : '') + (x.hari !== null && x.hari !== undefined ? ' · cukup ' + x.hari + ' hari' : ''); }
+  function antreAjuan() {
+    var o = {};
+    D.aksi.forEach(function (a) { if (a.fungsi === 'pgdAksi' && a.param && a.param.nos) a.param.nos.forEach(function (n) { if (!(n in o)) o[n] = a; }); else if (a.fungsi === 'pgsTanpaCek' && a.param) { if (!(a.param.no in o)) o[a.param.no] = a; } });
+    return o;
+  }
+  function gambarPengadaan(el) {
+    var g = D.pengadaan;
+    var h = '<div id="msgPurch"></div><p class="tl">Diperbarui ' + waktuPotret('pengadaan') + ' · pengajuan baru dari staf masuk paling lambat sejam (jam 07–22)</p>' + chipPurch();
+    if (!g) h += '<div class="msg w">Data pengadaan belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    else h += P.bagian === 'ajuan' ? isiAjuan(g) : isiRencana(g);
+    el.innerHTML = h;
+    el.querySelectorAll('[data-pb]').forEach(function (b) { b.onclick = function () { P.bagian = b.getAttribute('data-pb'); gambarPurch(); }; });
+    el.querySelectorAll('[data-ajf]').forEach(function (b) { b.onclick = function () { P.ajF = b.getAttribute('data-ajf'); gambarPurch(); }; });
+    el.querySelectorAll('[data-aj-a]').forEach(function (b) { b.onclick = function () { aksiAjuan(b); }; });
+    el.querySelectorAll('[data-tanpa]').forEach(function (b) { b.onclick = function () { cekTanpa(b); }; });
+    var rs = $('rSt'), rk = $('rKel'), rc = $('rCari');
+    if (rs) rs.onchange = function () { P.rSt = rs.value; gambarPurch(); };
+    if (rk) rk.onchange = function () { P.rKel = rk.value; gambarPurch(); };
+    if (rc) rc.oninput = function () { var pos = rc.selectionStart; P.rCari = rc.value; gambarPurch(); var c2 = $('rCari'); c2.focus(); try { c2.setSelectionRange(pos, pos); } catch (e) { } };
+    var on = el.querySelector('[data-pb][aria-pressed="true"]');
+    if (on && on.parentNode.scrollWidth > on.parentNode.clientWidth) on.parentNode.scrollLeft = Math.max(0, on.offsetLeft - on.parentNode.offsetLeft - 16);
+  }
+  function isiAjuan(g) {
+    var antre = antreAjuan(), ms = new Date(D.waktu.pengadaan || 0).getTime(), h = '';
+    var T = (D.tanpa && D.tanpa.list || []).filter(function (x) { return x.st !== 'Sudah dicek'; });
+    if (T.length) {
+      h += '<div class="cd" style="border-color:#F3C7C2"><div class="kpl"><h3>Pembelian tanpa pengajuan</h3><span class="sb">' + T.length + ' belum dicek</span></div><p class="sb" style="margin-top:-4px">Staf membeli tanpa pengajuan yang di-ACC dengan alasan mendesak.</p><table class="tabel"><tbody>' + T.map(function (x) {
+        var a = antre[x.no], tunggu = a && a.status === 'menunggu';
+        return '<tr><td><b>' + esc(x.n) + '</b><small>' + esc(x.no) + ' · ' + esc(x.bg || '') + (x.form ? ' · ' + esc(x.form) : '') + ' · ' + esc(x.pg || '') + ' · ' + esc(x.wk || '') + (x.ref ? ' · ' + esc(x.ref) : '') + '</small>' + (x.al ? '<small>Alasan: ' + esc(x.al) + '</small>' : '') + '</td><td class="r angka">' + angkaId(x.q, 2) + ' ' + esc(x.s || '') + (x.h ? '<small>' + rp(x.h) + '</small>' : '') + '</td><td class="r">' + (tunggu ? '<span class="label abu">diterapkan…</span>' : '<button type="button" class="tbl" data-tanpa="' + esc(x.no) + '">Sudah dicek</button>') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    }
+    var aktif = ['Menunggu', 'Disetujui', 'Dipesan'];
+    var list = g.ajuan.filter(function (a) { return P.ajF === 'aktif' ? aktif.indexOf(a.st) > -1 : P.ajF === '' || a.st === P.ajF; });
+    list.sort(function (a, b) { return aktif.indexOf(a.st) - aktif.indexOf(b.st) || b.ms - a.ms; });
+    var tot = list.reduce(function (s, a) { return s + (a.qs !== null && a.qs !== undefined ? a.qs : a.q) * (a.h || 0); }, 0);
+    h += '<div class="pilih2" role="group" aria-label="Saring pengajuan">' + [['aktif', 'Belum selesai'], ['Menunggu', 'Menunggu ACC'], ['', 'Semua']].map(function (b) { return '<button type="button" class="tbl" data-ajf="' + b[0] + '" aria-pressed="' + (P.ajF === b[0]) + '">' + b[1] + '</button>'; }).join('') + '</div>';
+    h += '<p class="tl">' + list.length + ' pengajuan · perkiraan nilai ' + rp(tot) + '</p>';
+    if (!list.length) return h + '<div class="cd"><div class="aman">' + (P.ajF === 'aktif' ? 'Tidak ada pengajuan yang belum selesai.' : 'Tidak ada pengajuan.') + '</div></div>' + catatanAjuan();
+    h += list.map(function (a) {
+      var x = itemRobot(g, a.kel, a.k), an = antre[a.no], tunggu = an && an.status === 'menunggu', qv = a.qs !== null && a.qs !== undefined ? a.qs : a.q, hi = g.hariIni;
+      var c = '<div class="cd" data-aj="' + esc(a.no) + '"><div class="rq-kpl"><h3>' + esc(a.n) + '</h3><span class="sb">' + esc(a.no) + ' · ' + esc(a.wk) + '</span></div>' +
+        '<div class="rq-mt" style="margin-top:6px"><span class="label ' + (WARNA_AJ[a.st] || 'abu') + '">' + esc(a.st) + '</span>' + (a.imp ? '<span class="label biru">Impor</span>' : '<span class="label abu">Lokal</span>') + '<span class="label abu">' + esc(a.kel) + '</span>' + (a.sr ? '<span class="label ' + (WARNA_RB[a.sr] || 'abu') + '">Robot: ' + esc(a.sr) + '</span>' : '') + '</div>' +
+        '<div class="sb" style="margin-top:6px">' + esc(a.bg) + ' · diajukan ' + esc(a.pg) + (a.al ? ' · alasan: ' + esc(a.al) : '') + '</div>' +
+        '<div style="margin-top:6px">Qty diajukan <b class="angka">' + angkaId(a.q, 2) + ' ' + esc(a.s) + '</b>' + (a.h ? ' × ' + rp(a.h) + ' = <b class="angka">' + rp(a.q * a.h) + '</b>' : '') + (a.qs !== null && a.qs !== undefined && a.qs !== a.q ? ' · disetujui <b class="angka">' + angkaId(a.qs, 2) + '</b>' : '') + '</div>' +
+        '<div class="kirim" style="margin-top:8px"><div>Saat diajukan: ' + esc(a.an || '–') + '</div>' + (x ? '<div><b>Sekarang:</b> ' + infoRobot(x) + ', saran ' + (x.saran ? angkaId(x.saran) + ' ' + esc(x.s) : 'belum perlu beli') + '</div>' : '') + '</div>' +
+        (a.oleh ? '<div class="sb" style="margin-top:6px">' + esc(/^(Ditolak|Batal)$/.test(a.st) ? a.st : 'Disetujui') + ' oleh ' + esc(a.oleh) + ' ' + esc(a.wp) + (a.cp ? ' · ' + esc(a.cp) : '') + '</div>' : '') +
+        (a.ref || a.eta ? '<div class="sb">Pesan: ' + esc(a.ref) + (a.eta ? ' · perkiraan datang ' + esc(tglId(a.eta)) : '') + (a.wt ? ' · diterima ' + esc(a.wt) : '') + '</div>' : '') +
+        catatanAntre(an, ms);
+      if (!tunggu) {
+        if (a.st === 'Menunggu') c += '<div class="mini"><label>Qty disetujui (' + esc(a.s) + ')<input class="isian angka" inputmode="decimal" data-f="qs" value="' + esc(String(qv).replace('.', ',')) + '"></label><label style="grid-column:span 2">Catatan (wajib bila ditolak)<input class="isian" data-f="cat" maxlength="300"></label></div>' +
+          '<div class="aksi-baris"><button type="button" class="tbl pri" data-aj-a="setuju">Setujui</button><button type="button" class="tbl" data-aj-a="tolak">Tolak</button></div>';
+        else if (a.st === 'Disetujui') c += '<div class="mini"><label>Dipesan ke / ref PO<input class="isian" data-f="ref" maxlength="120"></label><label>Perkiraan datang<input class="isian" type="date" data-f="eta" min="' + esc(hi) + '"></label><label>Alasan (wajib bila dibatalkan)<input class="isian" data-f="cat" maxlength="300"></label></div>' +
+          '<div class="aksi-baris"><button type="button" class="tbl pri" data-aj-a="pesan">Tandai dipesan</button><button type="button" class="tbl" data-aj-a="batal">Batalkan</button></div>';
+        else if (a.st === 'Dipesan') c += '<div class="mini"><label style="grid-column:span 2">Alasan (wajib bila dibatalkan)<input class="isian" data-f="cat" maxlength="300"></label></div>' +
+          '<div class="aksi-baris"><button type="button" class="tbl pri" data-aj-a="terima">Tandai diterima</button><button type="button" class="tbl" data-aj-a="batal">Batalkan</button></div>';
+      }
+      return c + '</div>';
+    }).join('');
+    return h + catatanAjuan();
+  }
+  function catatanAjuan() { return '<p class="sb">Pengajuan dibuat staf dari formulirnya masing-masing. Barang lokal biasanya di-ACC Purchasing, barang impor oleh Mike; manajemen Moscow Supplies bisa keduanya. Keputusan dari sini diterapkan ke Google Sheets paling lambat 5 menit kemudian.</p>'; }
+  function isiRencana(g) {
+    var r = g.ring, h = '<div class="kp"><div class="kt"><span class="l">Kritis</span><span class="v angka' + (r.Kritis ? ' mn' : '') + '">' + r.Kritis + '</span><span class="k">stok habis sebelum barang datang</span></div>' +
+      '<div class="kt"><span class="l">Saatnya pesan</span><span class="v angka">' + r['Saatnya pesan'] + '</span><span class="k">barang</span></div>' +
+      '<div class="kt"><span class="l">Stok berlebih</span><span class="v angka">' + r.Berlebih + '</span><span class="k">barang</span></div>' +
+      '<div class="kt"><span class="l">Perkiraan belanja perlu</span><span class="v angka">' + jt(r.nilaiSaran) + '</span><span class="k">' + rp(r.nilaiSaran) + '</span></div></div>';
+    if (g.gagal && g.gagal.length) h += '<div class="msg w">Sebagian data robot tidak terbaca: ' + g.gagal.map(esc).join('; ') + '</div>';
+    var adaAngg = g.kel.some(function (k) { return g.angg[k]; });
+    h += '<div class="cd"><div class="kpl"><h3>Anggaran belanja bulan ini</h3><span class="sb">' + (adaAngg ? 'per kelompok' : 'belum diisi') + '</span></div><table class="tabel"><tbody>' + g.kel.map(function (k) {
+      var a = g.angg[k] || 0, p = g.pakaiAngg[k] || 0, pc = a ? Math.min(100, Math.round(p / a * 100)) : 0;
+      return '<tr><td><b>' + esc(k) + '</b>' + (a ? '<div class="prog" style="margin-top:6px"><i style="width:' + pc + '%;' + (p > a ? 'background:var(--merah)' : '') + '"></i></div>' : '') + '</td><td class="r angka">' + rp(p) + '<small>' + (a ? 'dari ' + rp(a) + ' · sisa ' + rp(a - p) : 'terpakai') + '</small></td></tr>'; }).join('') + '</tbody></table>' +
+      '<p class="sb">Terpakai = pengajuan yang disetujui bulan ini. Anggaran diisi lewat menu Pengadaan di Master Data lama.</p></div>';
+    var list = g.items.filter(function (x) {
+      if (P.rKel && x.kel !== P.rKel) return false;
+      if (P.rSt === 'perlu' && !(x.st === 'Kritis' || x.st === 'Saatnya pesan')) return false;
+      if (P.rSt && P.rSt !== 'perlu' && x.st !== P.rSt) return false;
+      return cocok(x.k + ' ' + x.n, P.rCari);
+    });
+    var urut = { 'Kritis': 0, 'Saatnya pesan': 1, 'Aman': 2, 'Berlebih': 3 };
+    list.sort(function (a, b) { return (urut[a.st] === undefined ? 4 : urut[a.st]) - (urut[b.st] === undefined ? 4 : urut[b.st]) || (a.hari === null ? 9999 : a.hari) - (b.hari === null ? 9999 : b.hari); });
+    h += '<div class="cd"><div class="aksi-baris" style="margin-bottom:10px"><input class="isian" id="rCari" placeholder="Cari kode atau nama" value="' + esc(P.rCari) + '">' +
+      '<select class="st-order" id="rSt">' + [['perlu', 'Perlu dibeli'], ['', 'Semua status'], ['Kritis', 'Kritis'], ['Saatnya pesan', 'Saatnya pesan'], ['Aman', 'Aman'], ['Berlebih', 'Berlebih']].map(function (o) { return '<option value="' + o[0] + '"' + (P.rSt === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+      '<select class="st-order" id="rKel"><option value="">Semua kelompok</option>' + g.kel.map(function (k) { return '<option' + (P.rKel === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select></div>';
+    h += '<p class="sb" style="margin:0 0 8px">' + list.length + ' barang</p>';
+    if (!list.length) h += '<div class="ksg">Tidak ada barang yang cocok.</div>';
+    else h += '<div class="gulir"><table class="tabel"><thead><tr><th>Barang</th><th class="r">Stok</th><th class="r hp-x">Terpakai/hari</th><th class="r">Cukup</th><th class="r">Saran beli</th></tr></thead><tbody>' + list.slice(0, 300).map(function (x) {
+      return '<tr><td>' + esc(x.n) + ' <span class="label ' + (WARNA_RB[x.st] || 'abu') + '">' + esc(x.st) + '</span><small>' + esc(x.kel) + ' · ' + esc(x.k) + '<span class="hp-x"> · tunggu ' + x.lead + ' + cadangan ' + x.cad + ' + beli untuk ' + x.siklus + ' hari</span></small>' + (x.ket && x.ket.length ? '<small>' + esc(x.ket.join(' ')) + '</small>' : '') + '</td>' +
+        '<td class="r angka' + (x.stok < 0 ? ' mn' : '') + '">' + angkaId(x.stok, 2) + (x.transit ? '<small>+ ' + angkaId(x.transit, 2) + ' di jalan</small>' : '') + '</td><td class="r angka hp-x">' + angkaId(x.rata, 2) + '</td><td class="r angka">' + (x.hari !== null && x.hari !== undefined ? x.hari + ' hari' : '–') + '</td>' +
+        '<td class="r angka"><b>' + (x.saran ? angkaId(x.saran) + ' ' + esc(x.s) : '–') + '</b>' + (x.nilai ? '<small>' + rp(x.nilai) + '</small>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    h += '<p class="sb">Robot membaca stok semua lokasi, barang dalam perjalanan, dan rata-rata terpakai/terjual. Setelan waktu tunggu dan cadangan per barang diubah lewat menu Pengadaan di Master Data lama. Staf mengajukan pembelian dari formulirnya.</p></div>';
+    var km = g.kemasan || {};
+    if (km.q30 || (km.akhir || []).length) h += '<div class="cd"><div class="kpl"><h3>Packaging (belum ada catatan stok)</h3><span class="sb">30 hari ' + rp(km.q30 || 0) + ' · 90 hari ' + rp(km.q90 || 0) + '</span></div><table class="tabel"><tbody>' + (km.akhir || []).slice(0, 10).map(function (a) { return '<tr><td>' + esc(a.ket) + '<small>' + esc(tglId(a.t)) + '</small></td><td class="r angka">' + rp(a.v) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    return h;
+  }
+  async function aksiAjuan(b) {
+    var a = b.getAttribute('data-aj-a'), kartu = b.closest('[data-aj]'), no = kartu.getAttribute('data-aj'), g = D.pengadaan;
+    var x = g.ajuan.filter(function (y) { return y.no === no; })[0]; if (!x) return;
+    var nilai = function (f) { var i = kartu.querySelector('[data-f="' + f + '"]'); return i ? i.value.trim() : ''; };
+    var salah = function (t) { $('msgPurch').innerHTML = '<div class="msg bad">' + esc(t) + '</div>'; window.scrollTo(0, 0); };
+    var p = { nos: [no], aksi: a, catatan: nilai('cat') }, ringkas;
+    if (a === 'setuju') {
+      var qs = Number(nilai('qs').replace(/\./g, '').replace(',', '.'));
+      if (!(qs > 0)) { salah('Qty disetujui ' + x.n + ' harus lebih dari 0.'); return; }
+      p.qty = {}; p.qty[no] = qs;
+      ringkas = 'Setujui pengajuan ' + x.n + ' ' + angkaId(qs, 2) + ' ' + x.s + ' (' + no + ')';
+    } else if (a === 'tolak' || a === 'batal') {
+      if (p.catatan.length < 3) { salah('Tulis alasan ' + (a === 'tolak' ? 'penolakan' : 'pembatalan') + ' pengajuan ' + x.n + '.'); return; }
+      if (!confirm((a === 'tolak' ? 'Tolak' : 'Batalkan') + ' pengajuan ' + x.n + '?')) return;
+      ringkas = (a === 'tolak' ? 'Tolak' : 'Batalkan') + ' pengajuan ' + x.n + ' (' + no + '): ' + p.catatan;
+    } else if (a === 'pesan') {
+      p.ref = nilai('ref'); p.eta = nilai('eta');
+      if (!p.eta) { salah('Isi perkiraan tanggal ' + x.n + ' datang.'); return; }
+      ringkas = 'Pengajuan ' + x.n + ' dipesan' + (p.ref ? ' ke ' + p.ref : '') + ', datang ' + tglId(p.eta);
+    } else if (a === 'terima') {
+      ringkas = 'Pengajuan ' + x.n + ' diterima (' + no + ')';
+    } else return;
+    b.disabled = true;
+    var r = await sb.from('md_aksi').insert({ fungsi: 'pgdAksi', param: p, ringkas: String(ringkas).slice(0, 200) });
+    if (r.error) { salah('Gagal mengirim: ' + r.error.message); b.disabled = false; return; }
+    await muatAksi(); gambarPurch();
+    $('msgPurch').innerHTML = '<div class="msg ok">' + esc(ringkas) + '. Diterapkan ke Google Sheets paling lambat 5 menit lagi.' + (a === 'terima' ? ' Jangan lupa barang masuknya dicatat di form gudang / bahan baku / botol supaya stok bertambah.' : '') + '</div>';
+  }
+  async function cekTanpa(b) {
+    var no = b.getAttribute('data-tanpa'); b.disabled = true;
+    var r = await sb.from('md_aksi').insert({ fungsi: 'pgsTanpaCek', param: { no: no }, ringkas: 'Pembelian tanpa pengajuan ' + no + ' sudah dicek' });
+    if (r.error) { $('msgPurch').innerHTML = '<div class="msg bad">Gagal mengirim: ' + esc(r.error.message) + '</div>'; b.disabled = false; return; }
+    await muatAksi(); gambarPurch();
+  }
+
   async function aksiPo(b) {
     var a = b.getAttribute('data-po-a'), kartu = b.closest('[data-no]'), no = kartu.getAttribute('data-no'), d = D.gudang;
     var o = d.po.filter(function (x) { return x.no === no; })[0]; if (!o) return;
