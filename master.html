@@ -67,6 +67,7 @@
   .rk .hasil { font-size:15px; font-weight:800; }
   .tabel td.mn { color:var(--merah); font-weight:700; }
   html.m-m .hp-x { display:none; }
+  .tabel .mini { grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); }
 </style>
 </head>
 <body>
@@ -102,7 +103,7 @@
     'md:titip': 'titip', 'md:mkt': 'mkt', 'md:mkt:lalu': 'mktLalu', 'md:bh': 'bh', 'md:bh:lalu': 'bhLalu',
     'md:gudang': 'gudang', 'md:beli:lalu': 'beliLalu', 'md:pengadaan': 'pengadaan', 'md:tanpa': 'tanpa',
     'md:prod': 'prod', 'md:botol': 'botol', 'md:bbk': 'bbk', 'md:rpd': 'rpd', 'md:rbb': 'rbb', 'md:pp:prod': 'ppProd', 'md:pp:bahan': 'ppBahan',
-    'md:acc': 'acc', 'md:acc:lalu': 'accLalu', 'md:hrgnaik': 'hrgnaik', 'md:hbb': 'hbb', 'md:tpb': 'tpb' };
+    'md:barang': 'barang', 'md:acc': 'acc', 'md:acc:lalu': 'accLalu', 'md:hrgnaik': 'hrgnaik', 'md:hbb': 'hbb', 'md:tpb': 'tpb' };
   function jumlahTunggu() { return (D.setuju && D.setuju.menunggu || 0) + (D.request && D.request.n || 0); }
 
   M.mulai({
@@ -139,6 +140,7 @@
     M.badge('setuju', jumlahTunggu());
     gambarBeranda(); gambarDasbor(); gambarSetuju(); gambarGudang(); gambarPurch(); gambarProduksi(); gambarUang();
     if (J.mulai) { gambarJual(); gambarJualIsi(); }
+    if (AT.mulai) gambarAtur();
   }
 
   // ======================= BERANDA (sama dengan Beranda Master Data lama) =======================
@@ -1028,30 +1030,152 @@
   }
 
   // ======================= PENGATURAN (Pelanggan & Link) =======================
-  var AT = { mulai: false, data: null };
+  var AT = { mulai: false, data: null, bagian: 'pel', stok: null, q: '', kat: '', buka: null, f: 'harga', ql: '' };
   async function muatAtur() {
-    var r = await sb.from('pelanggan').select('nama_pelanggan,tipe,diskon_persen,catatan,link_order').order('baris_sheet');
-    AT.data = r.error ? { galat: r.error.message } : r.data || [];
+    var h = await Promise.all([sb.from('pelanggan').select('nama_pelanggan,tipe,diskon_persen,catatan,link_order').order('baris_sheet'), sb.from('hasil_hitung').select('data,dibuat').eq('kunci', 'stok:semua')]);
+    AT.data = h[0].error ? { galat: h[0].error.message } : h[0].data || [];
+    AT.stok = (!h[1].error && h[1].data && h[1].data[0]) ? h[1].data[0].data : null;
     gambarAtur();
   }
   function gambarAtur() {
     var el = $('bAtur'); if (!el) return;
-    var d = AT.data, dasar = location.href.replace(/[^\/]*([?#].*)?$/, '');
-    var h = '<div id="msgAtur"></div>';
+    var B = D.barang;
+    var h = '<div id="msgAtur"></div><div class="chip" role="group" aria-label="Bagian pengaturan">' + [['pel', 'Pelanggan & link', AT.data && AT.data.length ? AT.data.length + ' pelanggan' : ''], ['brg', 'Edit barang', B ? B.barang.length + ' barang' : ''], ['log', 'Riwayat perubahan', B ? B.log.length + ' catatan' : '']].map(function (x) {
+      return '<button type="button" data-atb="' + x[0] + '" aria-pressed="' + (AT.bagian === x[0]) + '"><span>' + x[1] + '</span><b>' + (x[2] || '&nbsp;') + '</b></button>'; }).join('') + '</div>';
+    try { h += AT.bagian === 'pel' ? isiPelanggan() : AT.bagian === 'brg' ? isiEditBarang() : isiLogBarang(); }
+    catch (e) { h += '<div class="msg bad">Bagian ini gagal ditampilkan: ' + esc(e.message) + '</div>'; }
+    el.innerHTML = h;
+    el.querySelectorAll('[data-atb]').forEach(function (b) { b.onclick = function () { AT.bagian = b.getAttribute('data-atb'); gambarAtur(); }; });
+    var salin = function (teks) { var ok = function () { $('msgAtur').innerHTML = '<div class="msg ok">Link disalin.</div>'; }; if (navigator.clipboard) navigator.clipboard.writeText(teks).then(ok, function () { prompt('Salin link ini:', teks); }); else prompt('Salin link ini:', teks); };
+    el.querySelectorAll('[data-salin]').forEach(function (b) { b.onclick = function () { salin(AT.data[Number(b.getAttribute('data-salin'))].link_order); }; });
+    el.querySelectorAll('[data-salin-url]').forEach(function (b) { b.onclick = function () { salin(b.getAttribute('data-salin-url')); }; });
+    el.querySelectorAll('[data-eb]').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-eb'); AT.buka = AT.buka === k ? null : k; AT.f = 'harga'; gambarAtur(); }; });
+    el.querySelectorAll('[data-ebf]').forEach(function (b) { b.onclick = function () { AT.f = b.getAttribute('data-ebf'); gambarAtur(); }; });
+    el.querySelectorAll('[data-eb-simpan]').forEach(function (b) { b.onclick = function () { simpanBarang(b); }; });
+    var lk = $('ebLok'); if (lk) lk.onchange = function () { AT.lok = lk.value; gambarAtur(); };
+    var kt = $('ebKat'); if (kt) kt.onchange = function () { AT.kat = kt.value; gambarAtur(); };
+    ['ebQ', 'ebQl'].forEach(function (id) { var c = $(id); if (c) c.oninput = function () { var pos = c.selectionStart; if (id === 'ebQ') AT.q = c.value; else AT.ql = c.value; gambarAtur(); var c2 = $(id); c2.focus(); try { c2.setSelectionRange(pos, pos); } catch (e) { } }; });
+    var on = el.querySelector('[data-atb][aria-pressed="true"]');
+    if (on && on.parentNode.scrollWidth > on.parentNode.clientWidth) on.parentNode.scrollLeft = Math.max(0, on.offsetLeft - on.parentNode.offsetLeft - 16);
+  }
+  function isiPelanggan() {
+    var d = AT.data, dasar = location.href.replace(/[^\/]*([?#].*)?$/, ''), h = '';
     h += '<div class="cd"><div class="kpl"><h3>Pelanggan &amp; link formulir</h3><span class="sb">' + (d && d.length ? d.length + ' pelanggan' : '') + '</span></div>';
     if (!d) h += '<div class="ksg">Memuat…</div>';
     else if (d.galat) h += '<div class="msg bad">Gagal memuat: ' + esc(d.galat) + '</div>';
     else h += '<table class="tabel"><tbody>' + d.map(function (x, i) {
       return '<tr><td><b>' + esc(x.nama_pelanggan) + '</b><small>' + esc(x.tipe) + (x.diskon_persen ? ' · diskon ' + fmt(x.diskon_persen) + '%' : '') + (x.catatan ? ' · ' + esc(x.catatan) : '') + '</small></td><td class="r">' + (x.link_order ? '<button type="button" class="tbl" data-salin="' + i + '">Salin link</button>' : '<span class="sb">–</span>') + '</td></tr>'; }).join('') + '</tbody></table>' +
       '<p class="sb">Link formulir order / laporan untuk tiap toko dan reseller. Jangan bagikan link satu toko ke toko lain. Menambah pelanggan atau mengubah diskon masih lewat menu Pelanggan &amp; Link di Master Data lama.</p>';
-    h += '</div>';
-    h += '<div class="cd"><h3>Aplikasi baru</h3><table class="tabel"><tbody>' + [['Master Data', 'master.html', 'manajemen Moscow Supplies'], ['Kendali Bisnis', 'kendali.html', 'manajemen, Mike, kendali bisnis'], ['Stok', 'stok.html', 'manajemen, accounting, gudang, staf toko (lokasinya sendiri)'], ['Kasir Toko Offline', 'kasir.html', 'staf toko offline']].map(function (a) {
+    h += '</div><div class="cd"><h3>Aplikasi baru</h3><table class="tabel"><tbody>' + [['Master Data', 'master.html', 'manajemen Moscow Supplies'], ['Kendali Bisnis', 'kendali.html', 'manajemen, Mike, kendali bisnis'], ['Stok', 'stok.html', 'manajemen, accounting, gudang, staf toko (lokasinya sendiri)'], ['Kasir Toko Offline', 'kasir.html', 'staf toko offline']].map(function (a) {
       return '<tr><td><b>' + a[0] + '</b><small>Untuk ' + esc(a[2]) + ' · masuk dengan akun Google yang terdaftar</small></td><td class="r"><button type="button" class="tbl" data-salin-url="' + esc(dasar + a[1]) + '">Salin link</button></td></tr>'; }).join('') + '</tbody></table></div>';
-    h += '<div class="cd"><h3>Masih di Master Data lama</h3><p class="sb" style="margin:0">Edit Barang (harga jual, HPP, stok, nama, barang baru) dan Keamanan Perangkat masih dibuka lewat Master Data lama. Keduanya mengubah data penting, jadi dipindah paling akhir bersama Gaji.</p></div>';
-    el.innerHTML = h;
-    var salin = function (teks) { var ok = function () { $('msgAtur').innerHTML = '<div class="msg ok">Link disalin.</div>'; }; if (navigator.clipboard) navigator.clipboard.writeText(teks).then(ok, function () { prompt('Salin link ini:', teks); }); else prompt('Salin link ini:', teks); };
-    el.querySelectorAll('[data-salin]').forEach(function (b) { b.onclick = function () { salin(d[Number(b.getAttribute('data-salin'))].link_order); }; });
-    el.querySelectorAll('[data-salin-url]').forEach(function (b) { b.onclick = function () { salin(b.getAttribute('data-salin-url')); }; });
+    return h + '<div class="cd"><h3>Masih di Master Data lama</h3><p class="sb" style="margin:0">Keamanan Perangkat dan Gaji masih dibuka lewat Master Data lama dan dipindah paling akhir.</p></div>';
+  }
+  function antreBarang() { var o = {}; D.aksi.forEach(function (a) { if (a.fungsi === 'mdeSimpanBaru' && a.param && !(a.param.k in o)) o[a.param.k] = a; }); return o; }
+  function stokBarang(k) { var S2 = AT.stok; if (!S2) return null; for (var i = 0; i < S2.barang.length; i++) if (S2.barang[i].k === k) return S2.barang[i]; return null; }
+  function isiEditBarang() {
+    var B = D.barang; if (!B) return '<div class="msg w">Daftar barang belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var antre = antreBarang(), ms = new Date(D.waktu.barang || 0).getTime();
+    var list = B.barang.filter(function (x) { return (!AT.kat || x.kat === AT.kat) && cocok(x.k + ' ' + x.n, AT.q); });
+    var h = '<div class="cd"><div class="aksi-baris" style="margin-bottom:8px"><input class="isian" id="ebQ" placeholder="Cari kode atau nama barang" value="' + esc(AT.q) + '"><select class="st-order" id="ebKat"><option value="">Semua kategori</option>' + B.kategori.map(function (k) { return '<option' + (AT.kat === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select>' +
+      '<button type="button" class="tbl pri" data-eb="__baru">+ Barang baru</button></div><p class="sb" style="margin:0">' + list.length + ' barang · ' + B.barang.filter(function (x) { return !x.hpp; }).length + ' belum punya HPP · daftar diperbarui ' + waktuPotret('barang') + '</p></div>';
+    if (AT.buka === '__baru') h += formBarangBaru(B);
+    h += '<div class="cd"><div class="gulir"><table class="tabel"><thead><tr><th>Barang</th><th class="r">Harga jual</th><th class="r">HPP</th><th class="r hp-x">Stok</th><th></th></tr></thead><tbody>' + list.slice(0, 250).map(function (x) {
+      var a = antre[x.k], tunggu = a && a.status === 'menunggu', st = stokBarang(x.k), buka = AT.buka === x.k;
+      var r = '<tr><td>' + esc(x.n) + '<small>' + esc(x.k) + ' · ' + esc(x.kat) + (x.w && x.w.length ? ' · ' + x.w.length + ' warna' : '') + (x.kt ? ' · katalog produksi' : '') + '</small></td><td class="r angka">' + rp(x.hj) + '</td><td class="r angka">' + (x.hpp ? rp(x.hpp) : '<span class="label no">belum ada</span>') + '</td><td class="r angka hp-x">' + (st ? fmt(st.tot) : '–') + '</td>' +
+        '<td class="r">' + (tunggu ? '<span class="label abu">diterapkan…</span>' : '<button type="button" class="tbl" data-eb="' + esc(x.k) + '" aria-expanded="' + buka + '">' + (buka ? 'Tutup' : 'Ubah') + '</button>') + '</td></tr>';
+      if (a && !tunggu && !buka) { var c = catatanAntre(a, ms); if (c) r += '<tr><td colspan="5">' + c + '</td></tr>'; }
+      if (buka) r += '<tr><td colspan="5" style="background:#F7F9FB">' + formUbahBarang(x, B, st) + '</td></tr>';
+      return r;
+    }).join('') + '</tbody></table></div>' + (list.length > 250 ? '<p class="sb">Menampilkan 250 barang pertama. Persempit pencarian.</p>' : '') + '</div>';
+    return h + '<p class="sb">Perubahan diterapkan ke Google Sheets paling lambat 5 menit kemudian dan tercatat di Riwayat perubahan. Harga jual berlaku di semua saluran; HPP berlaku mulai hari ini; qty dicatat sebagai penyesuaian yang langsung disetujui.</p>';
+  }
+  function formUbahBarang(x, B, st) {
+    var f = AT.f, h = pilihSub('ebf', f, [['harga', 'Harga jual'], ['hpp', 'HPP'], ['qty', 'Qty stok'], ['info', 'Nama, kategori & warna']]);
+    h += '<div data-ebform="' + esc(x.k) + '">';
+    if (f === 'harga') h += '<div class="mini"><label>Harga jual baru<input class="isian angka" inputmode="numeric" data-f="nilai" value="' + esc(x.hj) + '"></label><label style="grid-column:span 2">Alasan perubahan (wajib)<input class="isian" data-f="alasan" maxlength="300"></label></div><p class="sb">Sekarang ' + rp(x.hj) + (x.hpp ? ' · HPP ' + rp(x.hpp) : '') + '. Berlaku di daftar barang, katalog, dan stok online.</p>';
+    else if (f === 'hpp') h += '<div class="mini"><label>HPP baru<input class="isian angka" inputmode="numeric" data-f="nilai" value="' + esc(x.hpp || '') + '"></label><label style="grid-column:span 2">Alasan perubahan (wajib)<input class="isian" data-f="alasan" maxlength="300"></label></div><p class="sb">Sekarang ' + (x.hpp ? rp(x.hpp) : 'belum ada') + '. Berlaku mulai hari ini; penjualan sebelumnya tetap memakai HPP lama.</p>';
+    else if (f === 'qty') {
+      var lok = B.lokasi.filter(function (l) { return l.id === AT.lok; })[0] || B.lokasi[0]; AT.lok = lok.id;
+      var sis = st && st.q ? (st.q[lok.id] || 0) : null;
+      h += '<div class="mini"><label>Lokasi<select class="isian" id="ebLok" data-f="lok">' + B.lokasi.map(function (l) { return '<option value="' + esc(l.id) + '"' + (l.id === lok.id ? ' selected' : '') + '>' + esc(l.n) + '</option>'; }).join('') + '</select></label>' +
+        (lok.warna && x.w && x.w.length ? '<label>Warna<select class="isian" data-f="w"><option value="">Pilih warna</option>' + x.w.map(function (w) { return '<option>' + esc(w) + '</option>'; }).join('') + '</select></label>' : '') +
+        '<label>Qty sebenarnya (pcs)<input class="isian angka" inputmode="numeric" data-f="nilai"></label><label style="grid-column:1/-1">Alasan perubahan (wajib)<input class="isian" data-f="alasan" maxlength="300"></label></div>' +
+        '<p class="sb">Stok sistem di ' + esc(lok.n) + ' sekarang ' + (sis === null ? 'belum terbaca' : fmt(sis) + ' pcs' + (x.w && x.w.length && lok.warna ? ' (semua warna)' : '')) + '. Selisihnya dihitung ulang saat diterapkan dan dicatat sebagai penyesuaian.</p>';
+    } else h += '<div class="mini"><label style="grid-column:span 2">Nama barang<input class="isian" data-f="nama" maxlength="120" value="' + esc(x.n) + '"></label><label>Kategori<input class="isian" data-f="kat" list="ebKatList" maxlength="60" value="' + esc(x.kat) + '"></label>' +
+      '<label style="grid-column:1/-1">Varian warna (pisahkan dengan koma)<input class="isian" data-f="warna" value="' + esc((x.w || []).join(', ')) + '"></label><label style="grid-column:1/-1">Alasan perubahan (wajib)<input class="isian" data-f="alasan" maxlength="300"></label></div><datalist id="ebKatList">' + B.kategori.map(function (k) { return '<option value="' + esc(k) + '">'; }).join('') + '</datalist>';
+    return h + '<div class="aksi-baris"><button type="button" class="tbl pri" data-eb-simpan="' + esc(x.k) + '">Simpan perubahan</button></div></div>';
+  }
+  function formBarangBaru(B) {
+    return '<div class="cd" data-ebform="__baru"><h3>Barang baru</h3><div class="mini"><label>Kode (huruf & angka)<input class="isian" data-f="k" maxlength="12" placeholder="contoh R59"></label><label style="grid-column:span 2">Nama barang<input class="isian" data-f="nama" maxlength="120"></label>' +
+      '<label>Kategori<input class="isian" data-f="kat" list="ebKatList2" maxlength="60"></label><label>Harga jual<input class="isian angka" inputmode="numeric" data-f="hj"></label><label>HPP (boleh kosong)<input class="isian angka" inputmode="numeric" data-f="hpp"></label>' +
+      '<label style="grid-column:1/-1">Varian warna (pisahkan dengan koma, boleh kosong)<input class="isian" data-f="warna"></label>' +
+      '<label class="cek"><input type="checkbox" data-f="katalog"> Masuk katalog produksi</label><label>Kategori katalog (bila beda)<input class="isian" data-f="katKatalog" maxlength="60"></label><label class="cek"><input type="checkbox" data-f="online"> Masuk stok online (qty 0)</label>' +
+      '<label style="grid-column:1/-1">Alasan / catatan (wajib)<input class="isian" data-f="alasan" maxlength="300"></label></div><datalist id="ebKatList2">' + B.kategori.map(function (k) { return '<option value="' + esc(k) + '">'; }).join('') + '</datalist>' +
+      '<div class="aksi-baris"><button type="button" class="tbl pri" data-eb-simpan="__baru">Simpan barang baru</button><button type="button" class="tbl" data-eb="__baru">Batal</button></div><p class="sb">Stok awal barang baru 0. Isi qty lewat Ubah → Qty stok atau lewat formulir staf.</p></div>';
+  }
+  function bulat(v) { v = String(v || '').replace(/[.\s]/g, '').replace(',', '.'); var n = Number(v); return v === '' || !isFinite(n) || Math.floor(n) !== n ? NaN : n; }
+  async function simpanBarang(btn) {
+    var k = btn.getAttribute('data-eb-simpan'), w = $('bAtur').querySelector('[data-ebform="' + k + '"]'), B = D.barang;
+    var v = function (f) { var i = w.querySelector('[data-f="' + f + '"]'); return !i ? '' : i.type === 'checkbox' ? i.checked : i.value.trim(); };
+    var salah = function (t) { $('msgAtur').innerHTML = '<div class="msg bad">' + esc(t) + '</div>'; window.scrollTo(0, 0); };
+    var alasan = v('alasan'); if (alasan.length < 3) { salah('Tulis alasan perubahan dulu (minimal 3 huruf), supaya riwayatnya jelas.'); return; }
+    var x = k === '__baru' ? null : B.barang.filter(function (y) { return y.k === k; })[0], p, cek = [], ringkas;
+    if (k === '__baru') {
+      var kode = String(v('k')).toUpperCase().replace(/\s+/g, ''), hj = bulat(v('hj')), hpp = v('hpp') === '' ? 0 : bulat(v('hpp'));
+      if (!/^[A-Z0-9]{2,12}$/.test(kode)) { salah('Kode hanya huruf & angka, 2–12 karakter, tanpa spasi (contoh: R59).'); return; }
+      if (B.barang.some(function (y) { return y.k === kode; })) { salah('Kode ' + kode + ' sudah dipakai. Pakai kode lain.'); return; }
+      if (String(v('nama')).length < 3) { salah('Nama barang minimal 3 huruf.'); return; }
+      if (!v('kat')) { salah('Kategori belum diisi.'); return; }
+      if (!(hj > 0)) { salah('Harga jual harus angka bulat lebih dari 0.'); return; }
+      if (!(hpp >= 0)) { salah('HPP harus angka bulat (boleh dikosongkan).'); return; }
+      if (B.barang.some(function (y) { return y.n.toUpperCase() === String(v('nama')).toUpperCase(); })) cek.push('Nama ini sudah dipakai barang lain.');
+      if (B.kategori.indexOf(v('kat')) === -1) cek.push('Kategori "' + v('kat') + '" baru (belum pernah dipakai).');
+      if (!hpp) cek.push('HPP masih kosong, jadi nilai stok & laba barang ini belum bisa dihitung.'); else if (hpp >= hj) cek.push('HPP sama atau lebih tinggi dari harga jual.');
+      p = { jenis: 'baru', k: kode, nama: v('nama'), kat: v('kat'), warna: v('warna'), hj: hj, hpp: hpp || '', katalog: v('katalog') === true, katKatalog: v('katKatalog'), online: v('online') === true };
+      ringkas = 'Barang baru ' + kode + ' – ' + v('nama') + ' (harga ' + rp(hj) + ')';
+    } else if (AT.f === 'harga' || AT.f === 'hpp') {
+      var n = bulat(v('nilai'));
+      if (!(n > 0)) { salah((AT.f === 'harga' ? 'Harga jual' : 'HPP') + ' harus angka bulat lebih dari 0.'); return; }
+      var lama = AT.f === 'harga' ? x.hj : x.hpp;
+      if (n === lama) { salah((AT.f === 'harga' ? 'Harga jual ' : 'HPP ') + x.n + ' memang sudah ' + rp(n) + '.'); return; }
+      if (AT.f === 'harga' && x.hpp && n <= x.hpp) cek.push('Harga jual baru tidak lebih tinggi dari HPP ' + rp(x.hpp) + ' (rugi per barang).');
+      if (AT.f === 'hpp' && x.hj && n >= x.hj) cek.push('HPP baru sama atau lebih tinggi dari harga jual ' + rp(x.hj) + '.');
+      if (lama > 0 && Math.abs(n - lama) / lama > 0.5) cek.push('Berubah ' + Math.round((n - lama) / lama * 100) + '% dari ' + rp(lama) + '. Pastikan tidak salah ketik.');
+      p = { jenis: AT.f, k: k, nilai: n };
+      ringkas = (AT.f === 'harga' ? 'Harga jual ' : 'HPP ') + x.n + ': ' + (lama ? rp(lama) : 'kosong') + ' → ' + rp(n);
+    } else if (AT.f === 'qty') {
+      var q = bulat(v('nilai')), lok = B.lokasi.filter(function (l) { return l.id === v('lok'); })[0], wr = v('w');
+      if (!lok) { salah('Pilih lokasi stok dulu.'); return; }
+      if (!(q >= 0)) { salah('Qty harus angka bulat, minimal 0.'); return; }
+      if (lok.warna && x.w && x.w.length && !wr) cek.push('Barang ini punya varian warna tapi warna tidak dipilih, jadi selisihnya masuk ke "tanpa warna".');
+      var st = stokBarang(k), sis = st && st.q ? st.q[lok.id] || 0 : null;
+      if (sis !== null && !(x.w && x.w.length && lok.warna) && (Math.abs(q - sis) >= 100 || (sis > 0 && Math.abs(q - sis) / sis > 0.5))) cek.push('Stok akan berubah dari ' + fmt(sis) + ' menjadi ' + fmt(q) + ' pcs. Selisihnya besar, pastikan sudah benar.');
+      p = { jenis: 'qty', k: k, lok: lok.id, w: wr, nilai: q };
+      ringkas = 'Qty ' + x.n + (wr ? ' ' + wr : '') + ' di ' + lok.n + ' menjadi ' + fmt(q) + ' pcs';
+    } else {
+      var nama = v('nama'), kat = v('kat'), warna = String(v('warna')).split(',').map(function (s2) { return s2.trim().toUpperCase(); }).filter(String);
+      if (nama.length < 3) { salah('Nama barang minimal 3 huruf.'); return; }
+      if (!kat) { salah('Kategori belum diisi.'); return; }
+      var hilang = (x.w || []).filter(function (c) { return warna.indexOf(String(c).toUpperCase()) === -1; });
+      if (hilang.length) cek.push('Warna ' + hilang.join(', ') + ' akan dihapus dari daftar varian (stok yang sudah tercatat tetap ada).');
+      if (nama !== x.n && B.barang.some(function (y) { return y.k !== k && y.n.toUpperCase() === nama.toUpperCase(); })) cek.push('Nama "' + nama + '" sudah dipakai barang lain.');
+      p = { jenis: 'info', k: k, nama: nama, kat: kat, warna: v('warna') };
+      ringkas = 'Ubah nama / kategori / warna ' + x.n + (nama !== x.n ? ' → ' + nama : '');
+    }
+    if (cek.length && !confirm(cek.join('\n') + '\n\nLanjutkan?')) return;
+    p.alasan = alasan; p.yakin = true; p.token = 'md' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+    btn.disabled = true;
+    var r = await sb.from('md_aksi').insert({ fungsi: 'mdeSimpanBaru', param: p, ringkas: String(ringkas).slice(0, 200) });
+    if (r.error) { salah('Gagal mengirim: ' + r.error.message); btn.disabled = false; return; }
+    AT.buka = null; await muatAksi(); gambarAtur();
+    $('msgAtur').innerHTML = '<div class="msg ok">' + esc(ringkas) + '. Diterapkan ke Google Sheets paling lambat 5 menit lagi.</div>'; window.scrollTo(0, 0);
+  }
+  function isiLogBarang() {
+    var B = D.barang; if (!B) return '<div class="msg w">Riwayat perubahan belum tersedia.</div>';
+    var l = B.log.filter(function (x) { return cocok([x.no, x.j, x.k, x.n, x.lok, x.al, x.oleh].join(' '), AT.ql); });
+    var nil = function (x, v) { return v === '' || v === null || v === undefined ? '–' : (/Harga|HPP/i.test(x.j) && isFinite(Number(v)) ? rp(v) : esc(v)); };
+    return '<div class="cd"><div class="aksi-baris" style="margin-bottom:8px"><input class="isian" id="ebQl" placeholder="Cari no, jenis, barang, lokasi, alasan" value="' + esc(AT.ql) + '"></div>' + (l.length ? '<div class="gulir"><table class="tabel"><tbody>' + l.map(function (x) {
+      return '<tr><td><span class="label abu">' + esc(x.j) + '</span> ' + esc(x.n) + (x.w ? ' – ' + esc(x.w) : '') + '<small>' + esc(x.no) + ' · ' + esc(x.wk) + ' · ' + esc(x.k) + (x.lok ? ' · ' + esc(x.lok) : '') + (x.b ? ' · berlaku ' + esc(tglId(x.b)) : '') + '</small>' + (x.al ? '<small>Alasan: ' + esc(x.al) + '</small>' : '') + '<small>Oleh ' + esc(x.oleh) + '</small></td><td class="r angka">' + nil(x, x.lama) + ' → <b>' + nil(x, x.baru) + '</b></td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="ksg">Belum ada perubahan.</div>') + '</div>';
   }
 
   // ======================= GUDANG UTAMA (gdPemilikData lama, mode gudang) =======================
