@@ -103,7 +103,7 @@
     'md:titip': 'titip', 'md:mkt': 'mkt', 'md:mkt:lalu': 'mktLalu', 'md:bh': 'bh', 'md:bh:lalu': 'bhLalu',
     'md:gudang': 'gudang', 'md:beli:lalu': 'beliLalu', 'md:pengadaan': 'pengadaan', 'md:tanpa': 'tanpa',
     'md:prod': 'prod', 'md:botol': 'botol', 'md:bbk': 'bbk', 'md:rpd': 'rpd', 'md:rbb': 'rbb', 'md:pp:prod': 'ppProd', 'md:pp:bahan': 'ppBahan',
-    'md:barang': 'barang', 'md:acc': 'acc', 'md:acc:lalu': 'accLalu', 'md:hrgnaik': 'hrgnaik', 'md:hbb': 'hbb', 'md:tpb': 'tpb' };
+    'md:barang': 'barang', 'md:akses': 'akses', 'md:acc': 'acc', 'md:acc:lalu': 'accLalu', 'md:hrgnaik': 'hrgnaik', 'md:hbb': 'hbb', 'md:tpb': 'tpb' };
   function jumlahTunggu() { return (D.setuju && D.setuju.menunggu || 0) + (D.request && D.request.n || 0); }
 
   M.mulai({
@@ -120,7 +120,8 @@
     ],
     bawah: ['beranda', 'setuju', 'gudang', 'uang', 'lain'],
     pindah: function (k, m) { if ($('lamaJudul')) $('lamaJudul').textContent = m.nm + ' masih di Master Data lama'; if (k === 'jual' && !J.mulai) { J.mulai = true; siapJual(); } if (k === 'riwayat' && !RW.mulai) { RW.mulai = true; siapRiwayat(); } if (k === 'atur' && !AT.mulai) { AT.mulai = true; muatAtur(); } },
-    siap: function () {
+    siap: function (ctx) {
+      D.email = String((ctx && ctx.email) || '').toLowerCase();
       M.aksi([
         { nm: 'Muat ulang', ik: 'muat', klik: function () { muat(); } },
         { nm: 'Hitung ulang sekarang', kelas: 'pri', ik: 'muat', klik: function (b) { hitungUlang(b); } }
@@ -1032,7 +1033,8 @@
   // ======================= PENGATURAN (Pelanggan & Link) =======================
   var AT = { mulai: false, data: null, bagian: 'pel', stok: null, q: '', kat: '', buka: null, f: 'harga', ql: '' };
   async function muatAtur() {
-    var h = await Promise.all([sb.from('pelanggan').select('nama_pelanggan,tipe,diskon_persen,catatan,link_order').order('baris_sheet'), sb.from('hasil_hitung').select('data,dibuat').eq('kunci', 'stok:semua')]);
+    var h = await Promise.all([sb.from('pelanggan').select('nama_pelanggan,tipe,diskon_persen,catatan,link_order').order('baris_sheet'), sb.from('hasil_hitung').select('data,dibuat').eq('kunci', 'stok:semua'), sb.from('pengguna').select('email,nama,peran,lingkup,aktif,catatan,dibuat').order('dibuat')]);
+    AT.peng = h[2].error ? null : h[2].data || [];
     AT.data = h[0].error ? { galat: h[0].error.message } : h[0].data || [];
     AT.stok = (!h[1].error && h[1].data && h[1].data[0]) ? h[1].data[0].data : null;
     gambarAtur();
@@ -1040,9 +1042,9 @@
   function gambarAtur() {
     var el = $('bAtur'); if (!el) return;
     var B = D.barang;
-    var h = '<div id="msgAtur"></div><div class="chip" role="group" aria-label="Bagian pengaturan">' + [['pel', 'Pelanggan & link', AT.data && AT.data.length ? AT.data.length + ' pelanggan' : ''], ['brg', 'Edit barang', B ? B.barang.length + ' barang' : ''], ['log', 'Riwayat perubahan', B ? B.log.length + ' catatan' : '']].map(function (x) {
+    var h = '<div id="msgAtur"></div><div class="chip" role="group" aria-label="Bagian pengaturan">' + [['pel', 'Pelanggan & link', AT.data && AT.data.length ? AT.data.length + ' pelanggan' : ''], ['brg', 'Edit barang', B ? B.barang.length + ' barang' : ''], ['log', 'Riwayat perubahan', B ? B.log.length + ' catatan' : ''], ['akses', 'Akses & perangkat', D.akses && D.akses.tunggu ? D.akses.tunggu + ' minta izin' : (AT.peng ? AT.peng.length + ' akun' : '')]].map(function (x) {
       return '<button type="button" data-atb="' + x[0] + '" aria-pressed="' + (AT.bagian === x[0]) + '"><span>' + x[1] + '</span><b>' + (x[2] || '&nbsp;') + '</b></button>'; }).join('') + '</div>';
-    try { h += AT.bagian === 'pel' ? isiPelanggan() : AT.bagian === 'brg' ? isiEditBarang() : isiLogBarang(); }
+    try { h += AT.bagian === 'pel' ? isiPelanggan() : AT.bagian === 'brg' ? isiEditBarang() : AT.bagian === 'akses' ? isiAkses() : isiLogBarang(); }
     catch (e) { h += '<div class="msg bad">Bagian ini gagal ditampilkan: ' + esc(e.message) + '</div>'; }
     el.innerHTML = h;
     el.querySelectorAll('[data-atb]').forEach(function (b) { b.onclick = function () { AT.bagian = b.getAttribute('data-atb'); gambarAtur(); }; });
@@ -1052,6 +1054,11 @@
     el.querySelectorAll('[data-eb]').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-eb'); AT.buka = AT.buka === k ? null : k; AT.f = 'harga'; gambarAtur(); }; });
     el.querySelectorAll('[data-ebf]').forEach(function (b) { b.onclick = function () { AT.f = b.getAttribute('data-ebf'); gambarAtur(); }; });
     el.querySelectorAll('[data-eb-simpan]').forEach(function (b) { b.onclick = function () { simpanBarang(b); }; });
+    el.querySelectorAll('[data-akf]').forEach(function (b) { b.onclick = function () { AT.akf = b.getAttribute('data-akf'); gambarAtur(); }; });
+    el.querySelectorAll('[data-pg]').forEach(function (b) { b.onclick = function () { var e = b.getAttribute('data-pg'); AT.pgBuka = AT.pgBuka === e ? null : e; gambarAtur(); }; });
+    el.querySelectorAll('[data-pg-simpan]').forEach(function (b) { b.onclick = function () { simpanPengguna(b); }; });
+    el.querySelectorAll('[data-pg-peran]').forEach(function (s2) { s2.onchange = function () { var w = s2.closest('[data-pgform]'), l = w.querySelector('[data-f="lingkup"]'); if (l) l.closest('label').style.display = s2.value === 'toko' ? '' : 'none'; }; });
+    el.querySelectorAll('[data-ak]').forEach(function (b) { b.onclick = function () { putusPerangkat(b); }; });
     var lk = $('ebLok'); if (lk) lk.onchange = function () { AT.lok = lk.value; gambarAtur(); };
     var kt = $('ebKat'); if (kt) kt.onchange = function () { AT.kat = kt.value; gambarAtur(); };
     ['ebQ', 'ebQl'].forEach(function (id) { var c = $(id); if (c) c.oninput = function () { var pos = c.selectionStart; if (id === 'ebQ') AT.q = c.value; else AT.ql = c.value; gambarAtur(); var c2 = $(id); c2.focus(); try { c2.setSelectionRange(pos, pos); } catch (e) { } }; });
@@ -1068,8 +1075,98 @@
       '<p class="sb">Link formulir order / laporan untuk tiap toko dan reseller. Jangan bagikan link satu toko ke toko lain. Menambah pelanggan atau mengubah diskon masih lewat menu Pelanggan &amp; Link di Master Data lama.</p>';
     h += '</div><div class="cd"><h3>Aplikasi baru</h3><table class="tabel"><tbody>' + [['Master Data', 'master.html', 'manajemen Moscow Supplies'], ['Kendali Bisnis', 'kendali.html', 'manajemen, Mike, kendali bisnis'], ['Stok', 'stok.html', 'manajemen, accounting, gudang, staf toko (lokasinya sendiri)'], ['Kasir Toko Offline', 'kasir.html', 'staf toko offline']].map(function (a) {
       return '<tr><td><b>' + a[0] + '</b><small>Untuk ' + esc(a[2]) + ' · masuk dengan akun Google yang terdaftar</small></td><td class="r"><button type="button" class="tbl" data-salin-url="' + esc(dasar + a[1]) + '">Salin link</button></td></tr>'; }).join('') + '</tbody></table></div>';
-    return h + '<div class="cd"><h3>Masih di Master Data lama</h3><p class="sb" style="margin:0">Keamanan Perangkat dan Gaji masih dibuka lewat Master Data lama dan dipindah paling akhir.</p></div>';
+    return h + '<div class="cd"><h3>Masih di Master Data lama</h3><p class="sb" style="margin:0">Gaji masih dibuka lewat Master Data lama dan dipindah paling akhir.</p></div>';
   }
+
+  // ---------- Akses & perangkat ----------
+  AT.akf = 'Menunggu'; AT.pgBuka = null;
+  var PERAN = [['manajemen', 'Manajemen Moscow Supplies', 'Semua aplikasi'], ['kendali_bisnis', 'Kendali Bisnis', 'Kendali Bisnis, Stok'], ['accounting', 'Accounting', 'Stok, laporan keuangan'], ['gudang', 'Gudang Utama', 'Stok'], ['purchasing_shopeepay', 'Purchasing', 'Stok'], ['produksi', 'Staf produksi', 'Stok'], ['bahan_baku', 'Staf bahan baku', 'Stok'], ['payroll', 'Admin gaji', '–'], ['toko', 'Staf toko', 'Stok tokonya sendiri, Kasir (toko offline)']];
+  function namaPeran(p) { for (var i = 0; i < PERAN.length; i++) if (PERAN[i][0] === p) return PERAN[i][1]; return p || '–'; }
+  function emailSaya() { return D.email || ''; }
+  function isiAkses() {
+    var h = '', P2 = AT.peng, toko = (AT.data && !AT.data.galat ? AT.data : []).filter(function (x) { return x.tipe === 'Consignment'; }).map(function (x) { return x.nama_pelanggan; });
+    // Akun aplikasi baru
+    h += '<div class="cd"><div class="kpl"><h3>Akun aplikasi baru</h3><span class="sb">masuk dengan akun Google</span></div>';
+    if (!P2) h += '<div class="msg bad">Daftar akun gagal dimuat.</div>';
+    else {
+      var form = function (x, baru) {
+        var id = baru ? '__baru' : x.email, pr = x ? x.peran : 'toko';
+        return '<div class="mini" data-pgform="' + esc(id) + '" style="background:#F7F9FB;padding:10px;border-radius:12px;margin:6px 0">' +
+          (baru ? '<label>Email Google<input class="isian" type="email" data-f="email" placeholder="nama@gmail.com"></label>' : '') +
+          '<label>Nama<input class="isian" data-f="nama" maxlength="60" value="' + esc(x ? x.nama || '' : '') + '"></label>' +
+          '<label>Peran<select class="isian" data-f="peran" data-pg-peran="1">' + PERAN.map(function (r) { return '<option value="' + r[0] + '"' + (r[0] === pr ? ' selected' : '') + '>' + esc(r[1]) + '</option>'; }).join('') + '</select></label>' +
+          '<label' + (pr === 'toko' ? '' : ' style="display:none"') + '>Toko<select class="isian" data-f="lingkup"><option value="">Pilih toko</option>' + toko.map(function (t) { return '<option' + (x && x.lingkup === t ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></label>' +
+          (baru ? '' : '<label class="cek"><input type="checkbox" data-f="aktif"' + (x.aktif !== false ? ' checked' : '') + '> Aktif (boleh masuk)</label>') +
+          '<label style="grid-column:1/-1">Catatan<input class="isian" data-f="catatan" maxlength="200" value="' + esc(x ? x.catatan || '' : '') + '"></label>' +
+          '<div class="aksi-baris" style="grid-column:1/-1"><button type="button" class="tbl pri" data-pg-simpan="' + esc(id) + '">' + (baru ? 'Tambah akun' : 'Simpan') + '</button></div></div>';
+      };
+      h += '<table class="tabel"><tbody>' + P2.map(function (x) {
+        var saya = x.email === emailSaya();
+        return '<tr' + (x.aktif === false ? ' style="opacity:.55"' : '') + '><td><b>' + esc(x.nama || x.email) + '</b>' + (saya ? ' <span class="label biru">akun ini</span>' : '') + (x.aktif === false ? ' <span class="label no">nonaktif</span>' : '') + '<small>' + esc(x.email) + '</small>' + (x.catatan ? '<small>' + esc(x.catatan) + '</small>' : '') + '</td>' +
+          '<td>' + esc(namaPeran(x.peran)) + (x.lingkup ? '<small>' + esc(x.lingkup) + '</small>' : '') + '</td><td class="r">' + (saya ? '' : '<button type="button" class="tbl" data-pg="' + esc(x.email) + '">' + (AT.pgBuka === x.email ? 'Tutup' : 'Ubah') + '</button>') + '</td></tr>' +
+          (AT.pgBuka === x.email ? '<tr><td colspan="3">' + form(x, false) + '</td></tr>' : '');
+      }).join('') + '</tbody></table>';
+      h += AT.pgBuka === '__baru' ? form(null, true) : '<div class="aksi-baris" style="margin-top:8px"><button type="button" class="tbl pri" data-pg="__baru">+ Tambah akun</button></div>';
+      h += '<p class="sb">Akun baru juga perlu didaftarkan sebagai pengguna uji di Google selama aplikasi masih tahap uji; beri tahu saya emailnya. Akun sendiri tidak bisa diubah dari sini supaya tidak terkunci.</p>';
+    }
+    h += '</div>';
+    // Perangkat link lama
+    var A = D.akses;
+    h += '<div class="cd"><div class="kpl"><h3>Izin perangkat link lama</h3><span class="sb">Diperbarui ' + waktuPotret('akses') + '</span></div>';
+    if (!A) return h + '<div class="msg w">Daftar perangkat belum tersedia. Tekan "Hitung ulang sekarang".</div></div>';
+    var hit = function (st) { return A.list.filter(function (x) { return st === 'lain' ? (x.st === 'Ditolak' || x.st === 'Dicabut') : x.st === st; }).length; };
+    h += pilihSub('akf', AT.akf, [['Menunggu', 'Minta izin (' + hit('Menunggu') + ')'], ['Diizinkan', 'Diizinkan (' + hit('Diizinkan') + ')'], ['lain', 'Ditolak / dicabut (' + hit('lain') + ')']]);
+    var antre = {}, ms = new Date(D.waktu.akses || 0).getTime();
+    D.aksi.forEach(function (a) { if (a.fungsi === 'aksesPutus' && a.param && !(a.param.no in antre)) antre[a.param.no] = a; });
+    var l = A.list.filter(function (x) { return AT.akf === 'lain' ? (x.st === 'Ditolak' || x.st === 'Dicabut') : x.st === AT.akf; });
+    var grup = {}, urut = [];
+    l.forEach(function (x) { if (!grup[x.n]) { grup[x.n] = []; urut.push(x.n); } grup[x.n].push(x); });
+    if (!l.length) h += '<div class="ksg">' + (AT.akf === 'Menunggu' ? 'Tidak ada perangkat yang minta izin.' : 'Tidak ada.') + '</div>';
+    urut.forEach(function (n) {
+      h += '<h4 style="margin:12px 0 4px;font-size:13.5px">' + esc(n) + ' <span class="sb" style="font-weight:600">· ' + grup[n].length + '</span></h4><table class="tabel"><tbody>' + grup[n].map(function (x) {
+        var a = antre[x.no], tunggu = a && a.status === 'menunggu', tombol = '';
+        if (!tunggu) {
+          if (x.st === 'Menunggu') tombol = '<button type="button" class="tbl pri" data-ak="izin" data-no="' + esc(x.no) + '">Izinkan</button> <button type="button" class="tbl" data-ak="tolak" data-no="' + esc(x.no) + '">Tolak</button>';
+          else if (x.st === 'Diizinkan') tombol = '<button type="button" class="tbl" data-ak="cabut" data-no="' + esc(x.no) + '">Cabut</button>';
+          else tombol = '<button type="button" class="tbl" data-ak="izin" data-no="' + esc(x.no) + '">Izinkan lagi</button>';
+        }
+        return '<tr><td><b>' + esc(x.nama || 'tanpa nama') + '</b><small>' + esc(x.ua || '') + '</small><small>' + esc(x.no) + ' · minta ' + esc(x.wm) + (x.wk ? ' · ' + esc(x.st.toLowerCase()) + ' ' + esc(x.wk) + (x.oleh ? ' oleh ' + esc(x.oleh) : '') : '') + (x.pakai ? ' · terakhir dipakai ' + esc(x.pakai) : '') + '</small>' + catatanAntre(a, ms) + '</td>' +
+          '<td class="r" style="white-space:nowrap">' + (tunggu ? '<span class="label abu">diterapkan…</span>' : tombol) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    });
+    return h + '<p class="sb">Perangkat = browser di HP/laptop yang membuka link formulir lama (Apps Script). Keputusan dari sini berlaku paling lambat 5 menit kemudian. "Cabut semua akses sekaligus" tetap lewat Keamanan Perangkat di Master Data lama (untuk keadaan darurat).</p></div>';
+  }
+  async function simpanPengguna(b) {
+    var id = b.getAttribute('data-pg-simpan'), w = $('bAtur').querySelector('[data-pgform="' + id + '"]');
+    var v = function (f) { var i = w.querySelector('[data-f="' + f + '"]'); return !i ? null : i.type === 'checkbox' ? i.checked : i.value.trim(); };
+    var salah = function (t) { $('msgAtur').innerHTML = '<div class="msg bad">' + esc(t) + '</div>'; window.scrollTo(0, 0); };
+    var email = id === '__baru' ? String(v('email') || '').toLowerCase() : id, peran = v('peran'), lingkup = peran === 'toko' ? v('lingkup') : null;
+    if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(email)) { salah('Email tidak valid.'); return; }
+    if (email === emailSaya()) { salah('Akun sendiri tidak bisa diubah dari sini.'); return; }
+    if (id === '__baru' && AT.peng.some(function (x) { return x.email === email; })) { salah('Email ini sudah terdaftar.'); return; }
+    if (!v('nama')) { salah('Nama belum diisi.'); return; }
+    if (peran === 'toko' && !lingkup) { salah('Pilih tokonya untuk peran Staf toko.'); return; }
+    if (peran === 'manajemen' && !confirm('Peran Manajemen bisa melihat dan mengubah semua data, termasuk gaji. Lanjutkan?')) return;
+    var row = { email: email, nama: v('nama'), peran: peran, lingkup: lingkup || null, catatan: v('catatan') || null };
+    if (id !== '__baru') row.aktif = v('aktif') !== false;
+    b.disabled = true;
+    var r = id === '__baru' ? await sb.from('pengguna').insert(Object.assign({ aktif: true }, row)) : await sb.from('pengguna').update(row).eq('email', email);
+    if (r.error) { salah('Gagal menyimpan: ' + r.error.message); b.disabled = false; return; }
+    AT.pgBuka = null; await muatAtur();
+    $('msgAtur').innerHTML = '<div class="msg ok">' + esc(id === '__baru' ? 'Akun ' + email + ' ditambahkan sebagai ' + namaPeran(peran) + (lingkup ? ' (' + lingkup + ')' : '') + '. Beri tahu saya emailnya supaya didaftarkan sebagai pengguna uji di Google.' : 'Akun ' + email + ' disimpan.') + '</div>'; window.scrollTo(0, 0);
+  }
+  async function putusPerangkat(b) {
+    var aksi = b.getAttribute('data-ak'), no = b.getAttribute('data-no'), x = D.akses.list.filter(function (y) { return y.no === no; })[0]; if (!x) return;
+    var kata = { izin: 'Izinkan', tolak: 'Tolak', cabut: 'Cabut izin' }[aksi];
+    if ((aksi === 'cabut' || aksi === 'tolak') && !confirm(kata + ' perangkat ' + (x.nama || '') + ' (' + x.n + ')?')) return;
+    b.disabled = true;
+    var ringkas = kata + ' perangkat ' + (x.nama || 'tanpa nama') + ' – ' + x.n;
+    var r = await sb.from('md_aksi').insert({ fungsi: 'aksesPutus', param: { no: no, aksi: aksi }, ringkas: ringkas.slice(0, 200) });
+    if (r.error) { $('msgAtur').innerHTML = '<div class="msg bad">Gagal mengirim: ' + esc(r.error.message) + '</div>'; b.disabled = false; return; }
+    await muatAksi(); gambarAtur();
+    $('msgAtur').innerHTML = '<div class="msg ok">' + esc(ringkas) + '. Berlaku paling lambat 5 menit lagi.</div>';
+  }
+
   function antreBarang() { var o = {}; D.aksi.forEach(function (a) { if (a.fungsi === 'mdeSimpanBaru' && a.param && !(a.param.k in o)) o[a.param.k] = a; }); return o; }
   function stokBarang(k) { var S2 = AT.stok; if (!S2) return null; for (var i = 0; i < S2.barang.length; i++) if (S2.barang[i].k === k) return S2.barang[i]; return null; }
   function isiEditBarang() {
