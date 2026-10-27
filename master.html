@@ -75,6 +75,7 @@
   <section data-bagian="dasbor" id="bDasbor"><div class="ksg">Memuat ringkasan…</div></section>
   <section data-bagian="jual" id="bJual"><div class="ksg">Memuat penjualan…</div></section>
   <section data-bagian="setuju" id="bSetuju"><div class="ksg">Memuat persetujuan…</div></section>
+  <section data-bagian="produksi" id="bProduksi"><div class="ksg">Memuat produksi…</div></section>
   <section data-bagian="gudang" id="bGudang"><div class="ksg">Memuat gudang utama…</div></section>
   <section data-bagian="purch" id="bPurch"><div class="ksg">Memuat purchasing…</div></section>
   <section data-bagian="__lama">
@@ -96,7 +97,8 @@
   var D = { beranda: null, ringkasan: null, setuju: null, request: null, pantau: null, aksi: [], waktu: {} }, sb = M.sb, BAGIAN = 'request';
   var KUNCI = { 'md:beranda': 'beranda', 'md:ringkasan': 'ringkasan', 'md:setuju': 'setuju', 'md:request': 'request', 'md:pantau': 'pantau',
     'md:titip': 'titip', 'md:mkt': 'mkt', 'md:mkt:lalu': 'mktLalu', 'md:bh': 'bh', 'md:bh:lalu': 'bhLalu',
-    'md:gudang': 'gudang', 'md:beli:lalu': 'beliLalu', 'md:pengadaan': 'pengadaan', 'md:tanpa': 'tanpa' };
+    'md:gudang': 'gudang', 'md:beli:lalu': 'beliLalu', 'md:pengadaan': 'pengadaan', 'md:tanpa': 'tanpa',
+    'md:prod': 'prod', 'md:botol': 'botol', 'md:bbk': 'bbk', 'md:rpd': 'rpd', 'md:rbb': 'rbb', 'md:pp:prod': 'ppProd', 'md:pp:bahan': 'ppBahan' };
   function jumlahTunggu() { return (D.setuju && D.setuju.menunggu || 0) + (D.request && D.request.n || 0); }
 
   M.mulai({
@@ -131,7 +133,7 @@
     (h[0].data || []).forEach(function (x) { D[KUNCI[x.kunci]] = x.data; D.waktu[KUNCI[x.kunci]] = x.dibuat; });
     D.aksi = h[1].data || [];
     M.badge('setuju', jumlahTunggu());
-    gambarBeranda(); gambarDasbor(); gambarSetuju(); gambarGudang(); gambarPurch();
+    gambarBeranda(); gambarDasbor(); gambarSetuju(); gambarGudang(); gambarPurch(); gambarProduksi();
     if (J.mulai) { gambarJual(); gambarJualIsi(); }
   }
 
@@ -667,6 +669,182 @@
       return '<tr><td>' + esc(c.ket) + '<small>' + esc(c.t) + (c.o ? ' · ongkir' : '') + '</small></td><td class="r angka">' + rp(c.nom) + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="ksg">Tidak ada biaya.</div>') +
       (x.ongkirManual ? '<div class="sb">Ditambah ongkir isian manual ' + rp(x.ongkirManual) + '</div>' : '') + '</div></div>';
     return h + '<p class="sb">Isian potongan marketplace, dana diterima, setoran, dan penerbitan invoice bagi hasil masih lewat menu Bagi hasil di Master Data lama.</p>';
+  }
+
+
+  // ======================= PRODUKSI (ambilPantau, stokBahan, bahanBakuData, rencanaProduksi, rencanaBahan, pantauProduksi lama) =======================
+  var PR = { bagian: 'prod', sp: 'ring', sb: 'ring', q: '', qb: '', fr: 'buat', fb: 'beli', pp: 'produksi' };
+  function dec(n, d) { return angkaId(n, d === undefined ? 2 : d); }
+  function jml(n, s) { if (s === 'gram' && Math.abs(n) >= 1000) return dec(n / 1000, 2) + ' kg'; return dec(n, 2) + ' ' + esc(s || ''); }
+  function minBahan(b) { return b.min !== null && b.min !== undefined && b.min !== '' && b.ss <= Number(b.min); }
+  function tandaBahan(b) { return b.ss < 0 ? ' <span class="label no">minus</span>' : minBahan(b) ? ' <span class="label w">perlu beli</span>' : ''; }
+  function pilihSub(nama, nilai, opsi) { return '<div class="pilih2" role="group">' + opsi.map(function (o) { return '<button type="button" class="tbl" data-' + nama + '="' + o[0] + '" aria-pressed="' + (nilai === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>'; }
+  function baris2(kiri, kanan, kls) { return '<tr><td>' + kiri + '</td><td class="r angka' + (kls ? ' ' + kls : '') + '">' + kanan + '</td></tr>'; }
+  function gambarProduksi() {
+    var el = $('bProduksi'); if (!el) return;
+    var rp2 = D.rpd, rb = D.rbb;
+    var h = '<p class="tl">Data staf diperbarui sekitar sejam sekali; robot rencana dan pantau tiap 3 jam · ' + waktuPotret('prod') + '</p>';
+    h += '<div class="chip" role="group" aria-label="Bagian produksi">' + [['prod', 'Staf produksi', D.prod ? fmt(D.prod.produk.reduce(function (a, x) { return a + x.pr; }, 0)) + ' pcs bulan ini' : ''], ['bbk', 'Staf bahan baku', D.bbk ? (D.bbk.tunggu || []).length + ' pembelian belum sampai' : ''],
+      ['rpd', 'Rencana produksi', rp2 ? (rp2.n['Kritis'] + rp2.n['Perlu dibuat']) + ' perlu dibuat' : ''], ['rbb', 'Rencana bahan baku', rb ? rb.n['Kurang'] + ' kurang' : ''], ['pp', 'Pantau produksi', '']].map(function (b) {
+      return '<button type="button" data-prb="' + b[0] + '" aria-pressed="' + (PR.bagian === b[0]) + '"><span>' + b[1] + '</span><b>' + (b[2] || '&nbsp;') + '</b></button>'; }).join('') + '</div>';
+    try { h += PR.bagian === 'prod' ? isiStafProd() : PR.bagian === 'bbk' ? isiStafBbk() : PR.bagian === 'rpd' ? isiRpd() : PR.bagian === 'rbb' ? isiRbb() : isiPantauProd(); }
+    catch (e) { h += '<div class="msg bad">Bagian ini gagal ditampilkan: ' + esc(e.message) + '</div>'; }
+    el.innerHTML = h;
+    var pasang = function (attr, fn) { el.querySelectorAll('[data-' + attr + ']').forEach(function (b) { b.onclick = function () { fn(b.getAttribute('data-' + attr)); gambarProduksi(); }; }); };
+    pasang('prb', function (v) { PR.bagian = v; }); pasang('sp', function (v) { PR.sp = v; }); pasang('sbk', function (v) { PR.sb = v; });
+    pasang('fr', function (v) { PR.fr = v; }); pasang('fb', function (v) { PR.fb = v; }); pasang('ppj', function (v) { PR.pp = v; });
+    ['prQ', 'prQb'].forEach(function (id) { var c = $(id); if (c) c.oninput = function () { var pos = c.selectionStart; if (id === 'prQ') PR.q = c.value; else PR.qb = c.value; gambarProduksi(); var c2 = $(id); c2.focus(); try { c2.setSelectionRange(pos, pos); } catch (e) { } }; });
+    var on = el.querySelector('[data-prb][aria-pressed="true"]');
+    if (on && on.parentNode.scrollWidth > on.parentNode.clientWidth) on.parentNode.scrollLeft = Math.max(0, on.offsetLeft - on.parentNode.offsetLeft - 16);
+  }
+  function isiStafProd() {
+    var d = D.prod; if (!d) return '<div class="msg w">Data staf produksi belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var pr = d.produk || [], botol = (D.botol && D.botol.barang) || [], tp = 0, ts = 0, tsisa = 0, nsisa = 0, minus = 0, kj = [];
+    pr.forEach(function (x) { tp += x.pr; ts += x.sa; tsisa += x.sisa; nsisa += x.sisa * (x.h || 0); if (x.sisa < 0) minus++; (x.kj || []).forEach(function (v, j) { kj[j] = (kj[j] || 0) + v; }); });
+    var beli = botol.filter(minBahan);
+    var h = pilihSub('sp', PR.sp, [['ring', 'Ringkas'], ['stok', 'Stok gudang produksi'], ['botol', 'Botol, stiker & packaging'], ['akt', 'Aktivitas']]);
+    if (PR.sp === 'ring') {
+      h += '<div class="kp"><div class="kt"><span class="l">Diproduksi bulan ini</span><span class="v angka">' + fmt(tp) + '</span><span class="k">pcs</span></div><div class="kt"><span class="l">Disalurkan bulan ini</span><span class="v angka">' + fmt(ts) + '</span><span class="k">pcs</span></div>' +
+        '<div class="kt"><span class="l">Sisa gudang produksi</span><span class="v angka' + (tsisa < 0 ? ' mn' : '') + '">' + fmt(tsisa) + '</span><span class="k">pcs · nilai jual ' + rp(nsisa) + '</span></div></div>';
+      var tj = kj.map(function (v, j) { return v ? baris2(esc((d.tujuan || [])[j] || '–'), fmt(v) + ' pcs') : ''; }).join('');
+      var top = pr.filter(function (a) { return a.pr > 0; }).sort(function (a, b) { return b.pr - a.pr; }).slice(0, 8);
+      h += '<div class="dua"><div class="cd"><h3>Disalurkan ke</h3>' + (tj ? '<table class="tabel"><tbody>' + tj + '</tbody></table>' : '<div class="ksg">Belum ada penyaluran bulan ini.</div>') + '</div>' +
+        '<div class="cd"><h3>Produksi terbanyak bulan ini</h3>' + (top.length ? '<table class="tabel"><tbody>' + top.map(function (x) { return baris2(esc(x.n) + '<small>' + esc(x.k) + '</small>', fmt(x.pr) + ' pcs'); }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada produksi bulan ini.</div>') + '</div></div>';
+      var cek = [];
+      if (minus) cek.push('<b>' + minus + ' barang sisa gudangnya minus.</b> Biasanya stok awal belum diisi atau ada penyaluran yang belum dicatat produksinya.');
+      if (beli.length) cek.push('<b>' + beli.length + ' botol / stiker / packaging perlu dibeli:</b> ' + beli.slice(0, 10).map(function (a) { return esc(a.n) + ' (sisa ' + fmt(a.ss) + ')'; }).join(', '));
+      if (cek.length) h += '<div class="msg w">' + cek.join('<br>') + '</div>';
+    } else if (PR.sp === 'stok') {
+      var list = pr.filter(function (x) { return cocok(x.n + ' ' + x.k, PR.q); });
+      h += '<div class="cd"><div class="aksi-baris" style="margin-bottom:10px"><input class="isian" id="prQ" placeholder="Cari barang atau kode" value="' + esc(PR.q) + '"></div><p class="sb" style="margin-top:0">Diproduksi dan disalurkan = bulan ini. Sisa = stok sekarang.</p>' +
+        (list.length ? '<div class="gulir"><table class="tabel"><thead><tr><th>Barang</th><th class="r">Produksi</th><th class="r">Salur</th><th class="r">Sisa</th></tr></thead><tbody>' + kelompok(list).map(function (g) {
+          return '<tr><td colspan="4" style="background:#F7F9FB;font-weight:800">' + esc(g.kat) + '</td></tr>' + g.list.map(function (x) {
+            var w = (x.w || []).filter(function (a) { return a.sisa; }).map(function (a) { return esc(a.w || 'tanpa warna') + ' ' + fmt(a.sisa); });
+            return '<tr><td>' + esc(x.n) + '<small>' + esc(x.k) + (w.length ? ' · ' + w.join(', ') : '') + '</small></td><td class="r angka">' + fmt(x.pr) + '</td><td class="r angka">' + fmt(x.sa) + '</td><td class="r angka' + (x.sisa < 0 ? ' mn' : '') + '">' + fmt(x.sisa) + '</td></tr>'; }).join(''); }).join('') + '</tbody></table></div>' : '<div class="ksg">Barang tidak ditemukan.</div>') + '</div>';
+    } else if (PR.sp === 'botol') {
+      h += '<div class="cd"><div class="kpl"><h3>Stok botol, stiker &amp; packaging</h3><span class="sb">Bulan ' + esc((D.botol && D.botol.bulan) || '') + '</span></div><p class="sb" style="margin-top:-4px">Sisa = awal + masuk − pakai − rusak + penyesuaian.</p>';
+      if (!botol.length) h += '<div class="ksg">Belum ada data.</div>';
+      else h += '<div class="gulir"><table class="tabel"><thead><tr><th>Nama</th><th class="r hp-x">Awal</th><th class="r">Masuk</th><th class="r">Pakai</th><th class="r hp-x">Rusak</th><th class="r">Sisa</th></tr></thead><tbody>' + kelompok(botol.map(function (x) { return Object.assign({ kat: x.j }, x); })).map(function (g) {
+        return '<tr><td colspan="6" style="background:#F7F9FB;font-weight:800">' + esc(g.kat) + '</td></tr>' + g.list.map(function (x) {
+          return '<tr><td>' + esc(x.n) + tandaBahan(x) + (x.min !== null && x.min !== undefined && x.min !== '' ? '<small>min ' + fmt(x.min) + '</small>' : '') + '</td><td class="r angka hp-x">' + fmt(x.aw) + '</td><td class="r angka">' + fmt(x.ms) + '</td><td class="r angka">' + fmt(x.pk) + '</td><td class="r angka hp-x">' + fmt(x.rs) + '</td><td class="r angka' + (x.ss < 0 ? ' mn' : '') + '">' + fmt(x.ss) + '</td></tr>'; }).join(''); }).join('') + '</tbody></table></div>';
+      h += '</div>';
+    } else {
+      var lg = d.log || [];
+      h += '<div class="cd"><div class="kpl"><h3>Aktivitas staf produksi bulan ini</h3><span class="sb">terbaru di atas</span></div>' + (lg.length ? '<table class="tabel"><tbody>' + lg.slice(0, 80).map(function (x) {
+        return '<tr><td><span class="label ' + (x.j === 'SALUR' ? 'biru' : x.j === 'PRODUKSI' ? 'ok' : 'abu') + '">' + esc(x.j) + '</span> ' + esc(x.n) + (x.wr ? ' – ' + esc(x.wr) : '') + '<small>' + esc(tglId(x.t)) + (x.w ? ' ' + esc(x.w) : '') + (x.p ? ' · ' + esc(String(x.p).replace(/^form:\s*/, '')) : '') + (x.tj ? ' · ke ' + esc(x.tj) : '') + '</small></td><td class="r angka">' + fmt(x.q) + '</td></tr>'; }).join('') + '</tbody></table>' + (lg.length > 80 || d.terpotong ? '<p class="sb">Menampilkan 80 aktivitas terbaru.</p>' : '') : '<div class="ksg">Belum ada aktivitas bulan ini.</div>') + '</div>';
+    }
+    return h;
+  }
+  function isiStafBbk() {
+    var d = D.bbk; if (!d) return '<div class="msg w">Data staf bahan baku belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var br = d.barang || [], prod = d.prod || [], wl = d.warnaLog || [], b0 = (d.bulan || '').split('/'), bln = b0.length === 2 ? b0[1] + '-' + b0[0] : '';
+    var diBulan = function (t) { return String(t || '').slice(0, 7) === bln; };
+    var beli = br.filter(function (x) { return x.ss >= 0 && minBahan(x); }), minus = br.filter(function (x) { return x.ss < 0; });
+    var h = pilihSub('sbk', PR.sb, [['ring', 'Ringkas'], ['stok', 'Stok bahan'], ['pig', 'Pigment campuran'], ['dasar', 'Cat dasar'], ['akt', 'Aktivitas']]);
+    if (PR.sb === 'ring') {
+      var kali = prod.filter(function (a) { return diBulan(a.t); }).reduce(function (s, a) { return s + (Number(a.kali) || 1); }, 0), tg = d.tunggu || [];
+      h += '<div class="kp"><div class="kt"><span class="l">Kali produksi bahan</span><span class="v angka">' + fmt(kali) + '</span><span class="k">bulan ini</span></div><div class="kt"><span class="l">Kali campur warna</span><span class="v angka">' + fmt(wl.filter(function (a) { return diBulan(a.t); }).length) + '</span><span class="k">bulan ini</span></div>' +
+        '<div class="kt"><span class="l">Pembelian belum sampai</span><span class="v angka' + (tg.length ? ' mn' : '') + '">' + tg.length + '</span><span class="k">pesanan</span></div><div class="kt"><span class="l">Perlu dicek</span><span class="v angka' + (minus.length || beli.length ? ' mn' : '') + '">' + (minus.length + beli.length) + '</span><span class="k">' + minus.length + ' minus · ' + beli.length + ' di bawah minimum</span></div></div>';
+      if (tg.length) h += '<div class="cd"><h3>Pembelian belum sampai</h3><table class="tabel"><tbody>' + tg.map(function (x) { return baris2(esc(x.n) + '<small>' + esc(x.no) + ' · dipesan ' + esc(tglId(x.t)) + (x.sup ? ' · ' + esc(x.sup) : '') + '</small>', jml(x.q, x.s)); }).join('') + '</tbody></table></div>';
+      var cek = [];
+      if (minus.length) cek.push('<b>' + minus.length + ' bahan stoknya minus:</b> ' + minus.slice(0, 12).map(function (a) { return esc(a.n) + ' (' + jml(a.ss, a.s) + ')'; }).join(', ') + '. Biasanya stok awal belum diisi atau pembelian belum dicatat.');
+      if (beli.length) cek.push('<b>' + beli.length + ' bahan di bawah stok minimum:</b> ' + beli.slice(0, 12).map(function (a) { return esc(a.n) + ' (sisa ' + jml(a.ss, a.s) + ')'; }).join(', '));
+      if (d.warnaSalah && d.warnaSalah.length) cek.push('<b>' + d.warnaSalah.length + ' baris resep warna tidak dikenali.</b> Cek sheet BAHAN_WARNA.');
+      if (cek.length) h += '<div class="msg w">' + cek.join('<br>') + '</div>';
+      h += '<div class="dua"><div class="cd"><h3>Produksi bahan terakhir</h3>' + (prod.length ? '<table class="tabel"><tbody>' + prod.slice(0, 8).map(function (x) { return baris2(esc(x.n) + '<small>' + esc(tglId(x.t)) + (x.p ? ' · ' + esc(String(x.p).replace(/^form:\s*/, '')) : '') + (x.c ? ' · ' + esc(x.c) : '') + '</small>', jml(x.q, x.s) + (x.kali > 1 ? '<small>' + x.kali + '×</small>' : '')); }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada.</div>') + '</div>' +
+        '<div class="cd"><h3>Campur warna terakhir</h3>' + (wl.length ? '<table class="tabel"><tbody>' + wl.slice(0, 8).map(function (x) { return baris2(esc(x.n) + '<small>' + esc(x.kel) + ' · ' + esc(tglId(x.t)) + (x.c ? ' · ' + esc(x.c) : '') + '</small>', jml(x.ml, 'gram')); }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada.</div>') + '</div></div>';
+    } else if (PR.sb === 'stok') {
+      var list = br.filter(function (x) { return cocok(x.n + ' ' + x.k + ' ' + (x.kel || ''), PR.qb); });
+      h += '<div class="cd"><div class="aksi-baris" style="margin-bottom:10px"><input class="isian" id="prQb" placeholder="Cari bahan atau kelompok" value="' + esc(PR.qb) + '"></div><p class="sb" style="margin-top:0">Bulan ' + esc(d.bulan || '') + '. Sisa = awal + masuk − pakai − rusak + penyesuaian.</p>' +
+        (list.length ? '<div class="gulir"><table class="tabel"><thead><tr><th>Bahan</th><th class="r">Masuk</th><th class="r">Pakai</th><th class="r">Sisa</th></tr></thead><tbody>' + kelompok(list.map(function (x) { return Object.assign({ kat: x.kel }, x); })).map(function (g) {
+          return '<tr><td colspan="4" style="background:#F7F9FB;font-weight:800">' + esc(g.kat) + '</td></tr>' + g.list.map(function (x) {
+            return '<tr><td>' + esc(x.n) + tandaBahan(x) + '<small>' + esc(x.k) + (x.min !== null && x.min !== undefined && x.min !== '' ? ' · min ' + jml(x.min, x.s) : '') + '</small></td><td class="r angka">' + dec(x.ms) + '</td><td class="r angka">' + dec(x.pk) + '</td><td class="r angka' + (x.ss < 0 ? ' mn' : '') + '">' + jml(x.ss, x.s) + '</td></tr>'; }).join(''); }).join('') + '</tbody></table></div>' : '<div class="ksg">Bahan tidak ditemukan.</div>') + '</div>';
+    } else if (PR.sb === 'pig') {
+      var pc = br.filter(function (a) { return /pigment campuran/i.test(a.kel || ''); }), lp = wl.filter(function (a) { return /pigment campuran/i.test(a.kel || ''); });
+      h += '<div class="cd"><h3>Stok pigment campuran</h3><p class="sb" style="margin-top:-4px">Pigment yang dicampur sendiri. Dibuat = hasil campuran bulan ini; terpakai = dipakai untuk campur warna cat bulan ini.</p>' +
+        (pc.length ? '<div class="gulir"><table class="tabel"><thead><tr><th>Pigment</th><th class="r hp-x">Awal</th><th class="r">Dibuat</th><th class="r">Terpakai</th><th class="r">Sisa</th></tr></thead><tbody>' + pc.map(function (x) {
+          return '<tr><td>' + esc(x.n) + tandaBahan(x) + '</td><td class="r angka hp-x">' + dec(x.aw) + '</td><td class="r angka">' + dec(x.ms) + '</td><td class="r angka">' + dec(x.pk + x.rs) + '</td><td class="r angka' + (x.ss < 0 ? ' mn' : '') + '">' + jml(x.ss, x.s) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="ksg">Belum ada bahan berkelompok Pigment Campuran.</div>') + '</div>';
+      h += '<div class="cd"><h3>Riwayat pembuatan pigment campuran</h3>' + (lp.length ? '<table class="tabel"><tbody>' + lp.slice(0, 40).map(function (x) { return baris2(esc(x.n) + '<small>' + esc(tglId(x.t)) + (x.c ? ' · ' + esc(x.c) : '') + '</small>', jml(x.ml, 'gram')); }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada pigment campuran yang dibuat.</div>') + '</div>';
+    } else if (PR.sb === 'dasar') {
+      var ds = d.dasar || [];
+      h += '<div class="cd"><h3>Stok cat dasar (siap campur warna)</h3><p class="sb" style="margin-top:-4px">Dibuat dari menu Produksi staf bahan baku, terpakai saat campur warna.</p>' +
+        (ds.length ? '<table class="tabel"><thead><tr><th>Cat dasar</th><th class="r">Dibuat bulan ini</th><th class="r">Terpakai bulan ini</th><th class="r">Sisa</th></tr></thead><tbody>' + ds.map(function (x) {
+          return '<tr><td>' + esc(x.n) + '<small>' + esc(x.kel || '') + '</small></td><td class="r angka">' + dec(x.prB / 1000) + ' kg</td><td class="r angka">' + dec(x.pkB / 1000) + ' kg</td><td class="r angka' + (x.sisa < 0 ? ' mn' : '') + '">' + dec(x.sisa / 1000) + ' kg</td></tr>'; }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada data cat dasar.</div>') + '</div>';
+    } else {
+      var semua = [];
+      (d.pakai || []).forEach(function (a) { semua.push({ t: a.t, j: a.j || 'Terpakai', w: 'abu', isi: esc(a.n) + (a.u ? ' untuk ' + esc(a.u) : ''), q: jml(a.q, a.s), p: a.p, c: a.c }); });
+      prod.forEach(function (a) { semua.push({ t: a.t, j: 'Produksi', w: 'ok', isi: esc(a.n) + (a.kali > 1 ? ' (' + a.kali + '×)' : ''), q: jml(a.q, a.s), p: a.p, c: a.c }); });
+      wl.forEach(function (a) { semua.push({ t: a.t, j: 'Campur warna', w: 'biru', isi: esc(a.n) + ' · ' + esc(a.kel), q: jml(a.ml, 'gram'), p: a.p, c: a.c }); });
+      (d.beliBulan || []).forEach(function (a) { semua.push({ t: a.ts || a.t, j: 'Barang sampai', w: 'w', isi: esc(a.n) + (a.sup ? ' dari ' + esc(a.sup) : ''), q: jml(a.qt || a.q, a.s), p: a.pt || a.pg, c: a.ct }); });
+      semua.sort(function (a, b) { return String(a.t) < String(b.t) ? 1 : String(a.t) > String(b.t) ? -1 : 0; });
+      h += '<div class="cd"><div class="kpl"><h3>Aktivitas staf bahan baku</h3><span class="sb">terbaru di atas</span></div>' + (semua.length ? '<table class="tabel"><tbody>' + semua.slice(0, 80).map(function (x) {
+        return '<tr><td><span class="label ' + x.w + '">' + esc(x.j) + '</span> ' + x.isi + '<small>' + esc(tglId(x.t)) + (x.p ? ' · ' + esc(String(x.p).replace(/^form:\s*/, '')) : '') + (x.c ? ' · ' + esc(x.c) : '') + '</small></td><td class="r angka">' + x.q + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada aktivitas.</div>') + '</div>';
+    }
+    return h;
+  }
+  var WARNA_RPD = { 'Kritis': 'no', 'Perlu dibuat': 'w', 'Aman': 'ok', 'Berlebih': 'abu', 'Belum laku': 'abu', 'Belum ada data': 'abu', 'Kurang': 'no', 'Tunggu barang': 'biru', 'Mepet': 'w', 'Cukup': 'ok' };
+  function isiRpd() {
+    var d = D.rpd; if (!d) return '<div class="msg w">Rencana produksi belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var h = '<div class="kp"><div class="kt"><span class="l">Kritis</span><span class="v angka' + (d.n['Kritis'] ? ' mn' : '') + '">' + d.n['Kritis'] + '</span><span class="k">stok cukup &lt; ' + d.batas.kritis + ' hari</span></div><div class="kt"><span class="l">Perlu dibuat</span><span class="v angka">' + d.n['Perlu dibuat'] + '</span><span class="k">cukup &lt; ' + d.batas.perlu + ' hari</span></div>' +
+      '<div class="kt"><span class="l">Aman</span><span class="v angka">' + d.n['Aman'] + '</span><span class="k">barang</span></div><div class="kt"><span class="l">Berlebih</span><span class="v angka">' + d.n['Berlebih'] + '</span><span class="k">cukup &gt; ' + d.batas.aman + ' hari</span></div></div>';
+    h += '<p class="tl">Total saran produksi <b>' + fmt(d.totSaran) + ' pcs</b> supaya stok cukup ' + d.target + ' hari · dari penjualan ' + d.hari + ' hari terakhir · dihitung ' + esc(d.diperbarui) + '</p>';
+    h += pilihSub('fr', PR.fr, [['buat', 'Perlu dibuat'], ['lebih', 'Jangan dibuat dulu'], ['semua', 'Semua']]);
+    var l = d.list.filter(function (x) { return PR.fr === 'buat' ? (x.st === 'Kritis' || x.st === 'Perlu dibuat') : PR.fr === 'lebih' ? (x.st === 'Berlebih' || x.st === 'Belum laku') : true; });
+    h += l.length ? l.map(function (x) {
+      var stok = 'Stok total <b class="angka">' + fmt(x.tot) + '</b> (gudang ' + fmt(x.gd + x.prod) + ' · toko ' + fmt(x.toko) + ')', isi;
+      if (x.st === 'Belum ada data') isi = 'Belum ada data penjualan. ' + stok + '.';
+      else if (x.st === 'Belum laku') isi = stok + '. Belum terjual ' + d.hari + ' hari terakhir. <b>Jangan dibuat dulu.</b>';
+      else isi = stok + ' · laku ' + dec(x.r) + '/hari · cukup ±' + fmt(x.cukup) + ' hari' + (x.saran > 0 ? '' : x.st === 'Berlebih' ? '<br><b>Jangan dibuat dulu</b>, stok masih banyak.' : '<br>Belum perlu dibuat.');
+      var w = x.saran > 0 && x.warna ? x.warna.filter(function (y) { return y.saran > 0; }) : [];
+      return '<div class="cd"><div class="rq-kpl"><h3>' + esc(x.n) + '</h3><span class="sb">' + esc(x.k) + ' · ' + esc(x.kat) + '</span></div><div class="rq-mt" style="margin-top:6px"><span class="label ' + (WARNA_RPD[x.st] || 'abu') + '">' + esc(x.st) + '</span>' + (x.saran > 0 ? '<span class="label biru">Saran produksi ' + fmt(x.saran) + ' pcs</span>' : '') + '</div>' +
+        '<div class="sb" style="margin-top:6px;color:var(--teks2)">' + isi + '</div>' + (w.length ? '<div class="rq-mt" style="margin-top:8px">' + w.map(function (y) { return '<span class="label abu">' + esc(y.w) + ' ' + fmt(y.saran) + '</span>'; }).join('') + '</div>' : '') + '</div>';
+    }).join('') : '<div class="cd"><div class="aman">' + (PR.fr === 'buat' ? 'Tidak ada barang yang perlu dibuat saat ini.' : 'Tidak ada barang.') + '</div></div>';
+    return h + '<p class="sb">Stok total = gudang + semua toko. Penjualan online diperkirakan dari kiriman ke Kantor Packing.</p>';
+  }
+  function isiRbb() {
+    var d = D.rbb; if (!d) return '<div class="msg w">Rencana bahan baku belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var h = '<div class="kp"><div class="kt"><span class="l">Kurang</span><span class="v angka' + (d.n['Kurang'] ? ' mn' : '') + '">' + d.n['Kurang'] + '</span><span class="k">harus dibeli / dibuat</span></div><div class="kt"><span class="l">Tunggu barang</span><span class="v angka">' + d.n['Tunggu barang'] + '</span><span class="k">cukup kalau pesanan datang</span></div>' +
+      '<div class="kt"><span class="l">Mepet</span><span class="v angka">' + d.n['Mepet'] + '</span><span class="k">di bawah stok minimum</span></div><div class="kt"><span class="l">Cukup</span><span class="v angka">' + d.n['Cukup'] + '</span><span class="k">bahan</span></div></div>';
+    h += '<p class="tl">Untuk membuat <b>' + fmt(d.totPcs) + ' pcs</b> sesuai saran produksi (stok cukup ' + d.target + ' hari) · dihitung ' + esc(d.diperbarui) + '</p>';
+    var cat = [];
+    if (d.masalah.length) cat.push(d.masalah.length + ' barang belum bisa dihitung bahannya (lihat Perlu dicek).');
+    if (d.minus) cat.push(d.minus + ' bahan stoknya tercatat minus, kemungkinan ada pembelian atau pembuatan yang belum dicatat.');
+    if (cat.length) h += '<div class="msg w">' + cat.map(esc).join('<br>') + '</div>';
+    h += pilihSub('fb', PR.fb, [['beli', 'Perlu disiapkan'], ['jadi', 'Bahan jadi'], ['cek', 'Perlu dicek' + (d.masalah.length ? ' (' + d.masalah.length + ')' : '')], ['semua', 'Semua bahan']]);
+    if (PR.fb === 'jadi') {
+      if (d.ecer && d.ecer.length) h += '<div class="cd"><h3>Bahan curah untuk diecer</h3><table class="tabel"><tbody>' + d.ecer.map(function (e) { return baris2(esc(e.n) + '<small>Belum ada di daftar bahan baku</small>', dec(e.kg) + ' kg'); }).join('') + '</tbody></table></div>';
+      h += '<div class="cd"><h3>Bahan jadi yang perlu dibuat</h3>' + (d.jadi.length ? '<table class="tabel"><thead><tr><th>Bahan jadi</th><th class="r">Butuh</th><th class="r">Kali produksi</th></tr></thead><tbody>' + d.jadi.map(function (j) {
+        return '<tr><td>' + esc(j.n) + '<small>' + esc(j.kel) + (j.batch ? ' · 1× produksi ' + dec(j.batch) + ' kg' : '') + '</small></td><td class="r angka">' + dec(j.kg) + ' kg</td><td class="r angka">' + (j.kali === null ? '–' : '±' + dec(j.kali, 1) + '×') + '</td></tr>'; }).join('') + '</tbody></table><p class="sb">Kali produksi = butuh ÷ berat hasil 1× produksi. Stok bahan jadi yang sudah ada belum dikurangi.</p>' : '<div class="ksg">Tidak ada bahan jadi yang perlu dibuat.</div>') + '</div>';
+      var b = d.barang.slice().sort(function (a, c) { return c.kg - a.kg; });
+      h += '<div class="cd"><div class="kpl"><h3>Dari saran produksi</h3><span class="sb">' + b.length + ' barang</span></div><div class="gulir"><table class="tabel"><thead><tr><th>Barang</th><th class="r">Pcs</th><th class="r">Berat</th></tr></thead><tbody>' + b.map(function (x) {
+        return '<tr><td>' + esc(x.n) + (x.w ? ' – ' + esc(x.w) : '') + '<small>' + esc(x.ket) + '</small></td><td class="r angka">' + fmt(x.pcs) + '</td><td class="r angka">' + dec(x.kg) + ' kg</td></tr>'; }).join('') + '</tbody></table></div></div>';
+      return h;
+    }
+    if (PR.fb === 'cek') return h + (d.masalah.length ? '<div class="cd"><h3>Belum bisa dihitung</h3><table class="tabel"><tbody>' + d.masalah.map(function (m) { return baris2(esc(m.n) + (m.w ? ' – ' + esc(m.w) : '') + '<small>' + esc(m.al) + '</small>', m.pcs ? fmt(m.pcs) + ' pcs' : '–'); }).join('') + '</tbody></table><p class="sb">Lengkapi resep di formulir bahan baku, atau isi berat per pcs di sheet ' + esc(d.sheetIsi) + '.</p></div>' : '<div class="cd"><div class="aman">Semua saran produksi sudah bisa dihitung.</div></div>');
+    var l = d.bahan.filter(function (x) { return PR.fb === 'semua' || x.st !== 'Cukup'; });
+    h += l.length ? l.map(function (x) {
+      var isi = 'Butuh <b>' + jml(x.butuh, x.s) + '</b> · ' + (x.minus ? 'stok tercatat <b>minus ' + jml(-x.stok, x.s) + '</b> (dihitung 0, cek pencatatan)' : 'stok sekarang ' + jml(x.stok, x.s)) + (x.dipesan > 0 ? ' · sedang dipesan ' + jml(x.dipesan, x.s) : '');
+      if (x.st === 'Tunggu barang') isi += '<br>Stok kurang, tapi cukup kalau pesanan sudah datang.';
+      else if (x.st === 'Mepet') isi += '<br>Cukup, tapi sisa ' + jml(x.sisa, x.s) + ' di bawah stok minimum (' + jml(x.min, x.s) + ').';
+      else if (x.st === 'Cukup') isi += '<br>Cukup. Sisa setelah produksi ' + jml(x.sisa, x.s) + '.';
+      return '<div class="cd"><div class="rq-kpl"><h3>' + esc(x.n) + '</h3><span class="sb">' + esc(x.k) + (x.kel ? ' · ' + esc(x.kel) : '') + '</span></div><div class="rq-mt" style="margin-top:6px"><span class="label ' + (WARNA_RPD[x.st] || 'abu') + '">' + esc(x.st) + '</span>' + (x.st === 'Kurang' ? '<span class="label biru">' + (x.buat ? 'Perlu dibuat (campur pigment)' : 'Perlu dibeli') + ' ' + jml(x.beli, x.s) + '</span>' : '') + '</div>' +
+        '<div class="sb" style="margin-top:6px;color:var(--teks2)">' + isi + '</div>' + (x.untuk && x.untuk.length ? '<div class="rq-mt" style="margin-top:8px">' + x.untuk.map(function (y) { return '<span class="label abu">' + esc(y) + '</span>'; }).join('') + '</div>' : '') + '</div>';
+    }).join('') : '<div class="cd"><div class="aman">' + (PR.fb === 'beli' ? 'Semua bahan cukup untuk rencana produksi.' : 'Tidak ada bahan.') + '</div></div>';
+    return h + '<p class="sb">Angka masih perkiraan karena data penjualan baru ' + d.hari + ' hari.</p>';
+  }
+  function isiPantauProd() {
+    var d = PR.pp === 'produksi' ? D.ppProd : D.ppBahan, h = pilihSub('ppj', PR.pp, [['produksi', 'Staf produksi (pcs)'], ['bahan', 'Staf bahan baku (kg)']]);
+    if (!d) return h + '<div class="msg w">Data pantau produksi belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var pct = function (a, b) { if (!b) return a ? '<span class="sb">belum ada data pembanding</span>' : ''; var p = Math.round((a - b) / b * 1000) / 10; return '<b style="color:var(--' + (p >= 0 ? 'hijau' : 'merah') + ')">' + (p >= 0 ? '▲ +' : '▼ ') + String(p).replace('.', ',') + '%</b>'; };
+    var dp = d.sat === 'kg' ? 2 : 0;
+    h += '<div class="kp"><div class="kt"><span class="l">' + esc(d.lblIni) + '</span><span class="v angka">' + dec(d.ini, dp) + '</span><span class="k">' + esc(d.sat) + ' · ' + pct(d.ini, d.lalu) + '</span></div><div class="kt"><span class="l">' + esc(d.lblLalu) + '</span><span class="v angka">' + dec(d.lalu, dp) + '</span><span class="k">' + esc(d.sat) + ' (tanggal yang sama)</span></div>' +
+      '<div class="kt"><span class="l">' + esc(d.lblPenuh) + ' sebulan penuh</span><span class="v angka">' + dec(d.penuh, dp) + '</span><span class="k">' + esc(d.sat) + '</span></div></div>';
+    var mx = Math.max.apply(null, d.kat.map(function (k) { return k.ini; }).concat([1]));
+    h += '<div class="dua"><div class="cd"><h3>Per kategori</h3>' + d.kat.map(function (k) {
+      return '<div class="br"><div class="tx"><span>' + esc(k.n) + '</span><b class="angka">' + dec(k.ini, dp) + ' ' + esc(d.sat) + ' ' + (k.lalu ? pct(k.ini, k.lalu) : '') + '</b></div><div class="tr"><div class="is" style="width:' + Math.max(2, Math.round(k.ini / mx * 100)) + '%"></div></div></div>'; }).join('') + '</div>';
+    h += '<div class="cd"><div class="kpl"><h3>Per barang</h3><span class="sb">' + d.item.length + ' barang</span></div><div class="gulir"><table class="tabel"><thead><tr><th>Barang</th><th class="r">Bulan ini</th><th class="r">Bulan lalu</th></tr></thead><tbody>' + d.item.map(function (x) {
+      return '<tr><td>' + esc(x.n) + '<small>' + esc(x.kat) + '</small></td><td class="r angka">' + dec(x.ini, dp) + '</td><td class="r angka">' + dec(x.lalu, dp) + '</td></tr>'; }).join('') + '</tbody></table></div></div></div>';
+    return h + '<p class="sb">Bulan berjalan dibandingkan dengan tanggal yang sama bulan lalu. Data di sistem baru mulai Oktober 2026, jadi pembanding September masih kosong.</p>';
   }
 
   // ======================= GUDANG UTAMA (gdPemilikData lama, mode gudang) =======================
