@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kendali Bisnis</title>
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kendali Bisnis">
+<link rel="manifest" href="manifest-kendali.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --kertas:#ffffff; --tinta:#17222b; --abu:#6b7780; --garis:#e3e9ed; --kabut:#f2f7fa;
+    --langit:#2a9fd6; --langit-tua:#1678a8; --hijau:#1d8656; --bata:#b9472f; --kuning:#9a6a00;
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; background:var(--kertas); color:var(--tinta);
+    font-family:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased; }
+  .angka { font-variant-numeric:tabular-nums; }
+  button, input, select { font:inherit; color:inherit; }
+  :focus-visible { outline:2px solid var(--langit); outline-offset:2px; border-radius:6px; }
+  [hidden] { display:none !important; }
+
+  /* Kepala */
+  header { position:sticky; top:0; z-index:5; background:rgba(255,255,255,.96);
+    backdrop-filter:blur(6px); border-bottom:1px solid var(--garis);
+    padding:calc(10px + env(safe-area-inset-top)) 16px 0; }
+  .baris-kepala { display:flex; align-items:center; gap:10px; max-width:760px; margin:0 auto; }
+  .baris-kepala img { width:64px; height:64px; margin:-16px -6px -16px -12px; }
+  .judul { font-weight:700; font-size:17px; letter-spacing:-.01em; }
+  .siapa { margin-left:auto; text-align:right; font-size:12px; color:var(--abu); line-height:1.3; }
+  .siapa button { border:0; background:none; padding:0; color:var(--langit-tua); font-size:12px; cursor:pointer; }
+  nav { display:flex; gap:22px; max-width:760px; margin:6px auto 0; }
+  nav button { border:0; background:none; padding:10px 0 11px; font-weight:600; color:var(--abu);
+    border-bottom:2px solid transparent; cursor:pointer; }
+  nav button[aria-selected="true"] { color:var(--tinta); border-bottom-color:var(--langit); }
+
+  main { max-width:760px; margin:0 auto; padding:18px 16px calc(40px + env(safe-area-inset-bottom)); }
+
+  /* Masuk */
+  #masuk { min-height:100vh; display:flex; flex-direction:column; justify-content:center;
+    max-width:380px; margin:0 auto; padding:32px 24px; }
+  #masuk img { width:150px; margin:0 0 6px -14px; }
+  #masuk h1 { font-size:30px; line-height:1.1; letter-spacing:-.02em; margin:0 0 10px; }
+  #masuk p { color:var(--abu); margin:0 0 26px; }
+  .tombol { display:flex; align-items:center; justify-content:center; gap:10px; width:100%;
+    padding:14px 16px; border-radius:12px; border:1px solid var(--garis); background:#fff;
+    font-weight:600; cursor:pointer; }
+  .tombol:hover { border-color:#c6d2d9; }
+  .tombol svg { width:20px; height:20px; }
+  .pesan { margin-top:16px; font-size:14px; color:var(--bata); min-height:20px; }
+
+  /* Pilih bulan */
+  .bulan { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .bulan button { width:36px; height:36px; border-radius:50%; border:1px solid var(--garis);
+    background:#fff; cursor:pointer; font-size:18px; line-height:1; }
+  .bulan button:disabled { opacity:.35; cursor:default; }
+  .bulan h2 { margin:0; font-size:22px; letter-spacing:-.015em; min-width:170px; }
+  .status { font-size:12px; font-weight:600; padding:3px 9px; border-radius:20px; margin-left:auto; }
+  .status.sementara { background:#fff4d6; color:var(--kuning); }
+  .status.final { background:#e1f3ea; color:var(--hijau); }
+  .catatan-waktu { font-size:12px; color:var(--abu); margin:0 0 20px; }
+
+  /* Tangga laba: jual -> hpp -> biaya -> laba */
+  .tangga { margin:0 0 28px; }
+  .anak { display:grid; grid-template-columns:118px 1fr; align-items:center; gap:10px; padding:5px 0; }
+  .anak .nama { font-size:13px; color:var(--abu); }
+  .anak .jalur { position:relative; height:34px; }
+  .anak .bar { position:absolute; top:0; bottom:0; border-radius:4px; }
+  .anak .nilai { position:absolute; top:50%; transform:translateY(-50%); font-weight:600; font-size:14px;
+    white-space:nowrap; }
+  .anak.jual .bar { background:var(--langit); }
+  .anak.kurang .bar { background:repeating-linear-gradient(135deg,#f1d6cf 0 6px,#f8e8e3 6px 12px);
+    border:1px solid #e2b5a9; }
+  .anak.laba .bar { background:var(--tinta); }
+  .anak.laba .nama { color:var(--tinta); font-weight:700; }
+  .anak.laba .nilai { font-size:17px; }
+  .anak .nilai.dalam { color:#fff; left:10px; }
+  .margin-laba { font-size:13px; color:var(--abu); margin:6px 0 0 128px; }
+
+  .ringkas { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--garis);
+    border:1px solid var(--garis); border-radius:12px; overflow:hidden; margin-bottom:28px; }
+  .ringkas div { background:#fff; padding:12px 14px; }
+  .ringkas span { display:block; font-size:12px; color:var(--abu); }
+  .ringkas b { font-size:18px; letter-spacing:-.01em; }
+  .ringkas .kas { grid-column:1 / -1; background:var(--kabut); }
+  .ringkas .kas b { font-size:22px; }
+
+  section { margin-bottom:28px; }
+  section h3 { font-size:15px; margin:0 0 8px; display:flex; justify-content:space-between; }
+  section h3 .angka { color:var(--abu); font-weight:600; }
+  details { border-top:1px solid var(--garis); }
+  details:last-of-type { border-bottom:1px solid var(--garis); }
+  summary { list-style:none; display:flex; align-items:center; gap:10px; padding:11px 2px; cursor:pointer; }
+  summary::-webkit-details-marker { display:none; }
+  summary .panah { display:inline-block; width:14px; color:var(--abu); transition:transform .15s; font-size:11px; }
+  details[open] summary .panah { transform:rotate(90deg); }
+  summary .n { flex:1; }
+  summary .porsi { width:64px; height:4px; background:var(--kabut); border-radius:2px; overflow:hidden; }
+  summary .porsi i { display:block; height:100%; background:var(--langit); }
+  .keluar summary .porsi i { background:var(--bata); }
+  summary .v { min-width:112px; text-align:right; font-weight:600; }
+  summary.kosong { cursor:default; color:var(--abu); }
+  summary.kosong .panah { visibility:hidden; }
+  .rinci { margin:0 0 10px 24px; padding:0; list-style:none; font-size:14px; }
+  .rinci li { display:flex; justify-content:space-between; gap:12px; padding:4px 0; color:#3c4a54; }
+  .rinci li .angka, summary .v, .luar .angka { white-space:nowrap; }
+  .luar li, .peringatan li { padding:8px 0; border-bottom:1px solid var(--garis); }
+  .luar, .peringatan { list-style:none; margin:0; padding:0; }
+  .luar li { display:flex; justify-content:space-between; gap:12px; font-size:14px; }
+  .luar small { color:var(--abu); }
+  .peringatan li { color:var(--kuning); font-size:14px; }
+
+  .info { background:var(--kabut); border-radius:12px; padding:12px 14px; font-size:13px; color:#3c4a54; }
+
+  /* HPP & harga */
+  .saring { display:flex; gap:8px; margin-bottom:12px; }
+  .saring input, .saring select { padding:10px 12px; border:1px solid var(--garis); border-radius:10px;
+    background:#fff; min-width:0; }
+  .saring input { flex:1; }
+  .saring select { max-width:40%; }
+  .jumlah { font-size:12px; color:var(--abu); margin:0 0 6px; }
+  .daftar { list-style:none; margin:0; padding:0; }
+  .daftar li { display:grid; grid-template-columns:1fr auto; gap:2px 12px; padding:10px 0;
+    border-bottom:1px solid var(--garis); }
+  .daftar .nb { font-weight:600; font-size:14px; }
+  .daftar .kd { font-size:12px; color:var(--abu); }
+  .daftar .harga { text-align:right; font-size:13px; color:var(--abu); }
+  .daftar .harga b { color:var(--tinta); font-size:14px; }
+  .daftar .mg { text-align:right; font-size:13px; font-weight:600; }
+  .mg.bagus { color:var(--hijau); } .mg.tipis { color:var(--kuning); } .mg.rugi { color:var(--bata); }
+  .mg.tanpa { color:var(--abu); font-weight:400; }
+
+  .kosong-besar { padding:40px 0; text-align:center; color:var(--abu); }
+  .memuat { padding:60px 0; text-align:center; color:var(--abu); }
+
+  @media (max-width:420px) {
+    .anak { grid-template-columns:86px 1fr; }
+    .margin-laba { margin-left:96px; }
+    summary .porsi { display:none; }
+    summary .v { min-width:0; }
+  }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+
+<div id="masuk" hidden>
+  <img src="icon-512.png" alt="Moscow Supplies">
+  <h1>Kendali Bisnis</h1>
+  <p>Laporan bulanan dan HPP Moscow Supplies. Masuk memakai akun Google yang sudah didaftarkan.</p>
+  <button class="tombol" id="tMasuk" type="button">
+    <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
+    Masuk dengan Google
+  </button>
+  <div class="pesan" id="pesanMasuk" role="alert"></div>
+</div>
+
+<div id="aplikasi" hidden>
+  <header>
+    <div class="baris-kepala">
+      <img src="icon-192.png" alt="">
+      <span class="judul">Kendali Bisnis</span>
+      <div class="siapa"><span id="email"></span><br><button id="tKeluar" type="button">Keluar</button></div>
+    </div>
+    <nav role="tablist">
+      <button role="tab" aria-selected="true" data-tab="laporan" type="button">Laporan</button>
+      <button role="tab" aria-selected="false" data-tab="hpp" type="button">HPP &amp; harga</button>
+    </nav>
+  </header>
+
+  <main>
+    <div id="tabLaporan">
+      <div class="bulan">
+        <button id="tSebelum" type="button" aria-label="Bulan sebelumnya">‹</button>
+        <h2 id="namaBulan">…</h2>
+        <button id="tSesudah" type="button" aria-label="Bulan berikutnya">›</button>
+        <span class="status" id="status"></span>
+      </div>
+      <p class="catatan-waktu" id="dibuat"></p>
+      <div id="isiLaporan"><div class="memuat">Memuat laporan…</div></div>
+    </div>
+
+    <div id="tabHpp" hidden>
+      <div class="saring">
+        <input id="cari" type="search" placeholder="Cari nama atau kode barang" autocomplete="off">
+        <select id="kategori"><option value="">Semua kategori</option></select>
+      </div>
+      <p class="jumlah" id="jumlahBarang"></p>
+      <ul class="daftar" id="daftarHpp"><li class="memuat">Memuat barang…</li></ul>
+    </div>
+
+    <p class="info" style="margin-top:28px">Halaman ini hanya untuk melihat. Pembayaran impor, ubah harga, dan setujui kenaikan harga masih lewat Kendali Bisnis yang lama.</p>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+(function () {
+  var URL_SB = 'https://ufhuvwfudblbyrwzugaa.supabase.co';
+  var KUNCI_SB = 'sb_publishable_A8aEpcDck6ZOix9lrM727A_tI7QZ1xw';
+  var BOLEH = ['manajemen', 'kendali_bisnis', 'accounting'];
+  var NAMA_BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+  var sb = supabase.createClient(URL_SB, KUNCI_SB, { auth: { persistSession: true, detectSessionInUrl: true, flowType: 'pkce' } });
+  var $ = function (id) { return document.getElementById(id); };
+  var laporan = [], posisi = 0, barang = null;
+
+  function rp(n) { n = Math.round(Number(n) || 0); return (n < 0 ? '−Rp ' : 'Rp ') + Math.abs(n).toLocaleString('id-ID'); }
+  function persen(a, b) { return b ? (a / b * 100).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + '%' : '–'; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+  function namaBulan(b) { var p = b.split('-'); return NAMA_BULAN[Number(p[1]) - 1] + ' ' + p[0]; }
+
+  function tampilMasuk(pesan) {
+    $('aplikasi').hidden = true; $('masuk').hidden = false;
+    $('pesanMasuk').textContent = pesan || '';
+  }
+
+  $('tMasuk').onclick = function () {
+    $('pesanMasuk').textContent = '';
+    sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } })
+      .then(function (r) { if (r.error) $('pesanMasuk').textContent = 'Gagal membuka Google: ' + r.error.message; });
+  };
+  $('tKeluar').onclick = function () { sb.auth.signOut().then(function () { tampilMasuk(''); }); };
+
+  // Tab
+  document.querySelectorAll('nav button').forEach(function (b) {
+    b.onclick = function () {
+      document.querySelectorAll('nav button').forEach(function (x) { x.setAttribute('aria-selected', String(x === b)); });
+      $('tabLaporan').hidden = b.dataset.tab !== 'laporan';
+      $('tabHpp').hidden = b.dataset.tab !== 'hpp';
+      if (b.dataset.tab === 'hpp' && !barang) muatHpp();
+    };
+  });
+
+  async function mulai(sesi) {
+    if (!sesi) { tampilMasuk(''); return; }
+    var email = sesi.user.email;
+    var r = await sb.rpc('peran_saya');
+    if (r.error) { tampilMasuk('Tidak bisa memeriksa akses: ' + r.error.message); return; }
+    if (BOLEH.indexOf(r.data) === -1) {
+      await sb.auth.signOut();
+      tampilMasuk(r.data ? 'Akun ' + email + ' tidak punya akses ke Kendali Bisnis.' : 'Akun ' + email + ' belum didaftarkan. Minta master data menambahkan email ini.');
+      return;
+    }
+    $('email').textContent = email;
+    $('masuk').hidden = true; $('aplikasi').hidden = false;
+    if (history.replaceState && (location.search || location.hash)) history.replaceState(null, '', location.pathname);
+    muatLaporan();
+  }
+
+  async function muatLaporan() {
+    var r = await sb.from('hasil_hitung').select('kunci,data,dibuat').like('kunci', 'laporan:%').order('kunci');
+    if (r.error) { $('isiLaporan').innerHTML = '<div class="kosong-besar">Laporan gagal dimuat: ' + esc(r.error.message) + '</div>'; return; }
+    laporan = (r.data || []).map(function (x) { return x.data; }).filter(function (d) { return d && d.bulan; });
+    if (!laporan.length) { $('isiLaporan').innerHTML = '<div class="kosong-besar">Belum ada laporan. Laporan dibuat otomatis setiap sinkron.</div>'; return; }
+    posisi = laporan.length - 1;
+    while (posisi > 0 && !laporan[posisi].omzet && !laporan[posisi].keluar) posisi--;
+    gambarLaporan();
+  }
+
+  $('tSebelum').onclick = function () { if (posisi > 0) { posisi--; gambarLaporan(); } };
+  $('tSesudah').onclick = function () { if (posisi < laporan.length - 1) { posisi++; gambarLaporan(); } };
+
+  function tanggaBaris(kelas, nama, kiri, lebar, nilai, maks) {
+    var l = maks ? kiri / maks * 100 : 0, w = maks ? Math.max(lebar / maks * 100, .6) : 0;
+    var dalam = w > 34;
+    var posNilai = dalam ? 'left:calc(' + l + '% + 10px)' : (l + w > 62 ? 'right:calc(' + (100 - l) + '% + 8px)' : 'left:calc(' + (l + w) + '% + 8px)');
+    return '<div class="anak ' + kelas + '"><span class="nama">' + nama + '</span><div class="jalur">' +
+      '<div class="bar" style="left:' + l + '%;width:' + w + '%"></div>' +
+      '<span class="nilai angka' + (dalam && kelas !== 'kurang' ? ' dalam' : '') + '" style="' + (dalam && kelas !== 'kurang' ? '' : posNilai) + '">' + (kelas === 'kurang' ? '−' : '') + rp(nilai).replace('−', '') + '</span>' +
+      '</div></div>';
+  }
+
+  function daftarRinci(item, total) {
+    if (!item.det || !item.det.length) return '<details><summary class="kosong"><span class="panah">▶</span><span class="n">' + esc(item.n) + '</span><span class="v angka">' + rp(item.v) + '</span></summary></details>';
+    return '<details><summary><span class="panah">▶</span><span class="n">' + esc(item.n) + '</span>' +
+      '<span class="porsi"><i style="width:' + (total ? item.v / total * 100 : 0) + '%"></i></span>' +
+      '<span class="v angka">' + rp(item.v) + '</span></summary><ul class="rinci">' +
+      item.det.map(function (d) { return '<li><span>' + esc(d.n) + '</span><span class="angka">' + rp(d.v) + '</span></li>'; }).join('') +
+      '</ul></details>';
+  }
+
+  function gambarLaporan() {
+    var d = laporan[posisi];
+    $('namaBulan').textContent = namaBulan(d.bulan);
+    $('tSebelum').disabled = posisi === 0;
+    $('tSesudah').disabled = posisi === laporan.length - 1;
+    var st = $('status');
+    st.textContent = d.final ? 'Final' : 'Sementara';
+    st.className = 'status ' + (d.final ? 'final' : 'sementara');
+    $('dibuat').textContent = 'Dihitung ' + (d.dibuat || '–') + (d.final ? '' : '. Angka berubah sampai bulan ditutup.');
+
+    if (!d.omzet && !d.keluar) {
+      $('isiLaporan').innerHTML = '<div class="kosong-besar">Belum ada transaksi tercatat untuk ' + esc(namaBulan(d.bulan)) + '.</div>';
+      return;
+    }
+    var maks = Math.max(d.omzet, d.hpp + d.biaya, 1);
+    var h = '<div class="tangga">' +
+      tanggaBaris('jual', 'Penjualan', 0, d.omzet, d.omzet, maks) +
+      tanggaBaris('kurang', 'HPP', d.omzet - d.hpp, d.hpp, d.hpp, maks) +
+      tanggaBaris('kurang', 'Biaya operasional', d.omzet - d.hpp - d.biaya, d.biaya, d.biaya, maks) +
+      tanggaBaris('laba', 'Laba usaha', 0, Math.max(d.laba, 0), d.laba, maks) +
+      '<p class="margin-laba">Laba ' + persen(d.laba, d.omzet) + ' dari penjualan' + (d.hppInfo ? '. ' + esc(d.hppInfo) : '') + '</p>' +
+      '</div>';
+
+    h += '<div class="ringkas">' +
+      '<div><span>Uang masuk</span><b class="angka">' + rp(d.omzet) + '</b></div>' +
+      '<div><span>Uang keluar</span><b class="angka">' + rp(d.keluar) + '</b></div>' +
+      '<div class="kas"><span>Hasil kas bersih (masuk − keluar)</span><b class="angka">' + rp(d.kas) + '</b></div>' +
+      '</div>';
+
+    h += '<section><h3>Uang masuk per jalur <span class="angka">' + rp(d.omzet) + '</span></h3>' +
+      (d.masuk || []).map(function (m) { return daftarRinci(m, d.omzet); }).join('') + '</section>';
+
+    h += '<section class="keluar"><h3>Uang keluar per sektor <span class="angka">' + rp(d.keluar) + '</span></h3>' +
+      ((d.sektor || []).length ? d.sektor.map(function (m) { return daftarRinci(m, d.keluar); }).join('') : '<p class="jumlah">Belum ada uang keluar.</p>') + '</section>';
+
+    if ((d.luar || []).length) {
+      h += '<section><h3>Di luar laba rugi</h3><ul class="luar">' +
+        d.luar.map(function (x) { return '<li><span>' + esc(x.n) + '<br><small>' + esc(x.arah === 'Masuk' ? 'Uang masuk' : 'Uang keluar') + '</small></span><span class="angka">' + rp(x.v) + '</span></li>'; }).join('') +
+        '</ul></section>';
+    }
+    if ((d.peringatan || []).length) {
+      h += '<section><h3>Perlu dicek</h3><ul class="peringatan">' +
+        d.peringatan.map(function (x) { return '<li>' + esc(typeof x === 'string' ? x : (x.n || JSON.stringify(x))) + '</li>'; }).join('') + '</ul></section>';
+    }
+    $('isiLaporan').innerHTML = h;
+  }
+
+  // HPP & harga
+  async function muatHpp() {
+    var hasil = await Promise.all([
+      sb.from('hasil_hitung').select('data').eq('kunci', 'hpp').maybeSingle(),
+      sb.from('barang_order').select('kode,nama_barang,harga_jual,kategori').order('nama_barang')
+    ]);
+    var err = hasil[0].error || hasil[1].error;
+    if (err) { $('daftarHpp').innerHTML = '<li class="kosong-besar">Data gagal dimuat: ' + esc(err.message) + '</li>'; return; }
+    var peta = (hasil[0].data && hasil[0].data.data && hasil[0].data.data.hpp) || {};
+    var lihat = {};
+    barang = [];
+    (hasil[1].data || []).forEach(function (b) {
+      var kode = String(b.kode || '').trim();
+      if (!kode || lihat[kode]) return;
+      lihat[kode] = 1;
+      var hj = Number(b.harga_jual) || 0, hpp = Number(peta[kode]) || 0;
+      barang.push({ kode: kode, nama: b.nama_barang || kode, kat: (b.kategori || '').trim(), hj: hj, hpp: hpp,
+        m: hj && hpp ? (hj - hpp) / hj : null });
+    });
+    var kats = barang.map(function (b) { return b.kat; }).filter(function (k, i, a) { return k && a.indexOf(k) === i; }).sort();
+    $('kategori').innerHTML = '<option value="">Semua kategori</option>' + kats.map(function (k) { return '<option>' + esc(k) + '</option>'; }).join('');
+    var info = hasil[0].data && hasil[0].data.data && hasil[0].data.data.dibuat;
+    $('jumlahBarang').dataset.waktu = info ? 'HPP dihitung ' + info + '. ' : '';
+    gambarHpp();
+  }
+
+  function gambarHpp() {
+    var q = $('cari').value.trim().toLowerCase(), k = $('kategori').value;
+    var tampil = barang.filter(function (b) {
+      return (!k || b.kat === k) && (!q || b.nama.toLowerCase().indexOf(q) > -1 || b.kode.toLowerCase().indexOf(q) > -1);
+    });
+    var tanpa = tampil.filter(function (b) { return !b.hpp; }).length;
+    $('jumlahBarang').textContent = ($('jumlahBarang').dataset.waktu || '') + tampil.length + ' barang' + (tanpa ? ', ' + tanpa + ' belum punya HPP' : '') + '.';
+    if (!tampil.length) { $('daftarHpp').innerHTML = '<li class="kosong-besar">Tidak ada barang yang cocok. Ubah kata cari atau kategori.</li>'; return; }
+    $('daftarHpp').innerHTML = tampil.map(function (b) {
+      var kelas = b.m == null ? 'tanpa' : b.m < 0 ? 'rugi' : b.m < .25 ? 'tipis' : 'bagus';
+      var teksM = b.m == null ? (b.hpp ? 'Harga jual kosong' : 'HPP belum ada') : 'Margin ' + rp(b.hj - b.hpp) + ' (' + persen(b.hj - b.hpp, b.hj) + ')';
+      return '<li><span class="nb">' + esc(b.nama) + '</span>' +
+        '<span class="harga angka">Jual <b>' + (b.hj ? rp(b.hj) : '–') + '</b></span>' +
+        '<span class="kd">' + esc(b.kode) + (b.kat ? ', ' + esc(b.kat) : '') + '</span>' +
+        '<span class="harga angka">HPP ' + (b.hpp ? rp(b.hpp) : '–') + '</span>' +
+        '<span></span><span class="mg angka ' + kelas + '">' + teksM + '</span></li>';
+    }).join('');
+  }
+  $('cari').oninput = function () { if (barang) gambarHpp(); };
+  $('kategori').onchange = function () { if (barang) gambarHpp(); };
+
+  // Mulai
+  var sudah = false;
+  sb.auth.onAuthStateChange(function (ev, sesi) {
+    if (ev === 'SIGNED_OUT') { sudah = false; return; }
+    if ((ev === 'INITIAL_SESSION' || ev === 'SIGNED_IN') && !sudah) {
+      if (!sesi) { if (ev === 'INITIAL_SESSION') tampilMasuk(''); return; }
+      sudah = true;
+      setTimeout(function () { mulai(sesi); }, 0);
+    }
+  });
+})();
+</script>
+</body>
+</html>
