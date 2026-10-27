@@ -37,6 +37,17 @@
   .pintu a svg { color:var(--biru); flex:0 0 auto; }
   .pintu b { display:block; } .pintu span { font-size:12.5px; color:var(--abu); }
   .tl { font-size:13px; color:var(--abu); margin:-4px 0 14px; }
+  .rq-kpl { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 12px; align-items:baseline; }
+  .rq-kpl h3 { margin:0; font-size:16.5px; font-weight:800; }
+  .rq-mt { display:flex; flex-wrap:wrap; gap:6px; }
+  .rq-tbl td.r b { font-size:15px; }
+  .rq-tbl .kurang { color:var(--merah); font-weight:800; }
+  .prog { height:8px; border-radius:99px; background:var(--garis2); overflow:hidden; }
+  .prog i { display:block; height:100%; background:var(--biru); }
+  .kirim { font-size:13px; color:var(--teks2); background:#F7F9FB; border-radius:12px; padding:10px 12px; }
+  .kirim div + div { margin-top:4px; }
+  .aksi-baris { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .aksi-baris .isian { flex:1 1 200px; margin:0; }
 </style>
 </head>
 <body>
@@ -60,7 +71,8 @@
   var BLN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
   function namaBulan(b) { var p = String(b || '').split('-'); return BLN[Number(p[1]) - 1] || b; }
   function $(i) { return document.getElementById(i); }
-  var D = { beranda: null, ringkasan: null, setuju: null, aksi: [] }, sb = M.sb;
+  var D = { beranda: null, ringkasan: null, setuju: null, request: null, pantau: null, aksi: [] }, sb = M.sb, BAGIAN = 'request';
+  function jumlahTunggu() { return (D.setuju && D.setuju.menunggu || 0) + (D.request && D.request.n || 0); }
 
   M.mulai({
     aplikasi: 'MASTER DATA', masukJudul: 'Master Data', masukTeks: 'Pusat kendali manajemen Moscow Supplies. Masuk memakai akun Google yang sudah didaftarkan.',
@@ -77,20 +89,23 @@
     bawah: ['beranda', 'setuju', 'gudang', 'uang', 'lain'],
     pindah: function (k, m) { if ($('lamaJudul')) $('lamaJudul').textContent = m.nm + ' masih di Master Data lama'; },
     siap: function () {
-      M.aksi([{ nm: 'Muat ulang', ik: 'muat', klik: function () { muat(); } }]);
+      M.aksi([
+        { nm: 'Muat ulang', ik: 'muat', klik: function () { muat(); } },
+        { nm: 'Hitung ulang sekarang', kelas: 'pri', ik: 'muat', klik: function (b) { hitungUlang(b); } }
+      ]);
       muat();
     }
   });
 
   async function muat() {
     var h = await Promise.all([
-      sb.from('hasil_hitung').select('kunci,data,dibuat').in('kunci', ['md:beranda', 'md:ringkasan', 'md:setuju']),
+      sb.from('hasil_hitung').select('kunci,data,dibuat').in('kunci', ['md:beranda', 'md:ringkasan', 'md:setuju', 'md:request', 'md:pantau']),
       sb.from('md_aksi').select('*').order('id', { ascending: false }).limit(10)
     ]);
     if (h[0].error) { $('bBeranda').innerHTML = '<div class="msg bad">Data gagal dimuat: ' + esc(h[0].error.message) + '</div>'; return; }
-    (h[0].data || []).forEach(function (x) { if (x.kunci === 'md:beranda') D.beranda = x.data; else if (x.kunci === 'md:ringkasan') D.ringkasan = x.data; else D.setuju = x.data; });
+    (h[0].data || []).forEach(function (x) { D[{ 'md:beranda': 'beranda', 'md:ringkasan': 'ringkasan', 'md:setuju': 'setuju', 'md:request': 'request', 'md:pantau': 'pantau' }[x.kunci]] = x.data; });
     D.aksi = h[1].data || [];
-    M.badge('setuju', D.setuju && D.setuju.menunggu ? D.setuju.menunggu : 0);
+    M.badge('setuju', jumlahTunggu());
     gambarBeranda(); gambarDasbor(); gambarSetuju();
   }
 
@@ -127,8 +142,9 @@
     var d = D.beranda, r = D.ringkasan || {}, h = '', n = 0;
     if (d.nota && d.nota.n) { h += '<button type="button" class="ti w" data-buka="uang"><span><b>' + d.nota.n + ' nota toko offline belum ada metode bayar</b><span class="ks">' + rp(d.nota.v) + ' belum masuk saldo · Accounting › Saldo</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; }
     (d.akun || []).forEach(function (a) { if (a.v < 0) { h += '<button type="button" class="ti w" data-buka="uang"><span><b>' + esc(/^saldo /i.test(a.n) ? a.n : 'Saldo ' + a.n) + ' minus ' + rp(-a.v) + '</b><span class="ks">Periksa saldo awal atau catatan uang masuk</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; } });
-    var t = D.setuju ? D.setuju.menunggu : 0;
-    if (t) { h += '<button type="button" class="ti" data-buka="setuju"><span><b>Persetujuan menunggu</b><span class="ks">Penyesuaian stok dari toko dan staf produksi</span></span><span class="bdg">' + t + '</span><span class="pa" aria-hidden="true">›</span></button>'; n++; }
+    var t = jumlahTunggu();
+    if (D.pantau && D.pantau.nTahan) { h += '<button type="button" class="ti w" data-buka="setuju"><span><b>' + D.pantau.nTahan + ' pengiriman tertahan</b><span class="ks">Persetujuan › Pantau pengiriman</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; }
+    if (t) { h += '<button type="button" class="ti" data-buka="setuju"><span><b>Persetujuan menunggu</b><span class="ks">Request barang toko &amp; consignment, penyesuaian stok</span></span><span class="bdg">' + t + '</span><span class="pa" aria-hidden="true">›</span></button>'; n++; }
     if (r.pinjam && r.pinjam.lewat) { h += '<button type="button" class="ti w" data-buka="dasbor"><span><b>' + r.pinjam.lewat + ' pinjaman barang lewat tanggal kembali</b><span class="ks">' + r.pinjam.n + ' pinjaman belum kembali · ' + fmt(r.pinjam.pcs) + ' pcs</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; }
     (r.akhir || []).forEach(function (a) { if (a.lalu !== null && a.lalu > (r.batas || 3)) { h += '<button type="button" class="ti w" data-buka="dasbor"><span><b>' + esc(a.n) + ' belum mengisi laporan ' + a.lalu + ' hari</b><span class="ks">Terakhir ' + esc(a.akhir || '–') + '</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; } });
     var tgl = Number(String(d.hari).slice(8)), akhir = new Date(Number(d.hari.slice(0, 4)), Number(d.hari.slice(5, 7)), 0).getDate();
@@ -139,7 +155,7 @@
   function gambarBeranda() {
     var d = D.beranda, el = $('bBeranda');
     if (!d) { el.innerHTML = '<div class="msg w">Beranda belum tersedia. Data dikirim otomatis saat sinkron berikutnya.</div>'; return; }
-    var h = '<p class="tl">Angka dari form accounting, diperbarui ' + esc(d.diperbarui || '') + '. Data baru masuk paling lambat 30 menit.</p><div class="kp">';
+    var h = '<p class="tl">Angka dari form accounting, diperbarui ' + esc(d.diperbarui || '') + '. Dihitung ulang tiap jam (07.00–22.00); tekan "Hitung ulang sekarang" kalau perlu angka terbaru.</p><div class="kp">';
     (d.akun || []).forEach(function (a) {
       h += '<div class="kt"><span class="l">' + esc(/^saldo /i.test(a.n) ? a.n : 'Saldo ' + a.n) + '</span><span class="v angka' + (a.v < 0 ? ' mn' : '') + '">' + jt(a.v) + '</span><span class="k' + (a.v < 0 ? ' w' : '') + '">' + (a.v < 0 ? 'Saldo minus, periksa catatan' : rp(a.v)) + '</span></div>';
     });
@@ -200,15 +216,163 @@
     el.innerHTML = h;
   }
 
-  // ======================= PERSETUJUAN =======================
+  // ======================= PERSETUJUAN: pembungkus 3 bagian =======================
+  async function muatAksi() {
+    var a = await sb.from('md_aksi').select('*').order('id', { ascending: false }).limit(15);
+    if (!a.error) D.aksi = a.data || [];
+  }
+  async function kirimAksi(fungsi, param, ringkas, tempatPesan, teksOk) {
+    var r = await sb.from('md_aksi').insert({ fungsi: fungsi, param: param, ringkas: String(ringkas).slice(0, 200) });
+    if (r.error) { if (tempatPesan) tempatPesan.innerHTML = '<div class="msg bad">Gagal mengirim: ' + esc(r.error.message) + '</div>'; return false; }
+    await muatAksi(); gambarSetuju();
+    var el = $('msgUtama'); if (el) el.innerHTML = '<div class="msg ok">' + esc(teksOk || 'Tercatat. Diterapkan ke Google Sheets paling lambat 5 menit lagi.') + '</div>';
+    return true;
+  }
+  async function hitungUlang(b) {
+    if (b) b.disabled = true;
+    var r = await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang semua data Master Data' });
+    if (b) b.disabled = false;
+    await muatAksi(); gambarSetuju();
+    alertMsg(r.error ? 'Gagal meminta hitung ulang: ' + r.error.message : 'Hitung ulang diminta. Angka baru muncul paling lambat 5 menit lagi (tekan Muat ulang).', !r.error);
+  }
+  function alertMsg(t, ok) {
+    var tujuan = document.querySelector('#mIsi > section.on');
+    if (!tujuan) return;
+    var el = tujuan.querySelector('.msg-atas');
+    if (!el) { el = document.createElement('div'); el.className = 'msg-atas'; tujuan.insertBefore(el, tujuan.firstChild); }
+    el.innerHTML = '<div class="msg ' + (ok ? 'ok' : 'bad') + '">' + esc(t) + '</div>';
+  }
+  function antreNo() {
+    var o = {};
+    D.aksi.filter(function (a) { return a.status === 'menunggu'; }).forEach(function (a) {
+      if (a.fungsi === 'rpPutus' || a.fungsi === 'rpTandai') o[a.param.no] = a.ringkas;
+    });
+    return o;
+  }
+
   function gambarSetuju() {
-    var ST = D.setuju, el = $('bSetuju');
+    var el = $('bSetuju');
+    var nR = D.request ? D.request.n || 0 : 0, nP = D.pantau ? (D.pantau.aktif || []).length : 0, nS = D.setuju ? D.setuju.menunggu || 0 : 0;
+    M.badge('setuju', nR + nS);
+    var antre = D.aksi.filter(function (a) { return a.status === 'menunggu'; });
+    var h = '<div id="msgUtama"></div>';
+    if (antre.length) h += '<div class="msg tunggu">' + antre.length + ' keputusan sedang diterapkan ke Google Sheets (paling lambat 5 menit): ' + antre.slice(0, 3).map(function (a) { return esc(a.ringkas); }).join(' · ') + '</div>';
+    h += '<div class="chip" role="group" aria-label="Bagian persetujuan">' +
+      [['request', 'Request barang', nR + ' menunggu'], ['pantau', 'Pantau pengiriman', nP + ' berjalan'], ['sesuai', 'Penyesuaian stok', nS + ' menunggu']].map(function (b) {
+        return '<button type="button" data-bg="' + b[0] + '" aria-pressed="' + (BAGIAN === b[0]) + '"><span>' + b[1] + '</span><b>' + b[2] + '</b></button>';
+      }).join('') + '</div>';
+    h += '<div id="bgRequest"' + (BAGIAN === 'request' ? '' : ' hidden') + '></div><div id="bgPantau"' + (BAGIAN === 'pantau' ? '' : ' hidden') + '></div><div id="bgSesuai"' + (BAGIAN === 'sesuai' ? '' : ' hidden') + '></div>';
+    var log = D.aksi.filter(function (a) { return a.fungsi !== 'segarkan'; });
+    if (log.length) {
+      h += '<div class="cd"><h3>Keputusan dari aplikasi baru</h3><table class="tabel"><tbody>' + log.slice(0, 10).map(function (a) {
+        var lbl = a.status === 'menunggu' ? '<span class="label abu">diterapkan…</span>' : a.status === 'selesai' ? '<span class="label ok">selesai</span>' : '<span class="label no">gagal</span>';
+        return '<tr><td>' + esc(a.ringkas) + '<small>' + new Date(a.dibuat).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) + (a.hasil && a.hasil.pesan ? ' · ' + esc(a.hasil.pesan) : '') + '</small></td><td class="r">' + lbl + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+    }
+    el.innerHTML = h;
+    el.querySelectorAll('[data-bg]').forEach(function (b) { b.onclick = function () { BAGIAN = b.getAttribute('data-bg'); gambarSetuju(); }; });
+    gambarRequest(); gambarPantau(); gambarSesuai();
+  }
+
+  // ---------- Request barang toko & consignment (rpDaftar / rpPutus) ----------
+  var WARNA_ST = { 'Kritis': 'no', 'Segera isi': 'w', 'Aman': 'ok', 'Berlebih': 'w', 'Belum laku': 'no', 'Belum dicoba': 'abu', 'Belum ada data': 'abu' };
+  function gambarRequest() {
+    var R = D.request, el = $('bgRequest'); if (!el) return;
+    if (!R) { el.innerHTML = '<div class="msg w">Daftar request belum tersedia. Tekan "Hitung ulang sekarang".</div>'; return; }
+    var antre = antreNo();
+    if (!R.list || !R.list.length) { el.innerHTML = '<div class="cd"><div class="aman">Tidak ada request barang yang menunggu.</div></div>'; return; }
+    el.innerHTML = R.list.map(function (o, i) {
+      var q = antre[o.no];
+      var tanda = [];
+      if (o.kurang) tanda.push('<span class="label no">' + o.kurang + ' barang melebihi stok gudang</span>');
+      if (o.lebih) tanda.push('<span class="label w">' + o.lebih + ' barang lebih dari ' + (R.batas || 60) + ' hari</span>');
+      if (o.belumLaku) tanda.push('<span class="label w">' + o.belumLaku + ' barang belum laku</span>');
+      return '<div class="cd"><div class="rq-kpl"><h3>' + esc(o.pl) + '</h3><span class="sb">' + esc(o.no) + ' · ' + esc(o.t) + (o.p ? ' · ' + esc(o.p) : '') + '</span></div>' +
+        (o.c ? '<div class="sb">Catatan: ' + esc(o.c) + '</div>' : '') +
+        '<div class="rq-mt"><span class="label biru">' + fmt(o.q) + ' pcs</span><span class="label abu">nilai HPP ' + rp(o.nilai) + '</span>' + tanda.join('') + '</div>' +
+        '<div class="gulir"><table class="tabel rq-tbl"><thead><tr><th>Barang</th><th class="r">Minta</th><th class="r">Gudang</th><th class="r">Stok toko</th><th class="r">Laku 30 hr</th><th class="r">Cukup</th><th class="r">Saran</th></tr></thead><tbody>' +
+        o.items.map(function (it) {
+          return '<tr><td><b>' + esc(it.n) + '</b>' + (it.w ? '<small>' + esc(it.w) + '</small>' : '') + '<small><span class="label ' + (WARNA_ST[it.st] || 'abu') + '">' + esc(it.st) + '</span></small></td>' +
+            '<td class="r"><b>' + fmt(it.q) + '</b></td><td class="r' + (it.q > it.gd ? ' kurang' : '') + '">' + fmt(it.gd) + '</td><td class="r">' + fmt(it.s) + '</td><td class="r">' + fmt(it.j30) + '</td>' +
+            '<td class="r">' + (it.cukup === null || it.cukup === undefined ? '–' : fmt(it.cukup) + ' hr') + '</td><td class="r">' + fmt(it.saran) + '</td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<p class="sb" style="margin:0">Cukup = perkiraan stok toko cukup berapa hari setelah barang diterima. Saran robot = jumlah supaya stok cukup ' + (R.target || 30) + ' hari. Data penjualan ' + fmt(o.hari) + ' hari terakhir.</p>' +
+        (q ? '<div class="msg tunggu" style="margin:0">Sedang diterapkan: ' + esc(q) + '</div>'
+          : '<div class="aksi-baris"><input class="isian" placeholder="Alasan (wajib kalau ditolak)" maxlength="200" data-alasan="' + i + '"><button type="button" class="tbl pri" data-rq="' + i + '" data-aksi="setuju">Setujui</button><button type="button" class="tbl mer" data-rq="' + i + '" data-aksi="tolak">Tolak</button></div><div data-pesan="' + i + '"></div>') +
+        '</div>';
+    }).join('');
+    el.querySelectorAll('[data-rq]').forEach(function (b) {
+      b.onclick = async function () {
+        var i = +b.getAttribute('data-rq'), o = R.list[i], aksi = b.getAttribute('data-aksi');
+        var alasan = (el.querySelector('[data-alasan="' + i + '"]').value || '').trim();
+        var tempat = el.querySelector('[data-pesan="' + i + '"]');
+        if (aksi === 'tolak' && !alasan) { tempat.innerHTML = '<div class="msg bad">Isi alasan penolakan dulu.</div>'; return; }
+        b.disabled = true;
+        await kirimAksi('rpPutus', { no: o.no, aksi: aksi, alasan: alasan }, (aksi === 'setuju' ? 'Setujui' : 'Tolak') + ' request ' + o.no + ' (' + o.pl + ', ' + fmt(o.q) + ' pcs)', tempat,
+          'Request ' + o.no + (aksi === 'setuju' ? ' disetujui' : ' ditolak') + '. Diterapkan ke Google Sheets dan Telegram paling lambat 5 menit lagi.');
+      };
+    });
+  }
+
+  // ---------- Pantau pengiriman (rpPantau / rpTandai) ----------
+  function gambarPantau() {
+    var P = D.pantau, el = $('bgPantau'); if (!el) return;
+    if (!P) { el.innerHTML = '<div class="msg w">Data pengiriman belum tersedia. Tekan "Hitung ulang sekarang".</div>'; return; }
+    var antre = antreNo();
+    var h = '<p class="tl">Diperbarui ' + esc(P.diperbarui || '') + (P.nTahan ? ' · <b style="color:#B42318">' + P.nTahan + ' tertahan</b>' : '') + (P.nSelisih ? ' · ' + P.nSelisih + ' ada selisih terima' : '') + '</p>';
+    if (!P.aktif || !P.aktif.length) h += '<div class="cd"><div class="aman">Tidak ada pengiriman yang sedang berjalan.</div></div>';
+    (P.aktif || []).forEach(function (o, i) {
+      var q = antre[o.no], pr = o.q ? Math.round(o.kirim / o.q * 100) : 0;
+      var lbl = o.st === 'Dikirim' ? '<span class="label biru">Dikirim, menunggu toko</span>' : (o.dp ? '<span class="label w">Diproses gudang</span>' : '<span class="label abu">Disetujui, belum diproses</span>');
+      var bisaSelesai = o.st === 'Dikirim' || (o.st === 'Disetujui' && o.kirim > 0 && o.sisa === 0);
+      var bisaKirim = o.st === 'Disetujui' && o.kirim > 0, bisaBatal = o.st === 'Disetujui' && !o.kirim;
+      h += '<div class="cd"><div class="rq-kpl"><h3>' + esc(o.pl) + '</h3><span class="sb">' + esc(o.no) + ' · ' + esc(o.t) + '</span></div>' +
+        '<div class="rq-mt">' + lbl + (o.tahan ? '<span class="label no">' + esc(o.tahan) + '</span>' : '') + '</div>' +
+        '<div><div class="tx" style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:5px"><span>Terkirim ' + fmt(o.kirim) + ' dari ' + fmt(o.q) + ' pcs</span><b>' + (o.sisa ? 'sisa ' + fmt(o.sisa) : 'lengkap') + '</b></div><div class="prog"><i style="width:' + pr + '%"></i></div></div>';
+      var info = [];
+      if (o.dp) info.push('Diproses ' + esc(o.dp.oleh || '') + ' · ' + esc(o.dp.t || ''));
+      (o.kr || []).forEach(function (k) { info.push('Dikirim ' + esc(k.t || '') + (k.sj ? ' · ' + esc(k.sj) : '') + (k.kurir ? ' · ' + esc(k.kurir) : '') + (k.resi ? ' · resi ' + esc(k.resi) : '') + (k.ongkir ? ' · ongkir ' + rp(k.ongkir) : '') + (k.foto && /^https:\/\//.test(k.foto) ? ' · <a href="' + esc(k.foto) + '" target="_blank" rel="noopener">foto paket</a>' : '')); });
+      if (!(o.kr || []).length && (o.sj || []).length) info.push('Surat jalan: ' + o.sj.map(esc).join(', '));
+      if (o.tr) info.push('Diterima ' + esc(o.tr.oleh || '') + ' · ' + esc(o.tr.t || '') + (o.tr.selisih ? ' · <b style="color:#B42318">selisih ' + fmt(o.tr.selisih) + ' pcs</b>' : '') + (o.tr.c ? ' · ' + esc(o.tr.c) : ''));
+      if (info.length) h += '<div class="kirim">' + info.map(function (t) { return '<div>' + t + '</div>'; }).join('') + '</div>';
+      h += '<details><summary class="sb" style="cursor:pointer">Rincian ' + o.items.length + ' barang</summary><table class="tabel"><tbody>' + o.items.map(function (it) {
+        return '<tr><td>' + esc(it.n) + (it.w ? ' – ' + esc(it.w) : '') + '</td><td class="r">' + fmt(it.kirim) + ' / ' + fmt(it.q) + '</td></tr>'; }).join('') + '</tbody></table></details>';
+      if (q) h += '<div class="msg tunggu" style="margin:0">Sedang diterapkan: ' + esc(q) + '</div>';
+      else if (bisaSelesai || bisaKirim || bisaBatal) {
+        h += '<div class="aksi-baris"><input class="isian" placeholder="Catatan / alasan (alasan wajib kalau dibatalkan)" maxlength="200" data-pc="' + i + '">' +
+          (bisaSelesai ? '<button type="button" class="tbl pri" data-pt="' + i + '" data-aksi="selesai">Tandai diterima toko</button>' : '') +
+          (bisaKirim ? '<button type="button" class="tbl" data-pt="' + i + '" data-aksi="kirim">Tandai dikirim (sisa tidak dikirim)</button>' : '') +
+          (bisaBatal ? '<button type="button" class="tbl mer" data-pt="' + i + '" data-aksi="batal">Batalkan</button>' : '') + '</div><div data-pp="' + i + '"></div>';
+      }
+      h += '</div>';
+    });
+    if ((P.selesai || []).length) {
+      h += '<div class="cd"><h3>Selesai / batal 30 hari terakhir</h3><table class="tabel"><tbody>' + P.selesai.map(function (o) {
+        return '<tr><td><b>' + esc(o.pl) + '</b><small>' + esc(o.no) + ' · ' + esc(o.t) + (o.tr && o.tr.selisih ? ' · selisih ' + fmt(o.tr.selisih) + ' pcs' : '') + '</small></td><td class="r"><span class="label ' + (o.st === 'Selesai' ? 'ok' : 'no') + '">' + esc(o.st) + '</span><small>' + fmt(o.kirim) + ' / ' + fmt(o.q) + ' pcs</small></td></tr>';
+      }).join('') + '</tbody></table></div>';
+    }
+    el.innerHTML = h;
+    el.querySelectorAll('[data-pt]').forEach(function (b) {
+      b.onclick = async function () {
+        var i = +b.getAttribute('data-pt'), o = P.aktif[i], aksi = b.getAttribute('data-aksi');
+        var cat = (el.querySelector('[data-pc="' + i + '"]').value || '').trim(), tempat = el.querySelector('[data-pp="' + i + '"]');
+        if (aksi === 'batal' && !cat) { tempat.innerHTML = '<div class="msg bad">Isi alasan pembatalan dulu.</div>'; return; }
+        b.disabled = true;
+        var nama = { selesai: 'Tandai diterima', kirim: 'Tandai dikirim', batal: 'Batalkan' }[aksi];
+        await kirimAksi('rpTandai', { no: o.no, aksi: aksi, catatan: cat, alasan: cat }, nama + ' ' + o.no + ' (' + o.pl + ')', tempat,
+          nama + ' ' + o.no + ' tercatat. Diterapkan ke Google Sheets paling lambat 5 menit lagi.');
+      };
+    });
+  }
+
+  // ======================= PERSETUJUAN =======================
+  function gambarSesuai() {
+    var ST = D.setuju, el = $('bgSesuai');
     if (!ST) { el.innerHTML = '<div class="msg w">Daftar persetujuan belum tersedia.</div>'; return; }
-    var antre = D.aksi.filter(function (a) { return a.status === 'menunggu'; }), dalam = {};
+    var antre = D.aksi.filter(function (a) { return a.status === 'menunggu' && a.fungsi === 'mdSetujuPutus'; }), dalam = {};
     antre.forEach(function (a) { (a.param.toko || []).concat(a.param.prod || []).forEach(function (no) { dalam[no] = a.param.setuju ? 'disetujui' : 'ditolak'; }); });
     var h = '<p class="tl">Diperbarui ' + esc(ST.diperbarui) + '</p><div id="msgSetuju"></div>';
-    if (antre.length) h += '<div class="msg tunggu">' + antre.length + ' keputusan sedang diterapkan ke Google Sheets (paling lambat 5 menit). Daftar ini ikut diperbarui sesudahnya.</div>';
-    h += '<div class="cd"><div class="kpl"><h3>Menunggu persetujuan</h3><span class="sb">' + (ST.menunggu || 0) + ' ajuan</span></div>';
+    h += '<div class="cd"><div class="kpl"><h3>Penyesuaian stok menunggu</h3><span class="sb">' + (ST.menunggu || 0) + ' ajuan</span></div>';
     if (!ST.grup || !ST.grup.length) h += '<div class="aman">Tidak ada ajuan yang menunggu.</div>';
     else {
       h += '<label class="sb" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="pilihSemua" style="width:18px;height:18px;accent-color:#1E78A8"> Pilih semua</label>';
@@ -226,12 +390,6 @@
         '<div class="baris"><button type="button" class="tbl pri lebar" id="tSetuju" disabled style="flex:1 1 160px">Setujui yang dipilih</button><button type="button" class="tbl mer lebar" id="tTolak" disabled style="flex:1 1 160px">Tolak yang dipilih</button></div>';
     }
     h += '</div>';
-    if (D.aksi.length) {
-      h += '<div class="cd"><h3>Keputusan dari aplikasi baru</h3><table class="tabel"><tbody>' + D.aksi.map(function (a) {
-        var lbl = a.status === 'menunggu' ? '<span class="label abu">diterapkan…</span>' : a.status === 'selesai' ? '<span class="label ok">selesai</span>' : '<span class="label no">gagal</span>';
-        return '<tr><td>' + esc(a.ringkas) + '<small>' + new Date(a.dibuat).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) + (a.hasil && a.hasil.pesan ? ' · ' + esc(a.hasil.pesan) : '') + '</small></td><td class="r">' + lbl + '</td></tr>';
-      }).join('') + '</tbody></table></div>';
-    }
     var rw = ST.riwayat || [];
     if (rw.length) h += '<div class="cd"><h3>Keputusan terakhir</h3><div class="gulir"><table class="tabel"><tbody>' + rw.map(function (x) {
       var sel = Number(x.sel) || 0;
@@ -252,7 +410,7 @@
 
   async function putuskan(setuju) {
     var toko = [], prod = [], nama = [];
-    $('bSetuju').querySelectorAll('input[data-no]:checked').forEach(function (k) {
+    $('bgSesuai').querySelectorAll('input[data-no]:checked').forEach(function (k) {
       (k.dataset.jenis === 'toko' ? toko : prod).push(k.dataset.no);
       nama.push(k.closest('.ajuan').querySelector('b').textContent);
     });
@@ -261,8 +419,7 @@
     var ringkas = (setuju ? 'Setujui ' : 'Tolak ') + (toko.length + prod.length) + ' ajuan: ' + nama.slice(0, 3).join(', ') + (nama.length > 3 ? ', …' : '');
     var r = await sb.from('md_aksi').insert({ fungsi: 'mdSetujuPutus', param: { toko: toko, prod: prod, setuju: setuju, catatan: ($('catatan').value || '').trim().slice(0, 160) }, ringkas: ringkas.slice(0, 200) });
     if (r.error) { $('msgSetuju').innerHTML = '<div class="msg bad">Gagal mengirim keputusan: ' + esc(r.error.message) + '</div>'; $('tSetuju').disabled = false; $('tTolak').disabled = false; return; }
-    var a = await sb.from('md_aksi').select('*').order('id', { ascending: false }).limit(10);
-    D.aksi = a.data || D.aksi;
+    await muatAksi();
     gambarSetuju();
     $('msgSetuju').innerHTML = '<div class="msg ok">Keputusan tercatat. Stok disesuaikan di Google Sheets paling lambat 5 menit lagi.</div>';
   }
