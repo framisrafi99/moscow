@@ -76,6 +76,7 @@
   <section data-bagian="jual" id="bJual"><div class="ksg">Memuat penjualan…</div></section>
   <section data-bagian="setuju" id="bSetuju"><div class="ksg">Memuat persetujuan…</div></section>
   <section data-bagian="produksi" id="bProduksi"><div class="ksg">Memuat produksi…</div></section>
+  <section data-bagian="uang" id="bUang"><div class="ksg">Memuat accounting…</div></section>
   <section data-bagian="gudang" id="bGudang"><div class="ksg">Memuat gudang utama…</div></section>
   <section data-bagian="purch" id="bPurch"><div class="ksg">Memuat purchasing…</div></section>
   <section data-bagian="__lama">
@@ -98,7 +99,8 @@
   var KUNCI = { 'md:beranda': 'beranda', 'md:ringkasan': 'ringkasan', 'md:setuju': 'setuju', 'md:request': 'request', 'md:pantau': 'pantau',
     'md:titip': 'titip', 'md:mkt': 'mkt', 'md:mkt:lalu': 'mktLalu', 'md:bh': 'bh', 'md:bh:lalu': 'bhLalu',
     'md:gudang': 'gudang', 'md:beli:lalu': 'beliLalu', 'md:pengadaan': 'pengadaan', 'md:tanpa': 'tanpa',
-    'md:prod': 'prod', 'md:botol': 'botol', 'md:bbk': 'bbk', 'md:rpd': 'rpd', 'md:rbb': 'rbb', 'md:pp:prod': 'ppProd', 'md:pp:bahan': 'ppBahan' };
+    'md:prod': 'prod', 'md:botol': 'botol', 'md:bbk': 'bbk', 'md:rpd': 'rpd', 'md:rbb': 'rbb', 'md:pp:prod': 'ppProd', 'md:pp:bahan': 'ppBahan',
+    'md:acc': 'acc', 'md:acc:lalu': 'accLalu', 'md:hrgnaik': 'hrgnaik', 'md:hbb': 'hbb', 'md:tpb': 'tpb' };
   function jumlahTunggu() { return (D.setuju && D.setuju.menunggu || 0) + (D.request && D.request.n || 0); }
 
   M.mulai({
@@ -133,7 +135,7 @@
     (h[0].data || []).forEach(function (x) { D[KUNCI[x.kunci]] = x.data; D.waktu[KUNCI[x.kunci]] = x.dibuat; });
     D.aksi = h[1].data || [];
     M.badge('setuju', jumlahTunggu());
-    gambarBeranda(); gambarDasbor(); gambarSetuju(); gambarGudang(); gambarPurch(); gambarProduksi();
+    gambarBeranda(); gambarDasbor(); gambarSetuju(); gambarGudang(); gambarPurch(); gambarProduksi(); gambarUang();
     if (J.mulai) { gambarJual(); gambarJualIsi(); }
   }
 
@@ -845,6 +847,93 @@
     h += '<div class="cd"><div class="kpl"><h3>Per barang</h3><span class="sb">' + d.item.length + ' barang</span></div><div class="gulir"><table class="tabel"><thead><tr><th>Barang</th><th class="r">Bulan ini</th><th class="r">Bulan lalu</th></tr></thead><tbody>' + d.item.map(function (x) {
       return '<tr><td>' + esc(x.n) + '<small>' + esc(x.kat) + '</small></td><td class="r angka">' + dec(x.ini, dp) + '</td><td class="r angka">' + dec(x.lalu, dp) + '</td></tr>'; }).join('') + '</tbody></table></div></div></div>';
     return h + '<p class="sb">Bulan berjalan dibandingkan dengan tanggal yang sama bulan lalu. Data di sistem baru mulai Oktober 2026, jadi pembanding September masih kosong.</p>';
+  }
+
+
+  // ======================= ACCOUNTING (akuntingLaporan, hargaBahanBakuMaster, hrgNaikData, tpbData lama) =======================
+  var U = { bagian: 'lap', b: 'ini', arah: '', q: '', qh: '', qn: '' };
+  function gambarUang() {
+    var el = $('bUang'); if (!el) return;
+    var t = D.tpb, nCek = t && t.cek ? t.cek.filter(function (c) { return !c.ok; }).length : 0;
+    var h = '<p class="tl">Laporan bulan ini diperbarui sekitar sejam sekali; harga dan tutup buku tiap 3 jam · ' + waktuPotret('acc') + '</p>';
+    h += '<div class="chip" role="group" aria-label="Bagian accounting">' + [['lap', 'Laporan bulanan', D.acc ? 'laba ' + jt(D.acc.lr.bersih) : ''], ['trx', 'Transaksi', D.acc ? D.acc.rinci.length + ' catatan' : ''], ['hbb', 'Harga bahan & kemasan', ''], ['naik', 'Kenaikan harga', D.hrgnaik ? D.hrgnaik.list.length + ' catatan' : ''], ['tpb', 'Tutup buku', t ? (nCek ? nCek + ' perlu dibereskan' : 'siap') : '']].map(function (b) {
+      return '<button type="button" data-ub="' + b[0] + '" aria-pressed="' + (U.bagian === b[0]) + '"><span>' + b[1] + '</span><b>' + (b[2] || '&nbsp;') + '</b></button>'; }).join('') + '</div>';
+    try { h += U.bagian === 'lap' ? isiLapUang() : U.bagian === 'trx' ? isiTrx() : U.bagian === 'hbb' ? isiHbb() : U.bagian === 'naik' ? isiNaik() : isiTpb(); }
+    catch (e) { h += '<div class="msg bad">Bagian ini gagal ditampilkan: ' + esc(e.message) + '</div>'; }
+    el.innerHTML = h;
+    var pasang = function (attr, fn) { el.querySelectorAll('[data-' + attr + ']').forEach(function (b) { b.onclick = function () { fn(b.getAttribute('data-' + attr)); gambarUang(); }; }); };
+    pasang('ub', function (v) { U.bagian = v; }); pasang('ubl', function (v) { U.b = v; }); pasang('uar', function (v) { U.arah = v; });
+    ['uQ', 'uQh', 'uQn'].forEach(function (id) { var c = $(id); if (c) c.oninput = function () { var pos = c.selectionStart; U[{ uQ: 'q', uQh: 'qh', uQn: 'qn' }[id]] = c.value; gambarUang(); var c2 = $(id); c2.focus(); try { c2.setSelectionRange(pos, pos); } catch (e) { } }; });
+    var on = el.querySelector('[data-ub][aria-pressed="true"]');
+    if (on && on.parentNode.scrollWidth > on.parentNode.clientWidth) on.parentNode.scrollLeft = Math.max(0, on.offsetLeft - on.parentNode.offsetLeft - 16);
+  }
+  function lapPilih() { return U.b === 'ini' ? D.acc : D.accLalu; }
+  function isiLapUang() {
+    var d = lapPilih(), h = pilihSub('ubl', U.b, [['ini', 'Bulan ini'], ['lalu', 'Bulan lalu']]);
+    if (!d) return h + '<div class="msg w">Laporan accounting belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var L = d.lr;
+    h += '<p class="tl">' + esc(namaBulan(d.bulan)) + ' · dihitung ' + esc(d.diperbarui) + '</p>';
+    h += '<div class="kp"><div class="kt"><span class="l">Pendapatan</span><span class="v angka">' + jt(L.pend) + '</span><span class="k">' + rp(L.pend) + '</span></div><div class="kt"><span class="l">Pembelian barang &amp; bahan</span><span class="v angka">' + jt(L.beli) + '</span><span class="k">laba kotor ' + rp(L.kotor) + '</span></div>' +
+      '<div class="kt"><span class="l">Biaya operasional</span><span class="v angka">' + jt(L.biaya) + '</span><span class="k">' + rp(L.biaya) + '</span></div><div class="kt"><span class="l">Laba bersih</span><span class="v angka' + (L.bersih < 0 ? ' mn' : '') + '">' + jt(L.bersih) + '</span><span class="k">' + rp(L.bersih) + '</span></div></div>';
+    if ((d.peringatan || []).length || d.tanpaAkun) h += '<div class="msg w">' + (d.peringatan || []).map(esc).join('<br>') + (d.tanpaAkun ? (d.peringatan.length ? '<br>' : '') + 'Ada transaksi ' + rp(d.tanpaAkun) + ' tanpa akun.' : '') + '</div>';
+    var akun = d.akun || [], sum = function (k) { return akun.reduce(function (s, a) { return s + (Number(a[k]) || 0); }, 0); };
+    h += '<div class="cd"><div class="kpl"><h3>Saldo per akun</h3><span class="sb">Total akhir ' + rp(sum('akhir')) + '</span></div><div class="gulir"><table class="tabel"><thead><tr><th>Akun</th><th class="r hp-x">Awal</th><th class="r">Masuk</th><th class="r">Keluar</th><th class="r hp-x">Pindah</th><th class="r">Akhir</th></tr></thead><tbody>' + akun.map(function (a) {
+      return '<tr' + (a.awal || a.akhir || a.masuk || a.keluar || a.pindah ? '' : ' style="opacity:.55"') + '><td><b>' + esc(a.n) + '</b><small>' + esc(a.j) + '</small></td><td class="r angka hp-x">' + rp(a.awal) + '</td><td class="r angka">' + rp(a.masuk) + '</td><td class="r angka">' + rp(a.keluar) + '</td><td class="r angka hp-x">' + (a.pindah ? (a.pindah > 0 ? '+' : '') + rp(a.pindah) : '–') + '</td><td class="r angka"><b>' + rp(a.akhir) + '</b></td></tr>'; }).join('') + '</tbody></table></div>' +
+      '<p class="sb">Dana marketplace "belum cair" = penjualan yang uangnya masih di Shopee / Tokopedia / Lazada. Pindah = perpindahan antar akun (bukan pemasukan / pengeluaran).</p></div>';
+    var kat = d.kat || [], blok = function (arah, judul) {
+      var l = kat.filter(function (k) { return k.arah === arah; }), mx = Math.max.apply(null, l.map(function (k) { return k.v; }).concat([1])), tot = l.reduce(function (s, k) { return s + k.v; }, 0);
+      return '<div class="cd"><div class="kpl"><h3>' + judul + '</h3><span class="sb angka">' + rp(tot) + '</span></div>' + (l.length ? l.map(function (k) {
+        return '<div class="br"><div class="tx"><span>' + esc(k.n) + ' <span class="sb">· ' + esc(k.kel) + (k.auto ? ' · otomatis' : '') + '</span></span><b class="angka">' + rp(k.v) + '</b></div><div class="tr"><div class="is" style="width:' + Math.max(2, Math.round(k.v / mx * 100)) + '%"></div></div></div>'; }).join('') : '<div class="ksg">Belum ada.</div>') + '</div>';
+    };
+    h += '<div class="dua">' + blok('Masuk', 'Uang masuk per kategori') + blok('Keluar', 'Uang keluar per kategori') + '</div>';
+    return h + '<p class="sb">Pencatatan uang masuk / keluar tetap lewat formulir accounting. Kategori "otomatis" berasal dari penjualan yang tercatat sendiri oleh sistem.</p>';
+  }
+  function isiTrx() {
+    var d = lapPilih(), h = pilihSub('ubl', U.b, [['ini', 'Bulan ini'], ['lalu', 'Bulan lalu']]);
+    if (!d) return h + '<div class="msg w">Laporan accounting belum tersedia.</div>';
+    var l = (d.rinci || []).filter(function (r) { return (!U.arah || r.j === U.arah) && cocok([r.no, r.k, r.ket, r.a, r.a2, r.p].join(' '), U.q); });
+    l = l.slice().sort(function (a, b) { return a.t < b.t ? 1 : a.t > b.t ? -1 : (a.no < b.no ? 1 : -1); });
+    var tot = function (j) { return l.filter(function (r) { return r.j === j; }).reduce(function (s, r) { return s + r.v; }, 0); };
+    h += '<div class="cd"><div class="aksi-baris" style="margin-bottom:8px"><input class="isian" id="uQ" placeholder="Cari no, kategori, keterangan, akun" value="' + esc(U.q) + '"></div>' + pilihSub('uar', U.arah, [['', 'Semua'], ['Masuk', 'Masuk'], ['Keluar', 'Keluar'], ['Pindah', 'Pindah akun']]) +
+      '<p class="sb" style="margin:0 0 8px">' + l.length + ' transaksi · masuk ' + rp(tot('Masuk')) + ' · keluar ' + rp(tot('Keluar')) + '</p>';
+    h += l.length ? '<div class="gulir"><table class="tabel"><tbody>' + l.slice(0, 300).map(function (r) {
+      return '<tr><td><span class="label ' + (r.j === 'Masuk' ? 'ok' : r.j === 'Keluar' ? 'no' : 'biru') + '">' + esc(r.j) + '</span> ' + esc(r.k || (r.j === 'Pindah' ? r.a + ' → ' + r.a2 : '')) + '<small>' + esc(tglId(r.t)) + ' · ' + esc(r.no) + ' · ' + esc(r.j === 'Pindah' ? r.a + ' → ' + r.a2 : r.a) + (r.p ? ' · ' + esc(r.p) : '') + '</small>' + (r.ket ? '<small>' + esc(r.ket) + '</small>' : '') + '</td><td class="r angka"><b>' + rp(r.v) + '</b></td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="ksg">Tidak ada transaksi.</div>';
+    if (d.rinciLebih) h += '<p class="sb">' + d.rinciLebih + ' transaksi lain tidak ikut ditampilkan (terlalu banyak).</p>';
+    return h + '</div><p class="sb">Penjualan otomatis (marketplace, toko, reseller) tidak muncul satu per satu di sini; totalnya ada di Laporan bulanan.</p>';
+  }
+  function isiHbb() {
+    var d = D.hbb; if (!d) return '<div class="msg w">Data harga belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var l = (d.harga || []).filter(function (x) { return cocok(x.n + ' ' + (x.k || '') + ' ' + (x.kel || '') + ' ' + (x.sup || ''), U.qh); });
+    var h = '<div class="cd"><div class="kpl"><h3>Harga beli terakhir</h3><span class="sb">' + (d.harga || []).length + ' bahan &amp; kemasan</span></div><div class="aksi-baris" style="margin-bottom:8px"><input class="isian" id="uQh" placeholder="Cari bahan, kelompok, supplier" value="' + esc(U.qh) + '"></div>';
+    h += l.length ? '<div class="gulir"><table class="tabel"><thead><tr><th>Bahan / kemasan</th><th class="r">Harga terakhir</th><th class="r">Sebelumnya</th></tr></thead><tbody>' + l.map(function (x) {
+      return '<tr><td>' + esc(x.n) + '<small>' + esc(x.kel || '') + (x.k ? ' · ' + esc(x.k) : '') + (x.sup ? ' · ' + esc(x.sup) : '') + '</small></td><td class="r angka"><b>' + rp(x.hs) + '</b><small>/' + esc(x.s) + ' · ' + esc(tglId(x.t)) + '</small></td><td class="r angka">' + (x.hp ? rp(x.hp) + '<small>' + esc(tglId(x.tp)) + (x.pc !== null && x.pc !== undefined ? ' · <b style="color:var(--' + (x.pc > 0 ? 'merah' : x.pc < 0 ? 'hijau' : 'abu') + ')">' + (x.pc > 0 ? '+' : '') + String(x.pc).replace('.', ',') + '%</b>' : '') + '</small>' : '–') + '</td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="ksg">Belum ada data harga.</div>';
+    h += '</div>';
+    var u = d.ubah || [];
+    if (u.length) h += '<div class="cd"><h3>Riwayat perubahan harga</h3><table class="tabel"><tbody>' + u.map(function (x) { return '<tr><td>' + esc(x.n) + '<small>' + esc(tglId(x.t)) + (x.sup ? ' · ' + esc(x.sup) : '') + '</small></td><td class="r angka">' + rp(x.hp) + ' → <b>' + rp(x.hs) + '</b>' + (x.pc ? '<small style="color:var(--' + (x.pc > 0 ? 'merah' : 'hijau') + ')">' + (x.pc > 0 ? '+' : '') + String(x.pc).replace('.', ',') + '%</small>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    return h + '<p class="sb">Harga dari pembelian bahan baku (formulir staf bahan baku) dan stok masuk botol, stiker &amp; packaging (formulir staf produksi), per satuan.</p>';
+  }
+  function isiNaik() {
+    var d = D.hrgnaik; if (!d) return '<div class="msg w">Data kenaikan harga belum tersedia.</div>';
+    var l = d.list.filter(function (x) { return cocok(x.n + ' ' + x.kel + ' ' + x.sup + ' ' + x.sb, U.qn); });
+    if (!d.list.length) return '<div class="cd"><div class="aman">Belum ada kenaikan harga beli yang tercatat.</div><p class="sb">Setiap PO, pengajuan, pembelian bahan baku, atau stok masuk kemasan yang harga satuannya lebih tinggi dari pembelian sebelumnya akan tercatat di sini dan dikirim ke grup Telegram.</p></div>';
+    var naik = d.list.filter(function (x) { return x.pc > 0; }), rata = naik.length ? naik.reduce(function (s, x) { return s + x.pc; }, 0) / naik.length : 0, mx = naik.reduce(function (m, x) { return Math.max(m, x.pc); }, 0);
+    var h = '<div class="kp"><div class="kt"><span class="l">Kenaikan tercatat</span><span class="v angka">' + d.list.length + '</span><span class="k">' + new Set(d.list.map(function (x) { return x.k || x.n; })).size + ' barang</span></div><div class="kt"><span class="l">Rata-rata naik</span><span class="v angka">' + dec(rata, 1) + '%</span><span class="k">tertinggi ' + dec(mx, 1) + '%</span></div></div>';
+    h += '<div class="cd"><div class="aksi-baris" style="margin-bottom:8px"><input class="isian" id="uQn" placeholder="Cari barang, kelompok, supplier" value="' + esc(U.qn) + '"></div><div class="gulir"><table class="tabel"><tbody>' + l.slice(0, 300).map(function (x) {
+      return '<tr><td>' + esc(x.n) + (x.w ? ' – ' + esc(x.w) : '') + '<small>' + esc(tglId(x.t)) + ' · ' + esc(x.kel) + ' · ' + esc(x.sb) + (x.no ? ' ' + esc(x.no) : '') + (x.sup ? ' · ' + esc(x.sup) : '') + (x.pg ? ' · ' + esc(x.pg) : '') + '</small></td><td class="r angka">' + rp(x.lama) + ' → <b>' + rp(x.baru) + '</b><small style="color:var(--merah)">+' + rp(x.sel) + ' · +' + dec(x.pc, 1) + '%</small></td></tr>'; }).join('') + '</tbody></table></div></div>';
+    return h;
+  }
+  function isiTpb() {
+    var d = D.tpb; if (!d) return '<div class="msg w">Data tutup buku belum tersedia.</div>';
+    var cek = d.cek || [], belum = cek.filter(function (c) { return !c.ok; });
+    var h = '<div class="cd"><div class="kpl"><h3>Persiapan tutup buku ' + esc(d.nb || '') + '</h3><span class="label ' + (d.tutup ? 'ok' : 'abu') + '">' + (d.tutup ? 'Sudah ditutup' : 'Belum ditutup') + '</span></div>' +
+      (d.boleh ? '' : '<p class="sb" style="margin-top:-4px">Bulan berjalan belum bisa ditutup. Daftar ini menunjukkan apa saja yang perlu dibereskan sebelum akhir bulan.</p>') +
+      (d.ring ? '<div class="kp" style="margin:8px 0"><div class="kt"><span class="l">Omzet</span><span class="v angka">' + jt(d.ring.omzet) + '</span></div><div class="kt"><span class="l">Pendapatan accounting</span><span class="v angka">' + jt(d.ring.pend) + '</span></div><div class="kt"><span class="l">Pembelian</span><span class="v angka">' + jt(d.ring.beli) + '</span></div><div class="kt"><span class="l">Biaya operasional</span><span class="v angka">' + jt(d.ring.ops) + '</span></div></div>' : '') +
+      '<table class="tabel"><tbody>' + cek.map(function (c) {
+        return '<tr><td><b>' + esc(c.j) + '</b>' + (c.berat && !c.ok ? ' <span class="label no">wajib</span>' : '') + '<small>' + esc(c.ket) + '</small></td><td class="r"><span class="label ' + (c.ok ? 'ok' : c.berat ? 'no' : 'w') + '">' + (c.ok ? 'Beres' : 'Belum') + '</span></td></tr>'; }).join('') + '</tbody></table>' +
+      '<p class="sb">' + (belum.length ? belum.length + ' hal belum beres. ' : 'Semua sudah beres. ') + 'Penyeimbang stok dan tombol tutup buku tetap di menu Tutup Buku Master Data lama, karena mengubah banyak catatan sekaligus.</p></div>';
+    var df = d.daftar || [];
+    h += '<div class="cd"><h3>Riwayat tutup buku</h3>' + (df.length ? '<table class="tabel"><tbody>' + df.map(function (x) { return baris2('<b>' + esc(x.nb) + '</b><small>' + esc(x.oleh || '') + ' · ' + esc(x.w || '') + (x.c ? ' · ' + esc(x.c) : '') + '</small>', '<span class="label ' + (x.st === 'Tutup' || x.st === 'Ditutup' ? 'ok' : 'abu') + '">' + esc(x.st) + '</span>'); }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada bulan yang ditutup.</div>') + '</div>';
+    return h;
   }
 
   // ======================= GUDANG UTAMA (gdPemilikData lama, mode gudang) =======================
