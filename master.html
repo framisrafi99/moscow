@@ -48,12 +48,20 @@
   .kirim div + div { margin-top:4px; }
   .aksi-baris { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
   .aksi-baris .isian { flex:1 1 200px; margin:0; }
+  .periode { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:14px; }
+  .periode label { font-size:12.5px; font-weight:600; color:var(--abu); }
+  .periode .isian { width:auto; min-width:150px; }
+  .tk { cursor:pointer; text-align:left; font:inherit; color:inherit; }
+  .tk:hover { border-color:var(--biru); }
+  .tk.on { border-color:var(--biru); box-shadow:0 0 0 2px var(--biruMuda); }
+  .st-order { min-width:140px; padding:8px 10px; border:1px solid var(--garis); border-radius:10px; background:#fff; }
 </style>
 </head>
 <body>
 <main id="mIsi">
   <section data-bagian="beranda" id="bBeranda"><div class="ksg">Memuat beranda…</div></section>
   <section data-bagian="dasbor" id="bDasbor"><div class="ksg">Memuat ringkasan…</div></section>
+  <section data-bagian="jual" id="bJual"><div class="ksg">Memuat penjualan…</div></section>
   <section data-bagian="setuju" id="bSetuju"><div class="ksg">Memuat persetujuan…</div></section>
   <section data-bagian="__lama">
     <div class="cd">
@@ -87,7 +95,7 @@
       { k: 'app-kasir', nm: 'Kasir Toko Offline', ik: 'kasir', href: 'kasir.html' }
     ],
     bawah: ['beranda', 'setuju', 'gudang', 'uang', 'lain'],
-    pindah: function (k, m) { if ($('lamaJudul')) $('lamaJudul').textContent = m.nm + ' masih di Master Data lama'; },
+    pindah: function (k, m) { if ($('lamaJudul')) $('lamaJudul').textContent = m.nm + ' masih di Master Data lama'; if (k === 'jual' && !J.mulai) { J.mulai = true; siapJual(); } },
     siap: function () {
       M.aksi([
         { nm: 'Muat ulang', ik: 'muat', klik: function () { muat(); } },
@@ -214,6 +222,233 @@
     if (R.harga && R.harga.naik) info.push(R.harga.naik + ' harga bahan & kemasan naik');
     if (info.length) h += '<div class="cd"><h3>Catatan stok &amp; bahan</h3>' + info.map(function (t) { return '<div class="ti w" style="cursor:default"><span><b>' + esc(t) + '</b></span></div>'; }).join('') + '</div>';
     el.innerHTML = h;
+  }
+
+
+  // ======================= PENJUALAN =======================
+  // Dihitung langsung dari tabel yang disinkron (rumus sama dengan laporanToko_ / omzetKotor / TP_kelompok_ lama).
+  var J = { mulai: false, bagian: 'toko', toko: null, data: null };
+  function hariIniMks() { try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date()); } catch (e) { return new Date().toISOString().slice(0, 10); } }
+  async function ambilSemua(buat) {
+    var out = [], dari = 0;
+    for (;;) {
+      var r = await buat().range(dari, dari + 999);
+      if (r.error) throw r.error;
+      out = out.concat(r.data || []);
+      if (!r.data || r.data.length < 1000) break;
+      dari += 1000;
+    }
+    return out;
+  }
+  function tr(v) { return String(v == null ? '' : v).trim(); }
+  function siapJual() {
+    var hi = hariIniMks();
+    J.dari = hi.slice(0, 8) + '01'; J.sampai = hi;
+    gambarJual(); muatJual();
+  }
+  async function muatJual() {
+    var el = $('jIsi'); if (el) el.innerHTML = '<div class="ksg">Menghitung…</div>';
+    try {
+      var d = J.dari, s = J.sampai;
+      var h = await Promise.all([
+        ambilSemua(function () { return sb.from('pelanggan').select('nama_pelanggan,tipe,baris_sheet').order('baris_sheet'); }),
+        ambilSemua(function () { return sb.from('toko_jual_log').select('tanggal,toko,kode,nama_barang,qty_terjual,total,warna').gte('tanggal', d).lte('tanggal', s).order('id'); }),
+        ambilSemua(function () { return sb.from('toko_biaya_log').select('tanggal,toko,keterangan,nominal').gte('tanggal', d).lte('tanggal', s).order('id'); }),
+        ambilSemua(function () { return sb.from('toko_retur_log').select('tanggal,toko,kode,nama_barang,qty,nilai,warna,kondisi,catatan').gte('tanggal', d).lte('tanggal', s).order('id'); }),
+        ambilSemua(function () { return sb.from('order_log').select('no_order,tanggal,pelanggan,tipe,kode,nama,qty,harga,diskon_persen,subtotal,nilai_diskon,total,status,waktu_masuk,pengisi,catatan').order('id'); }),
+        ambilSemua(function () { return sb.from('toko_pinjam_log').select('no_pinjam,jenis,tanggal,toko,kode,nama_barang,warna,qty,peminjam,rencana_kembali,catatan,pengisi').order('id'); })
+      ]);
+      J.data = { pel: h[0], jual: h[1], biaya: h[2], retur: h[3], order: h[4], pinjam: h[5] };
+      hitungJual();
+      gambarJual();
+    } catch (e) { if ($('jIsi')) $('jIsi').innerHTML = '<div class="msg bad">Data penjualan gagal dimuat: ' + esc(e.message || e) + '</div>'; return; }
+    gambarJualIsi();
+  }
+  function laporanToko(toko) {
+    var D2 = J.data, out = { jual: [], biaya: [], omzet: 0, qty: 0, totalBiaya: 0, retur: [], returLayak: { q: 0, nilai: 0 }, rugi: { q: 0, nilai: 0 } }, idx = {};
+    D2.jual.forEach(function (r) {
+      if (tr(r.toko) !== toko || !r.tanggal) return;
+      var kode = tr(r.kode).toUpperCase(), q = Number(r.qty_terjual) || 0, tot = Number(r.total) || 0, w = tr(r.warna).toUpperCase(), k = kode + '|' + w;
+      if (!(k in idx)) { idx[k] = out.jual.length; out.jual.push({ k: kode, n: String(r.nama_barang || ''), w: w, q: 0, tot: 0 }); }
+      out.jual[idx[k]].q += q; out.jual[idx[k]].tot += tot; out.qty += q; out.omzet += tot;
+    });
+    out.jual.sort(function (a, b) { return b.q - a.q; });
+    D2.biaya.forEach(function (r) { if (tr(r.toko) !== toko || !r.tanggal) return; var n = Number(r.nominal) || 0; out.biaya.push({ t: r.tanggal, ket: String(r.keterangan || ''), nom: n }); out.totalBiaya += n; });
+    out.biaya.sort(function (a, b) { return a.t < b.t ? 1 : a.t > b.t ? -1 : 0; });
+    D2.retur.forEach(function (r) {
+      if (tr(r.toko) !== toko || !r.tanggal) return;
+      var q = Number(r.qty) || 0, nilai = Number(r.nilai) || 0, kd = tr(r.kondisi);
+      out.retur.push({ t: r.tanggal, k: tr(r.kode).toUpperCase(), n: String(r.nama_barang || ''), w: tr(r.warna).toUpperCase(), q: q, kd: kd, nilai: nilai, c: String(r.catatan || '') });
+      if (kd === 'Layak jual') { out.returLayak.q += q; out.returLayak.nilai += nilai; } else { out.rugi.q += q; out.rugi.nilai += nilai; }
+    });
+    out.retur.sort(function (a, b) { return a.t < b.t ? 1 : a.t > b.t ? -1 : 0; });
+    out.totalRetur = out.returLayak.nilai + out.rugi.nilai; out.omzetBersih = out.omzet - out.totalRetur;
+    return out;
+  }
+  function kumpulOrder(dari, sampai) {
+    var map = {}, urut = [];
+    J.data.order.forEach(function (r) {
+      var no = tr(r.no_order); if (!no || !r.tanggal) return;
+      if (dari && (r.tanggal < dari || r.tanggal > sampai)) return;
+      if (!map[no]) { map[no] = { no: no, t: r.tanggal, pl: String(r.pelanggan || ''), tp: String(r.tipe || ''), d: Number(r.diskon_persen) || 0, sub: 0, disk: 0, tot: 0, st: String(r.status || '') || 'Menunggu', p: String(r.pengisi || '').replace(/^form:?\s*/, ''), c: String(r.catatan || ''), ms: r.waktu_masuk ? new Date(r.waktu_masuk).getTime() : 0, items: [] }; urut.push(map[no]); }
+      var o = map[no]; o.sub += Number(r.subtotal) || 0; o.disk += Number(r.nilai_diskon) || 0; o.tot += Number(r.total) || 0;
+      o.items.push({ k: String(r.kode || ''), n: String(r.nama || ''), q: Number(r.qty) || 0, h: Number(r.harga) || 0, s: Number(r.subtotal) || 0 });
+    });
+    urut.sort(function (a, b) { return a.t < b.t ? 1 : a.t > b.t ? -1 : b.ms - a.ms; });
+    return urut;
+  }
+  function hitungJual() {
+    var D2 = J.data;
+    J.tokoList = D2.pel.filter(function (x) { return tr(x.tipe) === 'Consignment'; }).map(function (x) { return tr(x.nama_pelanggan); });
+    J.lap = {}; J.tokoList.forEach(function (t) { J.lap[t] = laporanToko(t); });
+    if (!J.toko || J.tokoList.indexOf(J.toko) === -1) J.toko = J.tokoList[0];
+    var res = [], idx = {}, totR = 0, trx = [];
+    kumpulOrder(J.dari, J.sampai).forEach(function (o) {
+      if (o.tp !== 'Reseller' || o.st === 'Batal') return;
+      if (!(o.pl in idx)) { idx[o.pl] = res.length; res.push({ n: o.pl, jml: 0, sub: 0, disk: 0, tot: 0 }); }
+      var r = res[idx[o.pl]]; r.jml++; r.sub += o.sub; r.disk += o.disk; r.tot += o.tot; totR += o.tot; trx.push(o);
+    });
+    res.sort(function (a, b) { return b.tot - a.tot; });
+    J.res = res; J.totR = totR;
+    // Pinjaman (TP_kelompok_)
+    var pi = {}, pl = [];
+    D2.pinjam.forEach(function (r) {
+      var no = tr(r.no_pinjam), jenis = tr(r.jenis).toUpperCase(), q = Number(r.qty);
+      if (!no || (jenis !== 'PINJAM' && jenis !== 'KEMBALI') || !(q > 0)) return;
+      if (!(no in pi)) { pi[no] = pl.length; pl.push({ no: no, toko: tr(r.toko), tgl: '', peminjam: '', rencana: '', catatan: '', kembali: '', items: [], sisa: 0, _i: {} }); }
+      var p = pl[pi[no]], w = tr(r.warna).replace(/\s+/g, ' ').toUpperCase(), kk = tr(r.kode).toUpperCase() + '|' + w;
+      if (!(kk in p._i)) { p._i[kk] = p.items.length; p.items.push({ k: tr(r.kode).toUpperCase(), n: String(r.nama_barang || ''), w: w, q: 0, kb: 0, sisa: 0 }); }
+      var it = p.items[p._i[kk]];
+      if (jenis === 'PINJAM') { it.q += q; p.tgl = p.tgl || r.tanggal || ''; p.peminjam = p.peminjam || r.peminjam || ''; p.rencana = p.rencana || r.rencana_kembali || ''; p.catatan = p.catatan || r.catatan || ''; }
+      else { it.kb += q; if ((r.tanggal || '') > p.kembali) p.kembali = r.tanggal || ''; }
+    });
+    pl.forEach(function (p) { delete p._i; p.items.forEach(function (it) { it.sisa = Math.max(0, it.q - it.kb); p.sisa += it.sisa; }); });
+    J.pinjamLuar = pl.filter(function (p) { return p.sisa > 0; }).sort(function (a, b) { var ra = a.rencana || '9999', rb = b.rencana || '9999'; return ra < rb ? -1 : ra > rb ? 1 : (a.no < b.no ? -1 : 1); });
+    J.orderRes = kumpulOrder('', '').filter(function (o) { return o.tp === 'Reseller'; });
+  }
+
+  function gambarJual() {
+    var nPinjam = J.pinjamLuar ? J.pinjamLuar.length : 0;
+    var nOrder = J.orderRes ? J.orderRes.filter(function (o) { return ['Menunggu', 'Disetujui', 'Dikirim'].indexOf(o.st) > -1; }).length : 0;
+    $('bJual').innerHTML = '<div id="msgJual"></div>' +
+      '<div class="chip" role="group" aria-label="Bagian penjualan">' +
+      [['toko', 'Toko & consignment', ''], ['omzet', 'Omzet semua', ''], ['order', 'Order reseller', nOrder ? nOrder + ' berjalan' : ''], ['pinjam', 'Pinjaman barang', nPinjam ? nPinjam + ' belum kembali' : '']].map(function (b) {
+        return '<button type="button" data-jb="' + b[0] + '" aria-pressed="' + (J.bagian === b[0]) + '"><span>' + b[1] + '</span><b>' + (b[2] || '&nbsp;') + '</b></button>';
+      }).join('') + '</div>' +
+      '<div class="periode" id="jPeriode"' + (J.bagian === 'toko' || J.bagian === 'omzet' || J.bagian === 'order' ? '' : ' hidden') + '><label>Dari<input class="isian" type="date" id="jDari" value="' + J.dari + '"></label><label>Sampai<input class="isian" type="date" id="jSampai" value="' + J.sampai + '"></label>' +
+      '<button type="button" class="tbl" data-cepat="bulan">Bulan ini</button><button type="button" class="tbl" data-cepat="lalu">Bulan lalu</button><button type="button" class="tbl pri" id="jTampil">Tampilkan</button></div>' +
+      '<div id="jIsi"></div>';
+    $('bJual').querySelectorAll('[data-jb]').forEach(function (b) { b.onclick = function () { J.bagian = b.getAttribute('data-jb'); gambarJual(); gambarJualIsi(); }; });
+    $('jTampil').onclick = function () { J.dari = $('jDari').value; J.sampai = $('jSampai').value; if (J.dari > J.sampai) { var t = J.dari; J.dari = J.sampai; J.sampai = t; } muatJual(); };
+    $('bJual').querySelectorAll('[data-cepat]').forEach(function (b) {
+      b.onclick = function () {
+        var hi = hariIniMks(), y = +hi.slice(0, 4), m = +hi.slice(5, 7);
+        if (b.getAttribute('data-cepat') === 'bulan') { J.dari = hi.slice(0, 8) + '01'; J.sampai = hi; }
+        else { if (--m === 0) { m = 12; y--; } var mm = ('0' + m).slice(-2); J.dari = y + '-' + mm + '-01'; J.sampai = y + '-' + mm + '-' + ('0' + new Date(y, m, 0).getDate()).slice(-2); }
+        $('jDari').value = J.dari; $('jSampai').value = J.sampai; muatJual();
+      };
+    });
+  }
+
+  function gambarJualIsi() {
+    var el = $('jIsi'); if (!el || !J.data) return;
+    if (J.bagian === 'toko') el.innerHTML = isiToko();
+    else if (J.bagian === 'omzet') el.innerHTML = isiOmzet();
+    else if (J.bagian === 'order') el.innerHTML = isiOrder();
+    else el.innerHTML = isiPinjam();
+    el.querySelectorAll('[data-tk]').forEach(function (b) { b.onclick = function () { J.toko = b.getAttribute('data-tk'); gambarJualIsi(); }; });
+    el.querySelectorAll('[data-ord]').forEach(function (b) { b.onclick = function () { ubahStatus(b.getAttribute('data-ord'), b); }; });
+  }
+  function rentang() { return esc(J.dari.split('-').reverse().join('/')) + ' – ' + esc(J.sampai.split('-').reverse().join('/')); }
+
+  function isiToko() {
+    var h = '<div class="kp">';
+    J.tokoList.forEach(function (t) {
+      var l = J.lap[t];
+      h += '<button type="button" class="kt tk' + (t === J.toko ? ' on' : '') + '" data-tk="' + esc(t) + '"><span class="l">' + esc(t) + '</span><span class="v angka">' + jt(l.omzetBersih) + '</span><span class="k">' + fmt(l.qty) + ' pcs' + (l.totalRetur ? ' · retur ' + jt(l.totalRetur) : '') + (l.totalBiaya ? ' · biaya ' + jt(l.totalBiaya) : '') + '</span></button>';
+    });
+    h += '</div>';
+    var L = J.lap[J.toko]; if (!L) return h + '<div class="ksg">Belum ada toko consignment.</div>';
+    h += '<div class="cd"><div class="kpl"><h3>' + esc(J.toko) + '</h3><span class="sb">' + rentang() + '</span></div>' +
+      '<div class="kp" style="margin:0"><div class="kt"><span class="l">Penjualan</span><span class="v angka">' + jt(L.omzet) + '</span><span class="k">' + rp(L.omzet) + ' · ' + fmt(L.qty) + ' pcs</span></div>' +
+      '<div class="kt"><span class="l">Retur</span><span class="v angka">' + jt(L.totalRetur) + '</span><span class="k">Layak jual ' + fmt(L.returLayak.q) + ' pcs · rusak/hilang ' + fmt(L.rugi.q) + ' pcs</span></div>' +
+      '<div class="kt"><span class="l">Penjualan bersih</span><span class="v angka">' + jt(L.omzetBersih) + '</span><span class="k">' + rp(L.omzetBersih) + '</span></div>' +
+      '<div class="kt"><span class="l">Biaya operasional</span><span class="v angka">' + jt(L.totalBiaya) + '</span><span class="k">' + L.biaya.length + ' catatan</span></div></div></div>';
+    h += '<div class="dua"><div class="cd"><div class="kpl"><h3>Barang terjual</h3><span class="sb">' + L.jual.length + ' jenis</span></div>' +
+      (L.jual.length ? '<div class="gulir"><table class="tabel"><thead><tr><th>Barang</th><th class="r">Pcs</th><th class="r">Penjualan</th></tr></thead><tbody>' + L.jual.map(function (x) {
+        return '<tr><td>' + esc(x.n) + (x.w ? ' – ' + esc(x.w) : '') + '<small>' + esc(x.k) + '</small></td><td class="r angka">' + fmt(x.q) + '</td><td class="r angka">' + rp(x.tot) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="ksg">Belum ada penjualan pada periode ini.</div>') + '</div>';
+    h += '<div><div class="cd"><div class="kpl"><h3>Biaya operasional</h3><span class="sb angka">' + rp(L.totalBiaya) + '</span></div>' +
+      (L.biaya.length ? '<table class="tabel"><tbody>' + L.biaya.map(function (x) { return '<tr><td>' + esc(x.ket) + '<small>' + esc(x.t) + '</small></td><td class="r angka">' + rp(x.nom) + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="ksg">Tidak ada biaya.</div>') + '</div>';
+    h += '<div class="cd"><div class="kpl"><h3>Barang retur</h3><span class="sb angka">' + rp(L.totalRetur) + '</span></div>' +
+      (L.retur.length ? '<table class="tabel"><tbody>' + L.retur.map(function (x) { return '<tr><td>' + esc(x.n) + (x.w ? ' – ' + esc(x.w) : '') + '<small>' + esc(x.t) + ' · ' + fmt(x.q) + ' pcs' + (x.c ? ' · ' + esc(x.c) : '') + '</small></td><td class="r"><span class="label ' + (x.kd === 'Layak jual' ? 'ok' : 'no') + '">' + esc(x.kd) + '</span><small>' + rp(x.nilai) + '</small></td></tr>'; }).join('') + '</tbody></table>' : '<div class="ksg">Tidak ada retur.</div>') + '</div></div></div>';
+    return h;
+  }
+
+  function isiOmzet() {
+    var totC = 0, pcsC = 0;
+    J.tokoList.forEach(function (t) { totC += J.lap[t].omzet; pcsC += J.lap[t].qty; });
+    var h = '<div class="kp"><div class="kt"><span class="l">Total penjualan</span><span class="v angka">' + jt(totC + J.totR) + '</span><span class="k">' + rentang() + '</span></div>' +
+      '<div class="kt"><span class="l">Toko &amp; consignment</span><span class="v angka">' + jt(totC) + '</span><span class="k">' + fmt(pcsC) + ' pcs</span></div>' +
+      '<div class="kt"><span class="l">Reseller</span><span class="v angka">' + jt(J.totR) + '</span><span class="k">' + J.res.reduce(function (a, r) { return a + r.jml; }, 0) + ' order</span></div></div>';
+    h += '<div class="dua"><div class="cd"><h3>Per toko</h3><table class="tabel"><tbody>' + J.tokoList.map(function (t) { var l = J.lap[t];
+      return '<tr><td><b>' + esc(t) + '</b><small>' + fmt(l.qty) + ' pcs' + (l.totalRetur ? ' · retur ' + rp(l.totalRetur) : '') + '</small></td><td class="r angka">' + rp(l.omzet) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    h += '<div class="cd"><h3>Per reseller</h3>' + (J.res.length ? '<table class="tabel"><tbody>' + J.res.map(function (r) {
+      return '<tr><td><b>' + esc(r.n) + '</b><small>' + r.jml + ' order' + (r.disk ? ' · diskon ' + rp(r.disk) : '') + '</small></td><td class="r angka">' + rp(r.tot) + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada order reseller pada periode ini.</div>') + '</div></div>';
+    return h + '<p class="sb">Omzet toko = penjualan sebelum dikurangi retur (sama dengan menu Omzet lama). Order reseller yang Batal tidak dihitung.</p>';
+  }
+
+  var STATUS = ['Menunggu', 'Disetujui', 'Dikirim', 'Selesai', 'Batal'];
+  function statusAntre() {
+    var o = {};
+    D.aksi.forEach(function (a) { if (a.fungsi !== 'ubahStatusOrder') return; if (!(a.param.no in o)) o[a.param.no] = a; });
+    return o;
+  }
+  function isiOrder() {
+    var antre = statusAntre(), dalamPeriode = {}, h = '';
+    kumpulOrder(J.dari, J.sampai).forEach(function (o) { dalamPeriode[o.no] = 1; });
+    var berjalan = J.orderRes.filter(function (o) { return ['Menunggu', 'Disetujui', 'Dikirim'].indexOf(o.st) > -1; });
+    var lain = J.orderRes.filter(function (o) { return dalamPeriode[o.no] && berjalan.indexOf(o) === -1; });
+    function kartu(o) {
+      var a = antre[o.no], st = o.st, catatanA = '';
+      if (a && a.status === 'menunggu') catatanA = '<div class="msg tunggu" style="margin:0">Sedang diterapkan: ' + esc(a.ringkas) + '</div>';
+      else if (a && a.status === 'selesai' && a.hasil && a.hasil.status && new Date(a.dibuat).getTime() > o.ms) { st = a.hasil.status; catatanA = '<div class="sb">Status diubah dari aplikasi baru (' + new Date(a.diproses || a.dibuat).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) + ').</div>'; }
+      else if (a && a.status === 'gagal') catatanA = '<div class="msg bad" style="margin:0">Gagal: ' + esc((a.hasil && a.hasil.pesan) || '') + '</div>';
+      var warna = { Menunggu: 'w', Disetujui: 'biru', Dikirim: 'biru', Selesai: 'ok', Batal: 'no' }[st] || 'abu';
+      return '<div class="cd"><div class="rq-kpl"><h3>' + esc(o.pl) + '</h3><span class="sb">' + esc(o.no) + ' · ' + esc(o.t) + (o.p ? ' · ' + esc(o.p) : '') + '</span></div>' +
+        '<div class="rq-mt"><span class="label ' + warna + '">' + esc(st) + '</span><span class="label abu">' + fmt(o.items.reduce(function (s, x) { return s + x.q; }, 0)) + ' pcs</span><span class="label biru">' + rp(o.tot) + '</span>' + (o.d ? '<span class="label abu">diskon ' + fmt(o.d) + '%</span>' : '') + '</div>' +
+        (o.c ? '<div class="sb">Catatan: ' + esc(o.c) + '</div>' : '') +
+        '<details><summary class="sb" style="cursor:pointer">Rincian ' + o.items.length + ' barang</summary><table class="tabel"><tbody>' + o.items.map(function (x) {
+          return '<tr><td>' + esc(x.n) + '<small>' + esc(x.k) + '</small></td><td class="r angka">' + fmt(x.q) + ' × ' + rp(x.h) + '<small>' + rp(x.s) + '</small></td></tr>'; }).join('') + '</tbody></table></details>' +
+        (a && a.status === 'menunggu' ? catatanA : catatanA + '<div class="aksi-baris"><select class="st-order" data-st="' + esc(o.no) + '">' + STATUS.map(function (x) { return '<option' + (x === st ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select><button type="button" class="tbl pri" data-ord="' + esc(o.no) + '">Simpan status</button></div>') +
+        '</div>';
+    }
+    h += '<div class="cd" style="background:#F7F9FB"><div class="kpl"><h3>Perlu ditindak</h3><span class="sb">' + berjalan.length + ' order Menunggu / Disetujui / Dikirim</span></div></div>';
+    h += berjalan.length ? berjalan.map(kartu).join('') : '<div class="cd"><div class="aman">Tidak ada order reseller yang berjalan.</div></div>';
+    h += '<div class="cd" style="background:#F7F9FB"><div class="kpl"><h3>Selesai / batal</h3><span class="sb">' + rentang() + '</span></div></div>';
+    h += lain.length ? lain.map(kartu).join('') : '<div class="cd"><div class="ksg">Tidak ada order lain pada periode ini.</div></div>';
+    return h + '<p class="sb">Cetak invoice dan ceklis packing masih lewat menu Order di Master Data lama.</p>';
+  }
+  async function ubahStatus(no, b) {
+    var sel = $('jIsi').querySelector('[data-st="' + no + '"]'); if (!sel) return;
+    var o = J.orderRes.filter(function (x) { return x.no === no; })[0], st = sel.value;
+    if (o && st === o.st) { $('msgJual').innerHTML = '<div class="msg w">Status ' + esc(no) + ' sudah ' + esc(st) + '.</div>'; return; }
+    b.disabled = true;
+    var r = await sb.from('md_aksi').insert({ fungsi: 'ubahStatusOrder', param: { no: no, status: st }, ringkas: 'Status order ' + no + (o ? ' (' + o.pl + ')' : '') + ' menjadi ' + st });
+    if (r.error) { $('msgJual').innerHTML = '<div class="msg bad">Gagal: ' + esc(r.error.message) + '</div>'; b.disabled = false; return; }
+    await muatAksi(); gambarJualIsi();
+    $('msgJual').innerHTML = '<div class="msg ok">Status order ' + esc(no) + ' menjadi ' + esc(st) + '. Diterapkan ke Google Sheets dan Telegram paling lambat 5 menit lagi.</div>';
+  }
+
+  function isiPinjam() {
+    var hi = hariIniMks(), L = J.pinjamLuar || [];
+    if (!L.length) return '<div class="cd"><div class="aman">Tidak ada barang toko yang sedang dipinjam.</div></div>';
+    return L.map(function (p) {
+      var lewat = p.rencana && p.rencana < hi;
+      return '<div class="cd"><div class="rq-kpl"><h3>' + esc(p.peminjam || '–') + '</h3><span class="sb">' + esc(p.no) + ' · ' + esc(p.toko) + ' · dipinjam ' + esc(p.tgl) + '</span></div>' +
+        '<div class="rq-mt"><span class="label ' + (lewat ? 'no' : 'abu') + '">' + (p.rencana ? (lewat ? 'Lewat rencana kembali ' : 'Rencana kembali ') + esc(p.rencana) : 'Tanpa rencana kembali') + '</span><span class="label biru">' + fmt(p.sisa) + ' pcs belum kembali</span></div>' +
+        (p.catatan ? '<div class="sb">Catatan: ' + esc(p.catatan) + '</div>' : '') +
+        '<table class="tabel"><tbody>' + p.items.map(function (it) { return '<tr><td>' + esc(it.n) + (it.w ? ' – ' + esc(it.w) : '') + '</td><td class="r angka">' + fmt(it.sisa) + ' / ' + fmt(it.q) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    }).join('') + '<p class="sb">Pengembalian dicatat staf toko di formulirnya. Angka sisa = dipinjam − sudah kembali.</p>';
   }
 
   // ======================= PERSETUJUAN: pembungkus 3 bagian =======================
