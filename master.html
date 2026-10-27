@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Master Data Moscow</title>
+<meta name="theme-color" content="#172434">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Master Data">
+<link rel="manifest" href="manifest-master.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="moscow.css">
+<style>
+  .ak { display:flex; flex-wrap:wrap; gap:20px; align-items:stretch; }
+  .gr { flex:3 1 460px; min-width:0; display:flex; flex-direction:column; gap:8px; }
+  .rk { flex:1 1 220px; display:flex; flex-direction:column; gap:9px; padding:14px 16px; border-radius:14px; background:#F7F9FB; font-size:13.5px; }
+  .rk div { display:flex; justify-content:space-between; gap:8px; }
+  .rk .gs { height:1px; background:var(--garis); }
+  .lg2 { display:flex; flex-wrap:wrap; gap:16px; font-size:12.5px; color:var(--teks2); }
+  .lg2 span { display:flex; align-items:center; gap:6px; }
+  /* Persetujuan */
+  .grup + .grup { border-top:1px solid var(--garis); padding-top:12px; }
+  .grup h4 { font-size:14px; margin:0 0 4px; display:flex; gap:8px; align-items:center; }
+  .ajuan { display:grid; grid-template-columns:auto 1fr auto; gap:4px 12px; align-items:start; padding:10px 0; border-top:1px dashed var(--garis); cursor:pointer; }
+  .ajuan input { width:20px; height:20px; margin-top:2px; accent-color:var(--biru); }
+  .ajuan small { display:block; color:var(--abu); font-size:12.5px; }
+  .sel { font-weight:800; white-space:nowrap; }
+  .sel.plus { color:var(--hijau); } .sel.min { color:var(--merah); }
+  .pintu { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }
+  .pintu a { display:flex; gap:12px; align-items:center; padding:14px; border:1px solid var(--garis); border-radius:14px; background:#fff; color:inherit; text-decoration:none; }
+  .pintu a:hover { border-color:var(--biru); }
+  .pintu a svg { color:var(--biru); flex:0 0 auto; }
+  .pintu b { display:block; } .pintu span { font-size:12.5px; color:var(--abu); }
+  .tl { font-size:13px; color:var(--abu); margin:-4px 0 14px; }
+</style>
+</head>
+<body>
+<main id="mIsi">
+  <section data-bagian="beranda" id="bBeranda"><div class="ksg">Memuat beranda…</div></section>
+  <section data-bagian="dasbor" id="bDasbor"><div class="ksg">Memuat ringkasan…</div></section>
+  <section data-bagian="setuju" id="bSetuju"><div class="ksg">Memuat persetujuan…</div></section>
+  <section data-bagian="__lama">
+    <div class="cd">
+      <h3 id="lamaJudul">Bagian ini belum pindah</h3>
+      <p class="sb" style="margin:0">Bagian ini masih dibuka lewat Master Data lama, dengan isi dan cara kerja yang sama seperti biasa. Bagian-bagian Master Data dipindah ke aplikasi baru satu per satu.</p>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="moscow.js"></script>
+<script>
+(function () {
+  var M = Moscow, esc = M.esc, rp = M.rp, jt = M.jt, fmt = M.fmt;
+  var BLN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  function namaBulan(b) { var p = String(b || '').split('-'); return BLN[Number(p[1]) - 1] || b; }
+  function $(i) { return document.getElementById(i); }
+  var D = { beranda: null, ringkasan: null, setuju: null, aksi: [] }, sb = M.sb;
+
+  M.mulai({
+    aplikasi: 'MASTER DATA', masukJudul: 'Master Data', masukTeks: 'Pusat kendali manajemen Moscow Supplies. Masuk memakai akun Google yang sudah didaftarkan.',
+    izin: function (ctx) { return ctx.peran === 'manajemen' ? true : 'Master Data hanya untuk manajemen Moscow Supplies.'; },
+    menu: [
+      { k: 'beranda', nm: 'Beranda' }, { k: 'dasbor', nm: 'Dasbor', judul: 'Dasbor' }, { k: 'setuju', nm: 'Persetujuan' },
+      { k: 'produksi', nm: 'Produksi' }, { k: 'gudang', nm: 'Gudang Utama', pendek: 'Gudang' }, { k: 'purch', nm: 'Purchasing' },
+      { k: 'jual', nm: 'Penjualan' }, { k: 'uang', nm: 'Accounting' }, { k: 'riwayat', nm: 'Riwayat' }, { k: 'atur', nm: 'Pengaturan' },
+      { grup: 'APLIKASI LAIN' },
+      { k: 'app-kb', nm: 'Kendali Bisnis', ik: 'laporan', href: 'kendali.html' },
+      { k: 'app-stok', nm: 'Stok', ik: 'stok', href: 'stok.html' },
+      { k: 'app-kasir', nm: 'Kasir Toko Offline', ik: 'kasir', href: 'kasir.html' }
+    ],
+    bawah: ['beranda', 'setuju', 'gudang', 'uang', 'lain'],
+    pindah: function (k, m) { if ($('lamaJudul')) $('lamaJudul').textContent = m.nm + ' masih di Master Data lama'; },
+    siap: function () {
+      M.aksi([{ nm: 'Muat ulang', ik: 'muat', klik: function () { muat(); } }]);
+      muat();
+    }
+  });
+
+  async function muat() {
+    var h = await Promise.all([
+      sb.from('hasil_hitung').select('kunci,data,dibuat').in('kunci', ['md:beranda', 'md:ringkasan', 'md:setuju']),
+      sb.from('md_aksi').select('*').order('id', { ascending: false }).limit(10)
+    ]);
+    if (h[0].error) { $('bBeranda').innerHTML = '<div class="msg bad">Data gagal dimuat: ' + esc(h[0].error.message) + '</div>'; return; }
+    (h[0].data || []).forEach(function (x) { if (x.kunci === 'md:beranda') D.beranda = x.data; else if (x.kunci === 'md:ringkasan') D.ringkasan = x.data; else D.setuju = x.data; });
+    D.aksi = h[1].data || [];
+    M.badge('setuju', D.setuju && D.setuju.menunggu ? D.setuju.menunggu : 0);
+    gambarBeranda(); gambarDasbor(); gambarSetuju();
+  }
+
+  // ======================= BERANDA (sama dengan Beranda Master Data lama) =======================
+  function grafik(d) {
+    var H = d.harian || []; if (!H.length) return '<div class="ksg">Belum ada data bulan ini.</div>';
+    var hp = document.documentElement.classList.contains('m-m');
+    var VW = hp ? 380 : 760, VH = hp ? 214 : 236, X0 = hp ? 40 : 56, W = hp ? 332 : 690, Y0 = hp ? 178 : 200, TG = hp ? 150 : 180, FS = hp ? 12 : 11, maks = 0, i;
+    var hariBln = new Date(Number(d.hari.slice(0, 4)), Number(d.hari.slice(5, 7)), 0).getDate();
+    for (i = 0; i < H.length; i++) maks = Math.max(maks, H[i].s, H[i].k);
+    var lang = Math.pow(10, Math.floor(Math.log(Math.max(maks, 1)) / Math.LN10)), step = lang;
+    if (maks / step > 5) step = lang * 2; if (maks / step > 5) step = lang * 5; if (maks / step > 5) step = lang * 10;
+    var atas = Math.ceil(maks / step) * step || 1, n = Math.max(H.length, hariBln), lb = W / n;
+    function y(v) { return Y0 - Math.max(0, v) / atas * TG; }
+    function x(j) { return X0 + lb * (j + 0.5); }
+    var s = '<svg viewBox="0 0 ' + VW + ' ' + VH + '" role="img" aria-label="Grafik saldo harian dan uang keluar bulan ini" style="width:100%;height:auto;display:block">';
+    for (var g = 0; g <= atas + 1; g += step) s += '<line x1="' + X0 + '" x2="' + (X0 + W) + '" y1="' + y(g) + '" y2="' + y(g) + '" stroke="#E9EEF4"></line><text x="' + (X0 - 8) + '" y="' + (y(g) + 4) + '" text-anchor="end" font-size="' + FS + '" fill="#5A6677">' + (g >= 1e6 ? Math.round(g / 1e6) + ' jt' : fmt(g)) + '</text>';
+    var bw = Math.max(3, Math.min(16, lb - (hp ? 3 : 6))), pts = [];
+    for (i = 0; i < H.length; i++) {
+      if (H[i].k > 0) s += '<rect x="' + (x(i) - bw / 2) + '" y="' + y(H[i].k) + '" width="' + bw + '" height="' + (Y0 - y(H[i].k)) + '" rx="3" fill="#E8833A"><title>' + esc(H[i].t) + ': keluar ' + rp(H[i].k) + '</title></rect>';
+      pts.push(x(i).toFixed(1) + ',' + y(H[i].s).toFixed(1));
+    }
+    s += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#1E78A8" stroke-width="' + (hp ? 2.5 : 3) + '" stroke-linejoin="round" stroke-linecap="round"></polyline>';
+    for (i = 0; i < H.length; i++) if (H[i].m > 0) {
+      s += '<circle cx="' + x(i) + '" cy="' + y(H[i].s) + '" r="6" fill="#fff" stroke="#1E78A8" stroke-width="3"><title>' + esc(H[i].t) + ': masuk ' + rp(H[i].m) + '</title></circle>' +
+        '<text x="' + (x(i) + (i < 3 ? 10 : 0)) + '" y="' + (y(H[i].s) - 12) + '" text-anchor="' + (i < 3 ? 'start' : 'middle') + '" font-size="' + (FS + 0.5) + '" font-weight="700" fill="#0F1B2A">+' + jt(H[i].m) + '</text>';
+    }
+    var tandai = hp ? [0, 9, 19, 29] : [0, 4, 9, 14, 19, 24, 29];
+    for (i = 0; i < tandai.length; i++) if (tandai[i] < H.length) s += '<text x="' + x(tandai[i]) + '" y="' + (Y0 + 24) + '" text-anchor="middle" font-size="' + FS + '" fill="#5A6677">' + Number(H[tandai[i]].t.slice(8)) + '</text>';
+    return s + '</svg>';
+  }
+
+  function tindakan() {
+    var d = D.beranda, r = D.ringkasan || {}, h = '', n = 0;
+    if (d.nota && d.nota.n) { h += '<button type="button" class="ti w" data-buka="uang"><span><b>' + d.nota.n + ' nota toko offline belum ada metode bayar</b><span class="ks">' + rp(d.nota.v) + ' belum masuk saldo · Accounting › Saldo</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; }
+    (d.akun || []).forEach(function (a) { if (a.v < 0) { h += '<button type="button" class="ti w" data-buka="uang"><span><b>' + esc(/^saldo /i.test(a.n) ? a.n : 'Saldo ' + a.n) + ' minus ' + rp(-a.v) + '</b><span class="ks">Periksa saldo awal atau catatan uang masuk</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; } });
+    var t = D.setuju ? D.setuju.menunggu : 0;
+    if (t) { h += '<button type="button" class="ti" data-buka="setuju"><span><b>Persetujuan menunggu</b><span class="ks">Penyesuaian stok dari toko dan staf produksi</span></span><span class="bdg">' + t + '</span><span class="pa" aria-hidden="true">›</span></button>'; n++; }
+    if (r.pinjam && r.pinjam.lewat) { h += '<button type="button" class="ti w" data-buka="dasbor"><span><b>' + r.pinjam.lewat + ' pinjaman barang lewat tanggal kembali</b><span class="ks">' + r.pinjam.n + ' pinjaman belum kembali · ' + fmt(r.pinjam.pcs) + ' pcs</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; }
+    (r.akhir || []).forEach(function (a) { if (a.lalu !== null && a.lalu > (r.batas || 3)) { h += '<button type="button" class="ti w" data-buka="dasbor"><span><b>' + esc(a.n) + ' belum mengisi laporan ' + a.lalu + ' hari</b><span class="ks">Terakhir ' + esc(a.akhir || '–') + '</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; } });
+    var tgl = Number(String(d.hari).slice(8)), akhir = new Date(Number(d.hari.slice(0, 4)), Number(d.hari.slice(5, 7)), 0).getDate();
+    if (tgl >= akhir - 7) { h += '<button type="button" class="ti" data-buka="gudang"><span><b>Hitung fisik akhir bulan</b><span class="ks">' + akhir + ' ' + namaBulan(d.bulan) + ' · semua lokasi</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; }
+    return n ? h : '<div class="ksg">Tidak ada yang perlu ditindak saat ini.</div>';
+  }
+
+  function gambarBeranda() {
+    var d = D.beranda, el = $('bBeranda');
+    if (!d) { el.innerHTML = '<div class="msg w">Beranda belum tersedia. Data dikirim otomatis saat sinkron berikutnya.</div>'; return; }
+    var h = '<p class="tl">Angka dari form accounting, diperbarui ' + esc(d.diperbarui || '') + '. Data baru masuk paling lambat 30 menit.</p><div class="kp">';
+    (d.akun || []).forEach(function (a) {
+      h += '<div class="kt"><span class="l">' + esc(/^saldo /i.test(a.n) ? a.n : 'Saldo ' + a.n) + '</span><span class="v angka' + (a.v < 0 ? ' mn' : '') + '">' + jt(a.v) + '</span><span class="k' + (a.v < 0 ? ' w' : '') + '">' + (a.v < 0 ? 'Saldo minus, periksa catatan' : rp(a.v)) + '</span></div>';
+    });
+    h += '<div class="kt"><span class="l">Uang keluar ' + namaBulan(d.bulan) + '</span><span class="v angka">' + jt(d.keluar) + '</span><span class="k">' + d.jmlKeluar + ' transaksi</span></div></div>';
+    var akhir = d.harian && d.harian.length ? d.harian[d.harian.length - 1].s : d.total0;
+    h += '<div class="cd"><div class="kpl"><h3>Alur kas ' + namaBulan(d.bulan) + '</h3><span class="sb">Saldo gabungan semua akun per hari · diperbarui ' + esc(d.diperbarui) + '</span></div>' +
+      '<div class="ak"><div class="gr">' + grafik(d) +
+      '<div class="lg2"><span><i style="width:16px;height:3px;border-radius:2px;background:#1E78A8;display:inline-block"></i>Saldo kas &amp; bank</span><span><i style="width:10px;height:10px;border-radius:2px;background:#E8833A;display:inline-block"></i>Uang keluar harian</span><span><i style="width:10px;height:10px;border-radius:99px;border:2.5px solid #1E78A8;display:inline-block;box-sizing:border-box"></i>Modal / uang masuk lain</span></div></div>' +
+      '<div class="rk"><div><span style="color:#5A6677">Saldo awal bulan</span><b>' + jt(d.total0) + '</b></div>' +
+      '<div><span style="color:#5A6677">+ Penjualan</span><b style="color:#146C43">' + jt(d.masukJual) + '</b></div>' +
+      '<div><span style="color:#5A6677">+ Modal &amp; masuk lain</span><b style="color:#146C43">' + jt(d.masukLain) + '</b></div>' +
+      '<div><span style="color:#5A6677">− Uang keluar</span><b style="color:#B42318">' + jt(d.keluar) + '</b></div><div class="gs"></div>' +
+      '<div style="font-size:15px"><b>Saldo sekarang</b><b>' + jt(akhir) + '</b></div>' +
+      '<span style="font-size:12px;color:#5A6677;line-height:1.45">Penjualan consignment dicatat akhir bulan setelah bagi hasil.</span></div></div></div>';
+    h += '<div class="dua"><div class="cd"><h3>Perlu tindakan</h3><div style="display:flex;flex-direction:column;gap:4px">' + tindakan() + '</div></div>';
+    h += '<div class="cd"><div class="kpl"><h3>Uang keluar per kategori</h3><span class="sb">' + rp(d.keluar) + '</span></div>';
+    var kat = d.kategori || [];
+    if (!kat.length) h += '<div class="ksg">Belum ada uang keluar bulan ini.</div>';
+    var mx = kat.length ? kat[0].v : 1, lain = 0, nl = 0;
+    kat.forEach(function (c, i) {
+      if (i >= 6) { lain += c.v; nl++; return; }
+      h += '<div class="br"><div class="tx"><span>' + esc(c.n) + '</span><b>' + jt(c.v) + '</b></div><div class="tr"><div class="is" style="width:' + Math.max(2, Math.round(c.v / mx * 100)) + '%"></div></div></div>';
+    });
+    if (nl) h += '<span class="sb">+ ' + nl + ' kategori lain ' + jt(lain) + '</span>';
+    h += '</div></div>';
+    el.innerHTML = h;
+    el.querySelectorAll('[data-buka]').forEach(function (b) { b.onclick = function () { M.buka(b.getAttribute('data-buka')); }; });
+  }
+  var tundaGrafik; window.addEventListener('resize', function () { clearTimeout(tundaGrafik); tundaGrafik = setTimeout(function () { if (D.beranda) gambarBeranda(); }, 200); });
+
+  // ======================= DASBOR (ringkasan bulan berjalan) =======================
+  function gambarDasbor() {
+    var R = D.ringkasan, el = $('bDasbor');
+    if (!R) { el.innerHTML = '<div class="msg w">Ringkasan belum tersedia.</div>'; return; }
+    var h = '<p class="tl">Bulan ' + esc(namaBulan(R.bulan)) + ' sampai hari ini · diperbarui ' + esc(R.diperbarui) + '</p>';
+    if (R.uang) h += '<div class="kp"><div class="kt"><span class="l">Uang masuk</span><span class="v angka">' + jt(R.uang.masuk) + '</span><span class="k">' + rp(R.uang.masuk) + '</span></div>' +
+      '<div class="kt"><span class="l">Uang keluar</span><span class="v angka">' + jt(R.uang.keluar) + '</span><span class="k">' + rp(R.uang.keluar) + '</span></div>' +
+      '<div class="kt"><span class="l">Laba bersih (accounting)</span><span class="v angka' + (R.uang.bersih < 0 ? ' mn' : '') + '">' + jt(R.uang.bersih) + '</span><span class="k">' + rp(R.uang.bersih) + '</span></div>' +
+      '<div class="kt"><span class="l">Pembelian reseller</span><span class="v angka">' + jt(R.reseller) + '</span><span class="k">' + rp(R.reseller) + '</span></div></div>';
+    var tk = R.toko || [], tot = { q: 0, omzet: 0, retur: 0, bersih: 0, biaya: 0 };
+    tk.forEach(function (x) { Object.keys(tot).forEach(function (k) { tot[k] += Number(x[k]) || 0; }); });
+    h += '<div class="dua"><div class="cd"><div class="kpl"><h3>Toko &amp; consignment</h3><span class="sb">Penjualan bersih ' + rp(tot.bersih) + '</span></div><table class="tabel"><tbody>' +
+      tk.map(function (x) {
+        return '<tr><td><b>' + esc(x.n) + '</b><small>' + fmt(x.q) + ' pcs terjual' + (x.retur ? ' · retur ' + rp(x.retur) : '') + (x.biaya ? ' · biaya ' + rp(x.biaya) : '') + '</small>' + (x.laris ? '<small>Terlaris: ' + esc(x.laris) + '</small>' : '') + '</td><td class="r angka"><b>' + rp(x.bersih) + '</b>' + (x.retur ? '<small>omzet ' + rp(x.omzet) + '</small>' : '') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+    var ak = R.akhir || [];
+    h += '<div class="cd"><h3>Terakhir mengisi laporan</h3><table class="tabel"><tbody>' + ak.map(function (a) {
+      var lama = a.lalu !== null && a.lalu > (R.batas || 3);
+      var kapan = a.lalu === 0 ? 'Hari ini' : a.lalu === 1 ? 'Kemarin' : a.lalu === null ? '–' : a.lalu + ' hari lalu';
+      return '<tr><td><b>' + esc(a.n) + '</b>' + (a.teks ? '<small>' + esc(a.teks) + '</small>' : '') + '</td><td class="r"><span class="label ' + (lama ? 'no' : 'ok') + '">' + kapan + '</span><small>' + esc(a.akhir || '') + ' · ' + fmt(a.lap) + ' laporan</small></td></tr>';
+    }).join('') + '</tbody></table></div></div>';
+    var info = [];
+    if (R.pinjam && R.pinjam.n) info.push(R.pinjam.n + ' pinjaman barang toko belum kembali (' + fmt(R.pinjam.pcs) + ' pcs' + (R.pinjam.lewat ? ', ' + R.pinjam.lewat + ' lewat tanggal' : '') + ')');
+    if (R.bahan && R.bahan.minus) info.push(R.bahan.minus + ' bahan baku stoknya minus');
+    if (R.bahan && R.bahan.beli && R.bahan.beli.length) info.push(R.bahan.beli.length + ' bahan baku perlu dibeli: ' + R.bahan.beli.slice(0, 4).map(function (b) { return b.n; }).join(', '));
+    if (R.harga && R.harga.naik) info.push(R.harga.naik + ' harga bahan & kemasan naik');
+    if (info.length) h += '<div class="cd"><h3>Catatan stok &amp; bahan</h3>' + info.map(function (t) { return '<div class="ti w" style="cursor:default"><span><b>' + esc(t) + '</b></span></div>'; }).join('') + '</div>';
+    el.innerHTML = h;
+  }
+
+  // ======================= PERSETUJUAN =======================
+  function gambarSetuju() {
+    var ST = D.setuju, el = $('bSetuju');
+    if (!ST) { el.innerHTML = '<div class="msg w">Daftar persetujuan belum tersedia.</div>'; return; }
+    var antre = D.aksi.filter(function (a) { return a.status === 'menunggu'; }), dalam = {};
+    antre.forEach(function (a) { (a.param.toko || []).concat(a.param.prod || []).forEach(function (no) { dalam[no] = a.param.setuju ? 'disetujui' : 'ditolak'; }); });
+    var h = '<p class="tl">Diperbarui ' + esc(ST.diperbarui) + '</p><div id="msgSetuju"></div>';
+    if (antre.length) h += '<div class="msg tunggu">' + antre.length + ' keputusan sedang diterapkan ke Google Sheets (paling lambat 5 menit). Daftar ini ikut diperbarui sesudahnya.</div>';
+    h += '<div class="cd"><div class="kpl"><h3>Menunggu persetujuan</h3><span class="sb">' + (ST.menunggu || 0) + ' ajuan</span></div>';
+    if (!ST.grup || !ST.grup.length) h += '<div class="aman">Tidak ada ajuan yang menunggu.</div>';
+    else {
+      h += '<label class="sb" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="pilihSemua" style="width:18px;height:18px;accent-color:#1E78A8"> Pilih semua</label>';
+      ST.grup.forEach(function (g) {
+        h += '<div class="grup"><h4>' + esc(g.n) + ' <span class="label abu">' + g.items.length + '</span></h4>';
+        g.items.forEach(function (x) {
+          var sel = Number(x.sel) || 0, q = dalam[x.no];
+          h += '<label class="ajuan"><input type="checkbox" data-jenis="' + esc(g.jenis) + '" data-no="' + esc(x.no) + '"' + (q ? ' disabled' : '') + '>' +
+            '<div><b>' + esc(x.n) + (x.w ? ' – ' + esc(x.w) : '') + '</b><small>Sistem ' + fmt(x.sis) + ' · dihitung ' + fmt(x.hit) + (x.al ? ' · ' + esc(x.al) : '') + '</small><small>' + esc(x.pg || '') + ' · ' + esc(x.t || '') + (x.bg ? ' · ' + esc(x.bg) : '') + (q ? ' · <b>sedang ' + q + '</b>' : '') + '</small></div>' +
+            '<span class="sel angka ' + (sel > 0 ? 'plus' : sel < 0 ? 'min' : '') + '">' + (sel > 0 ? '+' : '') + fmt(sel) + '</span></label>';
+        });
+        h += '</div>';
+      });
+      h += '<label class="sb">Catatan untuk pengaju (boleh kosong)<input class="isian" id="catatan" maxlength="160"></label>' +
+        '<div class="baris"><button type="button" class="tbl pri lebar" id="tSetuju" disabled style="flex:1 1 160px">Setujui yang dipilih</button><button type="button" class="tbl mer lebar" id="tTolak" disabled style="flex:1 1 160px">Tolak yang dipilih</button></div>';
+    }
+    h += '</div>';
+    if (D.aksi.length) {
+      h += '<div class="cd"><h3>Keputusan dari aplikasi baru</h3><table class="tabel"><tbody>' + D.aksi.map(function (a) {
+        var lbl = a.status === 'menunggu' ? '<span class="label abu">diterapkan…</span>' : a.status === 'selesai' ? '<span class="label ok">selesai</span>' : '<span class="label no">gagal</span>';
+        return '<tr><td>' + esc(a.ringkas) + '<small>' + new Date(a.dibuat).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) + (a.hasil && a.hasil.pesan ? ' · ' + esc(a.hasil.pesan) : '') + '</small></td><td class="r">' + lbl + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+    }
+    var rw = ST.riwayat || [];
+    if (rw.length) h += '<div class="cd"><h3>Keputusan terakhir</h3><div class="gulir"><table class="tabel"><tbody>' + rw.map(function (x) {
+      var sel = Number(x.sel) || 0;
+      return '<tr><td><b>' + esc(x.n) + (x.w ? ' – ' + esc(x.w) : '') + '</b><small>' + esc(x.dari) + ' · ' + esc(x.pg || '') + ' · ' + esc(x.tk || '') + (x.cat ? ' · ' + esc(x.cat) : '') + '</small></td>' +
+        '<td class="r"><span class="sel angka ' + (sel > 0 ? 'plus' : sel < 0 ? 'min' : '') + '">' + (sel > 0 ? '+' : '') + fmt(sel) + '</span><small><span class="label ' + (/setuju/i.test(x.st) ? 'ok' : 'no') + '">' + esc(x.st) + '</span></small></td></tr>';
+    }).join('') + '</tbody></table></div></div>';
+    el.innerHTML = h;
+
+    var kotak = el.querySelectorAll('input[data-no]');
+    function hitung() {
+      var n = 0; kotak.forEach(function (k) { if (k.checked) n++; });
+      if ($('tSetuju')) { $('tSetuju').disabled = !n; $('tTolak').disabled = !n; $('tSetuju').textContent = n ? 'Setujui ' + n + ' ajuan' : 'Setujui yang dipilih'; $('tTolak').textContent = n ? 'Tolak ' + n + ' ajuan' : 'Tolak yang dipilih'; }
+    }
+    kotak.forEach(function (k) { k.onchange = hitung; });
+    if ($('pilihSemua')) $('pilihSemua').onchange = function () { var on = this.checked; kotak.forEach(function (k) { if (!k.disabled) k.checked = on; }); hitung(); };
+    if ($('tSetuju')) { $('tSetuju').onclick = function () { putuskan(true); }; $('tTolak').onclick = function () { putuskan(false); }; }
+  }
+
+  async function putuskan(setuju) {
+    var toko = [], prod = [], nama = [];
+    $('bSetuju').querySelectorAll('input[data-no]:checked').forEach(function (k) {
+      (k.dataset.jenis === 'toko' ? toko : prod).push(k.dataset.no);
+      nama.push(k.closest('.ajuan').querySelector('b').textContent);
+    });
+    if (!toko.length && !prod.length) return;
+    $('tSetuju').disabled = true; $('tTolak').disabled = true;
+    var ringkas = (setuju ? 'Setujui ' : 'Tolak ') + (toko.length + prod.length) + ' ajuan: ' + nama.slice(0, 3).join(', ') + (nama.length > 3 ? ', …' : '');
+    var r = await sb.from('md_aksi').insert({ fungsi: 'mdSetujuPutus', param: { toko: toko, prod: prod, setuju: setuju, catatan: ($('catatan').value || '').trim().slice(0, 160) }, ringkas: ringkas.slice(0, 200) });
+    if (r.error) { $('msgSetuju').innerHTML = '<div class="msg bad">Gagal mengirim keputusan: ' + esc(r.error.message) + '</div>'; $('tSetuju').disabled = false; $('tTolak').disabled = false; return; }
+    var a = await sb.from('md_aksi').select('*').order('id', { ascending: false }).limit(10);
+    D.aksi = a.data || D.aksi;
+    gambarSetuju();
+    $('msgSetuju').innerHTML = '<div class="msg ok">Keputusan tercatat. Stok disesuaikan di Google Sheets paling lambat 5 menit lagi.</div>';
+  }
+})();
+</script>
+</body>
+</html>

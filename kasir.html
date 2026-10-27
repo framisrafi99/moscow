@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Kasir Toko Offline</title>
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#172434">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Kasir">
@@ -13,51 +13,15 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="moscow.css">
 <style>
-  :root {
-    --kertas:#ffffff; --tinta:#17222b; --abu:#6b7780; --garis:#e3e9ed; --kabut:#f2f7fa;
-    --langit:#2a9fd6; --langit-tua:#1678a8; --hijau:#1d8656; --bata:#b9472f; --kuning:#9a6a00; --jingga:#b45309;
-  }
-  * { box-sizing:border-box; }
-  html, body { margin:0; background:var(--kabut); color:var(--tinta);
-    font-family:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-    font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased; }
-  .angka { font-variant-numeric:tabular-nums; }
-  button, input, select, textarea { font:inherit; color:inherit; }
-  :focus-visible { outline:2px solid var(--langit); outline-offset:2px; border-radius:6px; }
-  [hidden] { display:none !important; }
-
-  header { position:sticky; top:0; z-index:5; background:rgba(255,255,255,.97);
-    backdrop-filter:blur(6px); border-bottom:1px solid var(--garis);
-    padding:calc(10px + env(safe-area-inset-top)) 16px 10px; }
-  .baris-kepala { display:flex; align-items:center; gap:10px; max-width:760px; margin:0 auto; }
-  .baris-kepala img { width:64px; height:64px; margin:-14px -6px -14px -12px; }
-  .judul { font-weight:700; font-size:17px; letter-spacing:-.01em; }
-  .judul small { display:block; font-weight:500; font-size:12px; color:var(--abu); letter-spacing:0; }
-  .siapa { margin-left:auto; text-align:right; font-size:12px; color:var(--abu); line-height:1.3; }
-  .siapa button { border:0; background:none; padding:0; color:var(--langit-tua); font-size:12px; cursor:pointer; }
-
-  main { max-width:760px; margin:0 auto; padding:14px 12px calc(110px + env(safe-area-inset-bottom)); }
-
-  #masuk { min-height:100vh; display:flex; flex-direction:column; justify-content:center;
-    max-width:380px; margin:0 auto; padding:32px 24px; background:#fff; }
-  #masuk img { width:150px; margin:0 0 6px -14px; }
-  #masuk h1 { font-size:30px; line-height:1.1; letter-spacing:-.02em; margin:0 0 10px; }
-  #masuk p { color:var(--abu); margin:0 0 26px; }
-  .tombol-g { display:flex; align-items:center; justify-content:center; gap:10px; width:100%;
-    padding:14px 16px; border-radius:12px; border:1px solid var(--garis); background:#fff; font-weight:600; cursor:pointer; }
-  .tombol-g svg { width:20px; height:20px; }
-  .pesan-masuk { margin-top:16px; font-size:14px; color:var(--bata); min-height:20px; }
-
-  .kartu { background:#fff; border:1px solid var(--garis); border-radius:14px; padding:14px; margin-bottom:12px; }
-  .kartu h2 { font-size:15px; margin:0 0 10px; display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
-  .kartu h2 small { font-weight:500; color:var(--abu); font-size:12px; }
-  .baris { display:flex; gap:8px; flex-wrap:wrap; }
-  .baris > label { flex:1 1 150px; font-size:12px; color:var(--abu); }
-  .isian { display:block; width:100%; margin-top:3px; padding:10px 11px; border:1px solid var(--garis); border-radius:10px; background:#fff; font-size:15px; }
-  textarea.isian { resize:vertical; }
+  :root { --tinta:#0F1B2A; --abu:#5A6677; --garis:#E2E7EE; --kabut:#F4F7FA; --langit:#1E78A8; --langit-tua:#145A80; --hijau:#146C43; --bata:#B42318; --kuning:#9A5B00; --jingga:#B45309; }
   .petunjuk { font-size:13px; color:var(--abu); padding:6px 2px; }
+  .kartu { background:#fff; border:1px solid var(--garis); border-radius:16px; padding:18px 20px; margin-bottom:16px; }
+  html.m-m .kartu { padding:14px; margin-bottom:12px; }
+  .kartu h2 { font-size:16.5px; font-weight:800; margin:0 0 12px; display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .kartu h2 small { font-weight:500; color:var(--abu); font-size:12px; }
 
   /* Daftar barang */
   .brg { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:10px 0; border-top:1px solid var(--garis); }
@@ -66,8 +30,8 @@
   .brg .a small { color:var(--abu); font-size:12px; }
   .brg .a small.habis { color:var(--bata); }
   .brg select { flex:1 1 140px; padding:9px; border:1px solid var(--garis); border-radius:10px; background:#fff; }
-  .btn { padding:10px 14px; border:0; border-radius:10px; background:var(--tinta); color:#fff; font-weight:700; cursor:pointer; white-space:nowrap; }
-  .btn.dua { background:#fff; color:var(--tinta); border:1px solid #c6d2d9; }
+  .btn { padding:10px 14px; border:0; border-radius:12px; background:var(--langit); color:#fff; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .btn.dua { background:#fff; color:#344154; border:1px solid var(--garis); }
   .btn.kecil { padding:8px 11px; font-size:13px; }
   .btn:disabled { opacity:.45; cursor:default; }
 
@@ -91,8 +55,11 @@
   .metode { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0 4px; }
   .metode button { padding:13px 8px; border:1.5px solid var(--garis); border-radius:12px; background:#fff; font-weight:700; cursor:pointer; }
   .metode button small { display:block; font-weight:500; font-size:12px; color:var(--abu); }
-  .metode button[aria-pressed="true"] { border-color:var(--tinta); background:var(--tinta); color:#fff; }
-  .metode button[aria-pressed="true"] small { color:#c3ccd2; }
+  .metode button[aria-pressed="true"] { border-color:var(--langit); background:var(--langit); color:#fff; }
+  .metode button[aria-pressed="true"] small { color:#D6EBF6; }
+  html.m-d .bilah { left:264px; } html.m-d.m-mini .bilah { left:76px; }
+  html.m-m .bilah { bottom:calc(64px + env(safe-area-inset-bottom)); padding-bottom:10px; }
+  html.m-m main#mIsi { padding-bottom:170px; }
 
   .aksi { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
   .aksi .btn { flex:1 1 150px; padding:15px 14px; font-size:15px; }
@@ -155,27 +122,8 @@
 </head>
 <body>
 
-<div id="masuk" hidden>
-  <img src="icon-512.png" alt="Moscow Supplies">
-  <h1>Kasir toko offline</h1>
-  <p>Catat penjualan dan cetak struk. Masuk memakai akun Google yang sudah didaftarkan.</p>
-  <button class="tombol-g" id="tMasuk" type="button">
-    <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
-    Masuk dengan Google
-  </button>
-  <div class="pesan-masuk" id="pesanMasuk" role="alert"></div>
-</div>
-
-<div id="aplikasi" hidden>
-  <header>
-    <div class="baris-kepala">
-      <img src="icon-192.png" alt="">
-      <span class="judul">Kasir <small id="namaToko"></small></span>
-      <div class="siapa"><span id="email"></span><br><button id="tKeluar" type="button">Keluar</button></div>
-    </div>
-  </header>
-
-  <main>
+<main id="mIsi">
+  <section data-bagian="kasir">
     <div id="ksMsg" role="status"></div>
 
     <section class="kartu">
@@ -196,6 +144,7 @@
       <div id="ksHasil"></div>
     </section>
 
+    <p class="petunjuk" style="margin-top:-4px">Re-stock, biaya, stok toko, return, hitung stok, dan pinjaman masih lewat formulir toko yang lama.</p>
     <section class="kartu" id="kartuNota">
       <h2>Isi nota</h2>
       <label class="disc" id="ksSemuaL"><input type="checkbox" id="ksSemua"> Disc 15% untuk semua barang</label>
@@ -222,14 +171,18 @@
       <p class="petunjuk">Cetak cepat (RawBT) untuk tablet atau HP Android: struk langsung terkirim ke printer termal Bluetooth lewat aplikasi RawBT.</p>
     </section>
 
+  </section>
+  <section data-bagian="nota">
     <section class="kartu">
       <h2>Nota per hari <small id="ringkasHari"></small></h2>
       <div class="baris"><label>Tanggal<input class="isian" type="date" id="ksTglNota"></label></div>
       <div id="ksNota"></div>
     </section>
 
-    <details class="kartu">
-      <summary>Pengaturan nota</summary>
+  </section>
+  <section data-bagian="atur">
+    <div class="kartu">
+      <h2>Pengaturan nota</h2>
       <p class="petunjuk">Tersimpan untuk semua HP dan komputer yang memakai kasir ini.</p>
       <div class="baris"><label>Nama toko di nota<input class="isian" type="text" id="ksJudul" maxlength="40"></label></div>
       <div class="baris"><label>Alamat toko (boleh lebih dari satu baris)<textarea class="isian" id="ksKepala" rows="2" maxlength="200"></textarea></label></div>
@@ -249,23 +202,20 @@
       <div id="ksSetMsg" style="margin-top:10px"></div>
       <div class="pratinjau" id="ksSetPrevC" hidden><div id="ksSetPrev"></div></div>
       <p class="petunjuk">Komputer: saat jendela cetak muncul pilih printer termal, ukuran kertas sesuai, margin "Tidak ada", skala 100%, dan matikan "Header dan footer".</p>
-    </details>
+    </div>
+  </section>
+</main>
 
-    <p class="petunjuk">Re-stock, biaya, stok toko, return, hitung stok, dan pinjaman masih lewat formulir toko yang lama.</p>
-  </main>
-
-  <div class="bilah" id="bilah" hidden><div><span id="bilahPcs"></span><b class="angka" id="bilahTotal"></b><button type="button" class="btn" id="bilahKe">Ke nota</button></div></div>
-</div>
+<div class="bilah" id="bilah" hidden><div><span id="bilahPcs"></span><b class="angka" id="bilahTotal"></b><button type="button" class="btn" id="bilahKe">Ke nota</button></div></div>
 <div id="ksUkur"></div><div id="ksCetak"></div>
 <img id="logoImg" src="icon-512.png" alt="" hidden>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="moscow.js"></script>
 <script>
 (function () {
-  var URL_SB = 'https://ufhuvwfudblbyrwzugaa.supabase.co';
-  var KUNCI_SB = 'sb_publishable_A8aEpcDck6ZOix9lrM727A_tI7QZ1xw';
   var DISK = 15, TZ = 'Asia/Makassar';
-  var sb = supabase.createClient(URL_SB, KUNCI_SB, { auth: { persistSession: true, detectSessionInUrl: true, flowType: 'pkce' } });
+  var sb = Moscow.sb;
   function $(i) { return document.getElementById(i); }
 
   var D = { toko: '', items: [], setelan: {} };
@@ -286,24 +236,28 @@
   }
   function totalBaris(c) { var b = IDX[c.k]; return Math.round(c.q * b.h * (100 - (c.d ? DISK : 0)) / 100); }
 
-  // ----- masuk -----
-  function tampilMasuk(t) { $('aplikasi').hidden = true; $('masuk').hidden = false; $('pesanMasuk').textContent = t || ''; }
-  $('tMasuk').onclick = function () {
-    $('pesanMasuk').textContent = '';
-    sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } })
-      .then(function (r) { if (r.error) $('pesanMasuk').textContent = 'Gagal membuka Google: ' + r.error.message; });
-  };
-  $('tKeluar').onclick = function () { sb.auth.signOut().then(function () { tampilMasuk(''); }); };
+  // ----- masuk (bingkai bersama) -----
+  Moscow.mulai({
+    aplikasi: 'KASIR TOKO OFFLINE', masukJudul: 'Kasir toko offline', masukTeks: 'Catat penjualan dan cetak struk. Masuk memakai akun Google yang sudah didaftarkan.',
+    izin: async function (ctx) {
+      var r = await sb.rpc('kasir_toko_saya', { minta: null });
+      if (r.error) return 'Tidak bisa memeriksa akses: ' + r.error.message;
+      if (!r.data) return 'Akun ' + ctx.email + ' tidak punya akses kasir toko offline.';
+      D.toko = r.data; return true;
+    },
+    menu: [{ k: 'kasir', nm: 'Kasir', judul: 'Nota baru' }, { k: 'nota', nm: 'Nota per hari' }, { k: 'atur', nm: 'Pengaturan nota', ik: 'atur' }],
+    pindah: function (k) { $('bilah').hidden = k !== 'kasir' || !S.cart.length; if (k === 'nota' && D.items.length) muatNota(); },
+    siap: function (ctx) {
+      document.querySelector('#mHead .ey').textContent = 'KASIR · ' + D.toko.toUpperCase();
+      if (ctx.peran === 'manajemen') {
+        var nav = document.querySelector('#mSide nav');
+        if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + Moscow.svg('beranda') + '<span class="nm">Master Data</span></a>');
+      }
+      mulai();
+    }
+  });
 
-  async function mulai(sesi) {
-    var email = sesi.user.email;
-    var r = await sb.rpc('kasir_toko_saya', { minta: null });
-    if (r.error) { tampilMasuk('Tidak bisa memeriksa akses: ' + r.error.message); return; }
-    if (!r.data) { await sb.auth.signOut(); tampilMasuk('Akun ' + email + ' tidak punya akses kasir toko offline.'); return; }
-    D.toko = r.data;
-    $('email').textContent = email; $('namaToko').textContent = D.toko;
-    $('masuk').hidden = true; $('aplikasi').hidden = false;
-    if (history.replaceState && (location.search || location.hash)) history.replaceState(null, '', location.pathname);
+  async function mulai() {
     $('ksHasil').innerHTML = '<div class="petunjuk">Memuat daftar barang…</div>';
     var h = await Promise.all([
       sb.from('barang_order').select('kode,nama_barang,harga_jual,kategori,varian_warna,baris_sheet').order('baris_sheet'),
@@ -430,7 +384,7 @@
         : '<div class="rk kurang"><span>Uang kurang</span><span class="angka">' + rp(t.akhir - bayar) + '</span></div>';
     }
     $('ksRingkas').innerHTML = S.cart.length ? h : '';
-    $('bilah').hidden = !S.cart.length;
+    $('bilah').hidden = !S.cart.length || Moscow.aktif() !== 'kasir';
     $('bilahPcs').textContent = fmt(t.pcs) + ' pcs';
     $('bilahTotal').textContent = rp(t.akhir);
   }
@@ -743,14 +697,6 @@
     pesanSet(r.data.pesan, true);
   };
 
-  var sudah = false;
-  sb.auth.onAuthStateChange(function (ev, sesi) {
-    if (ev === 'SIGNED_OUT') { sudah = false; return; }
-    if ((ev === 'INITIAL_SESSION' || ev === 'SIGNED_IN') && !sudah) {
-      if (!sesi) { if (ev === 'INITIAL_SESSION') tampilMasuk(''); return; }
-      sudah = true; setTimeout(function () { mulai(sesi); }, 0);
-    }
-  });
 })();
 </script>
 </body>

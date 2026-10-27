@@ -1,0 +1,17 @@
+{
+  "id": "./master.html",
+  "name": "Moscow Supplies - Master Data",
+  "short_name": "Master Data",
+  "description": "Pusat kendali manajemen Moscow Supplies",
+  "start_url": "./master.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "lang": "id",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
