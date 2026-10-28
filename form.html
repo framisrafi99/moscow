@@ -35,6 +35,8 @@
 <script src="moscow.js"></script>
 <script src="lembar.js"></script>
 <script src="gudang.js"></script>
+<script src="pengadaan.js"></script>
+<script src="produksi.js"></script>
 <script>
 (function () {
   var M = Moscow, sb = M.sb, esc = M.esc;
@@ -184,12 +186,23 @@
   var BACA_SUPABASE = {
     gudang: {
       gdData: function () { return window.Gudang.gdData(sb); },
-      gdxOrderMasuk: function () { return window.Gudang.gdxOrderMasuk(sb); }
+      gdxOrderMasuk: function () { return window.Gudang.gdxOrderMasuk(sb); },
+      ptrData: function () { return window.Pengadaan.ptrData(sb, 'gudang'); }
+    },
+    produksi: {
+      prodKebutuhan: function () { return window.Gudang.prodKebutuhan(sb); },
+      kemasanHargaData: function () { return window.Produksi.kemasanHargaData(sb); },
+      ptrData: function () { return window.Pengadaan.ptrData(sb, 'produksi'); },
+      pgsTerbuka: function () { return window.Pengadaan.pgsTerbuka(sb, 'produksi'); }
+    },
+    bahanbaku: {
+      ptrData: function () { return window.Pengadaan.ptrData(sb, 'bahanbaku'); },
+      pgsTerbuka: function () { return window.Pengadaan.pgsTerbuka(sb, 'bahanbaku'); }
     }
   };
   var basiSampai = 0;
   // Fungsi simpan (sama dengan daftar fungsi tulis di Apps Script). Kalau salinannya ke Supabase tidak terkonfirmasi, baca lewat Apps Script dulu.
-  var TULIS_RE = /^(simpan|ajukan|gd(Biaya|Kirim|Opname|Po|Terima)|gdx(Order(Kirim|Proses)|Kp|Harga)|prodSesuai|putusSesuai|kembaliPinjam|tandaiSampai|ubahStatusOrder|rp(Tandai|Putus))/;
+  var TULIS_RE = /^(simpan|ajukan|gd(Biaya|Kirim|Opname|Po|Terima)|gdx(Order(Kirim|Proses)|Kp|Harga|Ajukan)|prodSesuai|putusSesuai|kembaliPinjam|tandaiSampai|ubahStatusOrder|rp(Tandai|Putus)|kemasanHargaSimpan|ptrTerima|pgsAjukan|pgdAjukan|pgdAksi|plx?(Aksi|Bayar|Tolak|PoBayar)|bahanBaku(Beli|Pakai|Produksi|Sampai|Sesuai))/;
   async function bacaSupabase(f) {
     var peta = BACA_SUPABASE[APP];
     if (!peta || !peta[f] || Date.now() < basiSampai) return null;
