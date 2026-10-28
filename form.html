@@ -246,7 +246,10 @@
         return ['bbk_simpan_pakai', { p_tanggal: teks(p.tanggal), p_jenis: teks(p.jenis), p_kode: teks(p.kode), p_qty: teks(p.qty),
           p_satuan: teks(p.satuan), p_pengisi: teks(p.pengisi), p_catatan: teks(p.catatan), p_untuk: teks(p.untuk), p_token: teks(p.token) }];
       },
-      bahanBakuStafTambah: function (p) { return ['bbk_staf_tambah', { p_nama: teks(p.nama) }]; }
+      bahanBakuStafTambah: function (p) { return ['bbk_staf_tambah', { p_nama: teks(p.nama) }]; },
+      // Hitungan resep / takaran di halaman (bahanbaku.js); null = disimpan Apps Script seperti biasa.
+      bahanBakuProduksi: function (p) { return window.BahanBaku.simpanProduksi(sb, p); },
+      bahanBakuWarna: function (p) { return window.BahanBaku.simpanWarna(sb, p); }
     }
   };
   var BALIK = SERVER + 'balik';
@@ -254,25 +257,34 @@
     try { var t = await token(); fetch(BALIK, { method: 'POST', body: JSON.stringify({ t: t }), keepalive: true }).catch(function () { }); } catch (e) { }
   }
   async function tulisSupabase(f, a) {
-    var q = TULIS_SUPABASE[APP][f]((a && a[0]) || {});
-    var r = await sb.rpc(q[0], q[1]);
-    if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Tekan simpan sekali lagi; aman, tidak akan tercatat dua kali.');
-    if (r.data && r.data.ok) { salinKeSheet(); if (window.Gudang) window.Gudang.lupakan(); }
-    return JSON.stringify(r.data);
+    var q = TULIS_SUPABASE[APP][f]((a && a[0]) || {}), hasil;
+    if (Array.isArray(q)) {
+      var r = await sb.rpc(q[0], q[1]);
+      if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Tekan simpan sekali lagi; aman, tidak akan tercatat dua kali.');
+      hasil = r.data;
+    } else {
+      hasil = await q;
+      if (hasil === null) return kirimLama(f, a);
+    }
+    if (hasil && hasil.ok) { salinKeSheet(); if (window.Gudang) window.Gudang.lupakan(); }
+    return JSON.stringify(hasil);
   }
 
   window.__formPanggil = function (f, a) {
     if (TULIS_SUPABASE[APP] && TULIS_SUPABASE[APP][f]) return tulisSupabase(f, a);
     return bacaSupabase(f, a).then(function (r) {
       if (r) return JSON.stringify(r);
-      return kirim(f, a).then(function (d) {
-        // Sesudah simpan: data lembar dimuat ulang; kalau salinan ke Supabase belum jadi, baca lewat Apps Script dulu.
-        if (window.Gudang) window.Gudang.lupakan();
-        if (d.cermin === false || (TULIS_RE.test(f) && d.cermin !== true)) basiSampai = Date.now() + 35 * 60 * 1000;
-        return JSON.stringify(d.r === undefined ? null : d.r);
-      });
+      return kirimLama(f, a);
     });
   };
+  function kirimLama(f, a) {
+    return kirim(f, a).then(function (d) {
+      // Sesudah simpan: data lembar dimuat ulang; kalau salinan ke Supabase belum jadi, baca lewat Apps Script dulu.
+      if (window.Gudang) window.Gudang.lupakan();
+      if (d.cermin === false || (TULIS_RE.test(f) && d.cermin !== true)) basiSampai = Date.now() + 35 * 60 * 1000;
+      return JSON.stringify(d.r === undefined ? null : d.r);
+    });
+  }
 
   function ukur() {
     var fr = C.frame; if (!fr || fr.hidden) return;
