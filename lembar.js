@@ -24,7 +24,17 @@
     bahan_log: 'tanggal:d,jenis,nama,qty:n,waktu_masuk:t,pengisi,catatan',
     bahan_masuk: 'tanggal:d,jenis,nama,qty:n,waktu_masuk:t,pengisi,catatan,harga_total:n,supplier,pengisi_harga',
     bahan_rusak: 'tanggal:d,jenis,nama,qty:n,waktu_masuk:t,pengisi,catatan',
-    produksi_log: 'tanggal:d,kode,nama,qty:n,waktu_masuk:t,pengirim,warna'
+    produksi_log: 'tanggal:d,kode,nama,qty:n,waktu_masuk:t,pengirim,warna',
+    katalog: 'kode,nama,harga_jual:n,kategori',
+    bahan_baku: 'kode,nama_bahan,satuan,stok_awal:n,stok_minimum:n,berat_per_liter_kg:n,kelompok',
+    bahan_baku_beli: 'no,tanggal_beli:d,kode,nama_bahan,qty_dipesan:n,satuan,supplier,harga_total:n,catatan,pengisi,waktu_input:t,status,tanggal_sampai:d,qty_diterima:n,sesuai_qty,penerima,catatan_terima',
+    bahan_baku_log: 'tanggal:d,jenis,kode,nama_bahan,qty:n,satuan,waktu_masuk:t,pengisi,catatan,untuk_produksi',
+    bahan_baku_staf: 'nama_staf',
+    bahan_jadi: 'kode,kelompok,nama_bahan_jadi,satuan,berat_per_produksi:n',
+    bahan_jadi_log: 'tanggal:d,kode,kelompok,nama_bahan_jadi,qty:n,satuan,waktu_masuk:t,pengisi,catatan,kali_produksi:n',
+    bahan_resep: 'kode_bahan_jadi,nama_bahan_jadi,kode_bahan_mentah,nama_bahan_mentah,takaran_per_produksi:n,satuan_takaran',
+    bahan_warna: 'nama_warna,bahan,takaran_gram:n,catatan,kelompok',
+    bahan_warna_log: 'tanggal:d,warna,hasil_gram:n,dasar,dasar_terpakai_gram:n,waktu_masuk:t,pengisi,catatan,kelompok'
   };
 
   function tanggal(s) {
