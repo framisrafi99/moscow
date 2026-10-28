@@ -232,13 +232,40 @@
     document.documentElement.classList.remove('berbingkai');
   }
 
+  // Tanggal hari ini (WITA) dalam bentuk yyyy-MM-dd.
+  function hariWita(d) { return new Date((d ? new Date(d) : new Date()).getTime() + 8 * 3600000).toISOString().slice(0, 10); }
+  // Tampilan simpanan dibuat pada hari lain: tanggal bawaan form diganti ke hari ini.
+  function segarkan(html, dibuat) {
+    var lama = hariWita(dibuat), kini = hariWita();
+    if (lama === kini) return html;
+    return html.split('"tanggal":"' + lama + '"').join('"tanggal":"' + kini + '"').split('"hariIni":"' + lama + '"').join('"hariIni":"' + kini + '"');
+  }
+
   async function muat() {
     var m = $('muatan'); m.hidden = false; m.className = ''; m.textContent = 'Memuat form ' + (C.toko || 'toko') + '…';
+    // Tampilan form yang tersimpan di Supabase dipakai dulu supaya terbuka seketika; yang lama diperbarui di belakang.
+    var simpanan = null;
+    try {
+      var r = await sb.rpc('halaman_baca_toko', { p_toko: C.toko || '' });
+      if (!r.error && r.data && r.data.html) simpanan = r.data;
+    } catch (e) { simpanan = null; }
+    var umur = simpanan ? Date.now() - new Date(simpanan.dibuat).getTime() : Infinity;
+    if (simpanan && umur < 7 * 86400000) {
+      C.toko = simpanan.toko; C.daftar = simpanan.daftar || []; C.nama = simpanan.nama || C.nama;
+      pilihToko();
+      tampil(segarkan(String(simpanan.html), simpanan.dibuat));
+      if (umur > 30 * 60000) kirim('halaman', []).catch(function () { });
+      return;
+    }
     var d;
     try { d = await kirim('halaman', []); } catch (e) { gagal(e.message); return; }
     C.toko = d.toko; C.daftar = d.daftar || []; C.nama = d.nama || C.nama;
     pilihToko();
-    var html = String(d.html || '');
+    tampil(String(d.html || ''));
+  }
+
+  function tampil(html) {
+    var m = $('muatan');
     html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (x) { return x + JEMBATAN + GAYA; }) : JEMBATAN + GAYA + html;
     var fr = $('bingkai'); C.frame = fr;
     fr.onload = function () {
