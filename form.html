@@ -202,7 +202,10 @@
       rencanaProduksi: function () { return window.BahanBaku.rencanaProduksi(sb); },
       hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'produksi', a[0]); },
       pgsData: function (a) { return a[0] && a[0].mm ? null : window.Pengadaan.pgsData(sb, 'produksi'); },
-      stokBahan: function () { return window.Produksi.stokBahan(sb); }
+      stokBahan: function () { return window.Produksi.stokBahan(sb); },
+      ambilBahan: function () { return window.Produksi.ambilBahan(sb); },
+      ambilOrderProduksi: function (a) { return window.Produksi.ambilOrderProduksi(sb, a[0]); },
+      prodSesuaiDaftar: function () { return window.Produksi.prodSesuaiDaftar(sb); }
     },
     bahanbaku: {
       ptrData: function () { return window.Pengadaan.ptrData(sb, 'bahanbaku'); },
