@@ -246,6 +246,13 @@
           p_pengisi: teks(p.pengisi), p_catatan: teks(p.catatan), p_token: teks(p.token) }];
       }
     },
+    gudang: {
+      // Kirim barang keluar (tab Kirim barang). Order yang tuntas -> status Dikirim + Telegram dijalankan Apps Script (efek_antre).
+      gdKirim: function (p) {
+        return ['gudang_kirim', { p_tanggal: teks(p.tanggal), p_tujuan: teks(p.tujuan), p_nama: teks(p.nama), p_catatan: teks(p.catatan),
+          p_order: teks(p.order), p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
+      }
+    },
     bahanbaku: {
       bahanBakuPakai: function (p) {
         return ['bbk_simpan_pakai', { p_tanggal: teks(p.tanggal), p_jenis: teks(p.jenis), p_kode: teks(p.kode), p_qty: teks(p.qty),
@@ -267,6 +274,7 @@
       var r = await sb.rpc(q[0], q[1]);
       if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Tekan simpan sekali lagi; aman, tidak akan tercatat dua kali.');
       hasil = r.data;
+      if (hasil && hasil.lewat) return kirimLama(f, a);
     } else {
       hasil = await q;
       if (hasil === null) return kirimLama(f, a);
