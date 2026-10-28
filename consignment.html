@@ -39,6 +39,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="moscow.js"></script>
+<script src="bagihasil.js"></script>
 <script>
 (function () {
   var M = Moscow, sb = M.sb, esc = M.esc;
@@ -109,7 +110,16 @@
     pendapatanToko: function (p) { return ['toko_pendapatan', { p_toko: C.toko, p_bulan: String(p.bulan || ''), p_harga: !!p.harga }]; },
     riwayatOrder: function () { return ['toko_riwayat_order', { p_toko: C.toko }]; },
     selisihHitung: function () { return ['toko_selisih_hitung', { p_toko: C.toko }]; },
-    tokoKiriman: function () { return ['toko_kiriman', { p_toko: C.toko }]; }
+    tokoKiriman: function () { return ['toko_kiriman', { p_toko: C.toko }]; },
+    // Bagi hasil: Supabase mengirim bahan datanya, hitungannya (rumus yang sama dengan Apps Script) di bagihasil.js.
+    bagiHasilToko: function (p) {
+      return ['toko_bahan_bagi_hasil', { p_toko: C.toko, p_bulan: String(p.bulan || '') },
+        function (bahan) { return window.BagiHasil ? window.BagiHasil.hitung(C.toko, String(p.bulan || ''), bahan) : null; }];
+    },
+    hppTokoSaya: function (p) {
+      return ['toko_bahan_bagi_hasil', { p_toko: C.toko, p_bulan: String(p.bulan || '') },
+        function (bahan) { return window.BagiHasil ? window.BagiHasil.hppSaya(C.toko, String(p.bulan || ''), bahan) : null; }];
+    }
   };
   async function dataSupabase(f, a) {
     if (!C.toko || Date.now() < C.basiSampai) return null;
@@ -117,7 +127,8 @@
       var q = BACA_SUPABASE[f]((a && a[0]) || {});
       var r = await sb.rpc(q[0], q[1]);
       if (r.error || !r.data || r.data.ok !== true) return null;
-      return r.data;
+      var d = q[2] ? q[2](r.data) : r.data;
+      return d && d.ok === true ? d : null;
     } catch (e) { return null; }
   }
 
