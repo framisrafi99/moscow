@@ -261,6 +261,8 @@
       gdOpname: function (p) {
         return ['gudang_opname', { p_nama: teks(p.nama), p_alasan: teks(p.alasan), p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
       },
+      // Order Masuk: tombol "Proses" (catatan Diproses di ORDER_PROSES).
+      gdxOrderProses: function (p) { return ['gudang_order_proses', { p_order: teks(p.order), p_nama: teks(p.nama) }]; },
       gdOpnameSesuai: function (p) {
         return ['gudang_sesuai', { p_nama: teks(p.nama), p_catatan: teks(p.catatan), p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
       }
