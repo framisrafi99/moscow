@@ -100,8 +100,27 @@
     return d;
   }
 
+  // Data halaman toko (stok, kiriman berjalan, ringkasan bulan, rincian warna) dibaca langsung dari Supabase:
+  // jauh lebih cepat dan tidak memakai kuota Apps Script. Kalau simpan terakhir belum sempat disalin ke Supabase,
+  // atau Supabase gagal, halaman membaca dari sheet seperti biasa.
+  C.basiSampai = 0;
+  async function dataSupabase() {
+    if (!C.toko || Date.now() < C.basiSampai) return null;
+    try {
+      var r = await sb.rpc('toko_data', { p_toko: C.toko });
+      if (r.error || !r.data || r.data.ok !== true) return null;
+      return r.data;
+    } catch (e) { return null; }
+  }
+
   window.__tokoPanggil = function (f, a) {
+    if (f === 'dataToko') {
+      return dataSupabase().then(function (r) {
+        return r || kirim(f, a).then(function (d) { return d.r; });
+      });
+    }
     return kirim(f, a).then(function (d) {
+      if (d.cermin === false) C.basiSampai = Date.now() + 35 * 60 * 1000;
       // Jumlah kiriman gudang yang menunggu diterima -> tanda angka di menu.
       if (f === 'tokoKiriman' && d.r && d.r.ok) {
         var n = (d.r.terima || []).length; M.badge('terima', n);
