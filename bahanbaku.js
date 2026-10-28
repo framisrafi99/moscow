@@ -1,6 +1,7 @@
 /*
  * Moscow Supplies - data form staf bahan baku dari Supabase (bahanBakuData, bahanBakuLaporan, pantauProduksi).
- * Rumusnya salinan apa adanya dari Apps Script (file 4 form bahan baku, file 7 penyesuaian, file 30 pantau produksi).
+ * Rumusnya salinan apa adanya dari Apps Script (file 4 form bahan baku, file 7 penyesuaian, file 30 pantau produksi,
+ * file 34 robot rencana bahan; saran produksi diambil dari potret robot rencana produksi 'md:rpd').
  * Sheet lama diganti "lembar" dari Supabase (lembar.js) lewat pengganti kecil SpreadsheetApp / Utilities di bawah.
  */
 (function () {
@@ -9,7 +10,8 @@
   var PETA = {
     BAHAN_BAKU: 'bahan_baku', BAHAN_BAKU_BELI: 'bahan_baku_beli', BAHAN_BAKU_LOG: 'bahan_baku_log', BAHAN_BAKU_STAF: 'bahan_baku_staf',
     BAHAN_JADI: 'bahan_jadi', BAHAN_JADI_LOG: 'bahan_jadi_log', BAHAN_RESEP: 'bahan_resep', BAHAN_WARNA: 'bahan_warna',
-    BAHAN_WARNA_LOG: 'bahan_warna_log', PRODUKSI_SESUAI_LOG: 'produksi_sesuai_log', KATALOG: 'katalog', PRODUKSI_LOG: 'produksi_log'
+    BAHAN_WARNA_LOG: 'bahan_warna_log', PRODUKSI_SESUAI_LOG: 'produksi_sesuai_log', KATALOG: 'katalog', PRODUKSI_LOG: 'produksi_log',
+    ROBOT_ISI_BARANG: 'robot_isi_barang'
   };
   var TABEL = Object.keys(PETA).map(function (k) { return PETA[k]; });
   var TABEL_BAHAN = ['bahan_baku', 'bahan_baku_beli', 'bahan_baku_log', 'bahan_baku_staf', 'bahan_jadi', 'bahan_jadi_log', 'bahan_resep',
@@ -523,7 +525,251 @@
       }
     }
 
-    return { bahanBakuData: bahanBakuData, bahanBakuLaporan: bahanBakuLaporan, pantauProduksi: pantauProduksi };
+    // ---- Robot rencana bahan (file 34). rp = hasil robot rencana produksi. ----
+    function bacaKatalog_() {
+      const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.CATALOG_SHEET);
+      const katalog = {};
+      if (!sheet || sheet.getLastRow() < 2) return katalog;
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues().forEach(function (r) {
+        const kode = String(r[0]).trim().toUpperCase();
+        if (kode) katalog[kode] = String(r[1]).trim();
+      });
+      return katalog;
+    }
+    function BBK_konversi_(q, dari, ke, bj) {
+      const T = { ml: ['v', 0.001], l: ['v', 1], ltr: ['v', 1], liter: ['v', 1], g: ['m', 0.001], gr: ['m', 0.001], gram: ['m', 0.001], kg: ['m', 1] };
+      const d = String(dari || '').toLowerCase().trim(), k = String(ke || '').toLowerCase().trim();
+      if (d === k) return q;
+      if (!T[d] || !T[k]) return null;
+      if (T[d][0] === T[k][0]) return q * T[d][1] / T[k][1];
+      if (!(bj > 0)) return null;
+      const dasar = q * T[d][1];
+      return (T[d][0] === 'v' ? dasar * bj : dasar / bj) / T[k][1];
+    }
+    const RBB_SH_ISI_ = 'ROBOT_ISI_BARANG';
+    const RBB_KET_TEBAK_ = 'Tebakan dari nama barang (1 ml dianggap 1 gram). Ubah kalau berat isi sebenarnya berbeda.';
+    const RBB_ECER_ = [
+      { kat: 'kenka bond', bahan: 'Kenka Bond', ket: 'Diecer dari Kenka Bond literan' },
+      { kat: 'degleazher', bahan: 'Aceton', ket: 'Diecer dari Aceton' },
+      { kat: 'sole protector', bahan: '', ket: 'Dibeli roll lalu diecer, tidak dihitung robot' }
+    ];
+    function RBB_norm_(s) { return String(s === null || s === undefined ? '' : s).toLowerCase().replace(/\s+/g, ' ').trim(); }
+    function RBB_isiTebak_(nama) {
+      const m = String(nama || '').match(/(\d+(?:[.,]\d+)?)\s*(ml|liter|ltr|l)\b/i);
+      if (!m) return null;
+      const q = Number(m[1].replace(',', '.'));
+      if (!(q > 0)) return null;
+      return /^(liter|ltr|l)$/i.test(m[2]) ? q * 1000 : q;
+    }
+    // Sama dengan Apps Script, tanpa menambah baris baru ke sheet (halaman hanya membaca).
+    function RBB_isi_(ss, katalog) {
+      const out = {};
+      const sh = ss.getSheetByName(RBB_SH_ISI_);
+      if (sh && sh.getLastRow() >= 2) {
+        sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues().forEach(function (r) {
+          const k = String(r[0] || '').trim().toUpperCase();
+          if (!k) return;
+          const v = typeof BBK_angka_ === 'function' ? BBK_angka_(r[2]) : Number(r[2]);
+          out[k] = (v !== null && isFinite(v) && v > 0) ? v : null;
+        });
+      }
+      Object.keys(katalog).forEach(function (k) {
+        if (k in out) return;
+        out[k] = RBB_isiTebak_(katalog[k]);
+      });
+      return out;
+    }
+    function RBB_komposisi_(nama, kat, w, C) {
+      const nm = RBB_norm_(nama), kt = RBB_norm_(kat), wn = RBB_norm_(w);
+      const jadiNama = function (n) { return C.jadiN[RBB_norm_(n)] || null; };
+      const dariWarna = function (kels) {
+        for (let i = 0; i < kels.length; i++) { const o = C.warna[kels[i] + '|' + wn]; if (o) return o; }
+        return null;
+      };
+      const hasilWarna = function (o) {
+        const out = { jadi: {}, pig: {}, ket: o.n + ' (' + o.kel + ')' };
+        o.dasar.forEach(function (d) { out.jadi[d.k] = (out.jadi[d.k] || 0) + d.ml / o.tot; });
+        o.pig.forEach(function (p) { out.pig[p.k] = (out.pig[p.k] || 0) + p.ml / o.tot; });
+        return out;
+      };
+      const satuJadi = function (j) { const out = { jadi: {}, pig: {}, ket: j.n }; out.jadi[j.k] = 1; return out; };
+
+      for (let i = 0; i < RBB_ECER_.length; i++) {
+        const e = RBB_ECER_[i];
+        if (kt.indexOf(e.kat) === -1 && nm.indexOf(e.kat) === -1) continue;
+        if (!e.bahan) return { err: e.ket, lewati: true };
+        const b = C.bahanN[RBB_norm_(e.bahan)];
+        const out = { jadi: {}, pig: {}, ket: e.ket, lbl: e.ket };
+        if (b) out.pig[b.k] = 1; else out.ecer = e.bahan;
+        return out;
+      }
+      if (/leather paint|water ?based|suede/.test(kt)) {
+        if (!wn) return { err: 'warnanya belum diketahui dari data penjualan' };
+        let j = null, o = null;
+        if (/suede/.test(kt) && /^(neutral|netral)$/.test(wn)) {
+          const al = C.bahanN['alcohol ipa'];
+          if (al) { const out = { jadi: {}, pig: {}, ket: 'Alcohol murni (Suede Neutral)', lbl: 'Suede Neutral' }; out.pig[al.k] = 1; return out; }
+        }
+        if (/suede/.test(kt)) {
+          j = jadiNama('suede ' + wn);
+          if (!j) j = C.jadi.filter(function (z) { return RBB_norm_(z.n).indexOf('suede ' + wn) === 0; })[0] || null;
+        } else if (/water/.test(kt)) {
+          j = jadiNama('waterbased ' + wn);
+          if (!j) o = dariWarna(['waterbased']);
+        } else {
+          const seri = /neon/.test(nm) ? 'neon' : (/pastel/.test(nm) ? 'pastel' : '');
+          if (seri) o = dariWarna([seri]) || C.warna['neon|neon ' + wn] || null;
+          if (!o) j = jadiNama('leather ' + wn);
+          if (!o && !j) o = dariWarna(['leather', 'neon', 'pastel']);
+        }
+        if (j) return satuJadi(j);
+        if (o) return hasilWarna(o);
+        return { err: 'resep warna ' + w + ' belum ada' };
+      }
+      if (!kt) return { err: 'kategori barang kosong' };
+      const cand = C.jadi.filter(function (z) { return (RBB_norm_(z.kel) + ' ' + RBB_norm_(z.n)).indexOf(kt) !== -1; });
+      if (!cand.length) return { err: 'belum ada bahan jadi / resep untuk kategori ' + kat };
+      if (cand.length === 1) return satuJadi(cand[0]);
+      const katKata = kt.split(/[^a-z0-9]+/);
+      let terbaik = null, skor = 0, seri = false;
+      cand.forEach(function (z) {
+        const kata = RBB_norm_(z.n).split(/[^a-z0-9]+/).filter(function (x) { return x.length > 2 && katKata.indexOf(x) === -1; });
+        const s = kata.filter(function (x) { return nm.indexOf(x) !== -1; }).length;
+        if (s > skor) { skor = s; terbaik = z; seri = false; } else if (s === skor && s > 0) seri = true;
+      });
+      if (!terbaik || seri) return { err: 'ada beberapa bahan jadi ' + kat + ', robot tidak yakin yang mana' };
+      return satuJadi(terbaik);
+    }
+    function rencanaBahan(p, rp) {
+      try {
+        if (!rp || !rp.ok) return { ok: false, pesan: (rp && rp.pesan) || 'Robot rencana produksi gagal.' };
+
+        const ss = SpreadsheetApp.getActiveSpreadsheet(), tz = ss.getSpreadsheetTimeZone();
+        const bulan = Utilities.formatDate(new Date(), tz, 'yyyy-MM');
+        const bahanList = BBK_bahan_(ss), jadiList = BBK_jadi_(ss), resep = BBK_resep_(ss, bahanList, jadiList);
+        const wr = BBK_warna_(ss, bahanList, jadiList);
+        const beli = BBK_beli_(ss, tz), log = BBK_log_(ss, tz);
+        const stokList = BBK_stok_(ss, tz, bulan, beli, log);
+        const isi = RBB_isi_(ss, bacaKatalog_());
+
+        const B = {}; bahanList.forEach(function (b) { B[b.k] = b; });
+        const C = { jadi: jadiList, jadiN: {}, warna: {}, bahanN: {} };
+        bahanList.forEach(function (b) { C.bahanN[RBB_norm_(b.n)] = b; });
+        jadiList.forEach(function (j) { C.jadiN[RBB_norm_(j.n)] = j; });
+        wr.warna.forEach(function (w) { if (!w.target) C.warna[RBB_norm_(w.kel) + '|' + RBB_norm_(w.n)] = w; });
+
+        const perKg = {}, jadiInfo = {};
+        jadiList.forEach(function (j) {
+          const r = resep[j.k] || [];
+          let batch = j.b ? BBK_konversi_(j.b, j.s || 'kg', 'kg', 1) : null;
+          if (!(batch > 0)) {
+            batch = 0;
+            r.forEach(function (x) { const q = BBK_konversi_(x.q, x.st, 'kg', x.bj); if (q) batch += q; });
+          }
+          jadiInfo[j.k] = { k: j.k, n: j.n, kel: j.kel, batch: batch > 0 ? batch : null, resep: r.length > 0 };
+          if (!(batch > 0) || !r.length) return;
+          perKg[j.k] = r.map(function (x) {
+            const q = BBK_konversi_(x.q, x.st, B[x.k] ? B[x.k].s : x.st, x.bj);
+            return { k: x.k, q: q === null ? null : q / batch };
+          });
+        });
+
+        const butuhJadi = {}, butuhMentah = {}, pakaiOleh = {}, masalah = [], dihitung = [], ecer = {};
+        let totPcs = 0;
+        const tambahMentah = function (k, q, oleh) {
+          butuhMentah[k] = (butuhMentah[k] || 0) + q;
+          if (!pakaiOleh[k]) pakaiOleh[k] = {};
+          pakaiOleh[k][oleh] = true;
+        };
+        rp.list.forEach(function (x) {
+          if (!(x.saran > 0)) return;
+          const bagian = (x.warna || []).filter(function (y) { return y.saran > 0; });
+          const unit = bagian.length ? bagian.map(function (y) { return { w: y.w, pcs: y.saran }; }) : [{ w: '', pcs: x.saran }];
+          const g = isi[x.k];
+          unit.forEach(function (u) {
+            const c = RBB_komposisi_(x.n, x.kat, u.w, C);
+            if (c.err) { masalah.push({ k: x.k, n: x.n, w: u.w, pcs: u.pcs, al: c.err, lewati: !!c.lewati }); return; }
+            if (!(g > 0)) { masalah.push({ k: x.k, n: x.n, w: u.w, pcs: u.pcs, al: 'isi per pcs belum diketahui (isi di sheet ' + RBB_SH_ISI_ + ')' }); return; }
+            const gram = u.pcs * g;
+            totPcs += u.pcs;
+            dihitung.push({ k: x.k, n: x.n, w: u.w, pcs: u.pcs, kg: Math.round(gram / 10) / 100, ket: c.ket });
+            if (c.ecer) { ecer[c.ecer] = (ecer[c.ecer] || 0) + gram; return; }
+            Object.keys(c.jadi).forEach(function (jk) { butuhJadi[jk] = (butuhJadi[jk] || 0) + gram * c.jadi[jk] / 1000; });
+            Object.keys(c.pig).forEach(function (bk) {
+              const b = B[bk];
+              const q = b ? BBK_konversi_(gram * c.pig[bk], 'gram', b.s, b.bj) : null;
+              if (q === null) { masalah.push({ k: x.k, n: x.n, w: u.w, pcs: u.pcs, al: 'satuan pigment ' + (b ? b.n : bk) + ' tidak bisa dihitung' }); return; }
+              tambahMentah(bk, q, c.lbl || ('Pigment ' + (u.w || x.n)));
+            });
+          });
+        });
+
+        const jadiOut = [];
+        Object.keys(butuhJadi).forEach(function (jk) {
+          const kg = butuhJadi[jk], info = jadiInfo[jk] || { n: jk, batch: null, resep: false };
+          jadiOut.push({ k: jk, n: info.n, kel: info.kel || '', kg: Math.round(kg * 100) / 100, kali: info.batch ? Math.round(kg / info.batch * 10) / 10 : null, batch: info.batch, resep: info.resep });
+          if (!perKg[jk]) { masalah.push({ k: jk, n: info.n, w: '', pcs: 0, al: 'bahan jadi ini belum punya resep / berat per produksi' }); return; }
+          perKg[jk].forEach(function (r) {
+            if (r.q === null) { masalah.push({ k: jk, n: info.n, w: '', pcs: 0, al: 'satuan bahan ' + (B[r.k] ? B[r.k].n : r.k) + ' di resep tidak bisa diubah ke satuan stok' }); return; }
+            tambahMentah(r.k, kg * r.q, info.n);
+          });
+        });
+        jadiOut.sort(function (a, b) { return b.kg - a.kg; });
+
+        const dipesan = {};
+        beli.forEach(function (x) {
+          if (x.st !== 'Dipesan') return;
+          const b = B[x.k];
+          const q = b ? BBK_konversi_(x.q, x.s, b.s, b.bj) : null;
+          if (q) dipesan[x.k] = (dipesan[x.k] || 0) + q;
+        });
+        const S = {}; stokList.forEach(function (s) { S[s.k] = s; });
+        const stokDipakai = function (k) { const s = S[k]; return s ? Math.max(0, s.ss) : 0; };
+        const campur = {};
+        wr.warna.forEach(function (w) { if (w.target && w.tot > 0) campur[w.target.k] = w; });
+        Object.keys(campur).forEach(function (k) {
+          const w = campur[k], b = B[k];
+          if (!butuhMentah[k] || !b) return;
+          const kurang = butuhMentah[k] - stokDipakai(k) - (dipesan[k] || 0);
+          if (!(kurang > 0)) return;
+          const gram = BBK_konversi_(kurang, b.s, 'gram', b.bj);
+          if (!(gram > 0)) return;
+          w.pig.forEach(function (x) {
+            const bp = B[x.k];
+            const q = bp ? BBK_konversi_(gram * x.ml / w.tot, 'gram', bp.s, bp.bj) : null;
+            if (q) tambahMentah(x.k, q, 'Campuran ' + w.n);
+          });
+        });
+        let minus = 0;
+        const urut = { 'Kurang': 0, 'Tunggu barang': 1, 'Mepet': 2, 'Cukup': 3 };
+        const n = { 'Kurang': 0, 'Tunggu barang': 0, 'Mepet': 0, 'Cukup': 0 };
+        const bahanOut = Object.keys(butuhMentah).map(function (k) {
+          const b = B[k] || { n: k, s: '', kel: '' }, s = S[k] || { ss: 0, min: null };
+          const butuh = butuhMentah[k], stokAsli = s.ss, stok = Math.max(0, stokAsli), ps = dipesan[k] || 0, sisa = stok - butuh;
+          if (stokAsli < 0) minus++;
+          let st = 'Cukup', beliQ = 0;
+          if (stok + ps < butuh) { st = 'Kurang'; beliQ = butuh - stok - ps; }
+          else if (stok < butuh) st = 'Tunggu barang';
+          else if (s.min !== null && sisa < s.min) st = 'Mepet';
+          n[st]++;
+          return {
+            k: k, n: b.n, s: b.s, kel: b.kel, butuh: butuh, stok: stokAsli, minus: stokAsli < 0, buat: !!campur[k], dipesan: ps, sisa: sisa, min: s.min, st: st, beli: beliQ,
+            untuk: Object.keys(pakaiOleh[k] || {}).slice(0, 6)
+          };
+        }).sort(function (a, b) { return (urut[a.st] - urut[b.st]) || (b.beli - a.beli) || (a.n < b.n ? -1 : 1); });
+
+        return {
+          ok: true, hari: rp.hari, target: rp.target, totPcs: totPcs, n: n, minus: minus, bahan: bahanOut, jadi: jadiOut,
+          barang: dihitung, masalah: masalah.slice(0, 80), sheetIsi: RBB_SH_ISI_,
+          ecer: Object.keys(ecer).map(function (n) { return { n: n, kg: Math.round(ecer[n] / 10) / 100 }; }),
+          diperbarui: Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm')
+        };
+      } catch (err) {
+        return { ok: false, pesan: 'Robot gagal menghitung: ' + (err && err.message ? err.message : err) };
+      }
+    }
+
+    return { bahanBakuData: bahanBakuData, bahanBakuLaporan: bahanBakuLaporan, pantauProduksi: pantauProduksi, rencanaBahan: rencanaBahan };
   }
 
   async function muat(sb, tabel) { return buat(await window.Lembar.muat(sb, tabel)); }
@@ -533,6 +779,17 @@
     pantauProduksi: async function (sb, p, jenis) {
       var t = jenis === 'bahan' ? ['bahan_jadi_log', 'bahan_warna_log'] : ['produksi_log', 'katalog'];
       return (await muat(sb, t)).pantauProduksi(p || {}, jenis);
+    },
+    // Saran produksi dari potret robot rencana produksi (dihitung Apps Script berkala), bahan dari lembar (terbaru).
+    rencanaProduksi: async function (sb) {
+      var r = await sb.from('hasil_hitung').select('data').eq('kunci', 'md:rpd').maybeSingle();
+      if (r.error) throw new Error(r.error.message);
+      return r.data ? r.data.data : null;
+    },
+    rencanaBahan: async function (sb, p) {
+      var rp = await window.BahanBaku.rencanaProduksi(sb);
+      if (!rp) return null;
+      return (await muat(sb, TABEL_BAHAN.concat(['katalog', 'robot_isi_barang']))).rencanaBahan(p || {}, rp);
     },
     buat: buat, TABEL: TABEL
   };

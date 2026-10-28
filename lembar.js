@@ -34,7 +34,8 @@
     bahan_jadi_log: 'tanggal:d,kode,kelompok,nama_bahan_jadi,qty:n,satuan,waktu_masuk:t,pengisi,catatan,kali_produksi:n',
     bahan_resep: 'kode_bahan_jadi,nama_bahan_jadi,kode_bahan_mentah,nama_bahan_mentah,takaran_per_produksi:n,satuan_takaran',
     bahan_warna: 'nama_warna,bahan,takaran_gram:n,catatan,kelompok',
-    bahan_warna_log: 'tanggal:d,warna,hasil_gram:n,dasar,dasar_terpakai_gram:n,waktu_masuk:t,pengisi,catatan,kelompok'
+    bahan_warna_log: 'tanggal:d,warna,hasil_gram:n,dasar,dasar_terpakai_gram:n,waktu_masuk:t,pengisi,catatan,kelompok',
+    robot_isi_barang: 'kode,nama_barang,isi_per_pcs_gram:n,catatan'
   };
 
   function tanggal(s) {
