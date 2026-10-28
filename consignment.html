@@ -175,6 +175,16 @@
       return ['toko_ajukan_sesuai', { p_toko: C.toko, p_nama: String(p.nama || ''), p_alasan: String(p.alasan || ''),
         p_items: Array.isArray(p.items) ? p.items : [], p_token: String(p.token || '') }];
     },
+    // Ajuan stok / barang baru titipan Medan; Telegram dikirim Apps Script (efek_antre).
+    ttpStokAjukan: function (p) {
+      return ['toko_ttp_stok_ajukan', { p_toko: C.toko, p_kode: String(p.kode || ''), p_qty: String(p.qty === undefined || p.qty === null ? '' : p.qty),
+        p_oleh: String(p.oleh || ''), p_catatan: String(p.catatan || ''), p_token: String(p.token || '') }];
+    },
+    ttpBarangAjukan: function (p) {
+      var t = function (v) { return String(v === undefined || v === null ? '' : v); };
+      return ['toko_ttp_barang_ajukan', { p_toko: C.toko, p_nama: t(p.nama), p_hpp: t(p.hpp), p_harga: t(p.harga), p_stok: t(p.stok),
+        p_oleh: t(p.oleh), p_catatan: t(p.catatan), p_token: t(p.token) }];
+    },
     ttpJual: function (p) {
       return ['toko_ttp_jual', { p_toko: C.toko, p_tanggal: String(p.tanggal || ''), p_oleh: String(p.oleh || ''),
         p_items: Array.isArray(p.items) ? p.items : [], p_token: String(p.token || '') }];
