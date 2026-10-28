@@ -283,6 +283,15 @@
           p_satuan: teks(p.satuan), p_pengisi: teks(p.pengisi), p_catatan: teks(p.catatan), p_untuk: teks(p.untuk), p_token: teks(p.token) }];
       },
       bahanBakuStafTambah: function (p) { return ['bbk_staf_tambah', { p_nama: teks(p.nama) }]; },
+      // Pembelian dari pengajuan (pengajuan -> Dipesan) dan barang sampai (pengajuan -> Diterima) lewat ubah_antre.
+      // "Tanpa pengajuan" dan penggantian satuan bahan tetap lewat Apps Script ({lewat:true}).
+      bahanBakuBeli: function (p) {
+        return ['bbk_beli', { p_tanggal: teks(p.tanggal), p_kode: teks(p.kode), p_qty: teks(p.qty), p_satuan: teks(p.satuan), p_harga: teks(p.harga),
+          p_supplier: teks(p.supplier), p_catatan: teks(p.catatan), p_pengisi: teks(p.pengisi), p_baru: p.baru === undefined ? null : p.baru, p_token: teks(p.token) }];
+      },
+      bahanBakuSampai: function (p) {
+        return ['bbk_sampai', { p_no: teks(p.no), p_tanggal: teks(p.tanggal), p_qty: teks(p.qty), p_pengisi: teks(p.pengisi), p_catatan: teks(p.catatan) }];
+      },
       // Ajuan penyesuaian stok bahan mentah (stok sistem dihitung di Supabase).
       bahanBakuSesuai: function (p) {
         return ['bbk_sesuai_ajukan', { p_kode: teks(p.kode), p_hitung: teks(p.hitung), p_alasan: teks(p.alasan), p_pengisi: teks(p.pengisi), p_token: teks(p.token) }];
