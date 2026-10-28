@@ -2,11 +2,14 @@
  * Moscow Supplies - data form produksi dari Supabase. Salinan rumus Apps Script dengan lembar.js.
  *   kemasanHargaData (file 4): harga botol, stiker, dan packaging dari catatan barang masuk.
  *   stokBahan (file 7): stok botol & stiker bulan ini (awal, masuk, pakai, rusak, penyesuaian).
+ *   ambilBahan, ambilOrderProduksi (file 1), prodSesuaiDaftar (file 7, 13, 15): tab Botol & stiker, Order masuk,
+ *   Penyesuaian stok di form staf produksi.
  */
 (function () {
   'use strict';
   var TABEL = ['bahan', 'bahan_masuk'];
   var TABEL_STOK = ['bahan', 'bahan_masuk', 'bahan_log', 'bahan_rusak', 'produksi_sesuai_log'];
+  var STATUS_ORDER_ = ['Menunggu', 'Disetujui', 'Dikirim', 'Selesai', 'Batal'];
 
   function buat(L) {
     var fmt = window.Lembar.format;
@@ -114,9 +117,11 @@
         var no = String(r[0] || '').trim();
         if (!no) return;
         var sel = Number(r[8]);
-        out.push({ baris: i + 2, no: no, wa: r[1] instanceof Date ? r[1] : null, bg: String(r[2] || '').trim(),
-          k: String(r[3] || '').trim().toUpperCase(), n: String(r[4] || '').replace(/\s+/g, ' ').trim(), sel: isFinite(sel) ? sel : 0,
-          st: String(r[11] || '').trim(), wk: r[12] instanceof Date ? r[12] : null });
+        out.push({ baris: i + 2, no: no, wa: r[1] instanceof Date ? r[1] : null,
+          bg: String(r[2] || '').trim(), k: String(r[3] || '').trim().toUpperCase(), n: String(r[4] || '').replace(/\s+/g, ' ').trim(),
+          w: String(r[5] === null || r[5] === undefined ? '' : r[5]).replace(/\s+/g, ' ').trim().toUpperCase(), sis: Number(r[6]) || 0, hit: Number(r[7]) || 0, sel: isFinite(sel) ? sel : 0,
+          al: String(r[9] || ''), pg: String(r[10] || ''), st: String(r[11] || '').trim(),
+          wk: r[12] instanceof Date ? r[12] : null, cat: String(r[13] || '') });
       });
       return out;
     }
@@ -149,12 +154,113 @@
       return { ok: true, barang: barang, masuk: STM_terbaru_(masuk), rusak: STM_terbaru_(rusak),
         bulan: fmt(new Date(), 'MM/yyyy'), diperbarui: fmt(new Date(), 'dd/MM/yyyy HH:mm') };
     }
-    return { kemasanHargaData: kemasanHargaData, stokBahan: stokBahan };
+
+    // ---- ambilBahan (file 1): pemakaian botol & stiker bulan ini ----
+    function bacaBahan_() {
+      var out = [], ada = {};
+      baca('bahan', 2).forEach(function (r) {
+        var j = /stik/i.test(String(r[0])) ? 'Stiker' : (/botol/i.test(String(r[0])) ? 'Botol' : '');
+        var n = String(r[1]).replace(/\s+/g, ' ').trim();
+        if (!j || !n || ada[j + '|' + n.toLowerCase()]) return;
+        ada[j + '|' + n.toLowerCase()] = true;
+        out.push({ j: j, n: n });
+      });
+      return out;
+    }
+    function dataBahan_(dari, sampai) {
+      var log = [], rekap = [], idx = {};
+      baca('bahan_log', 7).forEach(function (r) {
+        if (!(r[0] instanceof Date)) return;
+        var tgl = fmt(r[0], 'yyyy-MM-dd');
+        if (tgl < dari || tgl > sampai) return;
+        var j = String(r[1]).trim(), n = String(r[2]).trim(), q = Number(r[3]) || 0;
+        var kunci = j + '|' + n.toLowerCase();
+        if (!(kunci in idx)) { idx[kunci] = rekap.length; rekap.push({ j: j, n: n, q: 0 }); }
+        rekap[idx[kunci]].q += q;
+        log.push({ t: tgl, ms: r[4] instanceof Date ? r[4].getTime() : 0, j: j, n: n, q: q, p: String(r[5]).slice(0, 40), c: String(r[6]) });
+      });
+      log.sort(function (a, b) { return a.t < b.t ? 1 : a.t > b.t ? -1 : b.ms - a.ms; });
+      rekap.sort(function (a, b) { return a.j < b.j ? -1 : a.j > b.j ? 1 : (a.n.toLowerCase() < b.n.toLowerCase() ? -1 : 1); });
+      return { rekap: rekap, log: log.slice(0, 300).map(function (x) { return { t: x.t, j: x.j, n: x.n, q: x.q, p: x.p, c: x.c }; }) };
+    }
+    function ambilBahan() {
+      var hariIni = fmt(new Date(), 'yyyy-MM-dd');
+      var d = dataBahan_(hariIni.slice(0, 8) + '01', hariIni);
+      return { ok: true, daftar: bacaBahan_(), rekap: d.rekap, log: d.log };
+    }
+    // ---- ambilOrderProduksi (file 1) ----
+    function salahPeriode_(dari, sampai) {
+      var re = /^\d{4}-\d{2}-\d{2}$/;
+      if (!re.test(dari) || !re.test(sampai)) return 'Tanggal tidak valid.';
+      if (dari > sampai) return 'Tanggal awal harus sebelum tanggal akhir.';
+      return '';
+    }
+    function kumpulOrder_(dari, sampai) {
+      var map = {}, urut = [];
+      baca('order_log', 16).forEach(function (r) {
+        var no = String(r[0]).trim();
+        if (!no || !(r[1] instanceof Date)) return;
+        var tgl = fmt(r[1], 'yyyy-MM-dd');
+        if (tgl < dari || tgl > sampai) return;
+        if (!map[no]) {
+          map[no] = { no: no, t: tgl, pl: String(r[2]), tp: String(r[3]), d: Number(r[8]) || 0, sub: 0, disk: 0, tot: 0,
+            st: String(r[12]) || STATUS_ORDER_[0], p: String(r[14]).replace(/^form:?\s*/, ''), c: String(r[15]),
+            ms: r[13] instanceof Date ? r[13].getTime() : 0, items: [] };
+          urut.push(map[no]);
+        }
+        var o = map[no];
+        o.items.push({ k: String(r[4]), n: String(r[5]), q: Number(r[6]) || 0 });
+      });
+      urut.sort(function (a, b) { return a.t < b.t ? 1 : a.t > b.t ? -1 : b.ms - a.ms; });
+      return urut;
+    }
+    function ambilOrderProduksi(p) {
+      var dari = String((p && p.dari) || ''), sampai = String((p && p.sampai) || '');
+      var salah = salahPeriode_(dari, sampai);
+      if (salah) return { ok: false, pesan: salah };
+      var terbuka = ['Menunggu', 'Disetujui', 'Dikirim'];
+      var semua = kumpulOrder_('0000-01-01', '9999-12-31').filter(function (o) {
+        return (o.t >= dari && o.t <= sampai) || terbuka.indexOf(o.st) !== -1;
+      });
+      var BATAS = 300;
+      return {
+        ok: true, terpotong: semua.length > BATAS, status: STATUS_ORDER_,
+        diperbarui: fmt(new Date(), 'dd/MM/yyyy HH:mm'),
+        orders: semua.slice(0, BATAS).map(function (o) {
+          return { no: o.no, t: o.t, pl: o.pl, tp: o.tp, st: o.st, c: o.c, p: o.p, luar: !(o.t >= dari && o.t <= sampai),
+            items: o.items.map(function (it) { return { k: it.k, n: it.n, q: it.q }; }) };
+        })
+      };
+    }
+    // ---- prodSesuaiDaftar (file 7; link produksi tidak melihat ajuan Gudang & Kantor Packing: file 13, 15) ----
+    function prodSesuaiDaftar() {
+      var a = PSS_baca_();
+      var jam = function (d) { return d ? fmt(d, 'dd/MM/yyyy HH:mm') : ''; };
+      a.sort(function (x, y) { return y.baris - x.baris; });
+      var tunggu = a.filter(function (x) { return x.st === 'Menunggu'; });
+      var lain = a.filter(function (x) { return x.st !== 'Menunggu'; }).slice(0, 60);
+      var r = {
+        ok: true, menunggu: tunggu.length,
+        list: tunggu.concat(lain).map(function (x) {
+          return { no: x.no, t: jam(x.wa), bg: x.bg, k: x.k, n: x.n, w: x.w, sis: x.sis, hit: x.hit, sel: x.sel, al: x.al.slice(0, 200), pg: x.pg.slice(0, 40), st: x.st, tk: jam(x.wk), cat: x.cat.slice(0, 200) };
+        }),
+        diperbarui: jam(new Date())
+      };
+      r.list = r.list.filter(function (x) { return x.bg !== 'Gudang'; });
+      r.menunggu = r.list.filter(function (x) { return x.st === 'Menunggu'; }).length;
+      r.list = r.list.filter(function (x) { return x.bg !== 'Kantor Packing'; });
+      r.menunggu = r.list.filter(function (x) { return x.st === 'Menunggu'; }).length;
+      return r;
+    }
+    return { kemasanHargaData: kemasanHargaData, stokBahan: stokBahan, ambilBahan: ambilBahan, ambilOrderProduksi: ambilOrderProduksi, prodSesuaiDaftar: prodSesuaiDaftar };
   }
 
   window.Produksi = {
     kemasanHargaData: async function (sb) { return buat(await window.Lembar.muat(sb, TABEL)).kemasanHargaData(); },
     stokBahan: async function (sb) { return buat(await window.Lembar.muat(sb, TABEL_STOK)).stokBahan(); },
+    ambilBahan: async function (sb) { return buat(await window.Lembar.muat(sb, ['bahan', 'bahan_log'])).ambilBahan(); },
+    ambilOrderProduksi: async function (sb, p) { return buat(await window.Lembar.muat(sb, ['order_log'])).ambilOrderProduksi(p); },
+    prodSesuaiDaftar: async function (sb) { return buat(await window.Lembar.muat(sb, ['produksi_sesuai_log'])).prodSesuaiDaftar(); },
     buat: buat, TABEL: TABEL
   };
 })();
