@@ -136,7 +136,7 @@
     } catch (e) { return null; }
   }
 
-  // Tahap 3: laporan penjualan, biaya, return, hitung stok, ajuan penyesuaian, pinjaman, dan jual titipan disimpan langsung di Supabase (pemeriksaan sama dengan Apps Script).
+  // Tahap 3: laporan penjualan, biaya, return, hitung stok, request order, ajuan penyesuaian, pinjaman, dan jual titipan disimpan langsung di Supabase (pemeriksaan sama dengan Apps Script).
   // Sesudahnya Apps Script diminta menyalin ke Google Sheets (tidak ditunggu; kalau gagal, sinkron 30 menit yang menyalin).
   function jualRpc(p) {
     return ['toko_simpan_jual', { p_toko: C.toko, p_tanggal: String(p.tanggal || ''), p_nama: String(p.nama || ''),
@@ -152,6 +152,11 @@
     simpanHitung: function (p) {
       return ['toko_simpan_hitung', { p_toko: C.toko, p_nama: String(p.nama || ''), p_catatan: String(p.catatan || ''),
         p_items: Array.isArray(p.items) ? p.items : [], p_token: String(p.token || '') }];
+    },
+    // Request order (toko consignment; pelanggan reseller tetap lewat Apps Script). Telegram order baru dikirim Apps Script (efek_antre).
+    simpanOrder: function (p) {
+      return ['toko_simpan_order', { p_toko: C.toko, p_tanggal: String(p.tanggal || ''), p_nama: String(p.nama || ''),
+        p_catatan: String(p.catatan || ''), p_items: Array.isArray(p.items) ? p.items : [], p_token: String(p.token || '') }];
     },
     ajukanSelisihHitung: function (p) {
       return ['toko_ajukan_selisih', { p_toko: C.toko, p_nama: String(p.nama || ''), p_alasan: String(p.alasan || ''),
