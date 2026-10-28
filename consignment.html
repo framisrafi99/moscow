@@ -132,7 +132,7 @@
     } catch (e) { return null; }
   }
 
-  // Tahap 3: laporan penjualan, biaya, dan return disimpan langsung di Supabase (pemeriksaan sama dengan Apps Script).
+  // Tahap 3: laporan penjualan, biaya, return, hitung stok, dan request order disimpan langsung di Supabase (pemeriksaan sama dengan Apps Script).
   // Sesudahnya Apps Script diminta menyalin ke Google Sheets (tidak ditunggu; kalau gagal, sinkron 30 menit yang menyalin).
   function jualRpc(p) {
     return ['toko_simpan_jual', { p_toko: C.toko, p_tanggal: String(p.tanggal || ''), p_nama: String(p.nama || ''),
@@ -149,6 +149,11 @@
       return ['toko_simpan_hitung', { p_toko: C.toko, p_nama: String(p.nama || ''), p_catatan: String(p.catatan || ''),
         p_items: Array.isArray(p.items) ? p.items : [], p_token: String(p.token || '') }];
     },
+    // Request order (toko consignment; pelanggan reseller tetap lewat Apps Script).
+    simpanOrder: function (p) {
+      return ['toko_simpan_order', { p_toko: C.toko, p_tanggal: String(p.tanggal || ''), p_nama: String(p.nama || ''),
+        p_catatan: String(p.catatan || ''), p_items: Array.isArray(p.items) ? p.items : [], p_token: String(p.token || '') }];
+    },
     simpanRetur: function (p) {
       return ['toko_simpan_retur', { p_toko: C.toko, p_tanggal: String(p.tanggal || ''), p_nama: String(p.nama || ''),
         p_kode: String(p.kode || ''), p_qty: String(p.qty === undefined || p.qty === null ? '' : p.qty), p_warna: String(p.warna || ''),
@@ -164,6 +169,9 @@
     var q = TULIS_SUPABASE[f]((a && a[0]) || {});
     var r = await sb.rpc(q[0], q[1]);
     if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Tekan simpan sekali lagi; aman, tidak akan tercatat dua kali.');
+    if (r.data && r.data.lewat) {
+      return kirim(f, a).then(function (d) { if (d.cermin === false) C.basiSampai = Date.now() + 35 * 60 * 1000; return d.r; });
+    }
     if (r.data && r.data.ok) salinKeSheet();
     return r.data;
   }
