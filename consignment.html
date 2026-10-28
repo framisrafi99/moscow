@@ -145,6 +145,10 @@
       return ['toko_simpan_biaya', { p_toko: C.toko, p_tanggal: String(p.tanggal || ''), p_nama: String(p.nama || ''),
         p_keterangan: String(p.keterangan || ''), p_nominal: String(p.nominal === undefined || p.nominal === null ? '' : p.nominal), p_token: String(p.token || '') }];
     },
+    simpanHitung: function (p) {
+      return ['toko_simpan_hitung', { p_toko: C.toko, p_nama: String(p.nama || ''), p_catatan: String(p.catatan || ''),
+        p_items: Array.isArray(p.items) ? p.items : [], p_token: String(p.token || '') }];
+    },
     simpanRetur: function (p) {
       return ['toko_simpan_retur', { p_toko: C.toko, p_tanggal: String(p.tanggal || ''), p_nama: String(p.nama || ''),
         p_kode: String(p.kode || ''), p_qty: String(p.qty === undefined || p.qty === null ? '' : p.qty), p_warna: String(p.warna || ''),
