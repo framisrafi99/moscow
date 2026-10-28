@@ -244,6 +244,11 @@
       simpanBahanRusak: function (p) {
         return ['produksi_simpan_rusak', { p_tanggal: teks(p.tanggal), p_nama: teks(p.nama), p_qty: teks(p.qty),
           p_pengisi: teks(p.pengisi), p_catatan: teks(p.catatan), p_token: teks(p.token) }];
+      },
+      // Ajuan penyesuaian stok produksi / botol / stiker (stok sistem dihitung di Supabase).
+      prodSesuaiAjukan: function (p) {
+        return ['produksi_sesuai_ajukan', { p_bagian: teks(p.bagian), p_kode: teks(p.kode), p_nama: teks(p.nama), p_warna: teks(p.warna),
+          p_hitung: teks(p.hitung), p_alasan: teks(p.alasan), p_pengaju: teks(p.pengaju), p_token: teks(p.token) }];
       }
     },
     gudang: {
@@ -251,6 +256,13 @@
       gdKirim: function (p) {
         return ['gudang_kirim', { p_tanggal: teks(p.tanggal), p_tujuan: teks(p.tujuan), p_nama: teks(p.nama), p_catatan: teks(p.catatan),
           p_order: teks(p.order), p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
+      },
+      // Hitung stok (opname) dan penyesuaian stok gudang: ajuan menunggu persetujuan; Telegram dijalankan Apps Script (efek_antre).
+      gdOpname: function (p) {
+        return ['gudang_opname', { p_nama: teks(p.nama), p_alasan: teks(p.alasan), p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
+      },
+      gdOpnameSesuai: function (p) {
+        return ['gudang_sesuai', { p_nama: teks(p.nama), p_catatan: teks(p.catatan), p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
       }
     },
     bahanbaku: {
