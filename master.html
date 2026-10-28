@@ -469,7 +469,7 @@
     var r = await sb.from('md_aksi').insert({ fungsi: 'ubahStatusOrder', param: { no: no, status: st }, ringkas: 'Status order ' + no + (o ? ' (' + o.pl + ')' : '') + ' menjadi ' + st });
     if (r.error) { $('msgJual').innerHTML = '<div class="msg bad">Gagal: ' + esc(r.error.message) + '</div>'; b.disabled = false; return; }
     await muatAksi(); gambarJualIsi();
-    $('msgJual').innerHTML = '<div class="msg ok">Status order ' + esc(no) + ' menjadi ' + esc(st) + '. Diterapkan ke Google Sheets dan Telegram paling lambat 5 menit lagi.</div>';
+    $('msgJual').innerHTML = '<div class="msg ok">Status order ' + esc(no) + ' menjadi ' + esc(st) + '. Diterapkan ke Google Sheets dan Telegram paling lambat 10 menit lagi.</div>';
   }
 
   function isiPinjam() {
@@ -581,7 +581,7 @@
     h += '<div class="cd"><div class="kpl"><h3>Riwayat terakhir</h3><span class="sb">' + rw.length + ' catatan</span></div>' + (rw.length ? '<div class="gulir"><table class="tabel"><tbody>' + rw.map(function (x) {
       var j = JN[x.j] || [x.j, 'abu'];
       return '<tr><td>' + esc(x.n) + '<small>' + esc(x.t) + ' · ' + esc(x.no) + (x.oleh ? ' · ' + esc(x.oleh) : '') + (x.st && x.st !== 'Tercatat' && x.st !== 'Disetujui' ? ' · ' + esc(x.st) : '') + '</small></td><td class="r"><span class="label ' + j[1] + '">' + esc(j[0]) + '</span><small class="angka">' + fmt(x.q) + ' pcs' + (x.j === 'JUAL' ? ' · ' + rp(x.q * x.h) : '') + '</small></td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="ksg">Belum ada riwayat.</div>') + '</div></div>';
-    return h + '<p class="sb">Penjualan titipan dicatat staf lewat formulir toko. Keputusan dari sini diterapkan ke Google Sheets paling lambat 5 menit kemudian.</p>';
+    return h + '<p class="sb">Penjualan titipan dicatat staf lewat formulir toko. Keputusan dari sini diterapkan ke Google Sheets paling lambat 10 menit kemudian.</p>';
   }
   function putusTitip(b) {
     var setuju = b.getAttribute('data-ttp') === 'setuju', jenis = b.getAttribute('data-jenis'), id = b.getAttribute('data-id'), nm = b.getAttribute('data-nm');
@@ -597,14 +597,14 @@
       }
     }
     var ringkas = (setuju ? 'Setujui ' : 'Tolak ') + (jenis === 'barang' ? 'barang titipan baru ' + nm + (setuju ? ' (harga ' + rp(p.harga) + (p.qty ? ', stok awal ' + p.qty + ' pcs' : '') + ')' : '') : 'tambah stok titipan ' + nm + (setuju ? ' ' + p.qty + ' pcs' : ''));
-    kirimJual('ttpPutus', p, ringkas, ringkas + '. Diterapkan ke Google Sheets paling lambat 5 menit lagi.', b);
+    kirimJual('ttpPutus', p, ringkas, ringkas + '. Diterapkan ke Google Sheets paling lambat 10 menit lagi.', b);
   }
   function simpanBarangTitip(b) {
     var k = b.getAttribute('data-ttp-simpan'), nm = b.getAttribute('data-nm'), w = $('jIsi').querySelector('[data-ubah="' + k + '"]');
     var hpp = angkaIsian(w.querySelector('[data-f="hpp"]')), h = angkaIsian(w.querySelector('[data-f="harga"]')), aktif = w.querySelector('[data-f="aktif"]').checked;
     if (!(h > 0) || hpp === '') { $('msgJual').innerHTML = '<div class="msg bad">Isi HPP dan harga jual ' + esc(nm) + ' dengan angka.</div>'; return; }
     var ringkas = 'Ubah barang titipan ' + nm + ': HPP ' + rp(hpp) + ', harga ' + rp(h) + (aktif ? '' : ', nonaktif');
-    kirimJual('ttpBarangUbah', { kode: k, hpp: hpp, harga: h, aktif: aktif }, ringkas, ringkas + '. Diterapkan ke Google Sheets paling lambat 5 menit lagi.', b);
+    kirimJual('ttpBarangUbah', { kode: k, hpp: hpp, harga: h, aktif: aktif }, ringkas, ringkas + '. Diterapkan ke Google Sheets paling lambat 10 menit lagi.', b);
   }
 
   // Laporan marketplace toko official (mpRingkasOfficial lama)
@@ -691,7 +691,7 @@
   function gambarProduksi() {
     var el = $('bProduksi'); if (!el) return;
     var rp2 = D.rpd, rb = D.rbb;
-    var h = '<p class="tl">Data staf diperbarui sekitar sejam sekali; robot rencana dan pantau tiap 3 jam · ' + waktuPotret('prod') + '</p>';
+    var h = '<p class="tl">Data staf diperbarui sekitar 2 jam sekali; robot rencana dan pantau jam 07, 13, 19 · ' + waktuPotret('prod') + '</p>';
     h += '<div class="chip" role="group" aria-label="Bagian produksi">' + [['prod', 'Staf produksi', D.prod ? fmt(D.prod.produk.reduce(function (a, x) { return a + x.pr; }, 0)) + ' pcs bulan ini' : ''], ['bbk', 'Staf bahan baku', D.bbk ? (D.bbk.tunggu || []).length + ' pembelian belum sampai' : ''],
       ['rpd', 'Rencana produksi', rp2 ? (rp2.n['Kritis'] + rp2.n['Perlu dibuat']) + ' perlu dibuat' : ''], ['rbb', 'Rencana bahan baku', rb ? rb.n['Kurang'] + ' kurang' : ''], ['pp', 'Pantau produksi', '']].map(function (b) {
       return '<button type="button" data-prb="' + b[0] + '" aria-pressed="' + (PR.bagian === b[0]) + '"><span>' + b[1] + '</span><b>' + (b[2] || '&nbsp;') + '</b></button>'; }).join('') + '</div>';
@@ -861,7 +861,7 @@
   function gambarUang() {
     var el = $('bUang'); if (!el) return;
     var t = D.tpb, nCek = t && t.cek ? t.cek.filter(function (c) { return !c.ok; }).length : 0;
-    var h = '<p class="tl">Laporan bulan ini diperbarui sekitar sejam sekali; harga dan tutup buku tiap 3 jam · ' + waktuPotret('acc') + '</p>';
+    var h = '<p class="tl">Laporan bulan ini diperbarui sekitar 2 jam sekali; harga dan tutup buku jam 07, 13, 19 · ' + waktuPotret('acc') + '</p>';
     h += '<div class="chip" role="group" aria-label="Bagian accounting">' + [['lap', 'Laporan bulanan', D.acc ? 'laba ' + jt(D.acc.lr.bersih) : ''], ['trx', 'Transaksi', D.acc ? D.acc.rinci.length + ' catatan' : ''], ['hbb', 'Harga bahan & kemasan', ''], ['naik', 'Kenaikan harga', D.hrgnaik ? D.hrgnaik.list.length + ' catatan' : ''], ['tpb', 'Tutup buku', t ? (nCek ? nCek + ' perlu dibereskan' : 'siap') : ''], ['gaji', 'Gaji', U.gaji && U.gaji.lalu ? (U.gaji.lalu.status === 'Menunggu' ? 'perlu disetujui' : U.gaji.lalu.nama) : '']].map(function (b) {
       return '<button type="button" data-ub="' + b[0] + '" aria-pressed="' + (U.bagian === b[0]) + '"><span>' + b[1] + '</span><b>' + (b[2] || '&nbsp;') + '</b></button>'; }).join('') + '</div>';
     if (U.bagian === 'gaji' && !U.gaji && !U.gajiMuat) muatGaji();
@@ -925,7 +925,7 @@
     h += '</tbody></table></div></div>';
     var per = d.periode || [];
     h += '<div class="cd"><h3>Riwayat periode</h3>' + (per.length ? '<table class="tabel"><tbody>' + per.map(function (x) { return baris2('<b>' + esc(x.nama) + '</b><small>' + esc(x.st) + '</small>', rp(x.tot)); }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada.</div>') + '</div>';
-    return h + '<p class="sb">Data gaji disimpan terpisah dan hanya bisa dibuka akun manajemen. Isian lembur, bonus, telat, dan kasbon tetap dikerjakan admin payroll lewat formulirnya. Cetak rekap gaji masih lewat menu Gaji di Master Data lama. Keputusan dari sini diterapkan paling lambat 5 menit kemudian.</p>';
+    return h + '<p class="sb">Data gaji disimpan terpisah dan hanya bisa dibuka akun manajemen. Isian lembur, bonus, telat, dan kasbon tetap dikerjakan admin payroll lewat formulirnya. Cetak rekap gaji masih lewat menu Gaji di Master Data lama. Keputusan dari sini diterapkan paling lambat 10 menit kemudian.</p>';
   }
   async function putusGaji(b) {
     var aksi = b.getAttribute('data-gja'), d = U.gaji[U.gp], cat = ($('gjCat') ? $('gjCat').value.trim() : '');
@@ -937,7 +937,7 @@
     var r = await sb.from('md_aksi').insert({ fungsi: 'gjPutus', param: { per: d.per, aksi: aksi, catatan: cat }, ringkas: (kata + (cat ? ': ' + cat : '')).slice(0, 200) });
     if (r.error) { salah('Gagal mengirim: ' + r.error.message); b.disabled = false; return; }
     await muatAksi(); gambarUang();
-    $('bUang').insertAdjacentHTML('afterbegin', '<div class="msg ok">' + esc(kata) + '. Diterapkan paling lambat 5 menit lagi' + (aksi === 'setuju' ? '; sesudah itu tombol kirim slip lewat WA muncul di rincian tiap staf.' : '.') + '</div>');
+    $('bUang').insertAdjacentHTML('afterbegin', '<div class="msg ok">' + esc(kata) + '. Diterapkan paling lambat 10 menit lagi' + (aksi === 'setuju' ? '; sesudah itu tombol kirim slip lewat WA muncul di rincian tiap staf.' : '.') + '</div>');
   }
 
   function lapPilih() { return U.b === 'ini' ? D.acc : D.accLalu; }
@@ -1202,7 +1202,7 @@
           '<td class="r" style="white-space:nowrap">' + (tunggu ? '<span class="label abu">diterapkan…</span>' : tombol) + '</td></tr>';
       }).join('') + '</tbody></table>';
     });
-    return h + '<p class="sb">Perangkat = browser di HP/laptop yang membuka link formulir lama (Apps Script). Keputusan dari sini berlaku paling lambat 5 menit kemudian. "Cabut semua akses sekaligus" tetap lewat Keamanan Perangkat di Master Data lama (untuk keadaan darurat).</p></div>';
+    return h + '<p class="sb">Perangkat = browser di HP/laptop yang membuka link formulir lama (Apps Script). Keputusan dari sini berlaku paling lambat 10 menit kemudian. "Cabut semua akses sekaligus" tetap lewat Keamanan Perangkat di Master Data lama (untuk keadaan darurat).</p></div>';
   }
   async function simpanPengguna(b) {
     var id = b.getAttribute('data-pg-simpan'), w = $('bAtur').querySelector('[data-pgform="' + id + '"]');
@@ -1232,7 +1232,7 @@
     var r = await sb.from('md_aksi').insert({ fungsi: 'aksesPutus', param: { no: no, aksi: aksi }, ringkas: ringkas.slice(0, 200) });
     if (r.error) { $('msgAtur').innerHTML = '<div class="msg bad">Gagal mengirim: ' + esc(r.error.message) + '</div>'; b.disabled = false; return; }
     await muatAksi(); gambarAtur();
-    $('msgAtur').innerHTML = '<div class="msg ok">' + esc(ringkas) + '. Berlaku paling lambat 5 menit lagi.</div>';
+    $('msgAtur').innerHTML = '<div class="msg ok">' + esc(ringkas) + '. Berlaku paling lambat 10 menit lagi.</div>';
   }
 
   function antreBarang() { var o = {}; D.aksi.forEach(function (a) { if (a.fungsi === 'mdeSimpanBaru' && a.param && !(a.param.k in o)) o[a.param.k] = a; }); return o; }
@@ -1252,7 +1252,7 @@
       if (buka) r += '<tr><td colspan="5" style="background:#F7F9FB">' + formUbahBarang(x, B, st) + '</td></tr>';
       return r;
     }).join('') + '</tbody></table></div>' + (list.length > 250 ? '<p class="sb">Menampilkan 250 barang pertama. Persempit pencarian.</p>' : '') + '</div>';
-    return h + '<p class="sb">Perubahan diterapkan ke Google Sheets paling lambat 5 menit kemudian dan tercatat di Riwayat perubahan. Harga jual berlaku di semua saluran; HPP berlaku mulai hari ini; qty dicatat sebagai penyesuaian yang langsung disetujui.</p>';
+    return h + '<p class="sb">Perubahan diterapkan ke Google Sheets paling lambat 10 menit kemudian dan tercatat di Riwayat perubahan. Harga jual berlaku di semua saluran; HPP berlaku mulai hari ini; qty dicatat sebagai penyesuaian yang langsung disetujui.</p>';
   }
   function formUbahBarang(x, B, st) {
     var f = AT.f, h = pilihSub('ebf', f, [['harga', 'Harga jual'], ['hpp', 'HPP'], ['qty', 'Qty stok'], ['info', 'Nama, kategori & warna']]);
@@ -1333,7 +1333,7 @@
     var r = await sb.from('md_aksi').insert({ fungsi: 'mdeSimpanBaru', param: p, ringkas: String(ringkas).slice(0, 200) });
     if (r.error) { salah('Gagal mengirim: ' + r.error.message); btn.disabled = false; return; }
     AT.buka = null; await muatAksi(); gambarAtur();
-    $('msgAtur').innerHTML = '<div class="msg ok">' + esc(ringkas) + '. Diterapkan ke Google Sheets paling lambat 5 menit lagi.</div>'; window.scrollTo(0, 0);
+    $('msgAtur').innerHTML = '<div class="msg ok">' + esc(ringkas) + '. Diterapkan ke Google Sheets paling lambat 10 menit lagi.</div>'; window.scrollTo(0, 0);
   }
   function isiLogBarang() {
     var B = D.barang; if (!B) return '<div class="msg w">Riwayat perubahan belum tersedia.</div>';
@@ -1498,7 +1498,7 @@
       '<div class="kt"><span class="l">Dalam perjalanan</span><span class="v angka">' + t.jalan + '</span><span class="k">PO belum datang semua</span></div></div>';
     if (t.prod) h += '<div class="msg w">' + t.prod + ' kiriman produksi belum dikonfirmasi diterima staf gudang.</div>';
     h += list.length ? list.map(function (o) { return kartuPo(o, d, true); }).join('') : '<div class="cd"><div class="aman">Tidak ada PO yang perlu disetujui atau dibayar.</div></div>';
-    return h + '<p class="sb">Keputusan dari sini diterapkan ke Google Sheets paling lambat 5 menit kemudian. Pembayaran otomatis tercatat di accounting. Cetak PO masih lewat menu Purchasing di Master Data lama.</p>';
+    return h + '<p class="sb">Keputusan dari sini diterapkan ke Google Sheets paling lambat 10 menit kemudian. Pembayaran otomatis tercatat di accounting. Cetak PO masih lewat menu Purchasing di Master Data lama.</p>';
   }
   function isiSemuaPo(d) {
     var list = d.po.filter(function (o) { return (!P.filter || o.st === P.filter) && cocok(o.no + ' ' + o.sup + ' ' + o.items.map(function (i) { return i.n; }).join(' '), P.cari); });
@@ -1541,7 +1541,7 @@
   }
   function gambarPengadaan(el) {
     var g = D.pengadaan;
-    var h = '<div id="msgPurch"></div><p class="tl">Diperbarui ' + waktuPotret('pengadaan') + ' · pengajuan baru dari staf masuk paling lambat sejam (jam 07–22)</p>' + chipPurch();
+    var h = '<div id="msgPurch"></div><p class="tl">Diperbarui ' + waktuPotret('pengadaan') + ' · pengajuan baru dari staf masuk paling lambat 2 jam (jam 07–22)</p>' + chipPurch();
     if (!g) h += '<div class="msg w">Data pengadaan belum tersedia. Tekan "Hitung ulang sekarang".</div>';
     else h += P.bagian === 'ajuan' ? isiAjuan(g) : isiRencana(g);
     el.innerHTML = h;
@@ -1593,7 +1593,7 @@
     }).join('');
     return h + catatanAjuan();
   }
-  function catatanAjuan() { return '<p class="sb">Pengajuan dibuat staf dari formulirnya masing-masing. Barang lokal biasanya di-ACC Purchasing, barang impor oleh Mike; manajemen Moscow Supplies bisa keduanya. Keputusan dari sini diterapkan ke Google Sheets paling lambat 5 menit kemudian.</p>'; }
+  function catatanAjuan() { return '<p class="sb">Pengajuan dibuat staf dari formulirnya masing-masing. Barang lokal biasanya di-ACC Purchasing, barang impor oleh Mike; manajemen Moscow Supplies bisa keduanya. Keputusan dari sini diterapkan ke Google Sheets paling lambat 10 menit kemudian.</p>'; }
   function isiRencana(g) {
     var r = g.ring, h = '<div class="kp"><div class="kt"><span class="l">Kritis</span><span class="v angka' + (r.Kritis ? ' mn' : '') + '">' + r.Kritis + '</span><span class="k">stok habis sebelum barang datang</span></div>' +
       '<div class="kt"><span class="l">Saatnya pesan</span><span class="v angka">' + r['Saatnya pesan'] + '</span><span class="k">barang</span></div>' +
@@ -1653,7 +1653,7 @@
     var r = await sb.from('md_aksi').insert({ fungsi: 'pgdAksi', param: p, ringkas: String(ringkas).slice(0, 200) });
     if (r.error) { salah('Gagal mengirim: ' + r.error.message); b.disabled = false; return; }
     await muatAksi(); gambarPurch();
-    $('msgPurch').innerHTML = '<div class="msg ok">' + esc(ringkas) + '. Diterapkan ke Google Sheets paling lambat 5 menit lagi.' + (a === 'terima' ? ' Jangan lupa barang masuknya dicatat di form gudang / bahan baku / botol supaya stok bertambah.' : '') + '</div>';
+    $('msgPurch').innerHTML = '<div class="msg ok">' + esc(ringkas) + '. Diterapkan ke Google Sheets paling lambat 10 menit lagi.' + (a === 'terima' ? ' Jangan lupa barang masuknya dicatat di form gudang / bahan baku / botol supaya stok bertambah.' : '') + '</div>';
   }
   async function cekTanpa(b) {
     var no = b.getAttribute('data-tanpa'); b.disabled = true;
@@ -1703,7 +1703,7 @@
     }
     P.buka['batal:' + no] = false;
     await muatAksi(); gambarPurch();
-    pesanP(kirim.map(function (k) { return k.ringkas; }).join(' · ') + '. Diterapkan ke Google Sheets paling lambat 5 menit lagi.', true);
+    pesanP(kirim.map(function (k) { return k.ringkas; }).join(' · ') + '. Diterapkan ke Google Sheets paling lambat 10 menit lagi.', true);
   }
 
   // ======================= PERSETUJUAN: pembungkus 3 bagian =======================
@@ -1715,7 +1715,7 @@
     var r = await sb.from('md_aksi').insert({ fungsi: fungsi, param: param, ringkas: String(ringkas).slice(0, 200) });
     if (r.error) { if (tempatPesan) tempatPesan.innerHTML = '<div class="msg bad">Gagal mengirim: ' + esc(r.error.message) + '</div>'; return false; }
     await muatAksi(); gambarSetuju();
-    var el = $('msgUtama'); if (el) el.innerHTML = '<div class="msg ok">' + esc(teksOk || 'Tercatat. Diterapkan ke Google Sheets paling lambat 5 menit lagi.') + '</div>';
+    var el = $('msgUtama'); if (el) el.innerHTML = '<div class="msg ok">' + esc(teksOk || 'Tercatat. Diterapkan ke Google Sheets paling lambat 10 menit lagi.') + '</div>';
     return true;
   }
   async function hitungUlang(b) {
@@ -1723,7 +1723,7 @@
     var r = await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang semua data Master Data' });
     if (b) b.disabled = false;
     await muatAksi(); gambarSetuju();
-    alertMsg(r.error ? 'Gagal meminta hitung ulang: ' + r.error.message : 'Hitung ulang diminta. Angka baru muncul paling lambat 5 menit lagi (tekan Muat ulang).', !r.error);
+    alertMsg(r.error ? 'Gagal meminta hitung ulang: ' + r.error.message : 'Hitung ulang diminta. Angka baru muncul paling lambat 10 menit lagi (tekan Muat ulang).', !r.error);
   }
   function alertMsg(t, ok) {
     var tujuan = document.querySelector('#mIsi > section.on');
@@ -1746,7 +1746,7 @@
     M.badge('setuju', nR + nS);
     var antre = D.aksi.filter(function (a) { return a.status === 'menunggu'; });
     var h = '<div id="msgUtama"></div>';
-    if (antre.length) h += '<div class="msg tunggu">' + antre.length + ' keputusan sedang diterapkan ke Google Sheets (paling lambat 5 menit): ' + antre.slice(0, 3).map(function (a) { return esc(a.ringkas); }).join(' · ') + '</div>';
+    if (antre.length) h += '<div class="msg tunggu">' + antre.length + ' keputusan sedang diterapkan ke Google Sheets (paling lambat 10 menit): ' + antre.slice(0, 3).map(function (a) { return esc(a.ringkas); }).join(' · ') + '</div>';
     h += '<div class="chip" role="group" aria-label="Bagian persetujuan">' +
       [['request', 'Request barang', nR + ' menunggu'], ['pantau', 'Pantau pengiriman', nP + ' berjalan'], ['sesuai', 'Penyesuaian stok', nS + ' menunggu']].map(function (b) {
         return '<button type="button" data-bg="' + b[0] + '" aria-pressed="' + (BAGIAN === b[0]) + '"><span>' + b[1] + '</span><b>' + b[2] + '</b></button>';
@@ -1799,7 +1799,7 @@
         if (aksi === 'tolak' && !alasan) { tempat.innerHTML = '<div class="msg bad">Isi alasan penolakan dulu.</div>'; return; }
         b.disabled = true;
         await kirimAksi('rpPutus', { no: o.no, aksi: aksi, alasan: alasan }, (aksi === 'setuju' ? 'Setujui' : 'Tolak') + ' request ' + o.no + ' (' + o.pl + ', ' + fmt(o.q) + ' pcs)', tempat,
-          'Request ' + o.no + (aksi === 'setuju' ? ' disetujui' : ' ditolak') + '. Diterapkan ke Google Sheets dan Telegram paling lambat 5 menit lagi.');
+          'Request ' + o.no + (aksi === 'setuju' ? ' disetujui' : ' ditolak') + '. Diterapkan ke Google Sheets dan Telegram paling lambat 10 menit lagi.');
       };
     });
   }
@@ -1850,7 +1850,7 @@
         b.disabled = true;
         var nama = { selesai: 'Tandai diterima', kirim: 'Tandai dikirim', batal: 'Batalkan' }[aksi];
         await kirimAksi('rpTandai', { no: o.no, aksi: aksi, catatan: cat, alasan: cat }, nama + ' ' + o.no + ' (' + o.pl + ')', tempat,
-          nama + ' ' + o.no + ' tercatat. Diterapkan ke Google Sheets paling lambat 5 menit lagi.');
+          nama + ' ' + o.no + ' tercatat. Diterapkan ke Google Sheets paling lambat 10 menit lagi.');
       };
     });
   }
@@ -1911,7 +1911,7 @@
     if (r.error) { $('msgSetuju').innerHTML = '<div class="msg bad">Gagal mengirim keputusan: ' + esc(r.error.message) + '</div>'; $('tSetuju').disabled = false; $('tTolak').disabled = false; return; }
     await muatAksi();
     gambarSetuju();
-    $('msgSetuju').innerHTML = '<div class="msg ok">Keputusan tercatat. Stok disesuaikan di Google Sheets paling lambat 5 menit lagi.</div>';
+    $('msgSetuju').innerHTML = '<div class="msg ok">Keputusan tercatat. Stok disesuaikan di Google Sheets paling lambat 10 menit lagi.</div>';
   }
 })();
 </script>

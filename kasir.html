@@ -545,7 +545,7 @@
       total += n.total; ongkir += n.ongkir || 0;
       if (n.metode === 'Tunai') tunai += akhirNota(n); else if (n.metode === 'QRIS') qris += akhirNota(n);
       var lbl = n.metode ? '<span class="label ' + n.metode.toLowerCase() + '">' + esc(n.metode) + '</span>' : '<span class="label tanpa">tanpa metode</span>';
-      if (n.baru && n.status === 'menunggu') lbl += '<span class="label antre" title="Masuk ke Google Sheets paling lambat 5 menit">antre ke sheet</span>';
+      if (n.baru && n.status === 'menunggu') lbl += '<span class="label antre" title="Masuk ke Google Sheets paling lambat 10 menit">antre ke sheet</span>';
       h += '<div class="nt"><div><b>' + esc(n.no) + '</b>' + lbl + '<small>' + esc(n.jam) + ' · ' + esc(n.kasir) + (n.pembeli ? ' · ' + esc(n.pembeli) : '') + ' · ' + n.items.length + ' barang' + (n.ongkir ? ' · ongkir ' + rp(n.ongkir) : '') + '</small></div>' +
         '<div class="kanan"><b class="angka">' + rp(akhirNota(n)) + '</b><br><button type="button" class="btn dua kecil" data-nota="' + j + '">Cetak ulang</button></div></div>';
     });
