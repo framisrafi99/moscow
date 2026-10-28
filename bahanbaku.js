@@ -769,11 +769,126 @@
       }
     }
 
-    return { bahanBakuData: bahanBakuData, bahanBakuLaporan: bahanBakuLaporan, pantauProduksi: pantauProduksi, rencanaBahan: rencanaBahan };
+
+    // ---- Simpan produksi bahan jadi & campur warna (file 4 bahanBakuProduksi / bahanBakuWarna) ----
+    // Hitungan sama persis; hasilnya berupa baris yang dicatat fungsi Supabase bbk_simpan_baris.
+    const BBK_SATUAN_PROD_ = ['kg'];
+    function BBK_teksAngka_(n) { return String(BBK_bulat3_(n)).replace('.', ','); }
+    function tglForm_(teks) {
+      const m = String(teks || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return 'Tanggal tidak valid.';
+      const y = parseInt(m[1], 10), b = parseInt(m[2], 10), d = parseInt(m[3], 10);
+      const cek = new Date(Date.UTC(y, b - 1, d));
+      if (cek.getUTCFullYear() !== y || cek.getUTCMonth() !== b - 1 || cek.getUTCDate() !== d) return 'Tanggal tidak valid.';
+      const selisih = (Date.UTC(y, b - 1, d) - 8 * 3600000 - Date.now()) / 86400000;
+      if (selisih > 2) return 'Tanggal terlalu jauh di masa depan. Periksa lagi.';
+      if (selisih < -400) return 'Tanggal terlalu lama. Periksa lagi tahunnya.';
+      return null;
+    }
+    function siapProduksi(p) {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const salah = tglForm_(p.tanggal);
+      if (salah) return { ok: false, pesan: salah };
+      const pengisi = BBK_rapi_(p.pengisi, 40);
+      if (pengisi.length < 2) return { ok: false, pesan: 'Nama staf belum diisi.' };
+      const catatan = BBK_rapi_(p.catatan, 200);
+      const rows = Array.isArray(p.rows) ? p.rows.slice(0, 60) : [];
+      if (!rows.length) return { ok: false, pesan: 'Belum ada bahan jadi yang diisi.' };
+      const jadiList = BBK_jadi_(ss), daftar = {};
+      jadiList.forEach(function (j) { daftar[j.k] = j; });
+      const resep = BBK_resep_(ss, BBK_bahan_(ss), jadiList);
+      const tulis = [], pakai = [], ganti = {};
+      for (let i = 0; i < rows.length; i++) {
+        const brs = 'Baris ' + (i + 1) + ': ';
+        const j = daftar[BBK_rapi_(rows[i] && rows[i].kode, 30).toUpperCase()];
+        if (!j) return { ok: false, pesan: brs + 'pilih bahan jadi dari daftar.' };
+        const s = BBK_rapi_(rows[i].satuan, 15) || j.s || 'kg';
+        if (BBK_SATUAN_PROD_.indexOf(s) === -1 && s !== j.s) return { ok: false, pesan: brs + 'pilih satuannya, kg atau liter.' };
+        let kali = null, q = null;
+        const kRaw = BBK_rapi_(rows[i].kali, 15), qRaw = BBK_rapi_(rows[i].qty, 15);
+        if (kRaw !== '') {
+          kali = BBK_angka_(kRaw);
+          if (kali === null || kali <= 0 || kali > 10000) return { ok: false, pesan: brs + 'kali produksi harus angka lebih dari 0.' };
+        }
+        if (qRaw !== '') {
+          q = BBK_angka_(qRaw);
+          if (q === null || q <= 0 || q > 1000000) return { ok: false, pesan: brs + 'jumlah harus angka lebih dari 0.' };
+        }
+        const berat = (j.b && (!j.s || j.s === s)) ? j.b : null;
+        if (q === null && kali !== null && berat) q = kali * berat;
+        if (q === null) return { ok: false, pesan: brs + 'isi jumlah ' + j.n + (berat ? '.' : ' (berat per produksi belum diisi manajemen Moscow Supplies, jadi jumlahnya belum bisa dihitung dari kali produksi).') };
+        if (kali === null && berat) kali = BBK_bulat3_(q / berat);
+        const rs = resep[j.k] || [];
+        if (rs.length) {
+          if (kali === null) return { ok: false, pesan: brs + 'isi kali produksi ' + j.n + ', karena bahan mentahnya dipotong otomatis sesuai resep.' };
+          for (let r = 0; r < rs.length; r++) {
+            const x = rs[r], qq = BBK_konversi_(kali * x.q, x.st, x.s, x.bj);
+            if (qq === null) return { ok: false, pesan: 'Resep ' + j.n + ': takaran ' + x.n + ' dalam ' + x.st + ' tidak bisa dihitung ke satuan stok ' + x.s + '. Minta manajemen Moscow Supplies memperbaiki sheet BAHAN_RESEP.' };
+            pakai.push({ jenis: 'Terpakai', kode: x.k, nama: x.n, qty: BBK_bulat3_(qq), satuan: x.s, pengisi: 'form: ' + pengisi, catatan: 'otomatis dari produksi ' + BBK_teksAngka_(kali) + 'x', untuk: j.n });
+          }
+        }
+        if (s !== j.s) ganti[j.k] = true;
+        tulis.push({ kode: j.k, kel: j.kel, nama: j.n, qty: BBK_bulat3_(q), satuan: s, pengisi: 'form: ' + pengisi, catatan: catatan, kali: kali === null ? '' : BBK_bulat3_(kali) });
+      }
+      // Satuan bawaan varian perlu diubah di sheet BAHAN_JADI: biarkan Apps Script yang menyimpan.
+      if (Object.keys(ganti).length) return { lewat: true };
+      const t = String(p.tanggal).split('-');
+      return { ok: true, awalan: 'bbkprod', jadi: tulis, pakai: pakai, warna: [],
+        pesan: 'Produksi tersimpan: ' + tulis.length + ' bahan jadi untuk tanggal ' + t[2] + '/' + t[1] + '/' + t[0] + '.' +
+          (pakai.length ? ' Bahan mentah terpotong otomatis: ' + pakai.length + ' catatan.' : '') };
+    }
+    function siapWarna(p) {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const salah = tglForm_(p.tanggal);
+      if (salah) return { ok: false, pesan: salah };
+      const pengisi = BBK_rapi_(p.pengisi, 40);
+      if (pengisi.length < 2) return { ok: false, pesan: 'Nama staf belum diisi.' };
+      const g = BBK_angka_(p.ml);
+      if (g === null || g <= 0 || g > 10000000) return { ok: false, pesan: 'Hasil (gram) harus angka lebih dari 0.' };
+      const catatan = BBK_rapi_(p.catatan, 180);
+      const id = String(p.id || '').toLowerCase();
+      const w = BBK_warna_(ss, BBK_bahan_(ss), BBK_jadi_(ss)).warna.filter(function (x) { return x.id === id; })[0];
+      if (!w) return { ok: false, pesan: 'Pilih warna dari daftar.' };
+      const f = g / w.tot, pakai = [], tulis = [];
+      const judul = (w.target ? 'pigment campuran ' : 'campur warna ') + w.n;
+      for (let i = 0; i < w.pig.length; i++) {
+        const x = w.pig[i], q = BBK_konversi_(x.ml * f, 'gram', x.s, x.bj);
+        if (q === null) return { ok: false, pesan: x.n + ' tercatat dalam satuan ' + x.s + ', tidak bisa dihitung dari gram.' };
+        pakai.push({ jenis: 'Terpakai', kode: x.k, nama: x.n, qty: BBK_bulat3_(q), satuan: x.s, pengisi: 'form: ' + pengisi, catatan: judul + ' ' + BBK_teksAngka_(g) + ' g (' + BBK_teksAngka_(x.ml * f) + ' g)', untuk: w.n });
+      }
+      if (w.target) {
+        const qt = BBK_konversi_(g, 'gram', w.target.s, w.target.bj);
+        if (qt === null) return { ok: false, pesan: 'Satuan stok ' + w.target.n + ' (' + w.target.s + ') tidak bisa dihitung dari gram.' };
+        pakai.push({ jenis: 'Dibuat', kode: w.target.k, nama: w.target.n, qty: BBK_bulat3_(qt), satuan: w.target.s, pengisi: 'form: ' + pengisi, catatan: 'dibuat ' + BBK_teksAngka_(g) + ' g' + (catatan ? ' | ' + catatan : ''), untuk: '' });
+      }
+      if (w.dasar.length) {
+        w.dasar.forEach(function (d, i) { tulis.push({ warna: w.n, hasil: i === 0 ? BBK_bulat3_(g) : 0, dasar: d.n, dasar_g: BBK_bulat3_(d.ml * f), pengisi: 'form: ' + pengisi, catatan: catatan, kel: w.kel }); });
+      } else {
+        tulis.push({ warna: w.n, hasil: BBK_bulat3_(g), dasar: '', dasar_g: 0, pengisi: 'form: ' + pengisi, catatan: catatan, kel: w.kel });
+      }
+      const rinci = w.dasar.map(function (d) { return d.n + ' ' + BBK_teksAngka_(d.ml * f) + ' g'; }).concat(w.pig.map(function (x) { return x.n + ' ' + BBK_teksAngka_(x.ml * f) + ' g'; })).join(', ');
+      return { ok: true, awalan: 'bbkwarna', jadi: [], pakai: pakai, warna: tulis,
+        pesan: (w.target ? 'Pigment ' + w.n + ' dibuat ' + BBK_teksAngka_(g) + ' g, stoknya bertambah. ' : 'Campur warna tersimpan: ' + w.n + ' (' + w.kel + ') ' + BBK_teksAngka_(g) + ' g. ') + rinci + ' terpakai.' };
+    }
+    return { bahanBakuData: bahanBakuData, bahanBakuLaporan: bahanBakuLaporan, pantauProduksi: pantauProduksi, rencanaBahan: rencanaBahan,
+      siapProduksi: siapProduksi, siapWarna: siapWarna };
   }
 
   async function muat(sb, tabel) { return buat(await window.Lembar.muat(sb, tabel)); }
+  // Simpan lewat Supabase. null = biarkan Apps Script yang menyimpan (misalnya satuan bawaan varian berubah).
+  async function simpanBaris(sb, p, jenis) {
+    var B = buat(await window.Lembar.muat(sb, TABEL_BAHAN));
+    var h = jenis === 'warna' ? B.siapWarna(p || {}) : B.siapProduksi(p || {});
+    if (h.lewat) return null;
+    if (!h.ok) return h;
+    var r = await sb.rpc('bbk_simpan_baris', { p_tanggal: String(p.tanggal || ''), p_awalan: h.awalan, p_token: String(p.token || ''),
+      p_jadi: h.jadi, p_pakai: h.pakai, p_warna: h.warna, p_pesan: h.pesan });
+    if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Tekan simpan sekali lagi; aman, tidak akan tercatat dua kali.');
+    return r.data;
+  }
   window.BahanBaku = {
+    simpanProduksi: function (sb, p) { return simpanBaris(sb, p, 'produksi'); },
+    simpanWarna: function (sb, p) { return simpanBaris(sb, p, 'warna'); },
     bahanBakuData: async function (sb, p) { return (await muat(sb, TABEL_BAHAN)).bahanBakuData(p || {}); },
     bahanBakuLaporan: async function (sb, p) { return (await muat(sb, TABEL_BAHAN)).bahanBakuLaporan(p || {}); },
     pantauProduksi: async function (sb, p, jenis) {
