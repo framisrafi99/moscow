@@ -132,6 +132,38 @@
     } catch (e) { return null; }
   }
 
+  // Tahap 3: laporan penjualan, biaya, dan return disimpan langsung di Supabase (pemeriksaan sama dengan Apps Script).
+  // Sesudahnya Apps Script diminta menyalin ke Google Sheets (tidak ditunggu; kalau gagal, sinkron 30 menit yang menyalin).
+  function jualRpc(p) {
+    return ['toko_simpan_jual', { p_toko: C.toko, p_tanggal: String(p.tanggal || ''), p_nama: String(p.nama || ''),
+      p_items: Array.isArray(p.items) ? p.items : [], p_saluran: String(p.saluran || ''), p_token: String(p.token || '') }];
+  }
+  var TULIS_SUPABASE = {
+    simpanJual: jualRpc,
+    simpanJualSaluran: jualRpc,
+    simpanBiaya: function (p) {
+      return ['toko_simpan_biaya', { p_toko: C.toko, p_tanggal: String(p.tanggal || ''), p_nama: String(p.nama || ''),
+        p_keterangan: String(p.keterangan || ''), p_nominal: String(p.nominal === undefined || p.nominal === null ? '' : p.nominal), p_token: String(p.token || '') }];
+    },
+    simpanRetur: function (p) {
+      return ['toko_simpan_retur', { p_toko: C.toko, p_tanggal: String(p.tanggal || ''), p_nama: String(p.nama || ''),
+        p_kode: String(p.kode || ''), p_qty: String(p.qty === undefined || p.qty === null ? '' : p.qty), p_warna: String(p.warna || ''),
+        p_kondisi: String(p.kondisi || ''), p_catatan: String(p.catatan || ''), p_token: String(p.token || '') }];
+    }
+  };
+  var BALIK = SERVER.replace('app=toko', 'app=balik');
+  async function salinKeSheet() {
+    try { var t = await token(); fetch(BALIK, { method: 'POST', body: JSON.stringify({ t: t }), keepalive: true }).catch(function () { }); } catch (e) { }
+  }
+  async function tulisSupabase(f, a) {
+    if (!C.toko) throw new Error('Pilih tokonya dulu.');
+    var q = TULIS_SUPABASE[f]((a && a[0]) || {});
+    var r = await sb.rpc(q[0], q[1]);
+    if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Tekan simpan sekali lagi; aman, tidak akan tercatat dua kali.');
+    if (r.data && r.data.ok) salinKeSheet();
+    return r.data;
+  }
+
   function setelah(f, r) {
     // Jumlah kiriman gudang yang menunggu diterima -> tanda angka di menu.
     if (f === 'tokoKiriman' && r && r.ok) {
@@ -142,6 +174,7 @@
   }
 
   window.__tokoPanggil = function (f, a) {
+    if (TULIS_SUPABASE[f]) return tulisSupabase(f, a).then(function (r) { return setelah(f, r); });
     if (BACA_SUPABASE[f]) {
       return dataSupabase(f, a).then(function (r) {
         return r || kirim(f, a).then(function (d) { return d.r; });
