@@ -381,7 +381,35 @@
       siap.sort(function (a, b) { return a.t < b.t ? -1 : (a.t > b.t ? 1 : 0); });
       return { ok: true, hariIni: hariIni, siap: siap, tunggu: tunggu, diperbarui: fmt(new Date(), 'dd/MM/yyyy HH:mm') };
     }
-    return { gdData: gdData, gdxOrderMasuk: gdxOrderMasuk };
+    // prodKebutuhan (file 52): barang yang kurang di gudang untuk order yang menunggu / sudah ACC (halaman produksi).
+    function prodKebutuhan() {
+      var hariIni = fmt(new Date(), 'yyyy-MM-dd');
+      var log = GD_log_(), stok = GD_stok_(log), kirim = OM_kirimMap_(log), jalan = {};
+      try { GD_salurTunggu_(log).forEach(function (x) { var key = x.k + '|' + (x.w || ''); jalan[key] = (jalan[key] || 0) + (Number(x.q) || 0); }); } catch (e) { }
+      var per = {}, urut = [], nOrder = 0;
+      kumpulOrder_(GD_geser_(hariIni, -150), '9999-12-31').forEach(function (o) {
+        var tg = o.st === 'Menunggu', ac = o.st === 'Disetujui';
+        if (!tg && !ac) return;
+        var r = OM_rinci_(o, tg ? {} : (kirim[o.no] || {}), null);
+        if (r.sisa <= 0) return;
+        nOrder++;
+        r.items.forEach(function (it) {
+          if (it.sisa <= 0) return;
+          var key = it.k + '|' + it.w;
+          if (!per[key]) { per[key] = { k: it.k, w: it.w, n: it.n, acc: 0, tunggu: 0 }; urut.push(key); }
+          if (tg) per[key].tunggu += it.sisa; else per[key].acc += it.sisa;
+        });
+      });
+      var list = [];
+      urut.forEach(function (key) {
+        var x = per[key], s = Math.max(0, stok[key] || 0), j = jalan[key] || 0, ada = s + j, kurang = x.acc + x.tunggu - ada;
+        if (kurang <= 0) return;
+        list.push({ k: x.k, w: x.w, n: x.n, acc: x.acc, tunggu: x.tunggu, stok: s, jalan: j, kurang: kurang, kurangAcc: Math.max(0, x.acc - ada) });
+      });
+      list.sort(function (a, b) { return (b.kurangAcc - a.kurangAcc) || (b.kurang - a.kurang) || (a.n < b.n ? -1 : 1); });
+      return { ok: true, list: list, nOrder: nOrder, diperbarui: fmt(new Date(), 'dd/MM/yyyy HH:mm') };
+    }
+    return { gdData: gdData, gdxOrderMasuk: gdxOrderMasuk, prodKebutuhan: prodKebutuhan };
   }
 
   // Data lembar dipakai bersama beberapa panggilan yang datang hampir bersamaan (gdData + gdxOrderMasuk saat halaman dibuka).
@@ -392,6 +420,7 @@
   }
   async function gdData(sb) { return buat(await lembar(sb)).gdData(); }
   async function gdxOrderMasuk(sb) { return buat(await lembar(sb)).gdxOrderMasuk(); }
+  async function prodKebutuhan(sb) { return buat(await lembar(sb)).prodKebutuhan(); }
   function lupakan() { muatan = null; }
-  window.Gudang = { gdData: gdData, gdxOrderMasuk: gdxOrderMasuk, lupakan: lupakan, buat: buat, TABEL: TABEL };
+  window.Gudang = { gdData: gdData, gdxOrderMasuk: gdxOrderMasuk, prodKebutuhan: prodKebutuhan, lupakan: lupakan, buat: buat, TABEL: TABEL };
 })();
