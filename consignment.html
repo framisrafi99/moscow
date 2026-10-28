@@ -108,7 +108,8 @@
     dataToko: function () { return ['toko_data', { p_toko: C.toko }]; },
     pendapatanToko: function (p) { return ['toko_pendapatan', { p_toko: C.toko, p_bulan: String(p.bulan || ''), p_harga: !!p.harga }]; },
     riwayatOrder: function () { return ['toko_riwayat_order', { p_toko: C.toko }]; },
-    selisihHitung: function () { return ['toko_selisih_hitung', { p_toko: C.toko }]; }
+    selisihHitung: function () { return ['toko_selisih_hitung', { p_toko: C.toko }]; },
+    tokoKiriman: function () { return ['toko_kiriman', { p_toko: C.toko }]; }
   };
   async function dataSupabase(f, a) {
     if (!C.toko || Date.now() < C.basiSampai) return null;
@@ -120,20 +121,24 @@
     } catch (e) { return null; }
   }
 
+  function setelah(f, r) {
+    // Jumlah kiriman gudang yang menunggu diterima -> tanda angka di menu.
+    if (f === 'tokoKiriman' && r && r.ok) {
+      var n = (r.terima || []).length; M.badge('terima', n);
+      if (n && !C.terimaDibuka && !location.hash) { C.terimaDibuka = true; M.buka('terima'); }
+    }
+    return r;
+  }
+
   window.__tokoPanggil = function (f, a) {
     if (BACA_SUPABASE[f]) {
       return dataSupabase(f, a).then(function (r) {
         return r || kirim(f, a).then(function (d) { return d.r; });
-      });
+      }).then(function (r) { return setelah(f, r); });
     }
     return kirim(f, a).then(function (d) {
       if (d.cermin === false) C.basiSampai = Date.now() + 35 * 60 * 1000;
-      // Jumlah kiriman gudang yang menunggu diterima -> tanda angka di menu.
-      if (f === 'tokoKiriman' && d.r && d.r.ok) {
-        var n = (d.r.terima || []).length; M.badge('terima', n);
-        if (n && !C.terimaDibuka && !location.hash) { C.terimaDibuka = true; M.buka('terima'); }
-      }
-      return d.r;
+      return setelah(f, d.r);
     });
   };
 
