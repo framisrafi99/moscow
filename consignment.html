@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Form Toko Consignment</title>
+<meta name="theme-color" content="#172434">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Toko">
+<link rel="manifest" href="manifest-consignment.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="moscow.css">
+<style>
+  #mIsi { padding:0 !important; }
+  #mIsi > section[data-bagian="isi"] { padding:0 !important; margin:0 !important; }
+  html.berbingkai, html.berbingkai body { overflow:hidden; }
+  #wadah { position:relative; }
+  #bingkai { display:block; width:100%; border:0; background:var(--latar); }
+  #muatan { padding:28px 20px; color:var(--abu); }
+  #muatan.bad { color:var(--merah); }
+  #muatan .ulang { margin-top:14px; }
+  #pilihToko { height:36px; border-radius:10px; border:1px solid var(--garis); background:#fff; color:var(--tinta); padding:0 10px; font-weight:600; max-width:220px; }
+</style>
+</head>
+<body>
+<main id="mIsi">
+  <section data-bagian="isi">
+    <div id="wadah">
+      <div id="muatan" role="status">Memuat form toko…</div>
+      <iframe id="bingkai" title="Form toko" hidden></iframe>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="moscow.js"></script>
+<script>
+(function () {
+  var M = Moscow, sb = M.sb, esc = M.esc;
+  // Server form lama (Apps Script). Akses dicek dari akun Google yang masuk, bukan dari kunci link.
+  var SERVER = 'https://script.google.com/macros/s/AKfycbxcidGDrc33WJYcxzPf1dnRFzgafzbhwomXKlj3KjfYUHosPyI0qNpBcY9tvI7-PgI2/exec?app=toko';
+  // Menu aplikasi -> tombol tab di form lama.
+  var TAB = { terima: '', jual: 'tab5', biaya: 'tab6', retur: 'tab10', dasbor: 'tab7', hitung: 'tab9', restok: 'tab1', titip: 'tabTtp', bh: 'tabBHS', riwayat: 'rlBtn' };
+  var C = { toko: '', nama: '', peran: '', daftar: [], frame: null, aktif: 'jual' };
+  function $(id) { return document.getElementById(id); }
+
+  // Gaya form lama disamakan dengan aplikasi baru (warna, huruf, kartu); judul & tab lama disembunyikan karena diganti menu aplikasi.
+  var GAYA = '<style id="gayaBaru">' +
+    ':root{--bg:#F4F7FA;--card:#fff;--ink:#0F1B2A;--mut:#5A6677;--line:#E2E7EE;--pri:#1E78A8;--ok:#146C43;--bad:#B42318;--warn:#9A5B00}' +
+    'body{font-family:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif!important;font-size:15px;padding-bottom:110px;-webkit-font-smoothing:antialiased}' +
+    'body>header,#tabs,#rlBtn,#bhBtn{display:none!important}' +
+    'main{max-width:860px;padding:16px}' +
+    '.card{border-radius:16px;padding:16px;border-color:#E2E7EE;box-shadow:0 1px 2px rgba(15,27,42,.04)}' +
+    '.btn{border-radius:12px;font-weight:700}.btn.sec{border-color:#C9D6E2}' +
+    'input[type=text],input[type=date],input[type=search],input[type=number],select,textarea{border-radius:12px;border-color:#D5DEE9}' +
+    'h2{font-size:12.5px;font-weight:800;letter-spacing:.04em}' +
+    '.kat{border-radius:12px;background:#E7F3F9}.tile{border-radius:12px;background:#F4F7FA}' +
+    '.bar{box-shadow:0 -4px 16px rgba(15,27,42,.06)}' +
+    // Kiriman dari gudang punya menu sendiri ("Terima barang"), tidak menumpuk di atas menu lain.
+    'body.tanpaTerima #opTk{display:none!important}' +
+    'body.hanyaTerima main>*:not(#opTk):not(#err):not(#kosongTerima){display:none!important}' +
+    '#kosongTerima{padding:28px 8px;color:#5A6677}' +
+    '</style>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">';
+
+  // Pengganti google.script.run di dalam form lama: diteruskan ke server lewat halaman ini.
+  var JEMBATAN = '<script>(function(){' +
+    'function buat(s,f,u){return new Proxy({},{get:function(t,p){' +
+    'if(p==="withSuccessHandler")return function(fn){return buat(fn,f,u);};' +
+    'if(p==="withFailureHandler")return function(fn){return buat(s,fn,u);};' +
+    'if(p==="withUserObject")return function(o){return buat(s,f,o);};' +
+    'return function(){var a=[].slice.call(arguments);window.parent.__tokoPanggil(p,a).then(function(r){if(s)s(r,u);},function(e){if(f)f(e,u);else console.error(e);});};' +
+    '}});}' +
+    'window.google={script:{run:buat(null,null,undefined),host:{close:function(){}},url:{getLocation:function(cb){cb({parameter:{},hash:""});}}}};' +
+    '})();<\/script>';
+
+  async function token() {
+    var s = await sb.auth.getSession();
+    var t = s && s.data && s.data.session ? s.data.session.access_token : '';
+    if (!t) throw new Error('Sesi masuk habis. Muat ulang halaman lalu masuk lagi.');
+    return t;
+  }
+
+  async function kirim(f, a) {
+    var badan = JSON.stringify({ t: await token(), f: f, a: a || [], toko: C.toko });
+    var r;
+    try { r = await fetch(SERVER, { method: 'POST', body: badan, redirect: 'follow' }); }
+    catch (e) { throw new Error('Tidak tersambung ke server. Periksa internet lalu coba lagi.'); }
+    var teks = await r.text(), d = null;
+    try { d = JSON.parse(teks); } catch (e) { throw new Error('Jawaban server tidak terbaca. Coba lagi sebentar lagi.'); }
+    if (!d || d.ok !== true) throw new Error((d && d.pesan) || 'Form toko belum aktif di server. Hubungi manajemen Moscow Supplies.');
+    return d;
+  }
+
+  window.__tokoPanggil = function (f, a) {
+    return kirim(f, a).then(function (d) {
+      // Jumlah kiriman gudang yang menunggu diterima -> tanda angka di menu.
+      if (f === 'tokoKiriman' && d.r && d.r.ok) {
+        var n = (d.r.terima || []).length; M.badge('terima', n);
+        if (n && !C.terimaDibuka && !location.hash) { C.terimaDibuka = true; M.buka('terima'); }
+      }
+      return d.r;
+    });
+  };
+
+  function ukur() {
+    var fr = C.frame; if (!fr || fr.hidden) return;
+    document.documentElement.classList.add('berbingkai'); window.scrollTo(0, 0);
+    var atas = fr.getBoundingClientRect().top;
+    var bawah = document.documentElement.classList.contains('m-m') && $('mBawah') ? $('mBawah').offsetHeight : 0;
+    fr.style.height = Math.max(320, window.innerHeight - atas - bawah) + 'px';
+  }
+  window.addEventListener('resize', ukur);
+
+  function tekan(k) {
+    var fr = C.frame; if (!fr || !fr.contentDocument) return;
+    var dok = fr.contentDocument;
+    // Riwayat isi laporan tampil sebagai lembar di atas form; tutup dulu kalau pindah ke menu lain.
+    var rl = dok.getElementById('rlWrap'), tutup = dok.getElementById('rlTutup');
+    if (k !== 'riwayat' && rl && tutup && getComputedStyle(rl).display !== 'none' && rl.offsetHeight) tutup.click();
+    dok.body.classList.toggle('hanyaTerima', k === 'terima');
+    dok.body.classList.toggle('tanpaTerima', k !== 'terima');
+    var ks = dok.getElementById('kosongTerima'); if (ks) ks.remove();
+    if (k === 'terima') {
+      var op = dok.getElementById('opTk');
+      if (!op || op.offsetHeight < 8) {
+        var el = dok.createElement('div'); el.id = 'kosongTerima';
+        el.textContent = 'Tidak ada kiriman dari gudang yang menunggu diterima.';
+        (op && op.parentNode ? op.parentNode : dok.body).insertBefore(el, op ? op.nextSibling : null);
+      }
+      try { fr.contentWindow.scrollTo(0, 0); } catch (x) { }
+      return;
+    }
+    var b = TAB[k] ? dok.getElementById(TAB[k]) : null;
+    if (b) { b.click(); try { fr.contentWindow.scrollTo(0, 0); } catch (x) { } }
+  }
+
+  function gagal(pesan) {
+    var m = $('muatan'); m.hidden = false; m.className = 'bad';
+    m.innerHTML = esc(pesan) + '<div class="ulang"><button type="button" class="tbl" id="cobaLagi">Coba lagi</button></div>';
+    $('cobaLagi').onclick = muat;
+    if (C.frame) C.frame.hidden = true;
+    document.documentElement.classList.remove('berbingkai');
+  }
+
+  async function muat() {
+    var m = $('muatan'); m.hidden = false; m.className = ''; m.textContent = 'Memuat form ' + (C.toko || 'toko') + '…';
+    var d;
+    try { d = await kirim('halaman', []); } catch (e) { gagal(e.message); return; }
+    C.toko = d.toko; C.daftar = d.daftar || []; C.nama = d.nama || C.nama;
+    pilihToko();
+    var html = String(d.html || '');
+    html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (x) { return x + JEMBATAN + GAYA; }) : JEMBATAN + GAYA + html;
+    var fr = $('bingkai'); C.frame = fr;
+    fr.onload = function () {
+      m.hidden = true; fr.hidden = false;
+      var dok = fr.contentDocument;
+      // Barang titipan hanya ada di Medan.
+      var adaTitip = !!(dok && dok.getElementById('tabTtp'));
+      document.querySelectorAll('[data-k="titip"]').forEach(function (x) { x.hidden = !adaTitip; });
+      // Nama pengisi otomatis dari akun yang masuk.
+      var nm = dok && dok.getElementById('nama');
+      if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
+      ukur(); tekan(C.aktif === 'riwayat' ? 'jual' : C.aktif);
+      if (C.aktif === 'riwayat') tekan('riwayat');
+    };
+    fr.srcdoc = html;
+  }
+
+  function pilihToko() {
+    var el = $('mAksi'); if (!el) return;
+    if (C.peran !== 'manajemen' || C.daftar.length < 2) { el.innerHTML = '<span class="tg" style="font-weight:700;color:var(--abu)">' + esc(C.toko) + '</span>'; return; }
+    el.innerHTML = '<label class="sr" for="pilihToko" style="position:absolute;left:-9999px">Toko</label><select id="pilihToko">' +
+      C.daftar.map(function (n) { return '<option' + (n === C.toko ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select>';
+    $('pilihToko').onchange = function () {
+      C.toko = this.value;
+      try { localStorage.setItem('tokoPilihan', C.toko); } catch (x) { }
+      muat();
+    };
+  }
+
+  M.mulai({
+    aplikasi: 'FORM TOKO', masukJudul: 'Form toko consignment',
+    masukTeks: 'Laporan penjualan, biaya, stok, dan bagi hasil toko consignment. Masuk memakai akun Google yang sudah didaftarkan manajemen Moscow Supplies.',
+    izin: function (ctx) {
+      if (ctx.peran === 'manajemen' || ctx.peran === 'toko') return true;
+      return ctx.peran ? 'Akun ' + ctx.email + ' tidak punya akses ke form toko.' : false;
+    },
+    menu: [
+      { k: 'jual', nm: 'Report penjualan', ik: 'jual', bagian: 'isi', pendek: 'Jual' },
+      { k: 'terima', nm: 'Terima barang', ik: 'gudang', bagian: 'isi', pendek: 'Terima' },
+      { k: 'biaya', nm: 'Biaya', ik: 'uang', bagian: 'isi' },
+      { k: 'retur', nm: 'Barang return', ik: 'muat', bagian: 'isi', pendek: 'Return' },
+      { k: 'dasbor', nm: 'Dashboard toko', ik: 'dasbor', bagian: 'isi', pendek: 'Dashboard' },
+      { k: 'hitung', nm: 'Hitung stok', ik: 'stok', bagian: 'isi' },
+      { k: 'restok', nm: 'Re-stock produk', ik: 'purch', bagian: 'isi', pendek: 'Re-stock' },
+      { k: 'titip', nm: 'Barang titipan', ik: 'toko', bagian: 'isi' },
+      { k: 'bh', nm: 'Penjualan & Bagi Hasil', ik: 'laporan', bagian: 'isi', pendek: 'Bagi hasil' },
+      { k: 'riwayat', nm: 'Riwayat isi laporan', ik: 'riwayat', bagian: 'isi', pendek: 'Riwayat' }
+    ],
+    bawah: ['jual', 'terima', 'biaya', 'dasbor', 'lain'],
+    pindah: function (k) { C.aktif = k; tekan(k); setTimeout(ukur, 0); },
+    siap: function (ctx) {
+      C.peran = ctx.peran; C.nama = '';
+      if (ctx.peran === 'manajemen') {
+        try { C.toko = localStorage.getItem('tokoPilihan') || ''; } catch (x) { }
+        var nav = document.querySelector('#mSide nav');
+        if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + M.svg('beranda') + '<span class="nm">Master Data</span></a>');
+      }
+      C.aktif = M.aktif() || 'jual';
+      muat();
+    }
+  });
+})();
+</script>
+</body>
+</html>
