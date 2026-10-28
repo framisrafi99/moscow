@@ -252,7 +252,126 @@
       r.menunggu = r.list.filter(function (x) { return x.st === 'Menunggu'; }).length;
       return r;
     }
-    return { kemasanHargaData: kemasanHargaData, stokBahan: stokBahan, ambilBahan: ambilBahan, ambilOrderProduksi: ambilOrderProduksi, prodSesuaiDaftar: prodSesuaiDaftar };
+
+    // ---- ambilRiwayatProduksi (file 1 dataProduksi_ + file 5 urutan katalog + file 7 penyesuaian) ----
+    // awal = stok awal gudang produksi (sheet REPORT_STOK, dibaca Apps Script ke Supabase).
+    function bacaKatalog_() {
+      var k = {};
+      baca('katalog', 2).forEach(function (r) { var kode = String(r[0]).trim().toUpperCase(); if (kode) k[kode] = String(r[1]).trim(); });
+      var out = {};
+      Object.keys(k).sort(function (a, b) {
+        var ra = a.charAt(0) === 'M' ? 0 : 1, rb = b.charAt(0) === 'M' ? 0 : 1;
+        if (ra !== rb) return ra - rb;
+        return a < b ? -1 : a > b ? 1 : 0;
+      }).forEach(function (x) { out[x] = k[x]; });
+      return out;
+    }
+    function bacaKategori_() {
+      var hasil = {};
+      baca('katalog', 4).forEach(function (r) { var kode = String(r[0]).trim().toUpperCase(); if (kode) hasil[kode] = String(r[3]).trim() || 'Lainnya'; });
+      return hasil;
+    }
+    function warnaBarang_() {
+      var out = {}, dilihat = {};
+      var sumber = L.barang_order && L.barang_order.baris.length ? 'barang_order' : 'katalog';
+      baca(sumber, 5).forEach(function (r) {
+        var kode = String(r[0]).trim().toUpperCase();
+        if (!kode || kode.indexOf('-') !== -1 || dilihat[kode]) return;
+        dilihat[kode] = true;
+        var warna = [], ada = {};
+        String(r[4] || '').split(',').forEach(function (w) {
+          w = w.replace(/-/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+          if (w && w !== 'LAINNYA' && !ada[w]) { ada[w] = true; warna.push(w); }
+        });
+        if (warna.length) out[kode] = warna;
+      });
+      return out;
+    }
+    function rapiWarna_(v) { return String(v === null || v === undefined ? '' : v).replace(/\s+/g, ' ').trim().toUpperCase(); }
+    function PSS_adjProduksi_() {
+      var a = {};
+      PSS_baca_().forEach(function (x) {
+        if (x.bg !== 'Produksi' || x.st !== 'Disetujui' || !x.wk || !x.sel || !x.k) return;
+        if (!a[x.k]) a[x.k] = { tot: 0, w: {} };
+        a[x.k].tot += x.sel;
+        a[x.k].w[x.w] = (a[x.k].w[x.w] || 0) + x.sel;
+      });
+      return a;
+    }
+    function dataProduksi_(dari, sampai, awal) {
+      var katalog = bacaKatalog_(), kategori = bacaKategori_(), warnaAda = warnaBarang_();
+      var baru = function () { return { pr: 0, sa: 0, kj: {}, semuaPr: 0, semuaSa: 0, w: {} }; };
+      var baruW = function () { return { pr: 0, sa: 0, sisa: 0 }; };
+      var agg = {};
+      Object.keys(katalog).forEach(function (k) { agg[k] = baru(); });
+      var log = [];
+      [['PRODUKSI', 'produksi_log'], ['SALUR', 'salur_log']].forEach(function (x) {
+        var jenis = x[0], iw = jenis === 'PRODUKSI' ? 6 : 7;
+        var vals = baca(x[1], Math.min(8, L[x[1]] ? L[x[1]].lebar : 8));
+        for (var i = 0; i < vals.length; i++) {
+          var r = vals[i];
+          if (!(r[0] instanceof Date)) continue;
+          var kode = String(r[1]).trim().toUpperCase(), qty = Number(r[3]);
+          if (!isFinite(qty)) continue;
+          if (!agg[kode]) agg[kode] = baru();
+          var a = agg[kode];
+          var wr = warnaAda[kode] ? rapiWarna_(r[iw]) : '';
+          var aw = null;
+          if (warnaAda[kode]) { if (!a.w[wr]) a.w[wr] = baruW(); aw = a.w[wr]; }
+          if (jenis === 'PRODUKSI') { a.semuaPr += qty; if (aw) aw.sisa += qty; }
+          else { a.semuaSa += qty; if (aw) aw.sisa -= qty; }
+          var tgl = fmt(r[0], 'yyyy-MM-dd');
+          if (tgl < dari || tgl > sampai) continue;
+          var tj = jenis === 'SALUR' ? String(r[6] || '') : '';
+          if (jenis === 'PRODUKSI') { a.pr += qty; if (aw) aw.pr += qty; }
+          else { a.sa += qty; if (aw) aw.sa += qty; if (tj) a.kj[tj] = (a.kj[tj] || 0) + qty; }
+          var adaWaktu = r[4] instanceof Date;
+          log.push({ t: tgl, w: adaWaktu ? fmt(r[4], 'HH:mm') : '', ms: adaWaktu ? r[4].getTime() : 0,
+            j: jenis, k: kode, n: String(r[2]), q: qty, tj: tj, wr: wr, p: String(r[5]).slice(0, 40) });
+        }
+      });
+      log.sort(function (a, b) { return a.t < b.t ? 1 : a.t > b.t ? -1 : b.ms - a.ms; });
+      var BATAS = 600;
+      var produk = Object.keys(agg).map(function (k) {
+        var a = agg[k], w = [];
+        if (warnaAda[k]) {
+          if (awal[k]) { if (!a.w['']) a.w[''] = baruW(); a.w[''].sisa += awal[k]; }
+          var lain = Object.keys(a.w).filter(function (x) { return warnaAda[k].indexOf(x) === -1; })
+            .sort(function (x, y) { return x === '' ? 1 : y === '' ? -1 : x < y ? -1 : 1; });
+          warnaAda[k].concat(lain).forEach(function (x) {
+            var o = a.w[x];
+            if (o && (o.pr || o.sa || o.sisa)) w.push({ w: x, pr: o.pr, sa: o.sa, sisa: o.sisa });
+          });
+        }
+        return { k: k, n: katalog[k] || k, kat: kategori[k] || 'Lainnya', pr: a.pr, sa: a.sa,
+          sisa: (awal[k] || 0) + a.semuaPr - a.semuaSa, bw: !!warnaAda[k], w: w };
+      });
+      var adj = PSS_adjProduksi_();
+      produk.forEach(function (p) {
+        var x = adj[p.k];
+        if (!x) return;
+        p.sisa += x.tot;
+        if (!p.bw) return;
+        Object.keys(x.w).forEach(function (w) {
+          var e = p.w.filter(function (o) { return o.w === w; })[0];
+          if (e) e.sisa += x.w[w];
+          else if (x.w[w]) p.w.push({ w: w, pr: 0, sa: 0, sisa: x.w[w] });
+        });
+      });
+      return { produk: produk, terpotong: log.length > BATAS, diperbarui: fmt(new Date(), 'dd/MM/yyyy HH:mm'),
+        log: log.slice(0, BATAS).map(function (x) { return { t: x.t, w: x.w, j: x.j, k: x.k, n: x.n, q: x.q, p: x.p, tj: x.tj, wr: x.wr }; }) };
+    }
+    function ambilRiwayatProduksi(p, awal) {
+      var dari = String((p && p.dari) || ''), sampai = String((p && p.sampai) || '');
+      var salah = salahPeriode_(dari, sampai);
+      if (salah) return { ok: false, pesan: salah };
+      var d = dataProduksi_(dari, sampai, awal || {});
+      return {
+        ok: true, dari: dari, sampai: sampai, log: d.log, terpotong: d.terpotong, diperbarui: d.diperbarui,
+        produk: d.produk.map(function (x) { return { k: x.k, n: x.n, kat: x.kat, pr: x.pr, sa: x.sa, sisa: x.sisa, bw: x.bw, w: x.w }; })
+      };
+    }
+    return { kemasanHargaData: kemasanHargaData, stokBahan: stokBahan, ambilBahan: ambilBahan, ambilOrderProduksi: ambilOrderProduksi, prodSesuaiDaftar: prodSesuaiDaftar, ambilRiwayatProduksi: ambilRiwayatProduksi };
   }
 
   window.Produksi = {
@@ -260,6 +379,11 @@
     stokBahan: async function (sb) { return buat(await window.Lembar.muat(sb, TABEL_STOK)).stokBahan(); },
     ambilBahan: async function (sb) { return buat(await window.Lembar.muat(sb, ['bahan', 'bahan_log'])).ambilBahan(); },
     ambilOrderProduksi: async function (sb, p) { return buat(await window.Lembar.muat(sb, ['order_log'])).ambilOrderProduksi(p); },
+    ambilRiwayatProduksi: async function (sb, p) {
+      var h = await Promise.all([window.Lembar.muat(sb, ['katalog', 'barang_order', 'produksi_log', 'salur_log', 'produksi_sesuai_log']), sb.rpc('produksi_awal')]);
+      if (h[1].error || !h[1].data) return null;
+      return buat(h[0]).ambilRiwayatProduksi(p, h[1].data);
+    },
     prodSesuaiDaftar: async function (sb) { return buat(await window.Lembar.muat(sb, ['produksi_sesuai_log'])).prodSesuaiDaftar(); },
     buat: buat, TABEL: TABEL
   };
