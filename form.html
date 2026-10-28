@@ -323,12 +323,38 @@
     document.documentElement.classList.remove('berbingkai');
   }
 
+  // Tampilan form: kalau ada simpanan di Supabase (dibuat Apps Script, tanpa kunci rahasia), langsung dipakai;
+  // tanggal bawaan diganti hari ini dan stok dimuat ulang. Simpanan yang berumur > 30 menit diperbarui di belakang.
+  function hariIni() { return window.Lembar ? window.Lembar.format(new Date(), 'yyyy-MM-dd') : new Date().toISOString().slice(0, 10); }
+  function segarkan(html) {
+    var i = html.indexOf('var D = ');
+    if (i < 0) return html;
+    var j = html.indexOf(';\n', i);
+    if (j < 0) return html;
+    var bagian = html.slice(i, j).replace(/("tanggal":")\d{4}-\d{2}-\d{2}(")/, function (x, a, b) { return a + hariIni() + b; });
+    return html.slice(0, i) + bagian + html.slice(j);
+  }
   async function muat() {
     var m = $('muatan'); m.hidden = false; m.className = ''; m.textContent = 'Memuat form…';
+    var simpanan = null;
+    try {
+      var r = await sb.rpc('halaman_baca', { p_app: APP });
+      if (!r.error && r.data && r.data.html) simpanan = r.data;
+    } catch (e) { simpanan = null; }
+    var umur = simpanan ? Date.now() - new Date(simpanan.dibuat).getTime() : Infinity;
+    if (simpanan && umur < 7 * 86400000) {
+      C.nama = simpanan.nama || '';
+      tampil(segarkan(String(simpanan.html)), true);
+      if (umur > 30 * 60000) kirim('halaman', []).catch(function () { });
+      return;
+    }
     var d;
     try { d = await kirim('halaman', []); } catch (e) { gagal(e.message); return; }
     C.nama = d.nama || '';
-    var html = String(d.html || '');
+    tampil(String(d.html || ''), false);
+  }
+  function tampil(html, dariSimpanan) {
+    var m = $('muatan');
     // Bilah tab lama disembunyikan lewat aturan gaya (tetap berlaku walau form menggambar ulang isinya).
     var gaya = GAYA + '<style>' + F.sembunyi + '{display:none!important}</style>';
     html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (x) { return x + JEMBATAN + gaya; }) : JEMBATAN + gaya + html;
@@ -340,6 +366,8 @@
       var nm = dok.getElementById('nama');
       if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
       ukur(); tekan(C.aktif);
+      // Stok di dalam tampilan simpanan bisa sudah lama: langsung dimuat ulang (form produksi).
+      if (dariSimpanan) try { if (typeof fr.contentWindow.muatStok === 'function') fr.contentWindow.muatStok(); } catch (e) { }
     };
     fr.srcdoc = html;
   }
