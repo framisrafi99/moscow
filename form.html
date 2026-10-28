@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Form Staf Moscow</title>
+<meta name="theme-color" content="#172434">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="moscow.css">
+<style>
+  #mIsi { padding:0 !important; }
+  #mIsi > section[data-bagian="isi"] { padding:0 !important; margin:0 !important; }
+  html.berbingkai, html.berbingkai body { overflow:hidden; }
+  #bingkai { display:block; width:100%; border:0; background:var(--latar); }
+  #muatan { padding:28px 20px; color:var(--abu); }
+  #muatan.bad { color:var(--merah); }
+  #muatan .ulang { margin-top:14px; }
+</style>
+</head>
+<body>
+<main id="mIsi">
+  <section data-bagian="isi">
+    <div id="muatan" role="status">Memuat form…</div>
+    <iframe id="bingkai" title="Form staf" hidden></iframe>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="moscow.js"></script>
+<script>
+(function () {
+  var M = Moscow, sb = M.sb, esc = M.esc;
+  var SERVER = 'https://script.google.com/macros/s/AKfycbxcidGDrc33WJYcxzPf1dnRFzgafzbhwomXKlj3KjfYUHosPyI0qNpBcY9tvI7-PgI2/exec?app=';
+
+  // Tiap form: siapa yang boleh, menu aplikasi, dan tombol form lama yang ditekan untuk tiap menu.
+  // Langkah '#id' = tombol dengan id itu; 'teks@wadah' = tombol berteks itu langsung di dalam wadah (pemilih CSS).
+  var FORM = {
+    gudang: {
+      judul: 'GUDANG UTAMA', masuk: 'Gudang Utama & Purchasing', peran: ['gudang', 'purchasing_shopeepay', 'manajemen'],
+      sembunyi: '.m:has(> [data-m])',
+      menu: [
+        { k: 'stok', nm: 'Stok', ik: 'stok', l: ['Stok@.m'] },
+        { k: 'order', nm: 'Order masuk', ik: 'nota', l: ['Order Masuk@.m'], pendek: 'Order' },
+        { k: 'ajuan', nm: 'Pengajuan', ik: 'purch', l: ['Pengajuan@.m'] },
+        { k: 'salur', nm: 'Penyaluran', ik: 'gudang', l: ['Penyaluran@.m'] },
+        { k: 'riwayat', nm: 'Riwayat', ik: 'riwayat', l: ['Riwayat@.m'] },
+        { k: 'uang', nm: 'Uang keluar', ik: 'uang', l: ['Uang keluar@.m'], pendek: 'Uang' }
+      ],
+      bawah: ['stok', 'order', 'salur', 'ajuan', 'lain']
+    },
+    produksi: {
+      judul: 'STAF PRODUKSI', masuk: 'Form staf produksi', peran: ['produksi', 'manajemen'],
+      sembunyi: '.t:has(> #pgsT1), .tabs:has(> #tab1)',
+      menu: [
+        { k: 'isi', nm: 'Isi laporan', ik: 'produksi', l: ['#pgsT1', '#tab1'], pendek: 'Laporan' },
+        { k: 'data', nm: 'Data produksi', ik: 'dasbor', l: ['#pgsT1', '#tab2'], pendek: 'Data' },
+        { k: 'riwayat', nm: 'Riwayat', ik: 'riwayat', l: ['#pgsT1', '#tab3'] },
+        { k: 'order', nm: 'Order masuk', ik: 'nota', l: ['#pgsT1', '#tab4'], pendek: 'Order' },
+        { k: 'botol', nm: 'Botol & stiker', ik: 'stok', l: ['#pgsT1', '#tab5'], pendek: 'Botol' },
+        { k: 'pantau', nm: 'Pantau produksi', ik: 'laporan', l: ['#pgsT1', '#tabPP'] },
+        { k: 'rencana', nm: 'Rencana produksi', ik: 'setuju', l: ['#pgsT1', '#tabRPD'] },
+        { k: 'sesuai', nm: 'Penyesuaian stok', ik: 'atur', l: ['#pgsT1', '#tabPS'] },
+        { k: 'kemasan', nm: 'Harga kemasan', ik: 'harga', l: ['#pgsT1', '#tabKms'] },
+        { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' }
+      ],
+      bawah: ['isi', 'data', 'order', 'botol', 'lain']
+    },
+    bahanbaku: {
+      judul: 'STAF BAHAN BAKU', masuk: 'Form staf bahan baku', peran: ['bahan_baku', 'manajemen'],
+      sembunyi: '.t:has(> #pgsT1), #tabs:has(> #tabBeli)',
+      menu: [
+        { k: 'produksi', nm: 'Produksi', ik: 'produksi', l: ['#pgsT1', 'Produksi@#tabs'] },
+        { k: 'pigment', nm: 'Mixing pigment', ik: 'muat', l: ['#pgsT1', 'Mixing pigment@#tabs'], pendek: 'Pigment' },
+        { k: 'warna', nm: 'Mixing warna', ik: 'muat', l: ['#pgsT1', 'Mixing warna@#tabs'], pendek: 'Warna' },
+        { k: 'pakai', nm: 'Pakai / rusak', ik: 'nota', l: ['#pgsT1', 'Pakai / rusak@#tabs'], pendek: 'Pakai' },
+        { k: 'beli', nm: 'Pembelian', ik: 'purch', l: ['#pgsT1', '#tabBeli'] },
+        { k: 'sesuai', nm: 'Penyesuaian', ik: 'atur', l: ['#pgsT1', 'Penyesuaian@#tabs'] },
+        { k: 'stok', nm: 'Stok bahan', ik: 'stok', l: ['#pgsT1', 'Stok bahan@#tabs'], pendek: 'Stok' },
+        { k: 'harga', nm: 'Harga', ik: 'harga', l: ['#pgsT1', '#tabHarga'] },
+        { k: 'laporan', nm: 'Laporan', ik: 'laporan', l: ['#pgsT1', 'Laporan@#tabs'] },
+        { k: 'pantau', nm: 'Pantau produksi', ik: 'dasbor', l: ['#pgsT1', '#tabPP'] },
+        { k: 'rencana', nm: 'Rencana bahan', ik: 'setuju', l: ['#pgsT1', '#tabRBB'] },
+        { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' }
+      ],
+      bawah: ['produksi', 'pigment', 'pakai', 'stok', 'lain']
+    }
+  };
+
+  var APP = new URLSearchParams(location.search).get('f') || '';
+  var F = FORM[APP];
+  var C = { nama: '', frame: null, aktif: '' };
+  function $(id) { return document.getElementById(id); }
+  if (!F) { $('muatan').className = 'bad'; $('muatan').textContent = 'Form tidak dikenal. Buka lewat ikon aplikasi masing-masing.'; return; }
+  document.title = F.masuk + ' - Moscow';
+
+  var GAYA = '<style id="gayaBaru">' +
+    ':root{--bg:#F4F7FA;--card:#fff;--ink:#0F1B2A;--mut:#5A6677;--line:#E2E7EE;--pri:#1E78A8;--ok:#146C43;--bad:#B42318;--warn:#9A5B00}' +
+    'body{font-family:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif!important;font-size:15px;padding-bottom:110px;-webkit-font-smoothing:antialiased;background:#F4F7FA}' +
+    'body>header{display:none!important}.sembunyi-app{display:none!important}' +
+    'main{max-width:860px}' +
+    '.card{border-radius:16px;border-color:#E2E7EE;box-shadow:0 1px 2px rgba(15,27,42,.04)}' +
+    '.btn{border-radius:12px;font-weight:700}' +
+    'input[type=text],input[type=date],input[type=search],input[type=number],select,textarea{border-radius:12px}' +
+    '</style>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">';
+
+  // Pengganti google.script.run di form lama. Hasil diteruskan sebagai teks lalu dibaca di dalam form,
+  // supaya datanya milik halaman form itu sendiri.
+  var JEMBATAN = '<script>(function(){' +
+    'function buat(s,f,u){return new Proxy({},{get:function(t,p){' +
+    'if(p==="withSuccessHandler")return function(fn){return buat(fn,f,u);};' +
+    'if(p==="withFailureHandler")return function(fn){return buat(s,fn,u);};' +
+    'if(p==="withUserObject")return function(o){return buat(s,f,o);};' +
+    'return function(){var a=JSON.parse(JSON.stringify([].slice.call(arguments)));window.parent.__formPanggil(p,a).then(function(t){if(s)s(JSON.parse(t),u);},function(e){if(f)f(new Error(String(e&&e.message||e)),u);else console.error(e);});};' +
+    '}});}' +
+    'window.google={script:{run:buat(null,null,undefined),host:{close:function(){}},url:{getLocation:function(cb){cb({parameter:{},hash:""});}}}};' +
+    '})();<\/script>';
+
+  async function token() {
+    var s = await sb.auth.getSession();
+    var t = s && s.data && s.data.session ? s.data.session.access_token : '';
+    if (!t) throw new Error('Sesi masuk habis. Muat ulang halaman lalu masuk lagi.');
+    return t;
+  }
+  async function kirim(f, a) {
+    var badan = JSON.stringify({ t: await token(), f: f, a: a || [] });
+    var r;
+    try { r = await fetch(SERVER + APP, { method: 'POST', body: badan, redirect: 'follow' }); }
+    catch (e) { throw new Error('Tidak tersambung ke server. Periksa internet lalu coba lagi.'); }
+    var teks = await r.text(), d = null;
+    try { d = JSON.parse(teks); } catch (e) { throw new Error('Jawaban server tidak terbaca. Coba lagi sebentar lagi.'); }
+    if (!d || d.ok !== true) throw new Error((d && d.pesan) || 'Form ini belum aktif di server. Hubungi manajemen Moscow Supplies.');
+    return d;
+  }
+  window.__formPanggil = function (f, a) {
+    return kirim(f, a).then(function (d) { return JSON.stringify(d.r === undefined ? null : d.r); });
+  };
+
+  function ukur() {
+    var fr = C.frame; if (!fr || fr.hidden) return;
+    document.documentElement.classList.add('berbingkai'); window.scrollTo(0, 0);
+    var bawah = document.documentElement.classList.contains('m-m') && $('mBawah') ? $('mBawah').offsetHeight : 0;
+    fr.style.height = Math.max(320, window.innerHeight - fr.getBoundingClientRect().top - bawah) + 'px';
+  }
+  window.addEventListener('resize', ukur);
+
+  function rapi(t) { return String(t || '').replace(/[^\p{L}\p{N}&\/ ]/gu, ' ').replace(/\s+/g, ' ').trim().toLowerCase(); }
+  function cariTombol(dok, langkah) {
+    if (langkah.charAt(0) === '#') return dok.getElementById(langkah.slice(1));
+    var p = langkah.split('@'), teks = rapi(p[0]), wadah = p[1];
+    var calon = dok.querySelectorAll(wadah + ' > button, ' + wadah + ' > [role=tab]');
+    for (var i = 0; i < calon.length; i++) if (rapi(calon[i].innerText || calon[i].textContent) === teks) return calon[i];
+    return null;
+  }
+  // Bilah tab lama disembunyikan; pindah menu lewat menu aplikasi.
+  function sembunyikanTab(dok) {
+    F.menu.forEach(function (m) {
+      m.l.forEach(function (lk) { var b = cariTombol(dok, lk); if (b && b.parentElement) b.parentElement.classList.add('sembunyi-app'); });
+    });
+  }
+  function tekan(k) {
+    var fr = C.frame; if (!fr || !fr.contentDocument) return;
+    var m = F.menu.filter(function (x) { return x.k === k; })[0]; if (!m) return;
+    m.l.forEach(function (lk) { var b = cariTombol(fr.contentDocument, lk); if (b) b.click(); });
+    try { fr.contentWindow.scrollTo(0, 0); } catch (x) { }
+  }
+
+  function gagal(pesan) {
+    var m = $('muatan'); m.hidden = false; m.className = 'bad';
+    m.innerHTML = esc(pesan) + '<div class="ulang"><button type="button" class="tbl" id="cobaLagi">Coba lagi</button></div>';
+    $('cobaLagi').onclick = muat;
+    if (C.frame) C.frame.hidden = true;
+    document.documentElement.classList.remove('berbingkai');
+  }
+
+  async function muat() {
+    var m = $('muatan'); m.hidden = false; m.className = ''; m.textContent = 'Memuat form…';
+    var d;
+    try { d = await kirim('halaman', []); } catch (e) { gagal(e.message); return; }
+    C.nama = d.nama || '';
+    var html = String(d.html || '');
+    // Bilah tab lama disembunyikan lewat aturan gaya (tetap berlaku walau form menggambar ulang isinya).
+    var gaya = GAYA + '<style>' + F.sembunyi + '{display:none!important}</style>';
+    html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (x) { return x + JEMBATAN + gaya; }) : JEMBATAN + gaya + html;
+    var fr = $('bingkai'); C.frame = fr;
+    fr.onload = function () {
+      m.hidden = true; fr.hidden = false;
+      var dok = fr.contentDocument;
+      sembunyikanTab(dok);
+      var nm = dok.getElementById('nama');
+      if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
+      ukur(); tekan(C.aktif);
+    };
+    fr.srcdoc = html;
+  }
+
+  M.mulai({
+    aplikasi: F.judul, masukJudul: F.masuk,
+    masukTeks: 'Masuk memakai akun Google yang sudah didaftarkan manajemen Moscow Supplies.',
+    izin: function (ctx) {
+      if (F.peran.indexOf(ctx.peran) > -1) return true;
+      return ctx.peran ? 'Akun ' + ctx.email + ' tidak punya akses ke form ini.' : false;
+    },
+    menu: F.menu.map(function (x) { return { k: x.k, nm: x.nm, ik: x.ik, bagian: 'isi', pendek: x.pendek }; }),
+    bawah: F.bawah,
+    pindah: function (k) { C.aktif = k; tekan(k); setTimeout(ukur, 0); },
+    siap: function (ctx) {
+      if (ctx.peran === 'manajemen') {
+        var nav = document.querySelector('#mSide nav');
+        if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + M.svg('beranda') + '<span class="nm">Master Data</span></a>');
+      }
+      C.aktif = M.aktif() || F.menu[0].k;
+      muat();
+    }
+  });
+})();
+</script>
+</body>
+</html>
