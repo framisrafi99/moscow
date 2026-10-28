@@ -14,7 +14,7 @@
   var HRG_KEL_BRG_ = 'Barang jualan';
   var STATUS_ORDER_ = ['Menunggu', 'Disetujui', 'Dikirim', 'Selesai', 'Batal'];
   var TABEL = ['barang_order', 'gudang_stok_awal', 'online_stok_awal', 'gudang_log', 'po_log', 'po_item', 'po_biaya',
-    'salur_log', 'produksi_sesuai_log', 'order_log', 'pelanggan'];
+    'salur_log', 'produksi_sesuai_log', 'order_log', 'order_proses', 'pelanggan'];
 
   function buat(L) {
     var fmt = window.Lembar.format;
@@ -321,12 +321,77 @@
       r.hrg = hargaBarang();
       return r;
     }
-    return { gdData: gdData };
+    // gdxOrderMasuk (file 52, versi file 53): order yang siap dikirim gudang dan order yang menunggu ACC.
+    function OM_t_(v, n) { return String(v === null || v === undefined ? '' : v).replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n || 200); }
+    function OM_jenis_(o) { return o.tp === 'Reseller' ? 'Reseller' : (/offline/i.test(String(o.pl)) ? 'Toko' : 'Consignment'); }
+    function OM_kw_(kode) { var kk = String(kode || '').trim().toUpperCase(), i = kk.indexOf('-'); return i === -1 ? [kk, ''] : [kk.slice(0, i), rapiWarna_(kk.slice(i + 1))]; }
+    function OM_kirimMap_(log) {
+      var m = {};
+      log.forEach(function (x) {
+        if (!GD_keluar_(x)) return;
+        var r = GD_refBagi_(x.ref);
+        if (!r[1]) return;
+        var o = m[r[1]] || (m[r[1]] = { _sj: [] }), key = x.k + '|' + x.w;
+        o[key] = (o[key] || 0) + x.q;
+        if (r[0] && o._sj.indexOf(r[0]) === -1) o._sj.push(r[0]);
+      });
+      return m;
+    }
+    function OM_rinci_(o, sudah, stok) {
+      var gab = {}, urut = [], q = 0, kirim = 0, sisa = 0;
+      o.items.forEach(function (it) {
+        var kw = OM_kw_(it.k), key = kw[0] + '|' + kw[1];
+        if (!gab[key]) { gab[key] = { k: kw[0], w: kw[1], n: String(it.n || kw[0]), q: 0 }; urut.push(key); }
+        gab[key].q += Number(it.q) || 0;
+      });
+      var items = urut.map(function (key) {
+        var g = gab[key], s = Math.min(g.q, Math.max(0, (sudah && sudah[key]) || 0)), sis = g.q - s;
+        q += g.q; kirim += s; sisa += sis;
+        return { k: g.k, w: g.w, n: g.n, q: g.q, kirim: s, sisa: sis, stok: stok ? (stok[key] || 0) : 0 };
+      });
+      return { items: items, q: q, kirim: kirim, sisa: sisa };
+    }
+    function OP_proses_() {
+      var m = {};
+      baca('order_proses', 10).forEach(function (r) {
+        var no = String(r[1]).trim(), aksi = String(r[2]).trim();
+        if (!no || !(r[0] instanceof Date)) return;
+        var x = m[no] || (m[no] = {});
+        if (aksi === 'Diproses' && !x.dp) x.dp = { oleh: String(r[3]), t: fmt(r[0], 'dd/MM HH:mm') };
+      });
+      return m;
+    }
+    function gdxOrderMasuk() {
+      var hariIni = fmt(new Date(), 'yyyy-MM-dd');
+      var log = GD_log_(), stok = GD_stok_(log), kirim = OM_kirimMap_(log), peta = OP_proses_();
+      var siap = [], tunggu = [];
+      kumpulOrder_(GD_geser_(hariIni, -150), '9999-12-31').forEach(function (o) {
+        if (o.st === 'Menunggu') {
+          var q = 0; o.items.forEach(function (it) { q += Number(it.q) || 0; });
+          tunggu.push({ no: o.no, t: o.t, pl: o.pl, jenis: OM_jenis_(o), q: q });
+          return;
+        }
+        if (o.st !== 'Disetujui') return;
+        var sd = kirim[o.no] || { _sj: [] }, r = OM_rinci_(o, sd, stok);
+        if (r.sisa <= 0) return;
+        var x = peta[o.no];
+        siap.push({ no: o.no, t: o.t, pl: o.pl, jenis: OM_jenis_(o), st: o.st, c: OM_t_(o.c, 200), p: OM_t_(o.p, 60), q: r.q, kirim: r.kirim,
+          sisa: r.sisa, sj: sd._sj, items: r.items, dp: x && x.dp ? { oleh: x.dp.oleh, t: x.dp.t } : null });
+      });
+      siap.sort(function (a, b) { return a.t < b.t ? -1 : (a.t > b.t ? 1 : 0); });
+      return { ok: true, hariIni: hariIni, siap: siap, tunggu: tunggu, diperbarui: fmt(new Date(), 'dd/MM/yyyy HH:mm') };
+    }
+    return { gdData: gdData, gdxOrderMasuk: gdxOrderMasuk };
   }
 
-  async function gdData(sb) {
-    var L = await window.Lembar.muat(sb, TABEL);
-    return buat(L).gdData();
+  // Data lembar dipakai bersama beberapa panggilan yang datang hampir bersamaan (gdData + gdxOrderMasuk saat halaman dibuka).
+  var muatan = null, waktuMuat = 0;
+  function lembar(sb) {
+    if (!muatan || Date.now() - waktuMuat > 3000) { waktuMuat = Date.now(); muatan = window.Lembar.muat(sb, TABEL); muatan.catch(function () { muatan = null; }); }
+    return muatan;
   }
-  window.Gudang = { gdData: gdData, buat: buat, TABEL: TABEL };
+  async function gdData(sb) { return buat(await lembar(sb)).gdData(); }
+  async function gdxOrderMasuk(sb) { return buat(await lembar(sb)).gdxOrderMasuk(); }
+  function lupakan() { muatan = null; }
+  window.Gudang = { gdData: gdData, gdxOrderMasuk: gdxOrderMasuk, lupakan: lupakan, buat: buat, TABEL: TABEL };
 })();
