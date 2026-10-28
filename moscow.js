@@ -147,7 +147,7 @@
     });
   }
 
-  function keluar() { sb.auth.signOut().then(function () { location.reload(); }); }
+  function keluar() { sb.auth.signOut({ scope: 'local' }).then(function () { location.reload(); }); }
 
   function buka(k, diam) {
     var m = O.menu.filter(function (x) { return x.k === k && !x.grup; })[0];
@@ -189,7 +189,8 @@
     try { var l = await sb.rpc('lingkup_saya'); ctx.lingkup = l.data || null; } catch (e) { ctx.lingkup = null; }
     var izin = O.izin ? await O.izin(ctx) : true;
     if (izin !== true) {
-      await sb.auth.signOut();
+      // Hanya di perangkat ini: akun yang salah buka halaman tidak boleh ikut mengeluarkan HP / laptop lain.
+      await sb.auth.signOut({ scope: 'local' });
       layarMasuk(typeof izin === 'string' ? izin : (r.data ? 'Akun ' + ctx.email + ' tidak punya akses ke halaman ini.' : 'Akun ' + ctx.email + ' belum didaftarkan. Minta master data menambahkan email ini.'));
       return;
     }
