@@ -228,7 +228,41 @@
     if (!peta || !peta[f] || Date.now() < basiSampai) return null;
     try { var r = await peta[f](a || []); return r && r.ok === true ? r : null; } catch (e) { console.warn('baca Supabase gagal', f, e); return null; }
   }
+  // Simpan langsung di Supabase (tahap 3): pemeriksaan sama dengan Apps Script; Apps Script menyalinnya ke Google Sheets.
+  function teks(v) { return String(v === undefined || v === null ? '' : v); }
+  var TULIS_SUPABASE = {
+    produksi: {
+      simpanBahan: function (p) {
+        return ['produksi_simpan_bahan', { p_tanggal: teks(p.tanggal), p_jenis: teks(p.jenis), p_nama: teks(p.nama), p_qty: teks(p.qty),
+          p_pengisi: teks(p.pengisi), p_catatan: teks(p.catatan), p_token: teks(p.token) }];
+      },
+      simpanBahanRusak: function (p) {
+        return ['produksi_simpan_rusak', { p_tanggal: teks(p.tanggal), p_nama: teks(p.nama), p_qty: teks(p.qty),
+          p_pengisi: teks(p.pengisi), p_catatan: teks(p.catatan), p_token: teks(p.token) }];
+      }
+    },
+    bahanbaku: {
+      bahanBakuPakai: function (p) {
+        return ['bbk_simpan_pakai', { p_tanggal: teks(p.tanggal), p_jenis: teks(p.jenis), p_kode: teks(p.kode), p_qty: teks(p.qty),
+          p_satuan: teks(p.satuan), p_pengisi: teks(p.pengisi), p_catatan: teks(p.catatan), p_untuk: teks(p.untuk), p_token: teks(p.token) }];
+      },
+      bahanBakuStafTambah: function (p) { return ['bbk_staf_tambah', { p_nama: teks(p.nama) }]; }
+    }
+  };
+  var BALIK = SERVER + 'balik';
+  async function salinKeSheet() {
+    try { var t = await token(); fetch(BALIK, { method: 'POST', body: JSON.stringify({ t: t }), keepalive: true }).catch(function () { }); } catch (e) { }
+  }
+  async function tulisSupabase(f, a) {
+    var q = TULIS_SUPABASE[APP][f]((a && a[0]) || {});
+    var r = await sb.rpc(q[0], q[1]);
+    if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Tekan simpan sekali lagi; aman, tidak akan tercatat dua kali.');
+    if (r.data && r.data.ok) { salinKeSheet(); if (window.Gudang) window.Gudang.lupakan(); }
+    return JSON.stringify(r.data);
+  }
+
   window.__formPanggil = function (f, a) {
+    if (TULIS_SUPABASE[APP] && TULIS_SUPABASE[APP][f]) return tulisSupabase(f, a);
     return bacaSupabase(f, a).then(function (r) {
       if (r) return JSON.stringify(r);
       return kirim(f, a).then(function (d) {
