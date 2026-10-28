@@ -271,6 +271,10 @@
           p_satuan: teks(p.satuan), p_pengisi: teks(p.pengisi), p_catatan: teks(p.catatan), p_untuk: teks(p.untuk), p_token: teks(p.token) }];
       },
       bahanBakuStafTambah: function (p) { return ['bbk_staf_tambah', { p_nama: teks(p.nama) }]; },
+      // Ajuan penyesuaian stok bahan mentah (stok sistem dihitung di Supabase).
+      bahanBakuSesuai: function (p) {
+        return ['bbk_sesuai_ajukan', { p_kode: teks(p.kode), p_hitung: teks(p.hitung), p_alasan: teks(p.alasan), p_pengisi: teks(p.pengisi), p_token: teks(p.token) }];
+      },
       // Hitungan resep / takaran di halaman (bahanbaku.js); null = disimpan Apps Script seperti biasa.
       bahanBakuProduksi: function (p) { return window.BahanBaku.simpanProduksi(sb, p); },
       bahanBakuWarna: function (p) { return window.BahanBaku.simpanWarna(sb, p); }
