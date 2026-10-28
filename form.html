@@ -92,7 +92,9 @@
     }
   };
 
+  // Form yang dibuka: dari alamat (?f=...), atau yang terakhir dibuka di HP ini (alamat dirapikan setelah masuk Google).
   var APP = new URLSearchParams(location.search).get('f') || '';
+  try { if (APP) localStorage.setItem('formApp', APP); else APP = localStorage.getItem('formApp') || ''; } catch (x) { }
   var F = FORM[APP];
   var C = { nama: '', frame: null, aktif: '' };
   function $(id) { return document.getElementById(id); }
