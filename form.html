@@ -37,6 +37,7 @@
 <script src="gudang.js"></script>
 <script src="pengadaan.js"></script>
 <script src="produksi.js"></script>
+<script src="bahanbaku.js"></script>
 <script>
 (function () {
   var M = Moscow, sb = M.sb, esc = M.esc;
@@ -193,23 +194,27 @@
       prodKebutuhan: function () { return window.Gudang.prodKebutuhan(sb); },
       kemasanHargaData: function () { return window.Produksi.kemasanHargaData(sb); },
       ptrData: function () { return window.Pengadaan.ptrData(sb, 'produksi'); },
-      pgsTerbuka: function () { return window.Pengadaan.pgsTerbuka(sb, 'produksi'); }
+      pgsTerbuka: function () { return window.Pengadaan.pgsTerbuka(sb, 'produksi'); },
+      pantauProduksi: function (a) { return window.BahanBaku.pantauProduksi(sb, a[0], 'produksi'); }
     },
     bahanbaku: {
       ptrData: function () { return window.Pengadaan.ptrData(sb, 'bahanbaku'); },
-      pgsTerbuka: function () { return window.Pengadaan.pgsTerbuka(sb, 'bahanbaku'); }
+      pgsTerbuka: function () { return window.Pengadaan.pgsTerbuka(sb, 'bahanbaku'); },
+      bahanBakuData: function (a) { return window.BahanBaku.bahanBakuData(sb, a[0]); },
+      bahanBakuLaporan: function (a) { return window.BahanBaku.bahanBakuLaporan(sb, a[0]); },
+      pantauProduksi: function (a) { return window.BahanBaku.pantauProduksi(sb, a[0], 'bahan'); }
     }
   };
   var basiSampai = 0;
   // Fungsi simpan (sama dengan daftar fungsi tulis di Apps Script). Kalau salinannya ke Supabase tidak terkonfirmasi, baca lewat Apps Script dulu.
-  var TULIS_RE = /^(simpan|ajukan|gd(Biaya|Kirim|Opname|Po|Terima)|gdx(Order(Kirim|Proses)|Kp|Harga|Ajukan)|prodSesuai|putusSesuai|kembaliPinjam|tandaiSampai|ubahStatusOrder|rp(Tandai|Putus)|kemasanHargaSimpan|ptrTerima|pgsAjukan|pgdAjukan|pgdAksi|plx?(Aksi|Bayar|Tolak|PoBayar)|bahanBaku(Beli|Pakai|Produksi|Sampai|Sesuai))/;
-  async function bacaSupabase(f) {
+  var TULIS_RE = /^(simpan|ajukan|gd(Biaya|Kirim|Opname|Po|Terima)|gdx(Order(Kirim|Proses)|Kp|Harga|Ajukan)|prodSesuai|putusSesuai|kembaliPinjam|tandaiSampai|ubahStatusOrder|rp(Tandai|Putus)|kemasanHargaSimpan|ptrTerima|pgsAjukan|pgdAjukan|pgdAksi|plx?(Aksi|Bayar|Tolak|PoBayar)|bahanBaku(Beli|Pakai|Produksi|Sampai|Sesuai|Warna|StafTambah))/;
+  async function bacaSupabase(f, a) {
     var peta = BACA_SUPABASE[APP];
     if (!peta || !peta[f] || Date.now() < basiSampai) return null;
-    try { var r = await peta[f](); return r && r.ok === true ? r : null; } catch (e) { console.warn('baca Supabase gagal', f, e); return null; }
+    try { var r = await peta[f](a || []); return r && r.ok === true ? r : null; } catch (e) { console.warn('baca Supabase gagal', f, e); return null; }
   }
   window.__formPanggil = function (f, a) {
-    return bacaSupabase(f).then(function (r) {
+    return bacaSupabase(f, a).then(function (r) {
       if (r) return JSON.stringify(r);
       return kirim(f, a).then(function (d) {
         // Sesudah simpan: data lembar dimuat ulang; kalau salinan ke Supabase belum jadi, baca lewat Apps Script dulu.
