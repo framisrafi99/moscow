@@ -371,9 +371,46 @@
         produk: d.produk.map(function (x) { return { k: x.k, n: x.n, kat: x.kat, pr: x.pr, sa: x.sa, sisa: x.sisa, bw: x.bw, w: x.w }; })
       };
     }
-    return { kemasanHargaData: kemasanHargaData, stokBahan: stokBahan, ambilBahan: ambilBahan, ambilOrderProduksi: ambilOrderProduksi, prodSesuaiDaftar: prodSesuaiDaftar, ambilRiwayatProduksi: ambilRiwayatProduksi };
+
+    // ---- ambilStok (file 1 hitungStokRinci_ + file 7 penyesuaian) ----
+    function ambilStok(awal) {
+      var tot = {}, w = {};
+      Object.keys(awal).forEach(function (k) { tot[k] = awal[k]; });
+      var warna = warnaBarang_();
+      Object.keys(bacaKatalog_()).forEach(function (k) { if (!(k in tot)) tot[k] = 0; });
+      Object.keys(tot).forEach(function (k) { if (warna[k]) { w[k] = {}; if (tot[k]) w[k][''] = tot[k]; } });
+      [['produksi_log', 1, 7], ['salur_log', -1, 8]].forEach(function (x) {
+        var t = L[x[0]];
+        if (!t) return;
+        baca(x[0], Math.min(x[2], t.lebar)).forEach(function (r) {
+          if (!(r[0] instanceof Date)) return;
+          var kode = String(r[1]).trim().toUpperCase(), qty = Number(r[3]);
+          if (!kode || !isFinite(qty)) return;
+          tot[kode] = (tot[kode] || 0) + x[1] * qty;
+          if (warna[kode]) {
+            var wr = rapiWarna_(r[x[2] - 1]);
+            if (!w[kode]) w[kode] = {};
+            w[kode][wr] = (w[kode][wr] || 0) + x[1] * qty;
+          }
+        });
+      });
+      var a = PSS_adjProduksi_();
+      Object.keys(a).forEach(function (k) {
+        tot[k] = (tot[k] || 0) + a[k].tot;
+        if (w[k]) Object.keys(a[k].w).forEach(function (ww) { w[k][ww] = (w[k][ww] || 0) + a[k].w[ww]; });
+      });
+      return { ok: true, stok: tot, stokW: w };
+    }
+    return { kemasanHargaData: kemasanHargaData, stokBahan: stokBahan, ambilBahan: ambilBahan, ambilOrderProduksi: ambilOrderProduksi, prodSesuaiDaftar: prodSesuaiDaftar, ambilRiwayatProduksi: ambilRiwayatProduksi, ambilStok: ambilStok };
   }
 
+  // Stok awal gudang produksi dari Supabase: { urut: [[kode, qty], ...] } (urutan baris REPORT_STOK).
+  function petaAwal(r) {
+    if (!r || r.error || !r.data) return null;
+    var d = r.data, out = {};
+    if (Array.isArray(d.urut)) { d.urut.forEach(function (x) { out[x[0]] = x[1]; }); return out; }
+    return d.urut === undefined ? d : null;
+  }
   window.Produksi = {
     kemasanHargaData: async function (sb) { return buat(await window.Lembar.muat(sb, TABEL)).kemasanHargaData(); },
     stokBahan: async function (sb) { return buat(await window.Lembar.muat(sb, TABEL_STOK)).stokBahan(); },
@@ -381,8 +418,13 @@
     ambilOrderProduksi: async function (sb, p) { return buat(await window.Lembar.muat(sb, ['order_log'])).ambilOrderProduksi(p); },
     ambilRiwayatProduksi: async function (sb, p) {
       var h = await Promise.all([window.Lembar.muat(sb, ['katalog', 'barang_order', 'produksi_log', 'salur_log', 'produksi_sesuai_log']), sb.rpc('produksi_awal')]);
-      if (h[1].error || !h[1].data) return null;
-      return buat(h[0]).ambilRiwayatProduksi(p, h[1].data);
+      var awal = petaAwal(h[1]);
+      return awal ? buat(h[0]).ambilRiwayatProduksi(p, awal) : null;
+    },
+    ambilStok: async function (sb) {
+      var h = await Promise.all([window.Lembar.muat(sb, ['katalog', 'barang_order', 'produksi_log', 'salur_log', 'produksi_sesuai_log']), sb.rpc('produksi_awal')]);
+      var awal = petaAwal(h[1]);
+      return awal ? buat(h[0]).ambilStok(awal) : null;
     },
     prodSesuaiDaftar: async function (sb) { return buat(await window.Lembar.muat(sb, ['produksi_sesuai_log'])).prodSesuaiDaftar(); },
     buat: buat, TABEL: TABEL
