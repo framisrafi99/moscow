@@ -38,6 +38,7 @@
 <script src="pengadaan.js"></script>
 <script src="produksi.js"></script>
 <script src="bahanbaku.js"></script>
+<script src="hpp.js"></script>
 <script>
 (function () {
   var M = Moscow, sb = M.sb, esc = M.esc;
@@ -188,7 +189,8 @@
     gudang: {
       gdData: function () { return window.Gudang.gdData(sb); },
       gdxOrderMasuk: function () { return window.Gudang.gdxOrderMasuk(sb); },
-      ptrData: function () { return window.Pengadaan.ptrData(sb, 'gudang'); }
+      ptrData: function () { return window.Pengadaan.ptrData(sb, 'gudang'); },
+      hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'gudang', a[0]); }
     },
     produksi: {
       prodKebutuhan: function () { return window.Gudang.prodKebutuhan(sb); },
@@ -196,7 +198,8 @@
       ptrData: function () { return window.Pengadaan.ptrData(sb, 'produksi'); },
       pgsTerbuka: function () { return window.Pengadaan.pgsTerbuka(sb, 'produksi'); },
       pantauProduksi: function (a) { return window.BahanBaku.pantauProduksi(sb, a[0], 'produksi'); },
-      rencanaProduksi: function () { return window.BahanBaku.rencanaProduksi(sb); }
+      rencanaProduksi: function () { return window.BahanBaku.rencanaProduksi(sb); },
+      hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'produksi', a[0]); }
     },
     bahanbaku: {
       ptrData: function () { return window.Pengadaan.ptrData(sb, 'bahanbaku'); },
@@ -204,12 +207,13 @@
       bahanBakuData: function (a) { return window.BahanBaku.bahanBakuData(sb, a[0]); },
       bahanBakuLaporan: function (a) { return window.BahanBaku.bahanBakuLaporan(sb, a[0]); },
       pantauProduksi: function (a) { return window.BahanBaku.pantauProduksi(sb, a[0], 'bahan'); },
-      rencanaBahan: function (a) { return window.BahanBaku.rencanaBahan(sb, a[0]); }
+      rencanaBahan: function (a) { return window.BahanBaku.rencanaBahan(sb, a[0]); },
+      hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'bahanbaku', a[0]); }
     }
   };
   var basiSampai = 0;
   // Fungsi simpan (sama dengan daftar fungsi tulis di Apps Script). Kalau salinannya ke Supabase tidak terkonfirmasi, baca lewat Apps Script dulu.
-  var TULIS_RE = /^(simpan|ajukan|gd(Biaya|Kirim|Opname|Po|Terima)|gdx(Order(Kirim|Proses)|Kp|Harga|Ajukan)|prodSesuai|putusSesuai|kembaliPinjam|tandaiSampai|ubahStatusOrder|rp(Tandai|Putus)|kemasanHargaSimpan|ptrTerima|pgsAjukan|pgdAjukan|pgdAksi|plx?(Aksi|Bayar|Tolak|PoBayar)|bahanBaku(Beli|Pakai|Produksi|Sampai|Sesuai|Warna|StafTambah))/;
+  var TULIS_RE = /^(simpan|ajukan|gd(Biaya|Kirim|Opname|Po|Terima)|gdx(Order(Kirim|Proses)|Kp|Harga|Ajukan)|prodSesuai|putusSesuai|kembaliPinjam|tandaiSampai|ubahStatusOrder|rp(Tandai|Putus)|kemasanHargaSimpan|ptrTerima|pgsAjukan|pgdAjukan|pgdAksi|plx?(Aksi|Bayar|Tolak|PoBayar)|bahanBaku(Beli|Pakai|Produksi|Sampai|Sesuai|Warna|StafTambah)|hppUsul)/;
   async function bacaSupabase(f, a) {
     var peta = BACA_SUPABASE[APP];
     if (!peta || !peta[f] || Date.now() < basiSampai) return null;
