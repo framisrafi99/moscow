@@ -106,7 +106,9 @@
   C.basiSampai = 0;
   var BACA_SUPABASE = {
     dataToko: function () { return ['toko_data', { p_toko: C.toko }]; },
-    pendapatanToko: function (p) { return ['toko_pendapatan', { p_toko: C.toko, p_bulan: String(p.bulan || ''), p_harga: !!p.harga }]; }
+    pendapatanToko: function (p) { return ['toko_pendapatan', { p_toko: C.toko, p_bulan: String(p.bulan || ''), p_harga: !!p.harga }]; },
+    riwayatOrder: function () { return ['toko_riwayat_order', { p_toko: C.toko }]; },
+    selisihHitung: function () { return ['toko_selisih_hitung', { p_toko: C.toko }]; }
   };
   async function dataSupabase(f, a) {
     if (!C.toko || Date.now() < C.basiSampai) return null;
