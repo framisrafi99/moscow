@@ -80,6 +80,10 @@
   }
 
   var minta = new URLSearchParams(location.search).get('atur') === '1';
+  // Sejak 28 Okt 2026 halaman Mike dibuka di aplikasi baru (masuk akun Google).
+  // Halaman lama masih bisa dibuka sementara lewat alamat ?lama=1 kalau ada kendala.
+  var lama = new URLSearchParams(location.search).get('lama') === '1';
+  if (!minta && !lama) { location.replace('form.html?f=mike'); return; }
   var simpanan = baca();
   if (simpanan && sah(simpanan) && !minta) { buka(simpanan); }
   else { document.getElementById('link').value = simpanan; }

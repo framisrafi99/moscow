@@ -90,6 +90,37 @@
       ],
       bawah: ['produksi', 'pigment', 'pakai', 'stok', 'lain']
     },
+    mike: {
+      judul: 'KENDALI BISNIS', masuk: 'Kendali Bisnis', peran: ['kendali_bisnis', 'manajemen'],
+      sembunyi: '#kbTabs, .foot',
+      menu: [
+        { k: 'impor', nm: 'Impor', ik: 'purch', l: ['Impor@#kbTabs'] },
+        { k: 'laporan', nm: 'Laporan', ik: 'laporan', l: ['Laporan@#kbTabs'] },
+        { k: 'hpp', nm: 'HPP & Harga', ik: 'harga', l: ['HPP & Harga@#kbTabs'], pendek: 'HPP' },
+        { k: 'naik', nm: 'Harga naik', ik: 'dasbor', l: ['Harga naik@#kbTabs'] },
+        { grup: 'PERSETUJUAN & LAPORAN' },
+        { k: 'acc', nm: 'ACC Pengajuan', ik: 'setuju', href: 'form.html?f=mikelama#acc' },
+        { k: 'laris', nm: 'Laris & Lambat', ik: 'jual', href: 'form.html?f=mikelama#laris' },
+        { k: 'omzet', nm: 'Omzet & Profit', ik: 'uang', href: 'form.html?f=mikelama#omzet' },
+        { k: 'stok', nm: 'Stok semua lokasi', ik: 'stok', href: 'stok.html' }
+      ],
+      bawah: ['impor', 'laporan', 'hpp', 'naik', 'lain']
+    },
+    mikelama: {
+      judul: 'PERSETUJUAN & LAPORAN', masuk: 'Persetujuan & laporan Mike', peran: ['kendali_bisnis', 'manajemen'],
+      sembunyi: '.tabs:has(> button), a[href*="hal=pengadaan"], a[href*="hal=gudang"]',
+      menu: [
+        { k: 'acc', nm: 'ACC Pengajuan', ik: 'setuju', l: ['ACC Pengajuan@.tabs'], pendek: 'ACC' },
+        { k: 'naik', nm: 'Kenaikan harga', ik: 'harga', l: ['Kenaikan Harga@.tabs'], pendek: 'Harga naik' },
+        { k: 'laris', nm: 'Laris & Lambat', ik: 'jual', l: ['Laris & Lambat@.tabs'], pendek: 'Laris' },
+        { k: 'omzet', nm: 'Omzet', ik: 'uang', l: ['Omzet@.tabs'] },
+        { k: 'profit', nm: 'Profit', ik: 'laporan', l: ['Profit@.tabs'] },
+        { grup: 'KENDALI BISNIS' },
+        { k: 'kb', nm: 'Impor, laporan, HPP', ik: 'dasbor', href: 'form.html?f=mike' },
+        { k: 'stok', nm: 'Stok semua lokasi', ik: 'stok', href: 'stok.html' }
+      ],
+      bawah: ['acc', 'naik', 'laris', 'omzet', 'lain']
+    },
     payroll: {
       judul: 'PAYROLL', masuk: 'Payroll gaji staf', peran: ['manajemen'],
       sembunyi: '.tidak-ada',
@@ -169,12 +200,12 @@
   // Bilah tab lama disembunyikan; pindah menu lewat menu aplikasi.
   function sembunyikanTab(dok) {
     F.menu.forEach(function (m) {
-      m.l.forEach(function (lk) { var b = cariTombol(dok, lk); if (b && b.parentElement) b.parentElement.classList.add('sembunyi-app'); });
+      (m.l || []).forEach(function (lk) { var b = cariTombol(dok, lk); if (b && b.parentElement) b.parentElement.classList.add('sembunyi-app'); });
     });
   }
   function tekan(k) {
     var fr = C.frame; if (!fr || !fr.contentDocument) return;
-    var m = F.menu.filter(function (x) { return x.k === k; })[0]; if (!m) return;
+    var m = F.menu.filter(function (x) { return x.k === k && x.l; })[0]; if (!m) return;
     m.l.forEach(function (lk) { var b = cariTombol(fr.contentDocument, lk); if (b) b.click(); });
     try { fr.contentWindow.scrollTo(0, 0); } catch (x) { }
   }
@@ -215,7 +246,7 @@
       if (F.peran.indexOf(ctx.peran) > -1) return true;
       return ctx.peran ? 'Akun ' + ctx.email + ' tidak punya akses ke form ini.' : false;
     },
-    menu: F.menu.map(function (x) { return { k: x.k, nm: x.nm, ik: x.ik, bagian: 'isi', pendek: x.pendek }; }),
+    menu: F.menu.map(function (x) { return x.grup ? { grup: x.grup } : x.href ? { k: x.k, nm: x.nm, ik: x.ik, href: x.href } : { k: x.k, nm: x.nm, ik: x.ik, bagian: 'isi', pendek: x.pendek }; }),
     bawah: F.bawah,
     pindah: function (k) { C.aktif = k; tekan(k); setTimeout(ukur, 0); },
     siap: function (ctx) {
