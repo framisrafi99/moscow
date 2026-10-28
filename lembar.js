@@ -20,7 +20,11 @@
     order_proses: 'waktu:t,no_order,aksi,oleh,kurir,resi,ongkir:n,foto,catatan,detail',
     pelanggan: 'nama_pelanggan,tipe,diskon_persen:n',
     pengadaan_ajuan: 'no,waktu:t,bagian,kelompok,kode,nama,satuan,qty:n,perkiraan_harga_satuan:n,alasan,pengaju,status_robot,analisa_robot,status,diputus_oleh,waktu_putus:t,catatan_putus,qty_disetujui:n,ref_po_supplier,waktu_pesan:t,perkiraan_datang:d,waktu_terima:t,asal_barang',
-    bahan: 'jenis,nama,catatan,kode,stok_awal:n,stok_minimum:n,satuan'
+    bahan: 'jenis,nama,catatan,kode,stok_awal:n,stok_minimum:n,satuan',
+    bahan_log: 'tanggal:d,jenis,nama,qty:n,waktu_masuk:t,pengisi,catatan',
+    bahan_masuk: 'tanggal:d,jenis,nama,qty:n,waktu_masuk:t,pengisi,catatan,harga_total:n,supplier,pengisi_harga',
+    bahan_rusak: 'tanggal:d,jenis,nama,qty:n,waktu_masuk:t,pengisi,catatan',
+    produksi_log: 'tanggal:d,kode,nama,qty:n,waktu_masuk:t,pengirim,warna'
   };
 
   function tanggal(s) {
