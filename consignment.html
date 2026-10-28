@@ -104,18 +104,23 @@
   // jauh lebih cepat dan tidak memakai kuota Apps Script. Kalau simpan terakhir belum sempat disalin ke Supabase,
   // atau Supabase gagal, halaman membaca dari sheet seperti biasa.
   C.basiSampai = 0;
-  async function dataSupabase() {
+  var BACA_SUPABASE = {
+    dataToko: function () { return ['toko_data', { p_toko: C.toko }]; },
+    pendapatanToko: function (p) { return ['toko_pendapatan', { p_toko: C.toko, p_bulan: String(p.bulan || ''), p_harga: !!p.harga }]; }
+  };
+  async function dataSupabase(f, a) {
     if (!C.toko || Date.now() < C.basiSampai) return null;
     try {
-      var r = await sb.rpc('toko_data', { p_toko: C.toko });
+      var q = BACA_SUPABASE[f]((a && a[0]) || {});
+      var r = await sb.rpc(q[0], q[1]);
       if (r.error || !r.data || r.data.ok !== true) return null;
       return r.data;
     } catch (e) { return null; }
   }
 
   window.__tokoPanggil = function (f, a) {
-    if (f === 'dataToko') {
-      return dataSupabase().then(function (r) {
+    if (BACA_SUPABASE[f]) {
+      return dataSupabase(f, a).then(function (r) {
         return r || kirim(f, a).then(function (d) { return d.r; });
       });
     }
