@@ -328,5 +328,19 @@
     return d;
   }
 
-  window.BagiHasil = { hitung: hitung };
+  // hppTokoSaya: harga dasar barang terjual (kartu di tab Report penjualan, sekarang hanya Medan).
+  function hppSaya(toko, bulan, D) {
+    if (toko !== 'Consignment Medan') return { ok: false, pesan: 'Akses ditolak.' };
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(bulan || ''))) return { ok: false, pesan: 'Pilih bulan.' };
+    var d = hitungDasar(toko, bulan, D);
+    return {
+      ok: true, bulan: bulan, qty: d.qty, hppJual: d.hppJual, hppRetur: d.hppRetur, hpp: d.hpp,
+      items: d.items.filter(function (x) { return x.q || x.rl; }).map(function (x) {
+        return { k: x.k, n: x.n, q: x.q, rl: x.rl, hpp: x.hpp, ada: x.ada, tot: x.hppTot };
+      }),
+      tanpa: d.tanpa, diperbarui: d.diperbarui
+    };
+  }
+
+  window.BagiHasil = { hitung: hitung, hppSaya: hppSaya };
 })();
