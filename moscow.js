@@ -69,7 +69,7 @@
       el = document.createElement('div'); el.id = 'mMasuk';
       el.innerHTML = '<div class="kotak"><span class="lg" role="img" aria-label="Moscow Supplies"></span><span class="ey">' + esc(O.aplikasi) + '</span>' +
         '<h1>' + esc(O.masukJudul || 'Masuk') + '</h1><p>' + esc(O.masukTeks || 'Masuk memakai akun Google yang sudah didaftarkan.') + '</p>' +
-        '<button type="button" class="google" id="mTMasuk">' + GOOGLE + 'Masuk dengan Google</button><div class="pesan" id="mPesan" role="alert"></div></div>';
+        '<button type="button" class="google" id="mTMasuk">' + GOOGLE + 'Masuk dengan Google</button><div class="pesan" id="mPesan" role="alert"></div><a class="priv" href="privasi.html">Kebijakan privasi</a></div>';
       document.body.insertBefore(el, document.body.firstChild);
       $('mTMasuk').onclick = function () {
         $('mPesan').textContent = '';
