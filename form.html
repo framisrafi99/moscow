@@ -245,6 +245,11 @@
         return ['produksi_simpan_rusak', { p_tanggal: teks(p.tanggal), p_nama: teks(p.nama), p_qty: teks(p.qty),
           p_pengisi: teks(p.pengisi), p_catatan: teks(p.catatan), p_token: teks(p.token) }];
       },
+      // Stok masuk botol / stiker dari pengajuan (pengajuan -> Diterima lewat ubah_antre). "Tanpa pengajuan" tetap lewat Apps Script.
+      simpanBahanMasuk: function (p) {
+        return ['produksi_simpan_masuk', { p_tanggal: teks(p.tanggal), p_nama: teks(p.nama), p_qty: teks(p.qty),
+          p_pengisi: teks(p.pengisi), p_catatan: teks(p.catatan), p_token: teks(p.token) }];
+      },
       // Ajuan penyesuaian stok produksi / botol / stiker (stok sistem dihitung di Supabase).
       prodSesuaiAjukan: function (p) {
         return ['produksi_sesuai_ajukan', { p_bagian: teks(p.bagian), p_kode: teks(p.kode), p_nama: teks(p.nama), p_warna: teks(p.warna),
