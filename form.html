@@ -108,13 +108,13 @@
     },
     mikelama: {
       judul: 'PERSETUJUAN & LAPORAN', masuk: 'Persetujuan & laporan Mike', peran: ['kendali_bisnis', 'manajemen'],
-      sembunyi: '.tabs:has(> button), a[href*="hal=pengadaan"], a[href*="hal=gudang"]',
+      sembunyi: '#tabs:has(> [data-t]), a[href*="hal=pengadaan"], a[href*="hal=gudang"]',
       menu: [
-        { k: 'acc', nm: 'ACC Pengajuan', ik: 'setuju', l: ['ACC Pengajuan@.tabs'], pendek: 'ACC' },
-        { k: 'naik', nm: 'Kenaikan harga', ik: 'harga', l: ['Kenaikan Harga@.tabs'], pendek: 'Harga naik' },
-        { k: 'laris', nm: 'Laris & Lambat', ik: 'jual', l: ['Laris & Lambat@.tabs'], pendek: 'Laris' },
-        { k: 'omzet', nm: 'Omzet', ik: 'uang', l: ['Omzet@.tabs'] },
-        { k: 'profit', nm: 'Profit', ik: 'laporan', l: ['Profit@.tabs'] },
+        { k: 'acc', nm: 'ACC Pengajuan', ik: 'setuju', l: ['ACC Pengajuan@#tabs'], pendek: 'ACC' },
+        { k: 'naik', nm: 'Kenaikan harga', ik: 'harga', l: ['Kenaikan Harga@#tabs'], pendek: 'Harga naik' },
+        { k: 'laris', nm: 'Laris & Lambat', ik: 'jual', l: ['Laris & Lambat@#tabs'], pendek: 'Laris' },
+        { k: 'omzet', nm: 'Omzet', ik: 'uang', l: ['Omzet@#tabs'] },
+        { k: 'profit', nm: 'Profit', ik: 'laporan', l: ['Profit@#tabs'] },
         { grup: 'KENDALI BISNIS' },
         { k: 'kb', nm: 'Impor, laporan, HPP', ik: 'dasbor', href: 'form.html?f=mike' },
         { k: 'stok', nm: 'Stok semua lokasi', ik: 'stok', href: 'stok.html' }
