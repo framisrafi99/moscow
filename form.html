@@ -232,6 +232,11 @@
   function teks(v) { return String(v === undefined || v === null ? '' : v); }
   var TULIS_SUPABASE = {
     produksi: {
+      // Laporan produksi: dicatat + otomatis disalurkan ke Gudang Utama di Supabase; Telegram dikirim Apps Script (efek_antre).
+      simpanLaporan: function (p) {
+        return ['produksi_simpan_laporan', { p_jenis: teks(p.jenis), p_tanggal: teks(p.tanggal), p_tujuan: teks(p.tujuan), p_nama: teks(p.nama),
+          p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
+      },
       simpanBahan: function (p) {
         return ['produksi_simpan_bahan', { p_tanggal: teks(p.tanggal), p_jenis: teks(p.jenis), p_nama: teks(p.nama), p_qty: teks(p.qty),
           p_pengisi: teks(p.pengisi), p_catatan: teks(p.catatan), p_token: teks(p.token) }];
