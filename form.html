@@ -263,6 +263,11 @@
       },
       // Order Masuk: tombol "Proses" (catatan Diproses di ORDER_PROSES).
       gdxOrderProses: function (p) { return ['gudang_order_proses', { p_order: teks(p.order), p_nama: teks(p.nama) }]; },
+      // Terima barang PO: status PO diubah lewat ubah_antre; usulan HPP & pengajuan lokal oleh Apps Script (efek_antre).
+      gdTerimaPo: function (p) {
+        return ['gudang_terima_po', { p_tanggal: teks(p.tanggal), p_no: teks(p.no), p_nama: teks(p.nama), p_catatan: teks(p.catatan),
+          p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
+      },
       gdOpnameSesuai: function (p) {
         return ['gudang_sesuai', { p_nama: teks(p.nama), p_catatan: teks(p.catatan), p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
       }
