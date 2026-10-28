@@ -190,7 +190,8 @@
       gdData: function () { return window.Gudang.gdData(sb); },
       gdxOrderMasuk: function () { return window.Gudang.gdxOrderMasuk(sb); },
       ptrData: function () { return window.Pengadaan.ptrData(sb, 'gudang'); },
-      hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'gudang', a[0]); }
+      hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'gudang', a[0]); },
+      gdxPengajuan: function (a) { return a[0] && a[0].mm ? null : window.Pengadaan.gdxPengajuan(sb); }
     },
     produksi: {
       prodKebutuhan: function () { return window.Gudang.prodKebutuhan(sb); },
@@ -199,7 +200,8 @@
       pgsTerbuka: function () { return window.Pengadaan.pgsTerbuka(sb, 'produksi'); },
       pantauProduksi: function (a) { return window.BahanBaku.pantauProduksi(sb, a[0], 'produksi'); },
       rencanaProduksi: function () { return window.BahanBaku.rencanaProduksi(sb); },
-      hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'produksi', a[0]); }
+      hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'produksi', a[0]); },
+      pgsData: function (a) { return a[0] && a[0].mm ? null : window.Pengadaan.pgsData(sb, 'produksi'); }
     },
     bahanbaku: {
       ptrData: function () { return window.Pengadaan.ptrData(sb, 'bahanbaku'); },
@@ -208,7 +210,8 @@
       bahanBakuLaporan: function (a) { return window.BahanBaku.bahanBakuLaporan(sb, a[0]); },
       pantauProduksi: function (a) { return window.BahanBaku.pantauProduksi(sb, a[0], 'bahan'); },
       rencanaBahan: function (a) { return window.BahanBaku.rencanaBahan(sb, a[0]); },
-      hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'bahanbaku', a[0]); }
+      hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'bahanbaku', a[0]); },
+      pgsData: function (a) { return a[0] && a[0].mm ? null : window.Pengadaan.pgsData(sb, 'bahanbaku'); }
     }
   };
   var basiSampai = 0;
