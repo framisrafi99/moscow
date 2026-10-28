@@ -195,14 +195,16 @@
       kemasanHargaData: function () { return window.Produksi.kemasanHargaData(sb); },
       ptrData: function () { return window.Pengadaan.ptrData(sb, 'produksi'); },
       pgsTerbuka: function () { return window.Pengadaan.pgsTerbuka(sb, 'produksi'); },
-      pantauProduksi: function (a) { return window.BahanBaku.pantauProduksi(sb, a[0], 'produksi'); }
+      pantauProduksi: function (a) { return window.BahanBaku.pantauProduksi(sb, a[0], 'produksi'); },
+      rencanaProduksi: function () { return window.BahanBaku.rencanaProduksi(sb); }
     },
     bahanbaku: {
       ptrData: function () { return window.Pengadaan.ptrData(sb, 'bahanbaku'); },
       pgsTerbuka: function () { return window.Pengadaan.pgsTerbuka(sb, 'bahanbaku'); },
       bahanBakuData: function (a) { return window.BahanBaku.bahanBakuData(sb, a[0]); },
       bahanBakuLaporan: function (a) { return window.BahanBaku.bahanBakuLaporan(sb, a[0]); },
-      pantauProduksi: function (a) { return window.BahanBaku.pantauProduksi(sb, a[0], 'bahan'); }
+      pantauProduksi: function (a) { return window.BahanBaku.pantauProduksi(sb, a[0], 'bahan'); },
+      rencanaBahan: function (a) { return window.BahanBaku.rencanaBahan(sb, a[0]); }
     }
   };
   var basiSampai = 0;
