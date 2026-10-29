@@ -1350,9 +1350,15 @@
     if (cek.length && !confirm(cek.join('\n') + '\n\nLanjutkan?')) return;
     p.alasan = alasan; p.yakin = true; p.token = 'md' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
     btn.disabled = true;
-    // Harga jual, HPP, nama/kategori/warna, dan barang baru langsung tersimpan di Supabase; qty stok tetap lewat antrean Apps Script.
-    if (p.jenis === 'harga' || p.jenis === 'hpp' || p.jenis === 'info' || p.jenis === 'baru') {
-      var rr = (p.jenis === 'harga' || p.jenis === 'hpp')
+    // Harga jual, HPP, nama/kategori/warna, barang baru, dan qty stok langsung tersimpan di Supabase.
+    // Qty Kantor Packing (stok online) tetap lewat antrean Apps Script (fungsi menjawab {lewat:true}).
+    var rq = null;
+    if (p.jenis === 'qty') {
+      var lokQ = B.lokasi.filter(function (l) { return l.id === p.lok; })[0] || {};
+      rq = await sb.rpc('mde_qty', { p_k: p.k, p_lok: p.lok, p_toko: lokQ.n || '', p_w: p.w || '', p_nilai: String(p.nilai), p_alasan: p.alasan, p_token: p.token });
+    }
+    if (p.jenis === 'harga' || p.jenis === 'hpp' || p.jenis === 'info' || p.jenis === 'baru' || (rq && !(rq.data && rq.data.lewat))) {
+      var rr = rq ? rq : (p.jenis === 'harga' || p.jenis === 'hpp')
         ? await sb.rpc('mde_simpan', { p_jenis: p.jenis, p_k: p.k, p_nilai: String(p.nilai), p_alasan: p.alasan, p_token: p.token })
         : await sb.rpc('mde_info_baru', { p_jenis: p.jenis, p_k: p.k, p_nama: p.nama || '', p_kat: p.kat || '', p_warna: p.warna || '',
             p_hj: p.hj === undefined ? '' : String(p.hj), p_hpp: p.hpp === undefined ? '' : String(p.hpp), p_katalog: p.katalog === true,
