@@ -1,5 +1,5 @@
 // Menyimpan tampilan pembuka saja. Data sistem selalu diambil langsung dari Google.
-var CACHE = 'moscow-v7';
+var CACHE = 'moscow-v8';
 var FILES = ['./', 'lama.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', function (e) {
@@ -16,5 +16,8 @@ self.addEventListener('activate', function (e) {
 
 self.addEventListener('fetch', function (e) {
   if (new URL(e.request.url).origin !== location.origin) return;
-  e.respondWith(fetch(e.request).catch(function () { return caches.match(e.request); }));
+  // Selalu ambil versi terbaru dari server (lewati cache browser 10 menit); cadangan hanya bila offline.
+  var r = e.request, segar = r.method === 'GET' ? fetch(r.url, { cache: 'no-cache', credentials: 'same-origin' }) : fetch(r);
+  if (r.mode === 'navigate' || r.method !== 'GET') segar = r.method === 'GET' ? fetch(r, { cache: 'no-cache' }) : segar;
+  e.respondWith(segar.catch(function () { return caches.match(r); }));
 });
