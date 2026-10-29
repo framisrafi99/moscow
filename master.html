@@ -1713,13 +1713,29 @@
       kirim.push({ fungsi: 'gdPoBatalMgmt', param: { no: no, alasan: al, batalUang: bu, token: tok() }, ringkas: 'Batalkan ' + no + ': ' + al });
     } else return;
     b.disabled = true;
+    // Langsung tersimpan di Supabase (po_putus / po_bayar / po_biaya_bayar / po_batal); daftar di sini dihitung ulang Apps Script.
+    var rpcPo = {
+      gdPoPutus: function (x) { return ['po_putus', { p_no: x.no, p_setuju: !!x.setuju, p_catatan: x.catatan || '', p_token: x.token }]; },
+      gdPoBayar: function (x) { return ['po_bayar', { p_no: x.no, p_tanggal: x.tanggal || '', p_token: x.token }]; },
+      gdBiayaBayar: function (x) { return ['po_biaya_bayar', { p_no: x.no, p_id: x.id, p_tanggal: x.tanggal || '', p_token: x.token }]; },
+      gdPoBatalMgmt: function (x) { return ['po_batal', { p_no: x.no, p_alasan: x.alasan || '', p_batal_uang: x.batalUang !== false, p_token: x.token }]; }
+    };
+    var hasil = [];
     for (var i = 0; i < kirim.length; i++) {
-      var r = await sb.from('md_aksi').insert({ fungsi: kirim[i].fungsi, param: kirim[i].param, ringkas: String(kirim[i].ringkas).slice(0, 200) });
-      if (r.error) { pesanP('Gagal mengirim: ' + r.error.message); b.disabled = false; return; }
+      var c = rpcPo[kirim[i].fungsi](kirim[i].param);
+      var r = await sb.rpc(c[0], c[1]);
+      var gagal = r.error ? 'Gagal menyimpan: ' + r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
+      if (gagal) {
+        if (hasil.length) { salinKeSheetGaji(); await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(kirim[0].ringkas).slice(0, 150) }); }
+        pesanP((hasil.length ? hasil.join(' ') + ' ' : '') + gagal); b.disabled = false; return;
+      }
+      hasil.push(r.data.pesan);
     }
+    salinKeSheetGaji();
+    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(kirim.map(function (k) { return k.ringkas; }).join(' · ')).slice(0, 150) });
     P.buka['batal:' + no] = false;
     await muatAksi(); gambarPurch();
-    pesanP(kirim.map(function (k) { return k.ringkas; }).join(' · ') + '. Diterapkan ke Google Sheets paling lambat 10 menit lagi.', true);
+    pesanP(hasil.join(' ') + ' Daftar di halaman ini diperbarui paling lambat 10 menit lagi.', true);
   }
 
   // ======================= PERSETUJUAN: pembungkus 3 bagian =======================
