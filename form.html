@@ -240,6 +240,10 @@
   function teks(v) { return String(v === undefined || v === null ? '' : v); }
   var TULIS_SUPABASE = {
     produksi: {
+      // Pengajuan pembelian (pgdAjukan + pembungkus): robot dari potret; Telegram, pesan Mike & Viory oleh Apps Script (efek_antre).
+      pgsAjukan: function (p) {
+        return ['pengadaan_ajukan', { p_app: 'produksi', p_nama: teks(p.nama), p_yakin: p.yakin === true, p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
+      },
       // Laporan produksi: dicatat + otomatis disalurkan ke Gudang Utama di Supabase; Telegram dikirim Apps Script (efek_antre).
       simpanLaporan: function (p) {
         return ['produksi_simpan_laporan', { p_jenis: teks(p.jenis), p_tanggal: teks(p.tanggal), p_tujuan: teks(p.tujuan), p_nama: teks(p.nama),
@@ -265,6 +269,10 @@
       }
     },
     gudang: {
+      // Pengajuan pembelian (pgdAjukan + pembungkus): robot dari potret; Telegram, pesan Mike & Viory oleh Apps Script (efek_antre).
+      gdxAjukan: function (p) {
+        return ['pengadaan_ajukan', { p_app: 'gudang', p_nama: teks(p.nama), p_yakin: p.yakin === true, p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
+      },
       // Kirim barang keluar (tab Kirim barang). Order yang tuntas -> status Dikirim + Telegram dijalankan Apps Script (efek_antre).
       gdKirim: function (p) {
         return ['gudang_kirim', { p_tanggal: teks(p.tanggal), p_tujuan: teks(p.tujuan), p_nama: teks(p.nama), p_catatan: teks(p.catatan),
@@ -293,6 +301,10 @@
       }
     },
     bahanbaku: {
+      // Pengajuan pembelian (pgdAjukan + pembungkus): robot dari potret; Telegram, pesan Mike & Viory oleh Apps Script (efek_antre).
+      pgsAjukan: function (p) {
+        return ['pengadaan_ajukan', { p_app: 'bahanbaku', p_nama: teks(p.nama), p_yakin: p.yakin === true, p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
+      },
       bahanBakuPakai: function (p) {
         return ['bbk_simpan_pakai', { p_tanggal: teks(p.tanggal), p_jenis: teks(p.jenis), p_kode: teks(p.kode), p_qty: teks(p.qty),
           p_satuan: teks(p.satuan), p_pengisi: teks(p.pengisi), p_catatan: teks(p.catatan), p_untuk: teks(p.untuk), p_token: teks(p.token) }];
