@@ -3,99 +3,97 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Moscow</title>
-<meta name="theme-color" content="#111111">
+<title>Moscow Supplies</title>
+<meta name="theme-color" content="#172434">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Moscow">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="moscow.css">
 <style>
-  :root { --bg:#111; --fg:#f4f4f4; --muted:#9a9a9a; --line:#2c2c2c; --accent:#f4f4f4; }
-  * { box-sizing:border-box; }
-  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
-    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-  #app { position:fixed; inset:0; width:100%; height:100%; border:0; display:none; background:#fff; }
-  #atur { min-height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:32px 20px calc(32px + env(safe-area-inset-bottom)); text-align:center; }
-  #atur img { width:96px; height:96px; border-radius:22px; margin-bottom:18px; }
-  h1 { font-size:22px; margin:0 0 6px; letter-spacing:.5px; }
-  p { color:var(--muted); font-size:14px; line-height:1.5; margin:0 0 22px; max-width:340px; }
-  input { width:100%; max-width:360px; padding:14px; border-radius:12px; border:1px solid var(--line);
-    background:#1b1b1b; color:var(--fg); font-size:15px; }
-  button { margin-top:14px; width:100%; max-width:360px; padding:14px; border:0; border-radius:12px;
-    background:var(--accent); color:#111; font-size:16px; font-weight:600; }
-  .err { color:#ff8a80; font-size:13px; min-height:18px; margin-top:10px; }
-  .kecil { margin-top:28px; font-size:12px; color:#666; }
+  #pilih { display:grid; gap:8px; margin-top:4px; }
+  #pilih a { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 14px; border:1px solid var(--garis);
+    border-radius:12px; color:inherit; text-decoration:none; font-weight:700; }
+  #pilih a span { font-weight:500; font-size:12.5px; color:var(--abu); }
+  #pilih a:hover { background:var(--latar); }
+  .keluar { margin-top:16px; background:none; border:0; color:var(--abu); font:inherit; font-size:13px; cursor:pointer; padding:4px 0; }
 </style>
 </head>
 <body>
-<iframe id="app" title="Moscow" allow="clipboard-write; camera"></iframe>
-
-<div id="atur">
-  <img src="icon-192.png" alt="">
-  <h1>Moscow</h1>
-  <p>Tempel link sistem Anda sekali saja. Link hanya disimpan di HP ini dan tidak dikirim ke mana pun.</p>
-  <input id="link" type="url" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/...">
-  <button id="simpan">Simpan dan buka</button>
-  <div class="err" id="err"></div>
-  <div class="kecil">Ganti link nanti: buka aplikasi dengan alamat ?atur=1</div>
+<div id="mMasuk">
+  <div class="kotak">
+    <span class="lg" role="img" aria-label="Moscow Supplies"></span>
+    <span class="ey">APLIKASI MOSCOW SUPPLIES</span>
+    <h1 id="judul">Masuk</h1>
+    <p id="teks">Masuk dengan akun Google yang sudah didaftarkan manajemen Moscow Supplies. Halaman bagianmu terbuka otomatis.</p>
+    <button type="button" class="google" id="tMasuk" hidden></button>
+    <div id="pilih" hidden></div>
+    <div class="pesan" id="pesan" role="alert"></div>
+    <button type="button" class="keluar" id="tKeluar" hidden>Keluar / ganti akun</button>
+    <a class="priv" href="privasi.html">Kebijakan privasi</a>
+  </div>
 </div>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 (function () {
-  var KUNCI = 'moscow_link';
-  var KUNCI_DEV = 'moscow_perangkat';
-  var app = document.getElementById('app');
-  var atur = document.getElementById('atur');
-
-  function baca() { try { return localStorage.getItem(KUNCI) || ''; } catch (e) { return ''; } }
-  function tulis(v) { try { localStorage.setItem(KUNCI, v); return true; } catch (e) { return false; } }
-  function sah(u) { return /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/(exec|dev)/.test(u); }
-
-  // Tanda perangkat disimpan di aplikasi ini (bukan di halaman Apps Script),
-  // supaya HP tidak menghapusnya dan izin perangkat tidak diminta ulang.
-  function acak() {
-    var a = 'abcdefghijklmnopqrstuvwxyz0123456789', s = '', b = new Uint8Array(24);
-    try { crypto.getRandomValues(b); } catch (e) { for (var j = 0; j < 24; j++) b[j] = Math.floor(Math.random() * 256); }
-    for (var i = 0; i < 24; i++) s += a.charAt(b[i] % 36);
-    return s;
-  }
-  function tandaPerangkat() {
-    try {
-      var d = localStorage.getItem(KUNCI_DEV);
-      if (!d || !/^[a-z0-9]{16,40}$/.test(d)) { d = acak(); localStorage.setItem(KUNCI_DEV, d); }
-      return localStorage.getItem(KUNCI_DEV) === d ? d : '';
-    } catch (e) { return ''; }
-  }
-
-  function buka(u) {
-    var d = tandaPerangkat();
-    if (d) u += (u.indexOf('?') === -1 ? '?' : '&') + 'dev=' + d;
-    app.src = u;
-    app.style.display = 'block';
-    atur.style.display = 'none';
-  }
-
-  var minta = new URLSearchParams(location.search).get('atur') === '1';
-  var simpanan = baca();
-  if (simpanan && sah(simpanan) && !minta) { buka(simpanan); }
-  else { document.getElementById('link').value = simpanan; }
-
-  document.getElementById('simpan').onclick = function () {
-    var u = document.getElementById('link').value.trim();
-    var err = document.getElementById('err');
-    if (!sah(u)) { err.textContent = 'Link harus diawali https://script.google.com/macros/s/...'; return; }
-    if (!tulis(u)) { err.textContent = 'HP ini tidak mengizinkan penyimpanan. Link tetap dibuka sekali ini.'; }
-    history.replaceState(null, '', location.pathname);
-    buka(u);
+  var sb = window.supabase.createClient('https://ufhuvwfudblbyrwzugaa.supabase.co', 'sb_publishable_A8aEpcDck6ZOix9lrM727A_tI7QZ1xw',
+    { auth: { persistSession: true, detectSessionInUrl: true, flowType: 'pkce' } });
+  var GOOGLE = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>';
+  function $(i) { return document.getElementById(i); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  // Satu link untuk semua: halaman tujuan ditentukan dari peran akun (tabel pengguna), bukan dipilih sendiri.
+  var TUJUAN = {
+    gudang: [['Gudang Utama', 'form.html?f=gudang']],
+    purchasing_shopeepay: [['Purchasing (form Gudang Utama)', 'form.html?f=gudang']],
+    produksi: [['Produksi', 'form.html?f=produksi']],
+    bahan_baku: [['Bahan Baku', 'form.html?f=bahanbaku']],
+    kendali_bisnis: [['Kendali Bisnis', 'form.html?f=mike'], ['Persetujuan & laporan', 'form.html?f=mikelama'], ['Stok semua lokasi', 'stok.html']],
+    toko: [['Form toko', 'consignment.html']],
+    manajemen: [['Master Data', 'master.html'], ['Payroll', 'form.html?f=payroll'], ['Form accounting', 'form.html?f=akunting'], ['Stok semua lokasi', 'stok.html'],
+      ['Kendali Bisnis', 'form.html?f=mike'], ['Form Gudang Utama', 'form.html?f=gudang'], ['Form Produksi', 'form.html?f=produksi'],
+      ['Form Bahan Baku', 'form.html?f=bahanbaku'], ['Form toko', 'consignment.html'], ['Kasir Toko Offline', 'kasir.html']]
   };
-
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(function () {});
+  function layarMasuk(pesan) {
+    $('judul').textContent = 'Masuk'; $('pilih').hidden = true; $('tKeluar').hidden = true;
+    $('tMasuk').hidden = false; $('pesan').textContent = pesan || '';
   }
+  $('tMasuk').innerHTML = GOOGLE + 'Masuk dengan Google';
+  $('tMasuk').onclick = function () {
+    $('pesan').textContent = '';
+    sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } })
+      .then(function (r) { if (r.error) $('pesan').textContent = 'Gagal membuka Google: ' + r.error.message; });
+  };
+  $('tKeluar').onclick = async function () { await sb.auth.signOut({ scope: 'local' }); layarMasuk(''); };
+  async function periksa(sesi) {
+    $('tMasuk').hidden = true; $('teks').textContent = 'Memeriksa akses ' + sesi.user.email + '…';
+    var r = await sb.rpc('peran_saya');
+    if (r.error) { layarMasuk('Tidak bisa memeriksa akses: ' + r.error.message); return; }
+    var peran = r.data, l = null;
+    try { l = (await sb.rpc('lingkup_saya')).data; } catch (e) { l = null; }
+    var daftar = TUJUAN[peran];
+    if (!daftar) {
+      await sb.auth.signOut({ scope: 'local' });
+      layarMasuk('Akun ' + sesi.user.email + ' belum didaftarkan. Minta manajemen Moscow Supplies menambahkan email ini.');
+      return;
+    }
+    if (peran === 'toko' && /offline/i.test(l || '')) daftar = [['Toko Offline', 'consignment.html'], ['Kasir', 'kasir.html']];
+    if (daftar.length === 1 || (peran === 'toko' && !/offline/i.test(l || ''))) { location.replace(daftar[0][1]); return; }
+    $('judul').textContent = 'Pilih halaman';
+    $('teks').textContent = 'Masuk sebagai ' + sesi.user.email + (l ? ' (' + l + ')' : '') + '.';
+    $('pilih').innerHTML = daftar.map(function (d) { return '<a href="' + esc(d[1]) + '">' + esc(d[0]) + '<span>Buka ›</span></a>'; }).join('');
+    $('pilih').hidden = false; $('tKeluar').hidden = false;
+  }
+  sb.auth.getSession().then(function (r) {
+    var s = r.data && r.data.session;
+    if (s) periksa(s); else layarMasuk('');
+  });
+  sb.auth.onAuthStateChange(function (ev, s) { if (ev === 'SIGNED_IN' && s) periksa(s); });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () { });
 })();
 </script>
 </body>
