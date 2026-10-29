@@ -523,6 +523,17 @@
     await muatAksi(); J.ubahTtp = null; gambarJual(); gambarJualIsi();
     $('msgJual').innerHTML = '<div class="msg ok">' + esc(teksOk) + '</div>';
   }
+  // Titipan staf: keputusan & ubah barang langsung tersimpan di Supabase (ttp_putus / ttp_barang_ubah); daftar dihitung ulang Apps Script.
+  async function kirimTitipRpc(fn, arg, ringkas, b) {
+    if (b) b.disabled = true;
+    var r = await sb.rpc(fn, arg);
+    var gagal = r.error ? r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
+    if (gagal) { $('msgJual').innerHTML = '<div class="msg bad">' + esc(gagal) + '</div>'; if (b) b.disabled = false; return; }
+    salinKeSheetGaji();
+    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(ringkas).slice(0, 150) });
+    await muatAksi(); J.ubahTtp = null; gambarJual(); gambarJualIsi();
+    $('msgJual').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar di halaman ini diperbarui paling lambat 10 menit lagi.</div>';
+  }
   function angkaIsian(el) { var v = String(el.value).replace(/[^\d]/g, ''); return v === '' ? '' : Number(v); }
 
   function gambarPotretJual(el) {
@@ -589,7 +600,7 @@
     h += '<div class="cd"><div class="kpl"><h3>Riwayat terakhir</h3><span class="sb">' + rw.length + ' catatan</span></div>' + (rw.length ? '<div class="gulir"><table class="tabel"><tbody>' + rw.map(function (x) {
       var j = JN[x.j] || [x.j, 'abu'];
       return '<tr><td>' + esc(x.n) + '<small>' + esc(x.t) + ' · ' + esc(x.no) + (x.oleh ? ' · ' + esc(x.oleh) : '') + (x.st && x.st !== 'Tercatat' && x.st !== 'Disetujui' ? ' · ' + esc(x.st) : '') + '</small></td><td class="r"><span class="label ' + j[1] + '">' + esc(j[0]) + '</span><small class="angka">' + fmt(x.q) + ' pcs' + (x.j === 'JUAL' ? ' · ' + rp(x.q * x.h) : '') + '</small></td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="ksg">Belum ada riwayat.</div>') + '</div></div>';
-    return h + '<p class="sb">Penjualan titipan dicatat staf lewat formulir toko. Keputusan dari sini diterapkan ke Google Sheets paling lambat 10 menit kemudian.</p>';
+    return h + '<p class="sb">Penjualan titipan dicatat staf lewat formulir toko. Keputusan dari sini langsung tersimpan; daftar di halaman ini diperbarui paling lambat 10 menit kemudian.</p>';
   }
   function putusTitip(b) {
     var setuju = b.getAttribute('data-ttp') === 'setuju', jenis = b.getAttribute('data-jenis'), id = b.getAttribute('data-id'), nm = b.getAttribute('data-nm');
@@ -605,14 +616,15 @@
       }
     }
     var ringkas = (setuju ? 'Setujui ' : 'Tolak ') + (jenis === 'barang' ? 'barang titipan baru ' + nm + (setuju ? ' (harga ' + rp(p.harga) + (p.qty ? ', stok awal ' + p.qty + ' pcs' : '') + ')' : '') : 'tambah stok titipan ' + nm + (setuju ? ' ' + p.qty + ' pcs' : ''));
-    kirimJual('ttpPutus', p, ringkas, ringkas + '. Diterapkan ke Google Sheets paling lambat 10 menit lagi.', b);
+    kirimTitipRpc('ttp_putus', { p_jenis: p.jenis, p_id: p.id, p_aksi: p.aksi, p_hpp: p.hpp === undefined ? '' : String(p.hpp), p_harga: p.harga === undefined ? '' : String(p.harga),
+      p_qty: p.qty === undefined ? '' : String(p.qty) }, ringkas, b);
   }
   function simpanBarangTitip(b) {
     var k = b.getAttribute('data-ttp-simpan'), nm = b.getAttribute('data-nm'), w = $('jIsi').querySelector('[data-ubah="' + k + '"]');
     var hpp = angkaIsian(w.querySelector('[data-f="hpp"]')), h = angkaIsian(w.querySelector('[data-f="harga"]')), aktif = w.querySelector('[data-f="aktif"]').checked;
     if (!(h > 0) || hpp === '') { $('msgJual').innerHTML = '<div class="msg bad">Isi HPP dan harga jual ' + esc(nm) + ' dengan angka.</div>'; return; }
     var ringkas = 'Ubah barang titipan ' + nm + ': HPP ' + rp(hpp) + ', harga ' + rp(h) + (aktif ? '' : ', nonaktif');
-    kirimJual('ttpBarangUbah', { kode: k, hpp: hpp, harga: h, aktif: aktif }, ringkas, ringkas + '. Diterapkan ke Google Sheets paling lambat 10 menit lagi.', b);
+    kirimTitipRpc('ttp_barang_ubah', { p_kode: k, p_hpp: String(hpp), p_harga: String(h), p_aktif: aktif }, ringkas, b);
   }
 
   // Laporan marketplace toko official (mpRingkasOfficial lama)
@@ -1634,7 +1646,7 @@
     }).join('');
     return h + catatanAjuan();
   }
-  function catatanAjuan() { return '<p class="sb">Pengajuan dibuat staf dari formulirnya masing-masing. Barang lokal biasanya di-ACC Purchasing, barang impor oleh Mike; manajemen Moscow Supplies bisa keduanya. Keputusan dari sini diterapkan ke Google Sheets paling lambat 10 menit kemudian.</p>'; }
+  function catatanAjuan() { return '<p class="sb">Pengajuan dibuat staf dari formulirnya masing-masing. Barang lokal biasanya di-ACC Purchasing, barang impor oleh Mike; manajemen Moscow Supplies bisa keduanya. Keputusan dari sini langsung tersimpan; daftar di halaman ini diperbarui paling lambat 10 menit kemudian.</p>'; }
   function isiRencana(g) {
     var r = g.ring, h = '<div class="kp"><div class="kt"><span class="l">Kritis</span><span class="v angka' + (r.Kritis ? ' mn' : '') + '">' + r.Kritis + '</span><span class="k">stok habis sebelum barang datang</span></div>' +
       '<div class="kt"><span class="l">Saatnya pesan</span><span class="v angka">' + r['Saatnya pesan'] + '</span><span class="k">barang</span></div>' +
