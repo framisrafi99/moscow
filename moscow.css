@@ -128,6 +128,30 @@ html.m-m #mAksi { width:100%; }
 html.m-m #mAksi:empty { display:none; }
 html.m-m #mAksi .tbl { height:38px; background:var(--navy2); border-color:#2F4560; color:var(--navyTeks); }
 html.m-m #mAksi .tbl.pri { background:var(--biru); color:#fff; border:0; }
+/* Kepala biru gelap dengan foto produk samar di kanan (semua halaman, HP dan laptop).
+   Lapisan foto dan gradasi hanya hiasan: di belakang isi, tidak menangkap klik. */
+#mHead { background:var(--navy); border-bottom:0; color:#fff; isolation:isolate; overflow:hidden; }
+#mHead::before, #mHead::after { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; }
+#mHead::before { left:auto; width:min(68%, 760px); background:url(header-produk.jpg) left 30% / cover no-repeat; opacity:.6; filter:saturate(.92);
+  -webkit-mask-image:linear-gradient(90deg, transparent 0%, #000 42%); mask-image:linear-gradient(90deg, transparent 0%, #000 42%); }
+#mHead::after { background:
+  linear-gradient(90deg, var(--navy) 0%, var(--navy) 28%, rgba(23,36,52,.86) 50%, rgba(23,36,52,.5) 78%, rgba(23,36,52,.36) 100%),
+  linear-gradient(0deg, rgba(23,36,52,.7) 0%, rgba(23,36,52,0) 60%),
+  radial-gradient(120% 140% at 100% 100%, rgba(30,120,168,.28), rgba(30,120,168,0) 60%); }
+#mHead .ey { color:var(--navyRedup); }
+#mHead .jd { color:#fff; }
+#mHead #mAksi .tbl:not(.pri) { background:rgba(34,52,74,.82); border-color:#2F4560; color:var(--navyTeks); }
+#mHead #mAksi .tbl:not(.pri):hover { background:var(--navy3); color:#fff; }
+#mHead #mAksi .tg { color:var(--navyTeks) !important; }
+#mHead #mAksi select { height:38px; padding:0 10px; border-radius:10px; border:1px solid #2F4560; background:var(--navy2); color:#fff; }
+html.m-d #mHead { min-height:132px; padding:24px 32px; }
+html.m-d #mHead .jd { font-size:28px; }
+html.m-d #mHead::before { width:min(58%, 820px); }
+html.m-m #mHead::before { width:82%; background-position:left 32%; opacity:.66; }
+html.m-m #mHead::after { background:
+  linear-gradient(90deg, var(--navy) 0%, rgba(23,36,52,.88) 30%, rgba(23,36,52,.55) 60%, rgba(23,36,52,.34) 100%),
+  linear-gradient(0deg, rgba(23,36,52,.72) 0%, rgba(23,36,52,0) 55%); }
+@media (prefers-reduced-transparency:reduce) { #mHead::before { display:none; } }
 html.m-m main#mIsi { padding:14px 12px calc(96px + env(safe-area-inset-bottom)); }
 html.m-m #mBawah { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); position:fixed; left:0; right:0; bottom:0; z-index:60; background:#fff; border-top:1px solid var(--garis); padding:6px 4px calc(10px + env(safe-area-inset-bottom)); }
 #mBawah button { position:relative; display:flex; flex-direction:column; align-items:center; gap:3px; min-height:48px; padding:4px 0; border:0; background:transparent; color:var(--abu); font-size:11.5px; font-weight:600; cursor:pointer; }
