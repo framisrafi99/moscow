@@ -1350,9 +1350,13 @@
     if (cek.length && !confirm(cek.join('\n') + '\n\nLanjutkan?')) return;
     p.alasan = alasan; p.yakin = true; p.token = 'md' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
     btn.disabled = true;
-    // Harga jual & HPP langsung tersimpan di Supabase (mde_simpan); qty, info, dan barang baru tetap lewat antrean Apps Script.
-    if (p.jenis === 'harga' || p.jenis === 'hpp') {
-      var rr = await sb.rpc('mde_simpan', { p_jenis: p.jenis, p_k: p.k, p_nilai: String(p.nilai), p_alasan: p.alasan, p_token: p.token });
+    // Harga jual, HPP, nama/kategori/warna, dan barang baru langsung tersimpan di Supabase; qty stok tetap lewat antrean Apps Script.
+    if (p.jenis === 'harga' || p.jenis === 'hpp' || p.jenis === 'info' || p.jenis === 'baru') {
+      var rr = (p.jenis === 'harga' || p.jenis === 'hpp')
+        ? await sb.rpc('mde_simpan', { p_jenis: p.jenis, p_k: p.k, p_nilai: String(p.nilai), p_alasan: p.alasan, p_token: p.token })
+        : await sb.rpc('mde_info_baru', { p_jenis: p.jenis, p_k: p.k, p_nama: p.nama || '', p_kat: p.kat || '', p_warna: p.warna || '',
+            p_hj: p.hj === undefined ? '' : String(p.hj), p_hpp: p.hpp === undefined ? '' : String(p.hpp), p_katalog: p.katalog === true,
+            p_kat_katalog: p.katKatalog || '', p_online: p.online === true, p_alasan: p.alasan, p_yakin: true, p_token: p.token });
       var gagal = rr.error ? rr.error.message : (!rr.data || !rr.data.ok) ? ((rr.data && rr.data.pesan) || 'Gagal menyimpan.') : '';
       if (gagal) { salah(gagal); btn.disabled = false; return; }
       salinKeSheetGaji();
