@@ -317,6 +317,10 @@
           p_order: teks(p.order), p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token),
           p_kurir: teks(p.kurir), p_resi: teks(p.resi), p_ongkir: teks(p.ongkir) }];
       },
+      // Terima kiriman dari produksi (bukti TP-) langsung di Supabase.
+      gdTerimaProduksi: function (p) {
+        return ['gudang_terima_produksi', { p_tanggal: teks(p.tanggal), p_nama: teks(p.nama), p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
+      },
       // Pengajuan: dipesan / diterima / batal (gudang) dan dipesan / batal (link Purchasing, plAksi) langsung di Supabase.
       pgdAksi: function (p) {
         return ['pengadaan_aksi', { p_aksi: teks(p.aksi), p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_qty: p.qty && typeof p.qty === 'object' ? p.qty : null,
