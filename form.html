@@ -419,6 +419,17 @@
       },
       akuntingBatal: function (p) { return ['akunting_batal', { p_no: teks(p.no) }]; }
     },
+    // Master Data lama di dalam aplikasi: tombol yang sudah pindah ikut langsung tersimpan di Supabase.
+    mdlama: {
+      gdPoPutus: function (p) { return ['po_putus', { p_no: teks(p.no), p_setuju: p.setuju === true, p_catatan: teks(p.catatan), p_token: teks(p.token) }]; },
+      gdPoBayar: function (p) { return ['po_bayar', { p_no: teks(p.no), p_tanggal: teks(p.tanggal), p_token: teks(p.token) }]; },
+      gdBiayaBayar: function (p) { return ['po_biaya_bayar', { p_no: teks(p.no), p_id: Number(p.id) || 0, p_tanggal: teks(p.tanggal), p_token: teks(p.token) }]; },
+      gdPoBatalMgmt: function (p) { return ['po_batal', { p_no: teks(p.no), p_alasan: teks(p.alasan), p_batal_uang: p.batalUang !== false, p_token: teks(p.token) }]; },
+      ubahStatusOrder: function (p) { return ['order_status', { p_no: teks(p.no), p_status: teks(p.status), p_rp: '', p_alasan: '' }]; },
+      rpPutus: function (p) { return ['order_status', { p_no: teks(p.no), p_status: '', p_rp: teks(p.aksi), p_alasan: teks(p.alasan) }]; },
+      rpTandai: function (p) { return ['rp_tandai', { p_no: teks(p.no), p_aksi: teks(p.aksi), p_catatan: teks(p.catatan), p_alasan: teks(p.alasan) }]; },
+      mdSetujuPutus: function (p) { return ['md_setuju_putus', { p_toko: Array.isArray(p.toko) ? p.toko.map(teks) : [], p_prod: Array.isArray(p.prod) ? p.prod.map(teks) : [], p_setuju: p.setuju === true, p_catatan: teks(p.catatan) }]; }
+    },
     // Payroll (tahap 5f): gaji disimpan di Supabase, baris baru / perubahan disalin Apps Script ke sheet GAJI_LOG.
     payroll: {
       gjSimpan: function (p) {
@@ -433,7 +444,7 @@
   async function salinKeSheet() {
     try {
       var t = await token(), kirim = fetch(BALIK, { method: 'POST', body: JSON.stringify({ t: t }), keepalive: true }).catch(function () { });
-      if (APP === 'akunting') await Promise.race([kirim, new Promise(function (r) { setTimeout(r, 10000); })]);
+      if (APP === 'akunting' || APP === 'mdlama') await Promise.race([kirim, new Promise(function (r) { setTimeout(r, 10000); })]);
     } catch (e) { }
   }
   async function tulisSupabase(f, a) {
@@ -447,7 +458,7 @@
       hasil = await q;
       if (hasil === null) return kirimLama(f, a);
     }
-    if (hasil && hasil.ok) { if (APP === 'akunting') await salinKeSheet(); else salinKeSheet(); if (window.Gudang) window.Gudang.lupakan(); }
+    if (hasil && hasil.ok) { if (APP === 'akunting' || APP === 'mdlama') await salinKeSheet(); else salinKeSheet(); if (window.Gudang) window.Gudang.lupakan(); }
     return JSON.stringify(hasil);
   }
 
