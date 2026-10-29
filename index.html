@@ -49,14 +49,14 @@
   // Satu link untuk semua: halaman tujuan ditentukan dari peran akun (tabel pengguna), bukan dipilih sendiri.
   var TUJUAN = {
     gudang: [['Gudang Utama', 'form.html?f=gudang']],
-    purchasing_shopeepay: [['Purchasing (form Gudang Utama)', 'form.html?f=gudang']],
+    purchasing_shopeepay: [['Gudang Utama & Purchasing', 'form.html?f=gudang']],
     produksi: [['Produksi', 'form.html?f=produksi']],
     bahan_baku: [['Bahan Baku', 'form.html?f=bahanbaku']],
     kendali_bisnis: [['Kendali Bisnis', 'form.html?f=mike'], ['Persetujuan & laporan', 'form.html?f=mikelama'], ['Stok semua lokasi', 'stok.html']],
     toko: [['Form toko', 'consignment.html']],
     manajemen: [['Master Data', 'master.html'], ['Payroll', 'form.html?f=payroll'], ['Form accounting', 'form.html?f=akunting'], ['Stok semua lokasi', 'stok.html'],
-      ['Kendali Bisnis', 'form.html?f=mike'], ['Form Gudang Utama', 'form.html?f=gudang'], ['Form Produksi', 'form.html?f=produksi'],
-      ['Form Bahan Baku', 'form.html?f=bahanbaku'], ['Form toko', 'consignment.html'], ['Kasir Toko Offline', 'kasir.html']]
+      ['Kendali Bisnis', 'form.html?f=mike'], ['Gudang Utama & Purchasing', 'form.html?f=gudang'], ['Form Produksi', 'form.html?f=produksi'],
+      ['Form Bahan Baku', 'form.html?f=bahanbaku'], ['Form toko (laporan semua toko)', 'consignment.html'], ['Kasir Toko Offline (nota penjualan)', 'kasir.html']]
   };
   function layarMasuk(pesan) {
     $('judul').textContent = 'Masuk'; $('pilih').hidden = true; $('tKeluar').hidden = true;
@@ -81,7 +81,7 @@
       layarMasuk('Akun ' + sesi.user.email + ' belum didaftarkan. Minta manajemen Moscow Supplies menambahkan email ini.');
       return;
     }
-    if (peran === 'toko' && /offline/i.test(l || '')) daftar = [['Toko Offline', 'consignment.html'], ['Kasir', 'kasir.html']];
+    if (peran === 'toko' && /offline/i.test(l || '')) daftar = [['Form toko (laporan, stok, order)', 'consignment.html'], ['Kasir (nota penjualan)', 'kasir.html']];
     if (daftar.length === 1 || (peran === 'toko' && !/offline/i.test(l || ''))) { location.replace(daftar[0][1]); return; }
     $('judul').textContent = 'Pilih halaman';
     $('teks').textContent = 'Masuk sebagai ' + sesi.user.email + (l ? ' (' + l + ')' : '') + '.';
