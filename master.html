@@ -1662,10 +1662,14 @@
       ringkas = 'Pengajuan ' + x.n + ' diterima (' + no + ')';
     } else return;
     b.disabled = true;
-    var r = await sb.from('md_aksi').insert({ fungsi: 'pgdAksi', param: p, ringkas: String(ringkas).slice(0, 200) });
-    if (r.error) { salah('Gagal mengirim: ' + r.error.message); b.disabled = false; return; }
+    // Keputusan langsung tersimpan di Supabase (pengadaan_aksi = pgdAksi); daftar di sini dihitung ulang Apps Script.
+    var r = await sb.rpc('pengadaan_aksi', { p_aksi: a, p_nos: p.nos || [no], p_qty: p.qty || null, p_catatan: p.catatan || '', p_ref: p.ref || '', p_eta: p.eta || '', p_nama: '' });
+    if (r.error) { salah('Gagal menyimpan: ' + r.error.message); b.disabled = false; return; }
+    if (!r.data || !r.data.ok) { salah((r.data && r.data.pesan) || 'Gagal menyimpan.'); b.disabled = false; return; }
+    salinKeSheetGaji();
+    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(ringkas).slice(0, 150) });
     await muatAksi(); gambarPurch();
-    $('msgPurch').innerHTML = '<div class="msg ok">' + esc(ringkas) + '. Diterapkan ke Google Sheets paling lambat 10 menit lagi.' + (a === 'terima' ? ' Jangan lupa barang masuknya dicatat di form gudang / bahan baku / botol supaya stok bertambah.' : '') + '</div>';
+    $('msgPurch').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar di halaman ini diperbarui paling lambat 10 menit lagi.</div>';
   }
   async function cekTanpa(b) {
     var no = b.getAttribute('data-tanpa'); b.disabled = true;

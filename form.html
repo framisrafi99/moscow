@@ -289,6 +289,15 @@
           p_order: teks(p.order), p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token),
           p_kurir: teks(p.kurir), p_resi: teks(p.resi), p_ongkir: teks(p.ongkir) }];
       },
+      // Pengajuan: dipesan / diterima / batal (gudang) dan dipesan / batal (link Purchasing, plAksi) langsung di Supabase.
+      pgdAksi: function (p) {
+        return ['pengadaan_aksi', { p_aksi: teks(p.aksi), p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_qty: p.qty && typeof p.qty === 'object' ? p.qty : null,
+          p_catatan: teks(p.catatan), p_ref: teks(p.ref), p_eta: teks(p.eta), p_nama: teks(p.nama) }];
+      },
+      plAksi: function (p) {
+        return ['pengadaan_aksi', { p_aksi: teks(p.aksi), p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_qty: p.qty && typeof p.qty === 'object' ? p.qty : null,
+          p_catatan: teks(p.catatan), p_ref: teks(p.ref), p_eta: teks(p.eta), p_nama: teks(p.nama) }];
+      },
       // Order Masuk: tombol "Proses" (catatan Diproses di ORDER_PROSES).
       gdxOrderProses: function (p) { return ['gudang_order_proses', { p_order: teks(p.order), p_nama: teks(p.nama) }]; },
       // Terima barang PO: status PO diubah lewat ubah_antre; usulan HPP & pengajuan lokal oleh Apps Script (efek_antre).
@@ -326,6 +335,13 @@
       // Hitungan resep / takaran di halaman (bahanbaku.js); null = disimpan Apps Script seperti biasa.
       bahanBakuProduksi: function (p) { return window.BahanBaku.simpanProduksi(sb, p); },
       bahanBakuWarna: function (p) { return window.BahanBaku.simpanWarna(sb, p); }
+    },
+    // Halaman Mike: ACC / tolak pengajuan impor (pgdAksi + pembungkus PL & TG) langsung di Supabase.
+    mikelama: {
+      pgdAksi: function (p) {
+        return ['pengadaan_aksi', { p_aksi: teks(p.aksi), p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_qty: p.qty && typeof p.qty === 'object' ? p.qty : null,
+          p_catatan: teks(p.catatan), p_ref: teks(p.ref), p_eta: teks(p.eta), p_nama: teks(p.nama) }];
+      }
     },
     // Payroll (tahap 5f): gaji disimpan di Supabase, baris baru / perubahan disalin Apps Script ke sheet GAJI_LOG.
     payroll: {
