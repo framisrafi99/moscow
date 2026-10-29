@@ -23,6 +23,12 @@
   #pilih a:hover { background:var(--latar); }
   #pilih .grp { margin:10px 0 0; font-size:11.5px; font-weight:700; letter-spacing:.08em; color:var(--abu); text-transform:uppercase; }
   #pilih a b small { display:block; font-weight:500; font-size:12px; color:var(--abu); margin-top:1px; }
+  .inapp { margin:0 0 16px; padding:14px 16px; border-radius:12px; background:#FFF6E0; border:1px solid #F0D48A; color:#5C4300; font-size:14px; line-height:1.5; }
+  .inapp b { display:block; font-size:15px; margin-bottom:4px; color:#3F2E00; }
+  .inapp ol { margin:6px 0 0; padding-left:20px; }
+  .inapp .aksi { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .inapp .aksi a, .inapp .aksi button { font:inherit; font-size:14px; font-weight:700; padding:9px 14px; border-radius:10px; border:1px solid #D9B24A; background:#fff; color:#3F2E00; text-decoration:none; cursor:pointer; }
+  .inapp .aksi a { background:#3F2E00; border-color:#3F2E00; color:#fff; }
   .keluar { margin-top:16px; background:none; border:0; color:var(--abu); font:inherit; font-size:13px; cursor:pointer; padding:4px 0; }
 </style>
 </head>
@@ -35,6 +41,7 @@
     <span class="ey">APLIKASI MOSCOW SUPPLIES</span>
     <h1 id="judul">Selamat datang</h1>
     <p id="teks">Masuk menggunakan akun Google yang sudah terdaftar. Halaman bagianmu terbuka otomatis.</p>
+    <div class="inapp" id="inapp" role="alert" hidden></div>
     <button type="button" class="google" id="tMasuk" hidden></button>
     <div id="pilih" hidden></div>
     <div class="pesan" id="pesan" role="alert"></div>
@@ -68,11 +75,31 @@
       ['#Lainnya'], ['Payroll', 'form.html?f=payroll'], ['Form accounting', 'form.html?f=akunting'], ['Stok semua lokasi', 'stok.html'], ['Kendali Bisnis', 'form.html?f=mike', 'Khusus Mike dan Junior']]
   };
   M.logoPutih(); $('ilus').outerHTML = M.ILUS; $('aksesIk').outerHTML = M.KUNCI_IK;
+  // Google menolak masuk dari browser di dalam aplikasi (WhatsApp, Instagram, Facebook, LINE, TikTok di Android/iPhone).
+  var UA = navigator.userAgent || '', ANDROID = /Android/i.test(UA), IOS = /iPhone|iPad|iPod/i.test(UA);
+  var DALAM_APP = /FBAN|FBAV|FB_IAB|Instagram|Line\/|musical_ly|TikTok|Twitter|Snapchat|WhatsApp/i.test(UA)
+    || (ANDROID && /; wv\)/.test(UA)) || (IOS && /AppleWebKit/.test(UA) && !/Safari\//.test(UA));
+  function peringatanApp() {
+    if (!DALAM_APP) return;
+    var link = location.origin + '/';
+    var h = '<b>Buka link ini di ' + (IOS ? 'Safari' : 'Chrome') + ' dulu</b>Google tidak mengizinkan masuk dari dalam WhatsApp atau aplikasi lain.<ol>'
+      + (IOS ? '<li>Ketuk tombol <b style="display:inline">⋯</b> atau ikon kompas di pojok layar.</li><li>Pilih <b style="display:inline">Buka di Safari</b>.</li>'
+             : '<li>Ketuk <b style="display:inline">⋮</b> di pojok kanan atas.</li><li>Pilih <b style="display:inline">Buka di Chrome</b>.</li>')
+      + '</ol><div style="margin-top:6px">Bisa juga salin link lalu tempel di ' + (IOS ? 'Safari' : 'Chrome') + '.</div><div class="aksi">'
+      + (ANDROID ? '<a href="intent://' + location.host + '/#Intent;scheme=https;package=com.android.chrome;end">Buka di Chrome</a>' : '')
+      + '<button type="button" id="tSalin">Salin link</button></div>';
+    $('inapp').innerHTML = h; $('inapp').hidden = false;
+    $('tSalin').onclick = function () {
+      var b = this, ok = function () { b.textContent = 'Link tersalin'; };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(ok, function () { prompt('Salin link ini:', link); });
+      else prompt('Salin link ini:', link);
+    };
+  }
   function tombolAwal() { $('tMasuk').disabled = false; $('tMasuk').innerHTML = GOOGLE + '<span>Masuk dengan Google</span>'; }
   function layarMasuk(pesan) {
     M.muat(false);
     $('judul').textContent = 'Selamat datang'; $('teks').textContent = 'Masuk menggunakan akun Google yang sudah terdaftar. Halaman bagianmu terbuka otomatis.';
-    $('pilih').hidden = true; $('tKeluar').hidden = true; $('akses').hidden = false;
+    $('pilih').hidden = true; $('tKeluar').hidden = true; $('akses').hidden = false; peringatanApp();
     tombolAwal(); $('tMasuk').hidden = false; $('pesan').textContent = pesan || '';
   }
   // Pesan gagal yang dikembalikan Google / Supabase lewat alamat halaman.
@@ -105,7 +132,7 @@
     }
     if (peran === 'toko' && /offline/i.test(l || '')) daftar = [['Form toko', 'consignment.html', 'Laporan, stok, order'], ['Kasir', 'kasir.html', 'Nota penjualan']];
     if (daftar.length === 1 || (peran === 'toko' && !/offline/i.test(l || ''))) { M.muat('Membuka halaman…'); location.replace(daftar[0][1]); return; }
-    M.muat(false); $('akses').hidden = true;
+    M.muat(false); $('akses').hidden = true; $('inapp').hidden = true;
     $('judul').textContent = 'Pilih halaman';
     $('teks').textContent = 'Masuk sebagai ' + sesi.user.email + (l ? ' (' + l + ')' : '') + '.';
     $('pilih').innerHTML = daftar.map(function (d) {
