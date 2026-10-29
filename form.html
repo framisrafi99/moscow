@@ -266,6 +266,13 @@
       gdOpname: function (p) {
         return ['gudang_opname', { p_nama: teks(p.nama), p_alasan: teks(p.alasan), p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
       },
+      // Order Masuk: tombol "Kirim" (surat jalan + info pengiriman di ORDER_PROSES). Dengan foto paket tetap lewat Apps Script (foto ke Drive).
+      gdxOrderKirim: function (p) {
+        if (p.foto) return Promise.resolve(null);
+        return ['gudang_order_kirim', { p_tanggal: teks(p.tanggal), p_tujuan: teks(p.tujuan), p_nama: teks(p.nama), p_catatan: teks(p.catatan),
+          p_order: teks(p.order), p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token),
+          p_kurir: teks(p.kurir), p_resi: teks(p.resi), p_ongkir: teks(p.ongkir) }];
+      },
       // Order Masuk: tombol "Proses" (catatan Diproses di ORDER_PROSES).
       gdxOrderProses: function (p) { return ['gudang_order_proses', { p_order: teks(p.order), p_nama: teks(p.nama) }]; },
       // Terima barang PO: status PO diubah lewat ubah_antre; usulan HPP & pengajuan lokal oleh Apps Script (efek_antre).
