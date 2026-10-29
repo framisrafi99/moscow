@@ -880,10 +880,13 @@
   U.gp = 'lalu'; U.gr = null; U.gaji = null; U.gajiMuat = false;
   async function muatGaji() {
     U.gajiMuat = true;
-    var r = await sb.from('gaji_potret').select('kunci,data,dibuat');
+    // Data gaji langsung dari Supabase (gaji_data = gjData lama); bulan lalu dan bulan ini.
+    var kini = new Date(), ini = kini.getFullYear() + '-' + ('0' + (kini.getMonth() + 1)).slice(-2);
+    var h = await Promise.all([sb.rpc('gaji_data', { p_per: '' }), sb.rpc('gaji_data', { p_per: ini })]);
     U.gajiMuat = false;
-    U.gaji = { galat: r.error ? r.error.message : '' };
-    (r.data || []).forEach(function (x) { U.gaji[x.kunci.replace('gaji:', '')] = x.data; U.gaji['w' + x.kunci.replace('gaji:', '')] = x.dibuat; });
+    var salah = h[0].error || h[1].error;
+    U.gaji = { galat: salah ? salah.message : (h[0].data && h[0].data.ok === false ? h[0].data.pesan : '') };
+    if (!U.gaji.galat) { U.gaji.lalu = h[0].data; U.gaji.ini = h[1].data; U.gaji.wlalu = U.gaji.wini = kini.toISOString(); }
     gambarUang();
   }
   function isiGaji() {
@@ -925,7 +928,14 @@
     h += '</tbody></table></div></div>';
     var per = d.periode || [];
     h += '<div class="cd"><h3>Riwayat periode</h3>' + (per.length ? '<table class="tabel"><tbody>' + per.map(function (x) { return baris2('<b>' + esc(x.nama) + '</b><small>' + esc(x.st) + '</small>', rp(x.tot)); }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada.</div>') + '</div>';
-    return h + '<p class="sb">Data gaji disimpan terpisah dan hanya bisa dibuka akun manajemen. Isian lembur, bonus, telat, dan kasbon tetap dikerjakan admin payroll lewat formulirnya. Cetak rekap gaji masih lewat menu Gaji di Master Data lama. Keputusan dari sini diterapkan paling lambat 10 menit kemudian.</p>';
+    return h + '<p class="sb">Data gaji disimpan terpisah dan hanya bisa dibuka akun manajemen. Isian lembur, bonus, telat, dan kasbon dikerjakan lewat aplikasi Payroll. Keputusan dari sini langsung tersimpan.</p>';
+  }
+  // Salin perubahan gaji ke Google Sheets sekarang (cadangan: sinkron otomatis tiap 30 menit).
+  async function salinKeSheetGaji() {
+    try {
+      var s = await sb.auth.getSession(), t = s && s.data && s.data.session ? s.data.session.access_token : '';
+      if (t) fetch('https://script.google.com/macros/s/AKfycbxcidGDrc33WJYcxzPf1dnRFzgafzbhwomXKlj3KjfYUHosPyI0qNpBcY9tvI7-PgI2/exec?app=balik', { method: 'POST', body: JSON.stringify({ t: t }), keepalive: true }).catch(function () { });
+    } catch (e) { }
   }
   async function putusGaji(b) {
     var aksi = b.getAttribute('data-gja'), d = U.gaji[U.gp], cat = ($('gjCat') ? $('gjCat').value.trim() : '');
@@ -934,10 +944,12 @@
     var kata = { setuju: 'Setujui gaji ' + d.nama + ' (total THP ' + rp(d.total.thp) + ')', tolak: 'Kembalikan gaji ' + d.nama + ' ke admin', buka: 'Buka kembali gaji ' + d.nama }[aksi];
     if (!confirm(kata + '?')) return;
     b.disabled = true;
-    var r = await sb.from('md_aksi').insert({ fungsi: 'gjPutus', param: { per: d.per, aksi: aksi, catatan: cat }, ringkas: (kata + (cat ? ': ' + cat : '')).slice(0, 200) });
-    if (r.error) { salah('Gagal mengirim: ' + r.error.message); b.disabled = false; return; }
-    await muatAksi(); gambarUang();
-    $('bUang').insertAdjacentHTML('afterbegin', '<div class="msg ok">' + esc(kata) + '. Diterapkan paling lambat 10 menit lagi' + (aksi === 'setuju' ? '; sesudah itu tombol kirim slip lewat WA muncul di rincian tiap staf.' : '.') + '</div>');
+    var r = await sb.rpc('gaji_putus', { p_per: d.per, p_aksi: aksi, p_catatan: cat });
+    if (r.error) { salah('Gagal menyimpan: ' + r.error.message); b.disabled = false; return; }
+    if (!r.data || !r.data.ok) { salah((r.data && r.data.pesan) || 'Gagal menyimpan.'); b.disabled = false; return; }
+    salinKeSheetGaji();
+    U.gaji = null; await muatGaji();
+    $('bUang').insertAdjacentHTML('afterbegin', '<div class="msg ok">' + esc(r.data.pesan) + (aksi === 'setuju' ? ' Tombol kirim slip lewat WA muncul di rincian tiap staf beberapa menit lagi (muat ulang bagian Gaji).' : '') + '</div>');
   }
 
   function lapPilih() { return U.b === 'ini' ? D.acc : D.accLalu; }

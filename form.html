@@ -220,6 +220,14 @@
       pgsData: function (a) { return a[0] && a[0].mm ? null : window.Pengadaan.pgsData(sb, 'bahanbaku'); }
     }
   };
+  // Payroll (tahap 5f): data gaji langsung dari Supabase.
+  BACA_SUPABASE.payroll = {
+    gjData: async function (a) {
+      var r = await sb.rpc('gaji_data', { p_per: teks((a[0] || {}).per) });
+      if (r.error) throw new Error(r.error.message);
+      return r.data;
+    }
+  };
   var basiSampai = 0;
   // Fungsi simpan (sama dengan daftar fungsi tulis di Apps Script). Kalau salinannya ke Supabase tidak terkonfirmasi, baca lewat Apps Script dulu.
   var TULIS_RE = /^(simpan|ajukan|gd(Biaya|Kirim|Opname|Po|Terima)|gdx(Order(Kirim|Proses)|Kp|Harga|Ajukan)|prodSesuai|putusSesuai|kembaliPinjam|tandaiSampai|ubahStatusOrder|rp(Tandai|Putus)|kemasanHargaSimpan|ptrTerima|pgsAjukan|pgdAjukan|pgdAksi|plx?(Aksi|Bayar|Tolak|PoBayar)|bahanBaku(Beli|Pakai|Produksi|Sampai|Sesuai|Warna|StafTambah)|hppUsul)/;
@@ -306,6 +314,14 @@
       // Hitungan resep / takaran di halaman (bahanbaku.js); null = disimpan Apps Script seperti biasa.
       bahanBakuProduksi: function (p) { return window.BahanBaku.simpanProduksi(sb, p); },
       bahanBakuWarna: function (p) { return window.BahanBaku.simpanWarna(sb, p); }
+    },
+    // Payroll (tahap 5f): gaji disimpan di Supabase, baris baru / perubahan disalin Apps Script ke sheet GAJI_LOG.
+    payroll: {
+      gjSimpan: function (p) {
+        return ['gaji_simpan', { p_per: teks(p.per), p_oleh: teks(p.oleh), p_kirim: p.kirim === true, p_yakin: p.yakin === true, p_tarik: p.tarik === true,
+          p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
+      },
+      gjPutus: function (p) { return ['gaji_putus', { p_per: teks(p.per), p_aksi: teks(p.aksi), p_catatan: teks(p.catatan) }]; }
     }
   };
   var BALIK = SERVER + 'balik';
