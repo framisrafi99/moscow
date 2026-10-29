@@ -466,10 +466,15 @@
     var o = J.orderRes.filter(function (x) { return x.no === no; })[0], st = sel.value;
     if (o && st === o.st) { $('msgJual').innerHTML = '<div class="msg w">Status ' + esc(no) + ' sudah ' + esc(st) + '.</div>'; return; }
     b.disabled = true;
-    var r = await sb.from('md_aksi').insert({ fungsi: 'ubahStatusOrder', param: { no: no, status: st }, ringkas: 'Status order ' + no + (o ? ' (' + o.pl + ')' : '') + ' menjadi ' + st });
-    if (r.error) { $('msgJual').innerHTML = '<div class="msg bad">Gagal: ' + esc(r.error.message) + '</div>'; b.disabled = false; return; }
+    // Langsung tersimpan di Supabase (order_status = ubahStatusOrder); Telegram request consignment dikirim Apps Script.
+    var r = await sb.rpc('order_status', { p_no: no, p_status: st, p_rp: '', p_alasan: '' });
+    var gagal = r.error ? r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
+    if (gagal) { $('msgJual').innerHTML = '<div class="msg bad">Gagal: ' + esc(gagal) + '</div>'; b.disabled = false; return; }
+    salinKeSheetGaji();
+    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah status order ' + no + ' menjadi ' + st });
+    if (o) o.st = st;
     await muatAksi(); gambarJualIsi();
-    $('msgJual').innerHTML = '<div class="msg ok">Status order ' + esc(no) + ' menjadi ' + esc(st) + '. Diterapkan ke Google Sheets dan Telegram paling lambat 10 menit lagi.</div>';
+    $('msgJual').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar di halaman ini diperbarui paling lambat 10 menit lagi.</div>';
   }
 
   function isiPinjam() {
@@ -1830,8 +1835,14 @@
         var tempat = el.querySelector('[data-pesan="' + i + '"]');
         if (aksi === 'tolak' && !alasan) { tempat.innerHTML = '<div class="msg bad">Isi alasan penolakan dulu.</div>'; return; }
         b.disabled = true;
-        await kirimAksi('rpPutus', { no: o.no, aksi: aksi, alasan: alasan }, (aksi === 'setuju' ? 'Setujui' : 'Tolak') + ' request ' + o.no + ' (' + o.pl + ', ' + fmt(o.q) + ' pcs)', tempat,
-          'Request ' + o.no + (aksi === 'setuju' ? ' disetujui' : ' ditolak') + '. Diterapkan ke Google Sheets dan Telegram paling lambat 10 menit lagi.');
+        // Langsung tersimpan di Supabase (order_status = rpPutus); Telegram dikirim Apps Script.
+        var r = await sb.rpc('order_status', { p_no: o.no, p_status: '', p_rp: aksi, p_alasan: alasan });
+        var gagal = r.error ? r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
+        if (gagal) { tempat.innerHTML = '<div class="msg bad">' + esc(gagal) + '</div>'; b.disabled = false; return; }
+        salinKeSheetGaji();
+        await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + (aksi === 'setuju' ? 'setujui' : 'tolak') + ' request ' + o.no });
+        tempat.innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar diperbarui paling lambat 10 menit lagi.</div>';
+        el.querySelectorAll('[data-rq="' + i + '"]').forEach(function (x) { x.disabled = true; });
       };
     });
   }
