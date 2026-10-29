@@ -93,6 +93,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="moscow.js?v=7"></script>
+<script src="beranda.js?v=1"></script>
 <script>
 (function () {
   var M = Moscow, esc = M.esc, rp = M.rp, jt = M.jt, fmt = M.fmt;
@@ -111,7 +112,7 @@
     aplikasi: 'MASTER DATA', masukJudul: 'Master Data', masukTeks: 'Pusat kendali manajemen Moscow Supplies. Masuk memakai akun Google yang sudah didaftarkan.',
     izin: function (ctx) { return ctx.peran === 'manajemen' ? true : 'Master Data hanya untuk manajemen Moscow Supplies.'; },
     menu: [
-      { k: 'beranda', nm: 'Beranda' }, { k: 'dasbor', nm: 'Dasbor', judul: 'Dasbor' }, { k: 'setuju', nm: 'Persetujuan' },
+      { k: 'beranda', nm: 'Beranda' }, { k: 'setuju', nm: 'Persetujuan' },
       { k: 'produksi', nm: 'Produksi' }, { k: 'gudang', nm: 'Gudang Utama', pendek: 'Gudang' }, { k: 'purch', nm: 'Purchasing' },
       { k: 'jual', nm: 'Penjualan' }, { k: 'uang', nm: 'Accounting' }, { k: 'riwayat', nm: 'Riwayat' }, { k: 'atur', nm: 'Pengaturan' },
       { grup: 'APLIKASI LAIN' },
@@ -143,7 +144,7 @@
     D.aksi = h[1].data || [];
     M.badge('setuju', jumlahTunggu());
     U.gaji = null;
-    gambarBeranda(); gambarDasbor(); gambarSetuju(); gambarGudang(); gambarPurch(); gambarProduksi(); gambarUang();
+    gambarDasbor(); gambarBeranda(); gambarSetuju(); gambarGudang(); gambarPurch(); gambarProduksi(); gambarUang();
     if (J.mulai) { gambarJual(); gambarJualIsi(); }
     if (AT.mulai) gambarAtur();
   }
@@ -184,21 +185,50 @@
     var t = jumlahTunggu();
     if (D.pantau && D.pantau.nTahan) { h += '<button type="button" class="ti w" data-buka="setuju"><span><b>' + D.pantau.nTahan + ' pengiriman tertahan</b><span class="ks">Persetujuan › Pantau pengiriman</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; }
     if (t) { h += '<button type="button" class="ti" data-buka="setuju"><span><b>Persetujuan menunggu</b><span class="ks">Request barang toko &amp; consignment, penyesuaian stok</span></span><span class="bdg">' + t + '</span><span class="pa" aria-hidden="true">›</span></button>'; n++; }
-    if (r.pinjam && r.pinjam.lewat) { h += '<button type="button" class="ti w" data-buka="dasbor"><span><b>' + r.pinjam.lewat + ' pinjaman barang lewat tanggal kembali</b><span class="ks">' + r.pinjam.n + ' pinjaman belum kembali · ' + fmt(r.pinjam.pcs) + ' pcs</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; }
-    (r.akhir || []).forEach(function (a) { if (a.lalu !== null && a.lalu > (r.batas || 3)) { h += '<button type="button" class="ti w" data-buka="dasbor"><span><b>' + esc(a.n) + ' belum mengisi laporan ' + a.lalu + ' hari</b><span class="ks">Terakhir ' + esc(a.akhir || '–') + '</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; } });
+    if (r.pinjam && r.pinjam.lewat) { h += '<button type="button" class="ti w" data-buka="gudang"><span><b>' + r.pinjam.lewat + ' pinjaman barang lewat tanggal kembali</b><span class="ks">' + r.pinjam.n + ' pinjaman belum kembali · ' + fmt(r.pinjam.pcs) + ' pcs</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; }
+    (r.akhir || []).forEach(function (a) { if (a.lalu !== null && a.lalu > (r.batas || 3)) { h += '<button type="button" class="ti w" data-buka="riwayat"><span><b>' + esc(a.n) + ' belum mengisi laporan ' + a.lalu + ' hari</b><span class="ks">Terakhir ' + esc(a.akhir || '–') + '</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; } });
     var tgl = Number(String(d.hari).slice(8)), akhir = new Date(Number(d.hari.slice(0, 4)), Number(d.hari.slice(5, 7)), 0).getDate();
     if (tgl >= akhir - 7) { h += '<button type="button" class="ti" data-buka="gudang"><span><b>Hitung fisik akhir bulan</b><span class="ks">' + akhir + ' ' + namaBulan(d.bulan) + ' · semua lokasi</span></span><span class="pa" aria-hidden="true">›</span></button>'; n++; }
     return n ? h : '<div class="ksg">Tidak ada yang perlu ditindak saat ini.</div>';
   }
 
-  function gambarBeranda() {
-    var d = D.beranda, el = $('bBeranda');
-    if (!d) { el.innerHTML = '<div class="msg w">Beranda belum tersedia. Data dikirim otomatis saat sinkron berikutnya.</div>'; return; }
-    var h = '<p class="tl">Angka dari form accounting, diperbarui ' + esc(d.diperbarui || '') + '. Dihitung ulang tiap jam (07.00–22.00); tekan "Hitung ulang sekarang" kalau perlu angka terbaru.</p><div class="kp">';
-    (d.akun || []).forEach(function (a) {
-      h += '<div class="kt"><span class="l">' + esc(/^saldo /i.test(a.n) ? a.n : 'Saldo ' + a.n) + '</span><span class="v angka' + (a.v < 0 ? ' mn' : '') + '">' + jt(a.v) + '</span><span class="k' + (a.v < 0 ? ' w' : '') + '">' + (a.v < 0 ? 'Saldo minus, periksa catatan' : rp(a.v)) + '</span></div>';
+  // ======================= BERANDA (gabungan Beranda + Dasbor; tampilan di beranda.js) =======================
+  function tindakanList() {
+    var d = D.beranda || {}, r = D.ringkasan || {}, L = [];
+    if (d.nota && d.nota.n) L.push({ teks: d.nota.n + ' nota toko offline belum ada metode bayar', buka: 'uang', w: true });
+    (d.akun || []).forEach(function (a) { if (a.v < 0) L.push({ teks: (/^saldo /i.test(a.n) ? a.n : 'Saldo ' + a.n) + ' minus ' + rp(-a.v), buka: 'uang', w: true }); });
+    if (D.pantau && D.pantau.nTahan) L.push({ teks: D.pantau.nTahan + ' pengiriman tertahan', buka: 'setuju', w: true });
+    var t = jumlahTunggu(); if (t) L.push({ teks: t + ' persetujuan menunggu', buka: 'setuju', w: true });
+    if (r.pinjam && r.pinjam.lewat) L.push({ teks: r.pinjam.lewat + ' pinjaman barang lewat tanggal kembali', buka: 'gudang', w: true });
+    (r.akhir || []).forEach(function (a) { if (a.lalu !== null && a.lalu > (r.batas || 3)) L.push({ teks: a.n + ' belum lapor ' + a.lalu + ' hari', buka: 'riwayat', w: true }); });
+    if (d.hari) {
+      var tgl = Number(String(d.hari).slice(8)), akhir = new Date(Number(d.hari.slice(0, 4)), Number(d.hari.slice(5, 7)), 0).getDate();
+      if (tgl >= akhir - 7) L.push({ teks: 'Hitung fisik akhir bulan · ' + akhir + ' ' + namaBulan(d.bulan), buka: 'gudang', w: false });
+    }
+    return L;
+  }
+  var BR = { bulan: '', cache: {} };
+  async function gambarBeranda(segar) {
+    var el = $('bBeranda'); if (!el || !window.BerandaBaru) return;
+    var k = BR.bulan || '';
+    if (segar !== false) delete BR.cache[k];
+    if (!BR.cache[k]) {
+      if (el.querySelector('.bx-grid')) el.style.opacity = '.55';
+      var r = await sb.rpc('beranda_data', { p_bulan: k });
+      el.style.opacity = '';
+      if (r.error) { el.innerHTML = '<div class="msg bad">Beranda gagal dimuat: ' + esc(r.error.message) + '</div>'; return; }
+      BR.cache[k] = r.data;
+    }
+    var ekor = D.dasborHtml ? '<details class="cd" style="margin-top:16px"><summary style="cursor:pointer;font-weight:800;font-size:16.5px">Ringkasan operasional <span class="sb" style="font-weight:500">· laporan staf, toko &amp; consignment, catatan stok</span></summary><div style="margin-top:12px">' + D.dasborHtml + '</div></details>' : '';
+    BerandaBaru.gambar(el, BR.cache[k], D.beranda || {}, tindakanList(), {
+      gantiBulan: function (m) { BR.bulan = m; gambarBeranda(false); },
+      buka: function (b) { M.buka(b); },
+      ekor: ekor
     });
-    h += '<div class="kt"><span class="l">Uang keluar ' + namaBulan(d.bulan) + '</span><span class="v angka">' + jt(d.keluar) + '</span><span class="k">' + d.jmlKeluar + ' transaksi</span></div></div>';
+  }
+  function isiAlur() {
+    var d = D.beranda; if (!d) return '<div class="msg w">Data alur kas belum tersedia.</div>';
+    var h = '';
     var akhir = d.harian && d.harian.length ? d.harian[d.harian.length - 1].s : d.total0;
     h += '<div class="cd"><div class="kpl"><h3>Alur kas ' + namaBulan(d.bulan) + '</h3><span class="sb">Saldo gabungan semua akun per hari · diperbarui ' + esc(d.diperbarui) + '</span></div>' +
       '<div class="ak"><div class="gr">' + grafik(d) +
@@ -209,7 +239,6 @@
       '<div><span style="color:#5A6677">− Uang keluar</span><b style="color:#B42318">' + jt(d.keluar) + '</b></div><div class="gs"></div>' +
       '<div style="font-size:15px"><b>Saldo sekarang</b><b>' + jt(akhir) + '</b></div>' +
       '<span style="font-size:12px;color:#5A6677;line-height:1.45">Penjualan consignment dicatat akhir bulan setelah bagi hasil.</span></div></div></div>';
-    h += '<div class="dua"><div class="cd"><h3>Perlu tindakan</h3><div style="display:flex;flex-direction:column;gap:4px">' + tindakan() + '</div></div>';
     h += '<div class="cd"><div class="kpl"><h3>Uang keluar per kategori</h3><span class="sb">' + rp(d.keluar) + '</span></div>';
     var kat = d.kategori || [];
     if (!kat.length) h += '<div class="ksg">Belum ada uang keluar bulan ini.</div>';
@@ -219,11 +248,10 @@
       h += '<div class="br"><div class="tx"><span>' + esc(c.n) + '</span><b>' + jt(c.v) + '</b></div><div class="tr"><div class="is" style="width:' + Math.max(2, Math.round(c.v / mx * 100)) + '%"></div></div></div>';
     });
     if (nl) h += '<span class="sb">+ ' + nl + ' kategori lain ' + jt(lain) + '</span>';
-    h += '</div></div>';
-    el.innerHTML = h;
-    el.querySelectorAll('[data-buka]').forEach(function (b) { b.onclick = function () { M.buka(b.getAttribute('data-buka')); }; });
+    h += '</div>';
+    return h;
   }
-  var tundaGrafik; window.addEventListener('resize', function () { clearTimeout(tundaGrafik); tundaGrafik = setTimeout(function () { if (D.beranda) gambarBeranda(); }, 200); });
+  var tundaGrafik; window.addEventListener('resize', function () { clearTimeout(tundaGrafik); tundaGrafik = setTimeout(function () { if (D.beranda && U.bagian === 'alur' && $('bUang') && $('bUang').offsetParent) gambarUang(); }, 200); });
 
   // ======================= DASBOR (ringkasan bulan berjalan) =======================
   function gambarDasbor() {
@@ -252,7 +280,7 @@
     if (R.bahan && R.bahan.beli && R.bahan.beli.length) info.push(R.bahan.beli.length + ' bahan baku perlu dibeli: ' + R.bahan.beli.slice(0, 4).map(function (b) { return b.n; }).join(', '));
     if (R.harga && R.harga.naik) info.push(R.harga.naik + ' harga bahan & kemasan naik');
     if (info.length) h += '<div class="cd"><h3>Catatan stok &amp; bahan</h3>' + info.map(function (t) { return '<div class="ti w" style="cursor:default"><span><b>' + esc(t) + '</b></span></div>'; }).join('') + '</div>';
-    el.innerHTML = h;
+    el.innerHTML = h; D.dasborHtml = h;
   }
 
 
@@ -882,10 +910,10 @@
     var el = $('bUang'); if (!el) return;
     var t = D.tpb, nCek = t && t.cek ? t.cek.filter(function (c) { return !c.ok; }).length : 0;
     var h = '<p class="tl">Laporan bulan ini diperbarui sekitar 2 jam sekali; harga dan tutup buku jam 07, 13, 19 · ' + waktuPotret('acc') + '</p>';
-    h += '<div class="chip" role="group" aria-label="Bagian accounting">' + [['lap', 'Laporan bulanan', D.acc ? 'laba ' + jt(D.acc.lr.bersih) : ''], ['trx', 'Transaksi', D.acc ? D.acc.rinci.length + ' catatan' : ''], ['hbb', 'Harga bahan & kemasan', ''], ['naik', 'Kenaikan harga', D.hrgnaik ? D.hrgnaik.list.length + ' catatan' : ''], ['tpb', 'Tutup buku', t ? (nCek ? nCek + ' perlu dibereskan' : 'siap') : ''], ['gaji', 'Gaji', U.gaji && U.gaji.lalu ? (U.gaji.lalu.status === 'Menunggu' ? 'perlu disetujui' : U.gaji.lalu.nama) : '']].map(function (b) {
+    h += '<div class="chip" role="group" aria-label="Bagian accounting">' + [['lap', 'Laporan bulanan', D.acc ? 'laba ' + jt(D.acc.lr.bersih) : ''], ['alur', 'Alur kas', D.beranda ? 'keluar ' + jt(D.beranda.keluar) : ''], ['trx', 'Transaksi', D.acc ? D.acc.rinci.length + ' catatan' : ''], ['hbb', 'Harga bahan & kemasan', ''], ['naik', 'Kenaikan harga', D.hrgnaik ? D.hrgnaik.list.length + ' catatan' : ''], ['tpb', 'Tutup buku', t ? (nCek ? nCek + ' perlu dibereskan' : 'siap') : ''], ['gaji', 'Gaji', U.gaji && U.gaji.lalu ? (U.gaji.lalu.status === 'Menunggu' ? 'perlu disetujui' : U.gaji.lalu.nama) : '']].map(function (b) {
       return '<button type="button" data-ub="' + b[0] + '" aria-pressed="' + (U.bagian === b[0]) + '"><span>' + b[1] + '</span><b>' + (b[2] || '&nbsp;') + '</b></button>'; }).join('') + '</div>';
     if (U.bagian === 'gaji' && !U.gaji && !U.gajiMuat) muatGaji();
-    try { h += U.bagian === 'lap' ? isiLapUang() : U.bagian === 'trx' ? isiTrx() : U.bagian === 'hbb' ? isiHbb() : U.bagian === 'naik' ? isiNaik() : U.bagian === 'gaji' ? isiGaji() : isiTpb(); }
+    try { h += U.bagian === 'lap' ? isiLapUang() : U.bagian === 'alur' ? isiAlur() : U.bagian === 'trx' ? isiTrx() : U.bagian === 'hbb' ? isiHbb() : U.bagian === 'naik' ? isiNaik() : U.bagian === 'gaji' ? isiGaji() : isiTpb(); }
     catch (e) { h += '<div class="msg bad">Bagian ini gagal ditampilkan: ' + esc(e.message) + '</div>'; }
     el.innerHTML = h;
     var pasang = function (attr, fn) { el.querySelectorAll('[data-' + attr + ']').forEach(function (b) { b.onclick = function () { fn(b.getAttribute('data-' + attr)); gambarUang(); }; }); };
