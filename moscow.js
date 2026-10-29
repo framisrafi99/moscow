@@ -63,18 +63,57 @@
     root.classList.toggle('m-d', d); root.classList.toggle('m-m', !d);
   }
 
+  // Ilustrasi abstrak (panel transparan + garis bercahaya). Hanya hiasan: tidak ada angka atau data.
+  var ILUS = '<svg class="mm-ilus" viewBox="0 0 560 300" aria-hidden="true" focusable="false"><defs>' +
+    '<linearGradient id="mmP" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7CCBEE" stop-opacity=".18"/><stop offset="1" stop-color="#7CCBEE" stop-opacity=".04"/></linearGradient>' +
+    '<linearGradient id="mmG" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7CCBEE" stop-opacity="0"/><stop offset=".5" stop-color="#7CCBEE" stop-opacity=".9"/><stop offset="1" stop-color="#7CCBEE" stop-opacity="0"/></linearGradient></defs>' +
+    '<path d="M0 250 C120 230 170 270 300 236 S470 180 560 196" fill="none" stroke="url(#mmG)" stroke-width="1.5"/>' +
+    '<path d="M0 214 C140 196 200 232 320 204 S480 150 560 160" fill="none" stroke="url(#mmG)" stroke-width="1" opacity=".55"/>' +
+    '<g stroke="#7CCBEE" stroke-opacity=".45" fill="url(#mmP)">' +
+    '<rect x="24" y="64" width="150" height="178" rx="14"/><rect x="196" y="28" width="300" height="196" rx="16"/></g>' +
+    '<g fill="#7CCBEE" fill-opacity=".35"><rect x="46" y="92" width="22" height="22" rx="6"/><rect x="46" y="132" width="22" height="22" rx="6"/><rect x="46" y="172" width="22" height="22" rx="6"/>' +
+    '<rect x="80" y="99" width="70" height="7" rx="3.5"/><rect x="80" y="139" width="56" height="7" rx="3.5"/><rect x="80" y="179" width="64" height="7" rx="3.5"/>' +
+    '<rect x="222" y="52" width="120" height="8" rx="4"/><rect x="222" y="68" width="76" height="6" rx="3" fill-opacity=".2"/></g>' +
+    '<g stroke="#7CCBEE" stroke-opacity=".5" fill="none" stroke-width="1"><rect x="222" y="92" width="150" height="108" rx="10"/><rect x="388" y="92" width="86" height="108" rx="10"/>' +
+    '<path d="M236 182 L268 158 L296 168 L326 132 L358 144" stroke-width="1.6" stroke-opacity=".85"/><circle cx="431" cy="146" r="24" stroke-width="7" stroke-opacity=".35"/></g>' +
+    '<circle cx="496" cy="28" r="3" fill="#7CCBEE"/><path d="M496 28 V-10" stroke="#7CCBEE" stroke-opacity=".4"/></svg>';
+  var KUNCI_IK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+
+  // Layar memuat: saat aplikasi dibuka / dimuat ulang, saat akses diperiksa, dan saat membuka halaman Google.
+  function muat(teks) {
+    var el = $('mMuat');
+    if (teks === false) { if (el) el.hidden = true; return; }
+    if (!el) {
+      el = document.createElement('div'); el.id = 'mMuat'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite');
+      el.innerHTML = '<span class="lgM" role="img" aria-label="Moscow Supplies"></span><span class="spin" aria-hidden="true"></span><span id="mMuatT"></span>';
+      document.body.insertBefore(el, document.body.firstChild);
+    }
+    $('mMuatT').textContent = teks || 'Memuat…';
+    el.hidden = false;
+  }
+
   function layarMasuk(pesan) {
+    muat(false);
     var el = $('mMasuk');
     if (!el) {
       el = document.createElement('div'); el.id = 'mMasuk';
-      el.innerHTML = '<div class="kotak"><span class="lg" role="img" aria-label="Moscow Supplies"></span><span class="ey">' + esc(O.aplikasi) + '</span>' +
-        '<h1>' + esc(O.masukJudul || 'Masuk') + '</h1><p>' + esc(O.masukTeks || 'Masuk memakai akun Google yang sudah didaftarkan.') + '</p>' +
-        '<button type="button" class="google" id="mTMasuk">' + GOOGLE + 'Masuk dengan Google</button><div class="pesan" id="mPesan" role="alert"></div><a class="priv" href="privasi.html">Kebijakan privasi</a></div>';
+      el.innerHTML = '<section class="mm-kiri"><span class="lgP" role="img" aria-label="Moscow Supplies"></span><span class="mm-garis" aria-hidden="true"></span>' +
+        '<h2>Sistem Manajemen <span>Moscow Supplies</span></h2><p class="sub">Semua operasional dalam satu kendali.</p>' + ILUS + '</section>' +
+        '<section class="mm-kanan"><div class="kotak"><span class="lg" role="img" aria-label="Moscow Supplies"></span><span class="ey">' + esc(O.aplikasi) + '</span>' +
+        '<h1>Selamat datang</h1><p>Masuk menggunakan akun Google yang sudah terdaftar.</p>' +
+        '<button type="button" class="google" id="mTMasuk">' + GOOGLE + '<span>Masuk dengan Google</span></button>' +
+        '<div class="pesan" id="mPesan" role="alert"></div>' +
+        '<p class="mm-akses">' + KUNCI_IK + '<span>Hanya untuk akun yang sudah didaftarkan manajemen Moscow Supplies.</span></p>' +
+        '<a class="priv" href="privasi.html">Kebijakan privasi</a></div></section>';
       document.body.insertBefore(el, document.body.firstChild);
       $('mTMasuk').onclick = function () {
+        var b = this;
         $('mPesan').textContent = '';
+        b.disabled = true; b.innerHTML = '<span class="spin" aria-hidden="true"></span><span>Membuka Google…</span>';
         sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } })
-          .then(function (r) { if (r.error) $('mPesan').textContent = 'Gagal membuka Google: ' + r.error.message; });
+          .then(function (r) { if (r.error) gagalBuka('Gagal membuka Google: ' + r.error.message); })
+          .catch(function (e) { gagalBuka('Gagal membuka Google. Periksa internet lalu coba lagi.' + (e && e.message ? ' (' + e.message + ')' : '')); });
+        function gagalBuka(t) { b.disabled = false; b.innerHTML = GOOGLE + '<span>Masuk dengan Google</span>'; $('mPesan').textContent = t; }
       };
     }
     el.hidden = false;
@@ -182,6 +221,7 @@
   }
 
   async function periksa(sesi) {
+    muat('Memeriksa akses…');
     var r = await sb.rpc('peran_saya');
     if (r.error) { layarMasuk('Tidak bisa memeriksa akses: ' + r.error.message); return; }
     var ctx = { sb: sb, email: sesi.user.email, peran: r.data, sesi: sesi };
@@ -195,6 +235,7 @@
       return;
     }
     if ($('mMasuk')) $('mMasuk').hidden = true;
+    muat(false);
     if (!$('mApp')) bangun(ctx);
     $('mApp').hidden = false;
     var awal = (location.hash || '').slice(1);
@@ -206,17 +247,26 @@
 
   window.Moscow = {
     sb: sb, esc: esc, fmt: fmt, rp: rp, jt: jt, svg: svg,
+    // Dipakai halaman masuk satu link (index.html) supaya tampilannya sama.
+    logoPutih: logoPutih, muat: muat, ILUS: ILUS, KUNCI_IK: KUNCI_IK, GOOGLE: GOOGLE,
     buka: buka, aksi: aksi, badge: badge, judul: function (t) { $('mJudul').textContent = t; },
     aktif: function () { return S.aktif; },
     mulai: function (opsi) {
       O = opsi;
-      mode(); logoPutih();
+      // Pesan gagal dari Google / Supabase yang dikembalikan lewat alamat halaman (mis. akses dibatalkan).
+      var galatMasuk = '';
+      try {
+        var cari = new URLSearchParams(location.search), hash = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+        var g = cari.get('error_description') || hash.get('error_description') || cari.get('error') || hash.get('error');
+        if (g) galatMasuk = 'Masuk gagal: ' + String(g).replace(/\+/g, ' ').slice(0, 200) + '. Coba lagi.';
+      } catch (x) { }
+      mode(); logoPutih(); muat('Memuat aplikasi…');
       var tunda; window.addEventListener('resize', function () { clearTimeout(tunda); tunda = setTimeout(mode, 120); });
       var sudah = false;
       sb.auth.onAuthStateChange(function (ev, sesi) {
         if (ev === 'SIGNED_OUT') { sudah = false; return; }
         if ((ev === 'INITIAL_SESSION' || ev === 'SIGNED_IN') && !sudah) {
-          if (!sesi) { if (ev === 'INITIAL_SESSION') layarMasuk(''); return; }
+          if (!sesi) { if (ev === 'INITIAL_SESSION') layarMasuk(galatMasuk); return; }
           sudah = true; setTimeout(function () { periksa(sesi); }, 0);
         }
       });

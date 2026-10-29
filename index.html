@@ -16,7 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="moscow.css">
 <style>
-  #pilih { display:grid; gap:8px; margin-top:4px; }
+  #pilih { display:grid; gap:8px; margin-top:4px; max-height:none; }
   #pilih a { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 14px; border:1px solid var(--garis);
     border-radius:12px; color:inherit; text-decoration:none; font-weight:700; }
   #pilih a span { font-weight:500; font-size:12.5px; color:var(--abu); }
@@ -28,24 +28,26 @@
 </head>
 <body>
 <div id="mMasuk">
-  <div class="kotak">
+  <section class="mm-kiri"><span class="lgP" role="img" aria-label="Moscow Supplies"></span><span class="mm-garis" aria-hidden="true"></span>
+    <h2>Sistem Manajemen <span>Moscow Supplies</span></h2><p class="sub">Semua operasional dalam satu kendali.</p><span id="ilus"></span></section>
+  <section class="mm-kanan"><div class="kotak">
     <span class="lg" role="img" aria-label="Moscow Supplies"></span>
     <span class="ey">APLIKASI MOSCOW SUPPLIES</span>
-    <h1 id="judul">Masuk</h1>
-    <p id="teks">Masuk dengan akun Google yang sudah didaftarkan manajemen Moscow Supplies. Halaman bagianmu terbuka otomatis.</p>
+    <h1 id="judul">Selamat datang</h1>
+    <p id="teks">Masuk menggunakan akun Google yang sudah terdaftar. Halaman bagianmu terbuka otomatis.</p>
     <button type="button" class="google" id="tMasuk" hidden></button>
     <div id="pilih" hidden></div>
     <div class="pesan" id="pesan" role="alert"></div>
+    <p class="mm-akses" id="akses"><span id="aksesIk"></span><span>Hanya untuk akun yang sudah didaftarkan manajemen Moscow Supplies.</span></p>
     <button type="button" class="keluar" id="tKeluar" hidden>Keluar / ganti akun</button>
     <a class="priv" href="privasi.html">Kebijakan privasi</a>
-  </div>
+  </div></section>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="moscow.js"></script>
 <script>
 (function () {
-  var sb = window.supabase.createClient('https://ufhuvwfudblbyrwzugaa.supabase.co', 'sb_publishable_A8aEpcDck6ZOix9lrM727A_tI7QZ1xw',
-    { auth: { persistSession: true, detectSessionInUrl: true, flowType: 'pkce' } });
-  var GOOGLE = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>';
+  var M = window.Moscow, sb = M.sb, GOOGLE = M.GOOGLE;
   function $(i) { return document.getElementById(i); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   // Satu link untuk semua: halaman tujuan ditentukan dari peran akun (tabel pengguna), bukan dipilih sendiri.
@@ -65,19 +67,32 @@
       ['Staf Produksi', 'form.html?f=produksi'], ['Staf Bahan Baku', 'form.html?f=bahanbaku'],
       ['#Lainnya'], ['Payroll', 'form.html?f=payroll'], ['Form accounting', 'form.html?f=akunting'], ['Stok semua lokasi', 'stok.html'], ['Kendali Bisnis (Mike)', 'form.html?f=mike']]
   };
+  M.logoPutih(); $('ilus').outerHTML = M.ILUS; $('aksesIk').outerHTML = M.KUNCI_IK;
+  function tombolAwal() { $('tMasuk').disabled = false; $('tMasuk').innerHTML = GOOGLE + '<span>Masuk dengan Google</span>'; }
   function layarMasuk(pesan) {
-    $('judul').textContent = 'Masuk'; $('pilih').hidden = true; $('tKeluar').hidden = true;
-    $('tMasuk').hidden = false; $('pesan').textContent = pesan || '';
+    M.muat(false);
+    $('judul').textContent = 'Selamat datang'; $('teks').textContent = 'Masuk menggunakan akun Google yang sudah terdaftar. Halaman bagianmu terbuka otomatis.';
+    $('pilih').hidden = true; $('tKeluar').hidden = true; $('akses').hidden = false;
+    tombolAwal(); $('tMasuk').hidden = false; $('pesan').textContent = pesan || '';
   }
-  $('tMasuk').innerHTML = GOOGLE + 'Masuk dengan Google';
+  // Pesan gagal yang dikembalikan Google / Supabase lewat alamat halaman.
+  var galatMasuk = '';
+  try {
+    var q1 = new URLSearchParams(location.search), q2 = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+    var g = q1.get('error_description') || q2.get('error_description') || q1.get('error') || q2.get('error');
+    if (g) galatMasuk = 'Masuk gagal: ' + String(g).replace(/\+/g, ' ').slice(0, 200) + '. Coba lagi.';
+  } catch (x) { }
+  M.muat('Memuat aplikasi…');
   $('tMasuk').onclick = function () {
-    $('pesan').textContent = '';
+    var b = this; $('pesan').textContent = '';
+    b.disabled = true; b.innerHTML = '<span class="spin" aria-hidden="true"></span><span>Membuka Google…</span>';
     sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } })
-      .then(function (r) { if (r.error) $('pesan').textContent = 'Gagal membuka Google: ' + r.error.message; });
+      .then(function (r) { if (r.error) { tombolAwal(); $('pesan').textContent = 'Gagal membuka Google: ' + r.error.message; } })
+      .catch(function () { tombolAwal(); $('pesan').textContent = 'Gagal membuka Google. Periksa internet lalu coba lagi.'; });
   };
   $('tKeluar').onclick = async function () { await sb.auth.signOut({ scope: 'local' }); layarMasuk(''); };
   async function periksa(sesi) {
-    $('tMasuk').hidden = true; $('teks').textContent = 'Memeriksa akses ' + sesi.user.email + '…';
+    $('tMasuk').hidden = true; M.muat('Memeriksa akses…');
     var r = await sb.rpc('peran_saya');
     if (r.error) { layarMasuk('Tidak bisa memeriksa akses: ' + r.error.message); return; }
     var peran = r.data, l = null;
@@ -89,7 +104,8 @@
       return;
     }
     if (peran === 'toko' && /offline/i.test(l || '')) daftar = [['Form toko', 'consignment.html', 'Laporan, stok, order'], ['Kasir', 'kasir.html', 'Nota penjualan']];
-    if (daftar.length === 1 || (peran === 'toko' && !/offline/i.test(l || ''))) { location.replace(daftar[0][1]); return; }
+    if (daftar.length === 1 || (peran === 'toko' && !/offline/i.test(l || ''))) { M.muat('Membuka halaman…'); location.replace(daftar[0][1]); return; }
+    M.muat(false); $('akses').hidden = true;
     $('judul').textContent = 'Pilih halaman';
     $('teks').textContent = 'Masuk sebagai ' + sesi.user.email + (l ? ' (' + l + ')' : '') + '.';
     $('pilih').innerHTML = daftar.map(function (d) {
@@ -100,7 +116,7 @@
   }
   sb.auth.getSession().then(function (r) {
     var s = r.data && r.data.session;
-    if (s) periksa(s); else layarMasuk('');
+    if (s) periksa(s); else layarMasuk(galatMasuk);
   });
   sb.auth.onAuthStateChange(function (ev, s) { if (ev === 'SIGNED_IN' && s) periksa(s); });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () { });
