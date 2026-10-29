@@ -303,6 +303,7 @@
         return ['pl_po_bayar', { p_no: teks(p.no), p_bayar: teks(p.bayar), p_tanggal: teks(p.tanggal), p_nama: teks(p.nama), p_token: teks(p.token) }];
       },
       plxTolak: function (p) {
+        if (teks(p.catatan).replace(/\s+/g, ' ').trim().length < 3) return Promise.resolve({ ok: false, pesan: 'Tulis alasan penolakan.' });
         return ['pengadaan_aksi', { p_aksi: 'tolak', p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_qty: null, p_catatan: teks(p.catatan), p_ref: '', p_eta: '', p_nama: teks(p.nama) }];
       },
       plAksi: function (p) {
