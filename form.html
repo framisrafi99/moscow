@@ -127,6 +127,17 @@
       ],
       bawah: ['acc', 'naik', 'laris', 'omzet', 'lain']
     },
+    akunting: {
+      judul: 'ACCOUNTING', masuk: 'Accounting manajemen', peran: ['manajemen'],
+      sembunyi: '#tabs:has(> [data-t])',
+      menu: [
+        { k: 'catat', nm: 'Catat transaksi', ik: 'uang', l: ['Catat@#tabs'], pendek: 'Catat' },
+        { k: 'riwayat', nm: 'Riwayat', ik: 'riwayat', l: ['Riwayat@#tabs'] },
+        { k: 'saldo', nm: 'Saldo akun', ik: 'dasbor', l: ['Saldo@#tabs'], pendek: 'Saldo' },
+        { k: 'laporan', nm: 'Laporan bulanan', ik: 'laporan', l: ['Laporan@#tabs'], pendek: 'Laporan' }
+      ],
+      bawah: ['catat', 'riwayat', 'saldo', 'laporan']
+    },
     payroll: {
       judul: 'PAYROLL', masuk: 'Payroll gaji staf', peran: ['manajemen'],
       sembunyi: '.tidak-ada',
@@ -379,6 +390,17 @@
           p_catatan: teks(p.catatan), p_ref: teks(p.ref), p_eta: teks(p.eta), p_nama: teks(p.nama) }];
       }
     },
+    // Accounting manajemen (tahap 5l): uang masuk / keluar / pindah akun dan pembatalan langsung di Supabase.
+    akunting: {
+      akuntingSimpan: function (p) {
+        return ['akunting_simpan', { p_tanggal: teks(p.tanggal), p_jenis: teks(p.jenis), p_akun: teks(p.akun), p_tujuan: teks(p.tujuan),
+          p_kategori: teks(p.kategori), p_nominal: teks(p.nominal), p_ket: teks(p.ket), p_token: teks(p.token) }];
+      },
+      akuntingSimpanBanyak: function (p) {
+        return ['akunting_simpan_banyak', { p_tanggal: teks(p.tanggal), p_akun: teks(p.akun), p_rows: Array.isArray(p.rows) ? p.rows : [], p_token: teks(p.token) }];
+      },
+      akuntingBatal: function (p) { return ['akunting_batal', { p_no: teks(p.no) }]; }
+    },
     // Payroll (tahap 5f): gaji disimpan di Supabase, baris baru / perubahan disalin Apps Script ke sheet GAJI_LOG.
     payroll: {
       gjSimpan: function (p) {
@@ -389,8 +411,12 @@
     }
   };
   var BALIK = SERVER + 'balik';
+  // Accounting: tunggu salinan ke sheet selesai (paling lama 10 detik) supaya riwayat & saldo yang dimuat ulang sudah memuat catatan baru.
   async function salinKeSheet() {
-    try { var t = await token(); fetch(BALIK, { method: 'POST', body: JSON.stringify({ t: t }), keepalive: true }).catch(function () { }); } catch (e) { }
+    try {
+      var t = await token(), kirim = fetch(BALIK, { method: 'POST', body: JSON.stringify({ t: t }), keepalive: true }).catch(function () { });
+      if (APP === 'akunting') await Promise.race([kirim, new Promise(function (r) { setTimeout(r, 10000); })]);
+    } catch (e) { }
   }
   async function tulisSupabase(f, a) {
     var q = TULIS_SUPABASE[APP][f]((a && a[0]) || {}), hasil;
@@ -403,7 +429,7 @@
       hasil = await q;
       if (hasil === null) return kirimLama(f, a);
     }
-    if (hasil && hasil.ok) { salinKeSheet(); if (window.Gudang) window.Gudang.lupakan(); }
+    if (hasil && hasil.ok) { if (APP === 'akunting') await salinKeSheet(); else salinKeSheet(); if (window.Gudang) window.Gudang.lupakan(); }
     return JSON.stringify(hasil);
   }
 

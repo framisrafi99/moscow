@@ -971,7 +971,7 @@
         return '<div class="br"><div class="tx"><span>' + esc(k.n) + ' <span class="sb">· ' + esc(k.kel) + (k.auto ? ' · otomatis' : '') + '</span></span><b class="angka">' + rp(k.v) + '</b></div><div class="tr"><div class="is" style="width:' + Math.max(2, Math.round(k.v / mx * 100)) + '%"></div></div></div>'; }).join('') : '<div class="ksg">Belum ada.</div>') + '</div>';
     };
     h += '<div class="dua">' + blok('Masuk', 'Uang masuk per kategori') + blok('Keluar', 'Uang keluar per kategori') + '</div>';
-    return h + '<p class="sb">Pencatatan uang masuk / keluar tetap lewat formulir accounting. Kategori "otomatis" berasal dari penjualan yang tercatat sendiri oleh sistem.</p>';
+    return h + '<p class="sb">Pencatatan uang masuk / keluar lewat <a href="form.html?f=akunting">form accounting</a>. Kategori "otomatis" berasal dari penjualan yang tercatat sendiri oleh sistem.</p>';
   }
   function isiTrx() {
     var d = lapPilih(), h = pilihSub('ubl', U.b, [['ini', 'Bulan ini'], ['lalu', 'Bulan lalu']]);
