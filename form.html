@@ -428,7 +428,15 @@
       ubahStatusOrder: function (p) { return ['order_status', { p_no: teks(p.no), p_status: teks(p.status), p_rp: '', p_alasan: '' }]; },
       rpPutus: function (p) { return ['order_status', { p_no: teks(p.no), p_status: '', p_rp: teks(p.aksi), p_alasan: teks(p.alasan) }]; },
       rpTandai: function (p) { return ['rp_tandai', { p_no: teks(p.no), p_aksi: teks(p.aksi), p_catatan: teks(p.catatan), p_alasan: teks(p.alasan) }]; },
-      mdSetujuPutus: function (p) { return ['md_setuju_putus', { p_toko: Array.isArray(p.toko) ? p.toko.map(teks) : [], p_prod: Array.isArray(p.prod) ? p.prod.map(teks) : [], p_setuju: p.setuju === true, p_catatan: teks(p.catatan) }]; }
+      mdSetujuPutus: function (p) { return ['md_setuju_putus', { p_toko: Array.isArray(p.toko) ? p.toko.map(teks) : [], p_prod: Array.isArray(p.prod) ? p.prod.map(teks) : [], p_setuju: p.setuju === true, p_catatan: teks(p.catatan) }]; },
+      // Keuangan › HPP & Harga: ACC / tolak usulan staf dan simpan tabel langsung di Supabase; daftarnya dimuat ulang sesudah tersalin ke sheet.
+      mmUsulPutus: function (p) {
+        return rpcLaluMuat('hu_putus', { p_no: teks(p.no), p_aksi: teks(p.aksi), p_nilai: p.nilai === null || p.nilai === undefined ? '' : String(p.nilai), p_catatan: teks(p.catatan), p_token: teks(p.token) }, p.key);
+      },
+      mmHargaSimpan: function (p) {
+        var items = (Array.isArray(p.items) ? p.items : []).map(function (x) { return { jenis: teks(x.jenis), k: teks(x.k), nilai: x.nilai, toko: teks(x.toko) }; });
+        return rpcLaluMuat('mm_harga_simpan', { p_items: items, p_alasan: teks(p.alasan), p_token: teks(p.token) }, p.key);
+      }
     },
     // Payroll (tahap 5f): gaji disimpan di Supabase, baris baru / perubahan disalin Apps Script ke sheet GAJI_LOG.
     payroll: {
@@ -446,6 +454,17 @@
       var t = await token(), kirim = fetch(BALIK, { method: 'POST', body: JSON.stringify({ t: t }), keepalive: true }).catch(function () { });
       if (APP === 'akunting' || APP === 'mdlama') await Promise.race([kirim, new Promise(function (r) { setTimeout(r, 10000); })]);
     } catch (e) { }
+  }
+  // Simpan lewat Supabase, lalu (kalau berhasil) muat ulang tabel HPP & Harga dari Apps Script sesudah barisnya tersalin.
+  async function rpcLaluMuat(fn, arg, key) {
+    var r = await sb.rpc(fn, arg);
+    if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Tekan simpan sekali lagi; aman, tidak akan tercatat dua kali.');
+    var h = r.data;
+    if (h && h.ok && !h.ulang) {
+      await salinKeSheet();
+      try { var d = await kirim('mmHargaData', [{ key: key }]); if (d && d.r && d.r.ok) h.data = d.r; } catch (e) { }
+    }
+    return h;
   }
   async function tulisSupabase(f, a) {
     var q = TULIS_SUPABASE[APP][f]((a && a[0]) || {}), hasil;
