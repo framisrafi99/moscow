@@ -317,6 +317,11 @@
         return ['po_simpan', { p_asal: teks(p.asal), p_supplier: teks(p.supplier), p_bayar: teks(p.bayar), p_sudah: p.sudahBayar === true, p_tanggal: teks(p.tanggal),
           p_catatan: teks(p.catatan), p_items: Array.isArray(p.items) ? p.items : [], p_nama: teks(p.nama), p_token: teks(p.token) }];
       },
+      // Uang keluar dari form gudang (accounting): cek dobel tanggal + nominal, bulan yang sudah tutup buku ditolak.
+      gdxUangSimpan: function (p) {
+        return ['gudang_uang_simpan', { p_tanggal: teks(p.tanggal), p_akun: teks(p.akun), p_kategori: teks(p.kategori), p_nominal: teks(p.nominal),
+          p_ket: teks(p.ket), p_nama: teks(p.nama), p_yakin: p.yakin === true, p_token: teks(p.token) }];
+      },
       gdPoUbah: function (p) {
         return ['po_ubah', { p_no: teks(p.no), p_aksi: teks(p.aksi), p_resi: teks(p.resi), p_alasan: teks(p.alasan), p_nama: teks(p.nama), p_token: teks(p.token) }];
       },
