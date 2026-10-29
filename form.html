@@ -400,8 +400,21 @@
       bahanBakuProduksi: function (p) { return window.BahanBaku.simpanProduksi(sb, p); },
       bahanBakuWarna: function (p) { return window.BahanBaku.simpanWarna(sb, p); }
     },
+    // Halaman Mike (Kendali Bisnis): ubah harga jual dan ACC / tolak usulan HPP (+ harga jual baru) langsung di Supabase.
+    mike: {
+      kbHargaSimpan: function (p) { return ['kb_harga_simpan', { p_k: teks(p.k), p_harga: teks(p.harga), p_alasan: teks(p.alasan), p_token: teks(p.token) }]; },
+      kbNaikPutus: function (p) {
+        return ['hpp_mike_putus', { p_no: teks(p.no), p_aksi: teks(p.aksi), p_nilai: teks(p.nilai), p_catatan: teks(p.catatan), p_token: teks(p.token), p_k: teks(p.k), p_harga: teks(p.harga) }];
+      },
+      hppMikePutus: function (p) {
+        return ['hpp_mike_putus', { p_no: teks(p.no), p_aksi: teks(p.aksi), p_nilai: teks(p.nilai), p_catatan: teks(p.catatan), p_token: teks(p.token), p_k: '', p_harga: '' }];
+      }
+    },
     // Halaman Mike: ACC / tolak pengajuan impor (pgdAksi + pembungkus PL & TG) langsung di Supabase.
     mikelama: {
+      hppMikePutus: function (p) {
+        return ['hpp_mike_putus', { p_no: teks(p.no), p_aksi: teks(p.aksi), p_nilai: teks(p.nilai), p_catatan: teks(p.catatan), p_token: teks(p.token), p_k: '', p_harga: '' }];
+      },
       // Mike membayar pengajuan impor: uang keluar + PO impor otomatis (impBayar).
       impBayar: function (p) {
         return ['impor_bayar', { p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_total: p.total && typeof p.total === 'object' ? p.total : {},
@@ -456,7 +469,7 @@
   async function salinKeSheet() {
     try {
       var t = await token(), kirim = fetch(BALIK, { method: 'POST', body: JSON.stringify({ t: t }), keepalive: true }).catch(function () { });
-      if (APP === 'akunting' || APP === 'mdlama') await Promise.race([kirim, new Promise(function (r) { setTimeout(r, 10000); })]);
+      if (APP === 'akunting' || APP === 'mdlama' || APP === 'mike' || APP === 'mikelama') await Promise.race([kirim, new Promise(function (r) { setTimeout(r, 10000); })]);
     } catch (e) { }
   }
   // Simpan lewat Supabase, lalu (kalau berhasil) muat ulang tabel HPP & Harga dari Apps Script sesudah barisnya tersalin.
@@ -481,7 +494,7 @@
       hasil = await q;
       if (hasil === null) return kirimLama(f, a);
     }
-    if (hasil && hasil.ok) { if (APP === 'akunting' || APP === 'mdlama') await salinKeSheet(); else salinKeSheet(); if (window.Gudang) window.Gudang.lupakan(); }
+    if (hasil && hasil.ok) { if (APP === 'akunting' || APP === 'mdlama' || APP === 'mike' || APP === 'mikelama') await salinKeSheet(); else salinKeSheet(); if (window.Gudang) window.Gudang.lupakan(); }
     return JSON.stringify(hasil);
   }
 
