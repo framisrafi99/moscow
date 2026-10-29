@@ -85,7 +85,8 @@
   <section data-bagian="__lama">
     <div class="cd">
       <h3 id="lamaJudul">Bagian ini belum pindah</h3>
-      <p class="sb" style="margin:0">Bagian ini masih dibuka lewat Master Data lama, dengan isi dan cara kerja yang sama seperti biasa. Bagian-bagian Master Data dipindah ke aplikasi baru satu per satu.</p>
+      <p class="sb" style="margin:0 0 10px">Bagian ini masih dibuka lewat Master Data lama, dengan isi dan cara kerja yang sama seperti biasa. Bagian-bagian Master Data dipindah ke aplikasi baru satu per satu.</p>
+      <a class="tbl pri" href="form.html?f=mdlama" style="display:inline-block;text-decoration:none">Buka Master Data lama di aplikasi ini</a>
     </div>
   </section>
 </main>
@@ -116,7 +117,9 @@
       { grup: 'APLIKASI LAIN' },
       { k: 'app-kb', nm: 'Kendali Bisnis', ik: 'laporan', href: 'kendali.html' },
       { k: 'app-stok', nm: 'Stok', ik: 'stok', href: 'stok.html' },
-      { k: 'app-kasir', nm: 'Kasir Toko Offline', ik: 'kasir', href: 'kasir.html' }
+      { k: 'app-kasir', nm: 'Kasir Toko Offline', ik: 'kasir', href: 'kasir.html' },
+      { k: 'app-akunting', nm: 'Form accounting', ik: 'uang', href: 'form.html?f=akunting' },
+      { k: 'app-mdlama', nm: 'Master Data lama', ik: 'dasbor', href: 'form.html?f=mdlama' }
     ],
     bawah: ['beranda', 'setuju', 'gudang', 'uang', 'lain'],
     pindah: function (k, m) { if ($('lamaJudul')) $('lamaJudul').textContent = m.nm + ' masih di Master Data lama'; if (k === 'jual' && !J.mulai) { J.mulai = true; siapJual(); } if (k === 'riwayat' && !RW.mulai) { RW.mulai = true; siapRiwayat(); } if (k === 'atur' && !AT.mulai) { AT.mulai = true; muatAtur(); } },

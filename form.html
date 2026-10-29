@@ -138,6 +138,14 @@
       ],
       bawah: ['catat', 'riwayat', 'saldo', 'laporan']
     },
+    // Master Data lama di dalam aplikasi baru: menu yang belum pindah (invoice & packing, upload marketplace, bagi hasil,
+    // tutup buku, pelanggan & link, koreksi gudang, cetak PO, anggaran pengadaan). Penyimpanan tetap lewat Apps Script.
+    mdlama: {
+      judul: 'MASTER DATA LAMA', masuk: 'Master Data lama', peran: ['manajemen'],
+      sembunyi: '.tidak-ada',
+      menu: [{ k: 'md', nm: 'Master Data lama', ik: 'dasbor', l: [] }],
+      bawah: ['md']
+    },
     payroll: {
       judul: 'PAYROLL', masuk: 'Payroll gaji staf', peran: ['manajemen'],
       sembunyi: '.tidak-ada',
