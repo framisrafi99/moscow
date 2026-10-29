@@ -312,6 +312,11 @@
       },
       // PO: tandai dikirim supplier / batalkan (sebelum dibayar), dan biaya tambahan PO (ongkir, bea, dll.).
       // Usulan koreksi HPP untuk PO yang barangnya sudah diterima dijalankan Apps Script (efek_antre 'biaya_po').
+      // Buat PO dari form gudang: staf gudang hanya PO barang lokal (menunggu dibayar Viory). Manajemen tetap lewat Apps Script ({lewat:true}).
+      gdPoSimpan: function (p) {
+        return ['po_simpan', { p_asal: teks(p.asal), p_supplier: teks(p.supplier), p_bayar: teks(p.bayar), p_sudah: p.sudahBayar === true, p_tanggal: teks(p.tanggal),
+          p_catatan: teks(p.catatan), p_items: Array.isArray(p.items) ? p.items : [], p_nama: teks(p.nama), p_token: teks(p.token) }];
+      },
       gdPoUbah: function (p) {
         return ['po_ubah', { p_no: teks(p.no), p_aksi: teks(p.aksi), p_resi: teks(p.resi), p_alasan: teks(p.alasan), p_nama: teks(p.nama), p_token: teks(p.token) }];
       },
