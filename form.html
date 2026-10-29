@@ -249,8 +249,15 @@
   }
   // Simpan langsung di Supabase (tahap 3): pemeriksaan sama dengan Apps Script; Apps Script menyalinnya ke Google Sheets.
   function teks(v) { return String(v === undefined || v === null ? '' : v); }
+  // Usulan HPP / harga jual dari form staf (manajemen tetap lewat Apps Script karena langsung berlaku).
+  function hppUsulRpc(app) {
+    return function (p) {
+      return ['hpp_usul', { p_app: app, p_jenis: teks(p.jenis), p_k: teks(p.k), p_nilai: teks(p.nilai), p_alasan: teks(p.alasan), p_nama: teks(p.nama), p_token: teks(p.token) }];
+    };
+  }
   var TULIS_SUPABASE = {
     produksi: {
+      hppUsul: hppUsulRpc('produksi'),
       // Pengajuan pembelian (pgdAjukan + pembungkus): robot dari potret; Telegram, pesan Mike & Viory oleh Apps Script (efek_antre).
       pgsAjukan: function (p) {
         return ['pengadaan_ajukan', { p_app: 'produksi', p_nama: teks(p.nama), p_yakin: p.yakin === true, p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
@@ -280,6 +287,8 @@
       }
     },
     gudang: {
+      hppUsul: hppUsulRpc('gudang'),
+      gdxKpUsul: hppUsulRpc('kp'),
       // Pengajuan pembelian (pgdAjukan + pembungkus): robot dari potret; Telegram, pesan Mike & Viory oleh Apps Script (efek_antre).
       gdxAjukan: function (p) {
         return ['pengadaan_ajukan', { p_app: 'gudang', p_nama: teks(p.nama), p_yakin: p.yakin === true, p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
@@ -352,6 +361,7 @@
       }
     },
     bahanbaku: {
+      hppUsul: hppUsulRpc('bahanbaku'),
       // Pengajuan pembelian (pgdAjukan + pembungkus): robot dari potret; Telegram, pesan Mike & Viory oleh Apps Script (efek_antre).
       pgsAjukan: function (p) {
         return ['pengadaan_ajukan', { p_app: 'bahanbaku', p_nama: teks(p.nama), p_yakin: p.yakin === true, p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
