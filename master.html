@@ -1350,6 +1350,17 @@
     if (cek.length && !confirm(cek.join('\n') + '\n\nLanjutkan?')) return;
     p.alasan = alasan; p.yakin = true; p.token = 'md' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
     btn.disabled = true;
+    // Harga jual & HPP langsung tersimpan di Supabase (mde_simpan); qty, info, dan barang baru tetap lewat antrean Apps Script.
+    if (p.jenis === 'harga' || p.jenis === 'hpp') {
+      var rr = await sb.rpc('mde_simpan', { p_jenis: p.jenis, p_k: p.k, p_nilai: String(p.nilai), p_alasan: p.alasan, p_token: p.token });
+      var gagal = rr.error ? rr.error.message : (!rr.data || !rr.data.ok) ? ((rr.data && rr.data.pesan) || 'Gagal menyimpan.') : '';
+      if (gagal) { salah(gagal); btn.disabled = false; return; }
+      salinKeSheetGaji();
+      await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(ringkas).slice(0, 150) });
+      AT.buka = null; await muatAksi(); gambarAtur();
+      $('msgAtur').innerHTML = '<div class="msg ok">' + esc(rr.data.pesan) + ' Daftar di halaman ini diperbarui paling lambat 10 menit lagi.</div>'; window.scrollTo(0, 0);
+      return;
+    }
     var r = await sb.from('md_aksi').insert({ fungsi: 'mdeSimpanBaru', param: p, ringkas: String(ringkas).slice(0, 200) });
     if (r.error) { salah('Gagal mengirim: ' + r.error.message); btn.disabled = false; return; }
     AT.buka = null; await muatAksi(); gambarAtur();
