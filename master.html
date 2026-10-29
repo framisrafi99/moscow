@@ -1678,8 +1678,13 @@
   }
   async function cekTanpa(b) {
     var no = b.getAttribute('data-tanpa'); b.disabled = true;
-    var r = await sb.from('md_aksi').insert({ fungsi: 'pgsTanpaCek', param: { no: no }, ringkas: 'Pembelian tanpa pengajuan ' + no + ' sudah dicek' });
-    if (r.error) { $('msgPurch').innerHTML = '<div class="msg bad">Gagal mengirim: ' + esc(r.error.message) + '</div>'; b.disabled = false; return; }
+    // Langsung tersimpan di Supabase (pgs_tanpa_cek = pgsTanpaCek).
+    var r = await sb.rpc('pgs_tanpa_cek', { p_no: no });
+    var gagal = r.error ? r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
+    if (gagal) { $('msgPurch').innerHTML = '<div class="msg bad">' + esc(gagal) + '</div>'; b.disabled = false; return; }
+    salinKeSheetGaji();
+    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah cek pembelian tanpa pengajuan ' + no });
+    $('msgPurch').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar diperbarui paling lambat 10 menit lagi.</div>';
     await muatAksi(); gambarPurch();
   }
 
@@ -1892,8 +1897,14 @@
         if (aksi === 'batal' && !cat) { tempat.innerHTML = '<div class="msg bad">Isi alasan pembatalan dulu.</div>'; return; }
         b.disabled = true;
         var nama = { selesai: 'Tandai diterima', kirim: 'Tandai dikirim', batal: 'Batalkan' }[aksi];
-        await kirimAksi('rpTandai', { no: o.no, aksi: aksi, catatan: cat, alasan: cat }, nama + ' ' + o.no + ' (' + o.pl + ')', tempat,
-          nama + ' ' + o.no + ' tercatat. Diterapkan ke Google Sheets paling lambat 10 menit lagi.');
+        // Langsung tersimpan di Supabase (rp_tandai = rpTandai); Telegram dikirim Apps Script.
+        var r = await sb.rpc('rp_tandai', { p_no: o.no, p_aksi: aksi, p_catatan: cat, p_alasan: cat });
+        var gagal = r.error ? r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
+        if (gagal) { tempat.innerHTML = '<div class="msg bad">' + esc(gagal) + '</div>'; b.disabled = false; return; }
+        salinKeSheetGaji();
+        await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + nama + ' ' + o.no });
+        tempat.innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar diperbarui paling lambat 10 menit lagi.</div>';
+        el.querySelectorAll('[data-pt="' + i + '"]').forEach(function (x) { x.disabled = true; });
       };
     });
   }
@@ -1950,11 +1961,15 @@
     if (!toko.length && !prod.length) return;
     $('tSetuju').disabled = true; $('tTolak').disabled = true;
     var ringkas = (setuju ? 'Setujui ' : 'Tolak ') + (toko.length + prod.length) + ' ajuan: ' + nama.slice(0, 3).join(', ') + (nama.length > 3 ? ', …' : '');
-    var r = await sb.from('md_aksi').insert({ fungsi: 'mdSetujuPutus', param: { toko: toko, prod: prod, setuju: setuju, catatan: ($('catatan').value || '').trim().slice(0, 160) }, ringkas: ringkas.slice(0, 200) });
-    if (r.error) { $('msgSetuju').innerHTML = '<div class="msg bad">Gagal mengirim keputusan: ' + esc(r.error.message) + '</div>'; $('tSetuju').disabled = false; $('tTolak').disabled = false; return; }
+    // Langsung tersimpan di Supabase (md_setuju_putus = mdSetujuPutus); Telegram dikirim Apps Script.
+    var r = await sb.rpc('md_setuju_putus', { p_toko: toko, p_prod: prod, p_setuju: setuju, p_catatan: ($('catatan').value || '').trim().slice(0, 160) });
+    var gagal = r.error ? r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
+    if (gagal) { $('msgSetuju').innerHTML = '<div class="msg bad">Gagal menyimpan keputusan: ' + esc(gagal) + ((r.data && r.data.gagal && r.data.gagal.length) ? ' (' + esc(r.data.gagal.join('; ')) + ')' : '') + '</div>'; $('tSetuju').disabled = false; $('tTolak').disabled = false; return; }
+    salinKeSheetGaji();
+    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + ringkas.slice(0, 150) });
+    $('bgSesuai').querySelectorAll('input[data-no]:checked').forEach(function (k) { k.checked = false; k.disabled = true; });
     await muatAksi();
-    gambarSetuju();
-    $('msgSetuju').innerHTML = '<div class="msg ok">Keputusan tercatat. Stok disesuaikan di Google Sheets paling lambat 10 menit lagi.</div>';
+    $('msgSetuju').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ((r.data.gagal && r.data.gagal.length) ? ' ' + esc(r.data.gagal.join('; ')) : '') + ' Daftar diperbarui paling lambat 10 menit lagi.</div>';
   }
 })();
 </script>
