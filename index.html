@@ -21,6 +21,8 @@
     border-radius:12px; color:inherit; text-decoration:none; font-weight:700; }
   #pilih a span { font-weight:500; font-size:12.5px; color:var(--abu); }
   #pilih a:hover { background:var(--latar); }
+  #pilih .grp { margin:10px 0 0; font-size:11.5px; font-weight:700; letter-spacing:.08em; color:var(--abu); text-transform:uppercase; }
+  #pilih a b small { display:block; font-weight:500; font-size:12px; color:var(--abu); margin-top:1px; }
   .keluar { margin-top:16px; background:none; border:0; color:var(--abu); font:inherit; font-size:13px; cursor:pointer; padding:4px 0; }
 </style>
 </head>
@@ -49,14 +51,19 @@
   // Satu link untuk semua: halaman tujuan ditentukan dari peran akun (tabel pengguna), bukan dipilih sendiri.
   var TUJUAN = {
     gudang: [['Gudang Utama', 'form.html?f=gudang']],
-    purchasing_shopeepay: [['Gudang Utama & Purchasing', 'form.html?f=gudang']],
-    produksi: [['Produksi', 'form.html?f=produksi']],
-    bahan_baku: [['Bahan Baku', 'form.html?f=bahanbaku']],
+    purchasing_shopeepay: [['Purchasing', 'form.html?f=purchasing'], ['Gudang Utama', 'form.html?f=gudang']],
+    produksi: [['Staf Produksi', 'form.html?f=produksi']],
+    bahan_baku: [['Staf Bahan Baku', 'form.html?f=bahanbaku']],
     kendali_bisnis: [['Kendali Bisnis', 'form.html?f=mike'], ['Persetujuan & laporan', 'form.html?f=mikelama'], ['Stok semua lokasi', 'stok.html']],
     toko: [['Form toko', 'consignment.html']],
-    manajemen: [['Master Data', 'master.html'], ['Payroll', 'form.html?f=payroll'], ['Form accounting', 'form.html?f=akunting'], ['Stok semua lokasi', 'stok.html'],
-      ['Kendali Bisnis', 'form.html?f=mike'], ['Gudang Utama & Purchasing', 'form.html?f=gudang'], ['Form Produksi', 'form.html?f=produksi'],
-      ['Form Bahan Baku', 'form.html?f=bahanbaku'], ['Form toko (laporan semua toko)', 'consignment.html'], ['Kasir Toko Offline (nota penjualan)', 'kasir.html']]
+    manajemen: [['Master Data', 'master.html'],
+      ['#Consignment'], ['Consignment Sidoarjo', 'consignment.html?toko=Consignment%20Sidoarjo'], ['Consignment Medan', 'consignment.html?toko=Consignment%20Medan'],
+      ['Consignment Renon', 'consignment.html?toko=Consignment%20Renon'],
+      ['#Toko & staf'], ['Toko Offline', 'consignment.html?toko=Toko%20Offline', 'Laporan, stok, order'], ['Kasir Toko Offline', 'kasir.html', 'Nota penjualan'],
+      ['Purchasing', 'form.html?f=purchasing'], ['Gudang Utama', 'form.html?f=gudang'],
+      ['Reseller', 'master.html#jual', 'Order reseller di Master Data › Penjualan'],
+      ['Staf Produksi', 'form.html?f=produksi'], ['Staf Bahan Baku', 'form.html?f=bahanbaku'],
+      ['#Lainnya'], ['Payroll', 'form.html?f=payroll'], ['Form accounting', 'form.html?f=akunting'], ['Stok semua lokasi', 'stok.html'], ['Kendali Bisnis (Mike)', 'form.html?f=mike']]
   };
   function layarMasuk(pesan) {
     $('judul').textContent = 'Masuk'; $('pilih').hidden = true; $('tKeluar').hidden = true;
@@ -81,11 +88,14 @@
       layarMasuk('Akun ' + sesi.user.email + ' belum didaftarkan. Minta manajemen Moscow Supplies menambahkan email ini.');
       return;
     }
-    if (peran === 'toko' && /offline/i.test(l || '')) daftar = [['Form toko (laporan, stok, order)', 'consignment.html'], ['Kasir (nota penjualan)', 'kasir.html']];
+    if (peran === 'toko' && /offline/i.test(l || '')) daftar = [['Form toko', 'consignment.html', 'Laporan, stok, order'], ['Kasir', 'kasir.html', 'Nota penjualan']];
     if (daftar.length === 1 || (peran === 'toko' && !/offline/i.test(l || ''))) { location.replace(daftar[0][1]); return; }
     $('judul').textContent = 'Pilih halaman';
     $('teks').textContent = 'Masuk sebagai ' + sesi.user.email + (l ? ' (' + l + ')' : '') + '.';
-    $('pilih').innerHTML = daftar.map(function (d) { return '<a href="' + esc(d[1]) + '">' + esc(d[0]) + '<span>Buka ›</span></a>'; }).join('');
+    $('pilih').innerHTML = daftar.map(function (d) {
+      if (d[0].charAt(0) === '#') return '<div class="grp">' + esc(d[0].slice(1)) + '</div>';
+      return '<a href="' + esc(d[1]) + '"><b>' + esc(d[0]) + (d[2] ? '<small>' + esc(d[2]) + '</small>' : '') + '</b><span>Buka ›</span></a>';
+    }).join('');
     $('pilih').hidden = false; $('tKeluar').hidden = false;
   }
   sb.auth.getSession().then(function (r) {

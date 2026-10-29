@@ -51,6 +51,8 @@
   var KHUSUS_OFFLINE = { pinjam: 1, sesuai: 1 };
   var MENU;
   var C = { toko: '', nama: '', peran: '', daftar: [], frame: null, aktif: 'jual' };
+  // Dari halaman masuk (manajemen): consignment.html?toko=Nama Toko langsung membuka toko itu.
+  var TOKO_URL = new URLSearchParams(location.search).get('toko') || '';
   function $(id) { return document.getElementById(id); }
 
   // Gaya form lama disamakan dengan aplikasi baru (warna, huruf, kartu); judul & tab lama disembunyikan karena diganti menu aplikasi.
@@ -387,7 +389,7 @@
     siap: function (ctx) {
       C.peran = ctx.peran; C.nama = '';
       if (ctx.peran === 'manajemen') {
-        try { C.toko = localStorage.getItem('tokoPilihan') || ''; } catch (x) { }
+        try { C.toko = TOKO_URL || localStorage.getItem('tokoPilihan') || ''; if (TOKO_URL) localStorage.setItem('tokoPilihan', TOKO_URL); } catch (x) { C.toko = TOKO_URL; }
         var nav = document.querySelector('#mSide nav');
         if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + M.svg('beranda') + '<span class="nm">Master Data</span></a>');
       }

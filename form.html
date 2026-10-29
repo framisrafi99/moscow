@@ -140,6 +140,12 @@
     },
     // Master Data lama di dalam aplikasi baru: menu yang belum pindah (invoice & packing, upload marketplace, bagi hasil,
     // tutup buku, pelanggan & link, koreksi gudang, cetak PO, anggaran pengadaan). Penyimpanan tetap lewat Apps Script.
+    purchasing: {
+      judul: 'PURCHASING', masuk: 'Purchasing', peran: ['purchasing_shopeepay', 'manajemen'],
+      sembunyi: '.tidak-ada',
+      menu: [{ k: 'pl', nm: 'Purchasing', ik: 'purch', l: [] }, { grup: 'APLIKASI LAIN' }, { k: 'gd', nm: 'Gudang Utama', ik: 'gudang', href: 'form.html?f=gudang' }],
+      bawah: ['pl']
+    },
     mdlama: {
       judul: 'MASTER DATA LAMA', masuk: 'Master Data lama', peran: ['manajemen'],
       sembunyi: '.tidak-ada',
@@ -453,6 +459,24 @@
       mmHargaSimpan: function (p) {
         var items = (Array.isArray(p.items) ? p.items : []).map(function (x) { return { jenis: teks(x.jenis), k: teks(x.k), nilai: x.nilai, toko: teks(x.toko) }; });
         return rpcLaluMuat('mm_harga_simpan', { p_items: items, p_alasan: teks(p.alasan), p_token: teks(p.token) }, p.key);
+      }
+    },
+    // Link Purchasing (Viory): belanja lokal dibayar, bayar PO lokal, tolak / tandai pengajuan lokal langsung di Supabase.
+    purchasing: {
+      plxBayar: function (p) {
+        return ['plx_bayar', { p_toko: teks(p.toko), p_bayar: teks(p.bayar), p_tanggal: teks(p.tanggal), p_nama: teks(p.nama),
+          p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
+      },
+      plPoBayar: function (p) {
+        return ['pl_po_bayar', { p_no: teks(p.no), p_bayar: teks(p.bayar), p_tanggal: teks(p.tanggal), p_nama: teks(p.nama), p_token: teks(p.token) }];
+      },
+      plxTolak: function (p) {
+        if (teks(p.catatan).replace(/\s+/g, ' ').trim().length < 3) return Promise.resolve({ ok: false, pesan: 'Tulis alasan penolakan.' });
+        return ['pengadaan_aksi', { p_aksi: 'tolak', p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_qty: null, p_catatan: teks(p.catatan), p_ref: '', p_eta: '', p_nama: teks(p.nama) }];
+      },
+      plAksi: function (p) {
+        return ['pengadaan_aksi', { p_aksi: teks(p.aksi), p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_qty: p.qty && typeof p.qty === 'object' ? p.qty : null,
+          p_catatan: teks(p.catatan), p_ref: teks(p.ref), p_eta: teks(p.eta), p_nama: teks(p.nama) }];
       }
     },
     // Payroll (tahap 5f): gaji disimpan di Supabase, baris baru / perubahan disalin Apps Script ke sheet GAJI_LOG.
