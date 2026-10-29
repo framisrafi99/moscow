@@ -294,6 +294,17 @@
         return ['pengadaan_aksi', { p_aksi: teks(p.aksi), p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_qty: p.qty && typeof p.qty === 'object' ? p.qty : null,
           p_catatan: teks(p.catatan), p_ref: teks(p.ref), p_eta: teks(p.eta), p_nama: teks(p.nama) }];
       },
+      // Link Purchasing (Viory): belanja lokal dibayar, bayar PO lokal, tolak pengajuan lokal.
+      plxBayar: function (p) {
+        return ['plx_bayar', { p_toko: teks(p.toko), p_bayar: teks(p.bayar), p_tanggal: teks(p.tanggal), p_nama: teks(p.nama),
+          p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
+      },
+      plPoBayar: function (p) {
+        return ['pl_po_bayar', { p_no: teks(p.no), p_bayar: teks(p.bayar), p_tanggal: teks(p.tanggal), p_nama: teks(p.nama), p_token: teks(p.token) }];
+      },
+      plxTolak: function (p) {
+        return ['pengadaan_aksi', { p_aksi: 'tolak', p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_qty: null, p_catatan: teks(p.catatan), p_ref: '', p_eta: '', p_nama: teks(p.nama) }];
+      },
       plAksi: function (p) {
         return ['pengadaan_aksi', { p_aksi: teks(p.aksi), p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_qty: p.qty && typeof p.qty === 'object' ? p.qty : null,
           p_catatan: teks(p.catatan), p_ref: teks(p.ref), p_eta: teks(p.eta), p_nama: teks(p.nama) }];
@@ -338,6 +349,11 @@
     },
     // Halaman Mike: ACC / tolak pengajuan impor (pgdAksi + pembungkus PL & TG) langsung di Supabase.
     mikelama: {
+      // Mike membayar pengajuan impor: uang keluar + PO impor otomatis (impBayar).
+      impBayar: function (p) {
+        return ['impor_bayar', { p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_total: p.total && typeof p.total === 'object' ? p.total : {},
+          p_supplier: teks(p.supplier), p_tanggal: teks(p.tanggal), p_eta: teks(p.eta), p_catatan: teks(p.catatan), p_token: teks(p.token) }];
+      },
       pgdAksi: function (p) {
         return ['pengadaan_aksi', { p_aksi: teks(p.aksi), p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_qty: p.qty && typeof p.qty === 'object' ? p.qty : null,
           p_catatan: teks(p.catatan), p_ref: teks(p.ref), p_eta: teks(p.eta), p_nama: teks(p.nama) }];
