@@ -310,6 +310,15 @@
         return ['pengadaan_aksi', { p_aksi: teks(p.aksi), p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_qty: p.qty && typeof p.qty === 'object' ? p.qty : null,
           p_catatan: teks(p.catatan), p_ref: teks(p.ref), p_eta: teks(p.eta), p_nama: teks(p.nama) }];
       },
+      // PO: tandai dikirim supplier / batalkan (sebelum dibayar), dan biaya tambahan PO (ongkir, bea, dll.).
+      // Usulan koreksi HPP untuk PO yang barangnya sudah diterima dijalankan Apps Script (efek_antre 'biaya_po').
+      gdPoUbah: function (p) {
+        return ['po_ubah', { p_no: teks(p.no), p_aksi: teks(p.aksi), p_resi: teks(p.resi), p_alasan: teks(p.alasan), p_nama: teks(p.nama), p_token: teks(p.token) }];
+      },
+      gdBiayaSimpan: function (p) {
+        return ['po_biaya_simpan', { p_no: teks(p.no), p_tanggal: teks(p.tanggal), p_jenis: teks(p.jenis), p_nominal: teks(p.nominal), p_bayar: teks(p.bayar),
+          p_catatan: teks(p.catatan), p_sudah: p.sudahBayar === true, p_nama: teks(p.nama), p_token: teks(p.token) }];
+      },
       // Order Masuk: tombol "Proses" (catatan Diproses di ORDER_PROSES).
       gdxOrderProses: function (p) { return ['gudang_order_proses', { p_order: teks(p.order), p_nama: teks(p.nama) }]; },
       // Terima barang PO: status PO diubah lewat ubah_antre; usulan HPP & pengajuan lokal oleh Apps Script (efek_antre).
