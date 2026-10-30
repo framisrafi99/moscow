@@ -95,7 +95,7 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="moscow.js?v=10"></script>
+<script src="moscow.js?v=11"></script>
 <script src="beranda2.js?v=6"></script>
 <script src="upload.js?v=1"></script>
 <script src="laporan.js?v=7"></script>
@@ -143,21 +143,28 @@
         { nm: 'Muat ulang', ik: 'muat', klik: function () { muat(); } },
         { nm: 'Hitung ulang sekarang', kelas: 'pri', ik: 'muat', klik: function (b) { hitungUlang(b); } }
       ]);
+      BR.janji = ambilBeranda(''); // mulai bersamaan dengan data lain, tidak menunggu
       muat();
     }
   });
 
+  // Muat dua tahap: data kecil untuk Beranda dulu (langsung tampil), sisanya (data besar bagian lain) menyusul.
+  var INTI = ['md:beranda', 'md:ringkasan', 'md:setuju', 'md:request', 'md:pantau'];
   async function muat() {
     var h = await Promise.all([
-      sb.from('hasil_hitung').select('kunci,data,dibuat').in('kunci', Object.keys(KUNCI)),
+      sb.from('hasil_hitung').select('kunci,data,dibuat').in('kunci', INTI),
       sb.from('md_aksi').select('*').order('id', { ascending: false }).limit(15)
     ]);
     if (h[0].error) { $('bBeranda').innerHTML = '<div class="msg bad">Data gagal dimuat: ' + esc(h[0].error.message) + '</div>'; return; }
     (h[0].data || []).forEach(function (x) { D[KUNCI[x.kunci]] = x.data; D.waktu[KUNCI[x.kunci]] = x.dibuat; });
     D.aksi = h[1].data || [];
     M.badge('setuju', jumlahTunggu());
+    gambarBeranda(BR.janji ? false : undefined);
+    var sisa = Object.keys(KUNCI).filter(function (k) { return INTI.indexOf(k) < 0; });
+    var h2 = await sb.from('hasil_hitung').select('kunci,data,dibuat').in('kunci', sisa);
+    if (!h2.error) (h2.data || []).forEach(function (x) { D[KUNCI[x.kunci]] = x.data; D.waktu[KUNCI[x.kunci]] = x.dibuat; });
     U.gaji = null;
-    gambarDasbor(); gambarBeranda(); gambarSetuju(); gambarGudang(); gambarPurch(); gambarProduksi(); gambarUang();
+    gambarDasbor(); gambarBeranda(false); gambarSetuju(); gambarGudang(); gambarPurch(); gambarProduksi(); gambarUang();
     if (J.mulai) { gambarJual(); gambarJualIsi(); }
     if (AT.mulai) gambarAtur();
   }
@@ -221,18 +228,25 @@
     return L;
   }
   var BR = { bulan: '', cache: {} };
+  function ambilBeranda(k) {
+    return Promise.all([sb.rpc('beranda_data', { p_bulan: k }), sb.rpc('beranda_kpi', { p_bulan: k }),
+      D.namaTim === undefined ? sb.from('pengguna').select('nama').eq('email', D.email).maybeSingle() : null]);
+  }
   async function gambarBeranda(segar) {
     var el = $('bBeranda'); if (!el || !window.BerandaBaru) return;
     var k = BR.bulan || '';
     if (segar !== false) delete BR.cache[k];
     if (!BR.cache[k]) {
       if (el.querySelector('.bx-grid')) el.style.opacity = '.55';
-      var rr = await Promise.all([sb.rpc('beranda_data', { p_bulan: k }), sb.rpc('beranda_kpi', { p_bulan: k }),
-        D.namaTim === undefined ? sb.from('pengguna').select('nama').eq('email', D.email).maybeSingle() : null]), r = rr[0];
+      var rr;
+      if (BR.janji && k === '') { rr = await BR.janji; BR.janji = null; } else rr = await ambilBeranda(k);
+      if (BR.cache[k]) { el.style.opacity = ''; } else {
+      var r = rr[0];
       if (rr[2]) D.namaTim = (rr[2].data && rr[2].data.nama) || '';
       el.style.opacity = '';
       if (r.error) { el.innerHTML = '<div class="msg bad">Beranda gagal dimuat: ' + esc(r.error.message) + '</div>'; return; }
       BR.cache[k] = r.data; BR.kpi = BR.kpi || {}; BR.kpi[k] = rr[1].error ? null : rr[1].data;
+      }
     }
     var ekor = D.dasborHtml ? '<details class="cd" style="margin-top:16px"><summary style="cursor:pointer;font-weight:800;font-size:16.5px">Ringkasan operasional <span class="sb" style="font-weight:500">· laporan staf, toko &amp; consignment, catatan stok</span></summary><div style="margin-top:12px">' + D.dasborHtml + '</div></details>' : '';
     BerandaBaru.gambar(el, BR.cache[k], D.beranda || {}, tindakanList(), {

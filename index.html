@@ -60,7 +60,7 @@
   </div><p class="mm-status" id="mStatus" role="status"></p></section>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="moscow.js?v=10"></script>
+<script src="moscow.js?v=11"></script>
 <script>
 (function () {
   var M = window.Moscow, sb = M.sb, GOOGLE = M.GOOGLE;
@@ -129,10 +129,10 @@
   $('tKeluar').onclick = async function () { await sb.auth.signOut({ scope: 'local' }); layarMasuk(''); };
   async function periksa(sesi) {
     $('tMasuk').hidden = true; M.muat('Memeriksa akses…');
-    var r = await sb.rpc('peran_saya');
+    var tiga = await Promise.all([sb.rpc('peran_saya'), sb.rpc('lingkup_saya').then(function (x) { return x; }, function () { return { data: null }; }),
+      sb.from('pengguna').select('nama').eq('email', sesi.user.email).maybeSingle().then(function (x) { return x; }, function () { return { data: null }; })]), r = tiga[0];
     if (r.error) { layarMasuk('Tidak bisa memeriksa akses: ' + r.error.message); return; }
-    var peran = r.data, l = null;
-    try { l = (await sb.rpc('lingkup_saya')).data; } catch (e) { l = null; }
+    var peran = r.data, l = (tiga[1] && tiga[1].data) || null;
     var daftar = TUJUAN[peran];
     if (!daftar) {
       await sb.auth.signOut({ scope: 'local' });
@@ -140,8 +140,7 @@
       return;
     }
     // Layar selamat datang: selalu tampil saat sesi masih ada, cukup satu ketukan "Masuk aplikasi" tanpa pilih akun Google lagi.
-    var meta = sesi.user.user_metadata || {}, nTim = null;
-    try { nTim = ((await sb.from('pengguna').select('nama').eq('email', sesi.user.email).maybeSingle()).data || {}).nama; } catch (e) { nTim = null; }
+    var meta = sesi.user.user_metadata || {}, nTim = ((tiga[2] && tiga[2].data) || {}).nama || null;
     var nama = String(nTim || meta.full_name || meta.name || sesi.user.email.split('@')[0]).trim().split(/\s+/)[0];
     var link = daftar.filter(function (d) { return d[0].charAt(0) !== '#'; }), utama = link[0];
     try { sessionStorage.setItem('mSambut', '1'); } catch (e) { }

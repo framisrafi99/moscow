@@ -235,11 +235,11 @@
 
   async function periksa(sesi) {
     muat('Memeriksa akses…');
-    var r = await sb.rpc('peran_saya');
+    // peran & lingkup diperiksa bersamaan (dulu berurutan)
+    var dua = await Promise.all([sb.rpc('peran_saya'), sb.rpc('lingkup_saya').then(function (x) { return x; }, function () { return { data: null }; })]), r = dua[0];
     if (r.error) { layarMasuk('Tidak bisa memeriksa akses: ' + r.error.message); return; }
-    var ctx = { sb: sb, email: sesi.user.email, peran: r.data, sesi: sesi };
+    var ctx = { sb: sb, email: sesi.user.email, peran: r.data, sesi: sesi, lingkup: (dua[1] && dua[1].data) || null };
     S.email = ctx.email;
-    try { var l = await sb.rpc('lingkup_saya'); ctx.lingkup = l.data || null; } catch (e) { ctx.lingkup = null; }
     var izin = O.izin ? await O.izin(ctx) : true;
     if (izin !== true) {
       // Hanya di perangkat ini: akun yang salah buka halaman tidak boleh ikut mengeluarkan HP / laptop lain.

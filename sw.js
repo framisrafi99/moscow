@@ -1,6 +1,9 @@
-// Menyimpan tampilan pembuka saja. Data sistem selalu diambil langsung dari Google.
-var CACHE = 'moscow-v23';
-var FILES = ['./', 'lama.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
+// Tampilan aplikasi Moscow. Data sistem selalu diambil langsung dari server (tidak disimpan di sini).
+// Halaman (HTML): selalu versi terbaru dari server, cadangan bila offline.
+// File berversi (?v=…): langsung dari simpanan HP/laptop (versi baru = alamat baru), jadi tidak perlu menunggu server.
+// Gambar & ikon: tampil dari simpanan, diperbarui diam-diam di belakang.
+var CACHE = 'moscow-v24';
+var FILES = ['./', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }));
@@ -14,10 +17,28 @@ self.addEventListener('activate', function (e) {
   self.clients.claim();
 });
 
+function simpan(req, res) {
+  if (res && res.ok && res.type === 'basic') { var c = res.clone(); caches.open(CACHE).then(function (k) { k.put(req, c); }); }
+  return res;
+}
+
 self.addEventListener('fetch', function (e) {
-  if (new URL(e.request.url).origin !== location.origin) return;
-  // Selalu ambil versi terbaru dari server (lewati cache browser 10 menit); cadangan hanya bila offline.
-  var r = e.request, segar = r.method === 'GET' ? fetch(r.url, { cache: 'no-cache', credentials: 'same-origin' }) : fetch(r);
-  if (r.mode === 'navigate' || r.method !== 'GET') segar = r.method === 'GET' ? fetch(r, { cache: 'no-cache' }) : segar;
-  e.respondWith(segar.catch(function () { return caches.match(r); }));
+  var r = e.request, u = new URL(r.url);
+  if (u.origin !== location.origin || r.method !== 'GET') return;
+  if (r.mode === 'navigate') {
+    e.respondWith(fetch(r, { cache: 'no-cache' }).then(function (res) { return simpan(r, res); }).catch(function () { return caches.match(r, { ignoreSearch: true }); }));
+    return;
+  }
+  if (/[?&]v=/.test(u.search)) {
+    e.respondWith(caches.match(r).then(function (ada) { return ada || fetch(r).then(function (res) { return simpan(r, res); }); }));
+    return;
+  }
+  if (/\.(png|jpe?g|webp|svg|ico|woff2?)$/i.test(u.pathname)) {
+    e.respondWith(caches.match(r).then(function (ada) {
+      var baru = fetch(r, { cache: 'no-cache' }).then(function (res) { return simpan(r, res); }).catch(function () { return ada; });
+      return ada || baru;
+    }));
+    return;
+  }
+  e.respondWith(fetch(r, { cache: 'no-cache' }).then(function (res) { return simpan(r, res); }).catch(function () { return caches.match(r); }));
 });
