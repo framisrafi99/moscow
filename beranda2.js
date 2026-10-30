@@ -164,7 +164,7 @@
     '.bh-kp{display:flex;align-items:center;gap:14px;margin:0 0 14px}' +
     '.bh-kp>div{flex:1;min-width:0}.bh-kp h3{margin:0;font-size:19px;font-weight:800}.bh-kp p{margin:2px 0 0;font-size:13.5px;color:var(--abu)}' +
     '.bh-kp .bh-bln{height:42px}' +
-    '.bx-grid{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}' +
+    '.bx-grid{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}.bx-grid>.bx-po{grid-column:auto}' +
     '.bx-akun summary{grid-template-columns:auto minmax(0,1fr) auto;column-gap:14px}' +
     '.bx-akun summary .bh-ik{grid-row:1/4;align-self:start}' +
     '.bx-akun .pa{grid-row:1/3;grid-column:3}.bx-akun .kl{grid-column:2/-1}' +
