@@ -38,6 +38,20 @@ create table if not exists public.absen_pengingat_log (
   waktu timestamptz not null default now(),
   primary key (tanggal, jenis)
 );
+-- Pengaman: setiap panggilan ke layanan pengingat dicatat. Lebih dari 20 panggilan sehari = dianggap aneh,
+-- pengiriman dihentikan sampai besok dan manajemen melihat peringatan di Payroll › Absensi staf.
+create table if not exists public.absen_pengingat_panggil (
+  id bigint generated always as identity primary key,
+  tanggal date not null default ((now() at time zone 'Asia/Makassar')::date),
+  jenis text,
+  hasil text,
+  waktu timestamptz not null default now()
+);
+create index if not exists absen_pengingat_panggil_tgl on public.absen_pengingat_panggil (tanggal);
+alter table public.absen_pengingat_panggil enable row level security;
+revoke all on public.absen_pengingat_panggil from anon, authenticated;
+grant select, insert, delete on public.absen_pengingat_panggil to service_role;
+
 alter table public.absen_push enable row level security;
 alter table public.absen_push_kunci enable row level security;
 alter table public.absen_pengingat_log enable row level security;
@@ -80,6 +94,12 @@ create or replace function public.absen_pengingat_target(p_jenis text) returns j
 language plpgsql volatile security definer set search_path = public as $$
 declare tg date := public.absen_hari_ini(); jam int; mulai int; selesai int; hasil jsonb;
 begin
+  -- catat panggilan + pemutus: lebih dari 20 panggilan hari ini = berhenti
+  insert into public.absen_pengingat_panggil (tanggal, jenis) values (tg, left(coalesce(p_jenis, ''), 20));
+  delete from public.absen_pengingat_panggil where tanggal < tg - 30;
+  if (select count(*) from public.absen_pengingat_panggil where tanggal = tg) > 20 then
+    return jsonb_build_object('ok', false, 'pesan', 'Terlalu banyak panggilan hari ini, pengingat dihentikan sampai besok.');
+  end if;
   if p_jenis not in ('masuk', 'pulang') then return jsonb_build_object('ok', false, 'pesan', 'Jenis tidak dikenal.'); end if;
   jam := extract(hour from now() at time zone 'Asia/Makassar') * 60 + extract(minute from now() at time zone 'Asia/Makassar');
   -- jendela kirim: masuk 09.30–11.30, pulang 16.45–19.00 (WITA); hari Minggu tidak dikirim
@@ -101,6 +121,19 @@ begin
   return jsonb_build_object('ok', true, 'jenis', p_jenis, 'uji', public.absen_uji_ket(tg), 'target', hasil);
 end $$;
 
+-- Ringkasan pengingat untuk manajemen (Payroll › Absensi staf).
+create or replace function public.absen_pengingat_info(p_tanggal date) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.absen_kelola() then return jsonb_build_object('ok', false, 'pesan', 'Khusus manajemen Moscow Supplies.'); end if;
+  return jsonb_build_object('ok', true,
+    'hp', (select count(distinct staf_id) from public.absen_push),
+    'kirim', coalesce((select jsonb_object_agg(jenis, penerima) from public.absen_pengingat_log where tanggal = p_tanggal), '{}'::jsonb),
+    'panggil', (select count(*) from public.absen_pengingat_panggil where tanggal = p_tanggal));
+end $$;
+grant execute on function public.absen_pengingat_info(date) to authenticated;
+revoke all on function public.absen_pengingat_info(date) from public, anon;
+
 revoke all on function public.absen_push_publik(), public.absen_push_simpan(text, text, text, text), public.absen_push_hapus(text),
   public.absen_pengingat_target(text) from public, anon;
 grant execute on function public.absen_push_publik(), public.absen_push_simpan(text, text, text, text), public.absen_push_hapus(text) to authenticated;
@@ -117,11 +150,11 @@ begin
 end $$;
 select cron.schedule('absen-pengingat-masuk', '50 1 * * 1-6',
   $$select net.http_post(url := 'https://ufhuvwfudblbyrwzugaa.supabase.co/functions/v1/absen-pengingat',
-    headers := '{"Content-Type": "application/json"}'::jsonb, body := '{"jenis": "masuk"}'::jsonb)$$);
+    headers := '{"Content-Type": "application/json", "X-Moscow-Pengingat": "1"}'::jsonb, body := '{"jenis": "masuk"}'::jsonb)$$);
 select cron.schedule('absen-pengingat-pulang', '0 9 * * 1-6',
   $$select net.http_post(url := 'https://ufhuvwfudblbyrwzugaa.supabase.co/functions/v1/absen-pengingat',
-    headers := '{"Content-Type": "application/json"}'::jsonb, body := '{"jenis": "pulang"}'::jsonb)$$);
+    headers := '{"Content-Type": "application/json", "X-Moscow-Pengingat": "1"}'::jsonb, body := '{"jenis": "pulang"}'::jsonb)$$);
 
 -- Panggil sekali supaya Edge Function membuat kunci pengirim (VAPID).
 select net.http_post(url := 'https://ufhuvwfudblbyrwzugaa.supabase.co/functions/v1/absen-pengingat',
-  headers := '{"Content-Type": "application/json"}'::jsonb, body := '{"siapkan": true}'::jsonb);
+  headers := '{"Content-Type": "application/json", "X-Moscow-Pengingat": "1"}'::jsonb, body := '{"siapkan": true}'::jsonb);

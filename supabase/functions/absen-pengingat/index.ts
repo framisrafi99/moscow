@@ -40,6 +40,8 @@ async function kunci() {
 }
 
 Deno.serve(async (req) => {
+  // Pengaman ringan: hanya POST dari jadwal (header khusus). Pemutus "terlalu banyak panggilan" ada di database.
+  if (req.method !== 'POST' || req.headers.get('x-moscow-pengingat') !== '1') return json({ ok: false, pesan: 'Tidak diizinkan.' }, 403);
   let jenis = '';
   try { const b = await req.json(); jenis = String(b?.jenis || ''); } catch (_) { /* tanpa body */ }
   const k = await kunci();

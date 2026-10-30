@@ -50,6 +50,7 @@
     try {
       A.data = await rpc('absen_kelola_data', { p_tanggal: A.tanggal });
       try { A.daftar = (await rpc('absen_daftar_list')).daftar || []; } catch (e) { A.daftar = null; }
+      try { A.notif = await rpc('absen_pengingat_info', { p_tanggal: A.tanggal }); } catch (e) { A.notif = null; }
       // Foto selfie: alamat sementara (10 menit) untuk semua foto hari itu sekaligus.
       var jalur = [];
       (A.data.hari || []).forEach(function (h) { if (h.masuk_foto) jalur.push(h.masuk_foto); if (h.pulang_foto) jalur.push(h.pulang_foto); });
@@ -130,6 +131,13 @@
       '<div><span>Telat</span><b>' + telat + '</b></div><div><span>Izin / cuti / sakit</span><b>' + nIzin + '</b></div><div><span>Belum absen</span><b>' + belum + '</b></div></div>';
     if (!aktif.length) return h + '<div class="msg w">Belum ada staf terdaftar. Buka bagian <b>Staf & lokasi</b>.</div>';
     h += '<div class="ak-gl"><table class="ak-t"><thead><tr><th>Staf</th><th>Masuk</th><th>Pulang</th><th>Keterangan</th><th></th></tr></thead><tbody>' + baris + '</tbody></table></div>';
+    var nf = A.notif;
+    if (nf) {
+      var kr = nf.kirim || {};
+      h += '<p class="sb" style="margin:0 0 12px">Pengingat HP aktif di <b>' + nf.hp + '</b> staf. ' +
+        (kr.masuk != null ? 'Pengingat masuk terkirim ke ' + kr.masuk + ' staf. ' : '') + (kr.pulang != null ? 'Pengingat pulang terkirim ke ' + kr.pulang + ' staf.' : '') + '</p>';
+      if (nf.panggil > 20) h += '<div class="msg bad"><b>Ada yang aneh:</b> layanan pengingat dipanggil ' + nf.panggil + ' kali hari ini (normalnya 2). Pengiriman otomatis dihentikan sampai besok. Kabari Claude untuk dicek.</div>';
+    }
     var tolak = d.ditolak || [];
     if (tolak.length) {
       h += '<div class="ak-kotak"><b>Percobaan absen yang ditolak</b><p class="sb" style="margin:4px 0 8px">Di luar lokasi atau GPS lemah. Kalau sering terjadi pada orang yang sama, periksa fotonya.</p><table class="ak-t"><tbody>' +
