@@ -167,7 +167,7 @@
   async function jalankanBuka(dok) {
     for (var i = 0; i < BUKA.length; i++) {
       var l = BUKA[i], el = null;
-      for (var t = 0; t < 40 && !el; t++) {
+      for (var t = 0; t < 120 && !el; t++) {
         el = l.indexOf('g:') === 0 ? dok.querySelector('[data-g="' + l.slice(2) + '"]') : dok.getElementById(l.replace(/^[#~]/, ''));
         if (!el) await new Promise(function (r) { setTimeout(r, 500); });
       }
