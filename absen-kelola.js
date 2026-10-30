@@ -32,7 +32,7 @@
     '.ak-jam{display:flex;align-items:center;gap:8px}.ak-jam img{width:40px;height:40px;border-radius:10px;object-fit:cover;cursor:zoom-in;background:var(--garis2)}' +
     '.ak-jam b{font-size:15px;font-variant-numeric:tabular-nums}.ak-belum{color:#A0A9B5;font-weight:700}' +
     '.ak-f{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end}.ak-f label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:var(--teks2)}' +
-    '.ak-f input{height:42px;padding:0 12px;border:1px solid var(--garis);border-radius:12px;font-size:15px;background:#fff}' +
+    '.ak-f input,.ak-f select{height:42px;padding:0 12px;border:1px solid var(--garis);border-radius:12px;font-size:15px;background:#fff}' +
     '.ak-iz{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--garis2);flex-wrap:wrap}.ak-iz:last-child{border-bottom:0}.ak-iz small{display:block;color:var(--abu);font-size:12.5px;margin-top:2px}' +
     '.ak-iz .tb{display:flex;gap:8px}' +
     '#akZoom{position:fixed;inset:0;z-index:300;background:rgba(5,16,31,.88);display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out}#akZoom img{max-width:100%;max-height:100%;border-radius:16px}';
@@ -49,6 +49,7 @@
     A.sibuk = true; gambar();
     try {
       A.data = await rpc('absen_kelola_data', { p_tanggal: A.tanggal });
+      try { A.daftar = (await rpc('absen_daftar_list')).daftar || []; } catch (e) { A.daftar = null; }
       // Foto selfie: alamat sementara (10 menit) untuk semua foto hari itu sekaligus.
       var jalur = [];
       (A.data.hari || []).forEach(function (h) { if (h.masuk_foto) jalur.push(h.masuk_foto); if (h.pulang_foto) jalur.push(h.pulang_foto); });
@@ -77,10 +78,11 @@
   function gambar() {
     var el = A.el; if (!el) return;
     var d = A.data, tunggu = d ? (d.izin || []).filter(function (i) { return i.status === 'menunggu'; }).length : 0;
+    var tDaftar = (A.daftar || []).filter(function (x) { return x.status === 'menunggu'; }).length;
     var h = '<div class="ak"><h2>Absensi staf</h2><p class="sb">Staf absen dari aplikasi Absensi (lokasi GPS + selfie, jam dari server). Hitungan ke gaji ada di menu <b>Hitung absensi</b>.</p>' +
       '<div class="ak-tab" role="group" aria-label="Bagian absensi">' +
       [['hari', 'Hari ini'], ['izin', 'Izin & cuti'], ['atur', 'Staf & lokasi']].map(function (t) {
-        return '<button type="button" data-tab="' + t[0] + '" aria-pressed="' + (A.tab === t[0]) + '">' + t[1] + (t[0] === 'izin' && tunggu ? '<span class="bd">' + tunggu + '</span>' : '') + '</button>';
+        return '<button type="button" data-tab="' + t[0] + '" aria-pressed="' + (A.tab === t[0]) + '">' + t[1] + (t[0] === 'izin' && tunggu ? '<span class="bd">' + tunggu + '</span>' : '') + (t[0] === 'atur' && tDaftar ? '<span class="bd">' + tDaftar + '</span>' : '') + '</button>';
       }).join('') + '</div>';
     if (A.pesan) h += '<div class="msg ' + A.kelas + '" role="status">' + A.pesan + '</div>';
     if (!d) h += '<div class="ksg">' + (A.sibuk ? 'Memuat…' : '') + '</div>';
@@ -153,9 +155,36 @@
     }).join('') + '</div>';
   }
 
+  // Mencari nama Payroll yang paling mirip dengan nama yang diketik staf.
+  function namaMirip(n) {
+    var t = String(n || '').toLowerCase().split(/\s+/).filter(Boolean), terbaik = '', skor = 0;
+    (A.payroll || []).forEach(function (p) {
+      var q = p.toLowerCase().split(/\s+/), k = t.filter(function (x) { return q.some(function (y) { return y === x || (x.length >= 3 && y.indexOf(x) === 0); }); }).length;
+      if (k > skor) { skor = k; terbaik = p; }
+    });
+    return terbaik;
+  }
+  function kotakDaftar(d) {
+    var tunggu = (A.daftar || []).filter(function (x) { return x.status === 'menunggu'; });
+    if (A.daftar === null) return '<div class="msg w">Pendaftaran mandiri belum aktif: jalankan sql/absensi-daftar.sql di Supabase.</div>';
+    if (!tunggu.length) return '';
+    var lok = d.lokasi || [], terpakai = {};
+    (d.staf || []).forEach(function (s) { if (s.email && s.aktif) terpakai[s.nama] = 1; });
+    return '<div class="ak-kotak" style="border-color:var(--kuning)"><b>Pendaftaran baru</b><p class="sb" style="margin:4px 0 10px">Staf mendaftar sendiri dari aplikasi. Cocokkan dengan nama di Payroll, pilih lokasi, lalu setujui. Tolak kalau bukan staf Moscow Supplies.</p>' +
+      tunggu.map(function (x) {
+        var mirip = namaMirip(x.nama);
+        return '<div class="ak-iz"><div><b>' + esc(x.nama) + '</b><small>' + esc(x.email) + '</small></div><div class="ak-f" style="flex:1;min-width:260px">' +
+          '<label>Nama di Payroll<select data-dfnama="' + x.id + '"><option value="">— pilih —</option>' + (A.payroll || []).map(function (p) {
+            return '<option' + (p === mirip ? ' selected' : '') + '>' + esc(p) + (terpakai[p] ? ' (sudah punya email)' : '') + '</option>';
+          }).join('') + '</select></label>' +
+          '<label>Lokasi<select data-dflok="' + x.id + '"><option value="">— pilih —</option>' + lok.map(function (l) { return '<option value="' + l.id + '">' + esc(l.nama) + '</option>'; }).join('') + '</select></label>' +
+          '<div class="tb" style="display:flex;gap:8px"><button type="button" class="tbl kcl pri" data-dfya="' + x.id + '">Setujui</button><button type="button" class="tbl kcl mer" data-dftidak="' + x.id + '">Tolak</button></div></div></div>';
+      }).join('') + '</div>';
+  }
+
   function tabAtur(d) {
     var lok = d.lokasi || [];
-    var h = '<div class="ak-kotak"><b>Lokasi kerja</b><p class="sb" style="margin:4px 0 10px">Cara paling mudah: berdiri di lokasi itu, lalu tekan <b>Pakai posisi saya</b>. Bisa juga tempel titik dari Google Maps (tekan lama di peta, salin angka seperti -8.6705, 115.1680).</p>' +
+    var h = kotakDaftar(d) + '<div class="ak-kotak"><b>Lokasi kerja</b><p class="sb" style="margin:4px 0 10px">Cara paling mudah: berdiri di lokasi itu, lalu tekan <b>Pakai posisi saya</b>. Bisa juga tempel titik dari Google Maps (tekan lama di peta, salin angka seperti -8.6705, 115.1680).</p>' +
       lok.map(function (l) {
         var titik = l.lat != null ? l.lat + ', ' + l.lng : '';
         return '<div class="ak-f" style="margin-bottom:12px"><label>' + esc(l.nama) + '<input type="text" id="lkTitik' + l.id + '" value="' + esc(titik) + '" placeholder="lat, lng" inputmode="decimal"></label>' +
@@ -243,6 +272,22 @@
         jalankan('absen_lokasi_simpan', { p_id: id, p_lat: lat, p_lng: lng, p_radius: parseInt(el.querySelector('#lkRadius' + id).value, 10) || 100 }, 'Lokasi tersimpan.');
       };
     });
+    el.querySelectorAll('[data-dfya]').forEach(function (b) {
+      b.onclick = function () {
+        var id = b.getAttribute('data-dfya'), sn = el.querySelector('[data-dfnama="' + id + '"]'), lk = el.querySelector('[data-dflok="' + id + '"]');
+        var nama = sn.value.replace(/ \(sudah punya email\)$/, '');
+        if (!nama || !lk.value) { A.pesan = 'Pilih nama di Payroll dan lokasinya dulu.'; A.kelas = 'bad'; gambar(); return; }
+        jalankan('absen_daftar_putus', { p_id: +id, p_setuju: true, p_nama_payroll: nama, p_lokasi_id: +lk.value }, 'Pendaftaran disetujui. Staf bisa langsung absen.', null, function (r) {
+          return r.akun_baru ? ' Kalau login Google masih mode uji, tambahkan emailnya sebagai test user di Google Cloud.' : '';
+        });
+      };
+    });
+    el.querySelectorAll('[data-dftidak]').forEach(function (b) {
+      b.onclick = function () {
+        if (!confirm('Tolak pendaftaran ini?')) return;
+        jalankan('absen_daftar_putus', { p_id: +b.getAttribute('data-dftidak'), p_setuju: false, p_nama_payroll: '', p_lokasi_id: null }, 'Pendaftaran ditolak.');
+      };
+    });
     var ss = el.querySelector('#stSimpan');
     if (ss) ss.onclick = function () {
       var items = [];
@@ -277,7 +322,7 @@
     gambar: function (el, sb) {
       A.el = el; A.sb = sb;
       if (!document.getElementById('akGaya')) { var g = document.createElement('style'); g.id = 'akGaya'; g.textContent = CSS; document.head.appendChild(g); }
-      A.pesan = ''; muat();
+      A.pesan = ''; muat(); if (!A.payroll) muatPayroll().then(function () { if (A.tab === 'atur') gambar(); });
     }
   };
 })();

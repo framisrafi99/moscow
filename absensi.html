@@ -140,9 +140,32 @@
       return;
     }
     var d = r.data || {};
-    if (!d.ok) { D.saya = null; $('abKartu').innerHTML = '<div class="msg w">' + esc(d.pesan) + '</div>'; gambarIzin(); return; }
+    if (!d.ok) { D.saya = null; gambarIzin(); await gambarDaftar(); return; }
     D.saya = d; D.selisih = new Date(d.server).getTime() - Date.now();
     gambarAbsen(); gambarIzin();
+  }
+
+  // ----- pendaftaran staf baru (disetujui manajemen) -----
+  async function gambarDaftar() {
+    var r = await sb.rpc('absen_daftar_saya'), d = (r && r.data) || {};
+    if (r.error || !d.ok) { $('abKartu').innerHTML = '<div class="msg w">Akun ini belum terdaftar untuk absensi. Hubungi manajemen Moscow Supplies.</div>'; return; }
+    var h = '<h3>Daftar absensi</h3>';
+    if (d.status === 'menunggu') {
+      h += '<div class="msg tunggu">Pendaftaran atas nama <b>' + esc(d.nama) + '</b> sudah terkirim dan menunggu persetujuan manajemen Moscow Supplies. Buka lagi halaman ini setelah disetujui.</div>';
+    } else {
+      if (d.status === 'ditolak') h += '<div class="msg bad">Pendaftaran sebelumnya ditolak. Kalau ada yang salah, perbaiki namamu lalu kirim lagi.</div>';
+      h += '<p class="sb" style="margin:0">Kamu masuk sebagai <b>' + esc(d.email) + '</b>. Staf Moscow Supplies: tulis nama lengkapmu, lalu manajemen akan menyetujui dan memilih lokasi kerjamu.</p>' +
+        '<label class="lb">Nama lengkap<input class="isian" id="dfNama" maxlength="80" autocomplete="name" placeholder="sesuai KTP"></label>' +
+        '<button type="button" class="tbl pri lebar" id="dfKirim">Kirim pendaftaran</button>' +
+        '<p class="sb" style="margin:0">Bukan akun yang benar? Keluar lewat menu, lalu masuk dengan akun Google milikmu sendiri.</p>';
+    }
+    $('abKartu').innerHTML = h;
+    if ($('dfKirim')) $('dfKirim').onclick = async function () {
+      var b = this; b.disabled = true; pesan('msg', '');
+      var x = await sb.rpc('absen_daftar_ajukan', { p_nama: $('dfNama').value });
+      if (x.error || !x.data.ok) { pesan('msg', x.error ? x.error.message : x.data.pesan, 'bad'); b.disabled = false; return; }
+      pesan('msg', 'Pendaftaran terkirim. Tunggu persetujuan manajemen.', 'ok'); gambarDaftar();
+    };
   }
 
   // ----- layar absen -----
@@ -323,7 +346,8 @@
 
   Moscow.mulai({
     aplikasi: 'ABSENSI',
-    izin: function (ctx) { return ctx.peran ? true : 'Akun ' + ctx.email + ' belum didaftarkan. Minta manajemen Moscow Supplies menambahkan email ini.'; },
+    // Akun yang belum terdaftar tetap boleh masuk: hanya bisa mengajukan pendaftaran absensi.
+    izin: function () { return true; },
     menu: [
       { k: 'absen', nm: 'Absen', ik: 'setuju', judul: 'Absen hari ini' },
       { k: 'izin', nm: 'Izin & cuti', ik: 'nota', judul: 'Izin, cuti & sakit', pendek: 'Izin' },

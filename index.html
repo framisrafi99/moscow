@@ -139,8 +139,12 @@
     var peran = r.data, l = (tiga[1] && tiga[1].data) || null;
     var daftar = TUJUAN[peran];
     if (!daftar) {
-      await sb.auth.signOut({ scope: 'local' });
-      layarMasuk('Akun ' + sesi.user.email + ' belum didaftarkan. Minta manajemen Moscow Supplies menambahkan email ini.');
+      // Staf baru: boleh mengajukan pendaftaran absensi (harus disetujui manajemen).
+      M.muat(false); $('akses').hidden = true; $('inapp').hidden = true; $('mStatus').hidden = true;
+      $('judul').textContent = 'Akun belum terdaftar';
+      $('teks').textContent = 'Kamu masuk sebagai ' + sesi.user.email + '. Staf Moscow Supplies bisa mendaftar absensi di bawah, lalu menunggu persetujuan manajemen.';
+      $('pilih').innerHTML = '<a class="masukApp" href="absensi.html"><b>Daftar absensi<small>Untuk staf Moscow Supplies</small></b><span aria-hidden="true">›</span></a>';
+      $('pilih').hidden = false; $('tKeluar').hidden = false;
       return;
     }
     // Layar selamat datang: selalu tampil saat sesi masih ada, cukup satu ketukan "Masuk aplikasi" tanpa pilih akun Google lagi.
