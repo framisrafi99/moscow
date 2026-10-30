@@ -127,6 +127,7 @@
       { k: 'app-kb', nm: 'Kendali Bisnis', ik: 'laporan', href: 'kendali.html' },
       { k: 'app-stok', nm: 'Stok', ik: 'stok', href: 'stok.html' },
       { k: 'app-kasir', nm: 'Kasir Toko Offline', ik: 'kasir', href: 'kasir.html' },
+      { k: 'app-kreatif', nm: 'Manager Kreatif', ik: 'produksi', href: 'kreatif.html' },
       { k: 'app-akunting', nm: 'Form accounting', ik: 'uang', href: 'form.html?f=akunting' },
       { k: 'app-mdlama', nm: 'Master Data lama', ik: 'dasbor', href: 'form.html?f=mdlama' }
     ],
@@ -1219,14 +1220,14 @@
     else h += '<table class="tabel"><tbody>' + d.map(function (x, i) {
       return '<tr><td><b>' + esc(x.nama_pelanggan) + '</b><small>' + esc(x.tipe) + (x.diskon_persen ? ' · diskon ' + fmt(x.diskon_persen) + '%' : '') + (x.catatan ? ' · ' + esc(x.catatan) : '') + '</small></td><td class="r">' + (x.link_order ? '<button type="button" class="tbl" data-salin="' + i + '">Salin link</button>' : '<span class="sb">–</span>') + '</td></tr>'; }).join('') + '</tbody></table>' +
       '<p class="sb">Link formulir order / laporan untuk tiap toko dan reseller. Jangan bagikan link satu toko ke toko lain. Menambah pelanggan atau mengubah diskon masih lewat menu Pelanggan &amp; Link di Master Data lama.</p>';
-    h += '</div><div class="cd"><h3>Aplikasi baru</h3><table class="tabel"><tbody>' + [['Master Data', 'master.html', 'manajemen Moscow Supplies'], ['Kendali Bisnis', 'kendali.html', 'manajemen, Mike, kendali bisnis'], ['Stok', 'stok.html', 'manajemen, accounting, gudang, staf toko (lokasinya sendiri)'], ['Kasir Toko Offline', 'kasir.html', 'staf toko offline']].map(function (a) {
+    h += '</div><div class="cd"><h3>Aplikasi baru</h3><table class="tabel"><tbody>' + [['Master Data', 'master.html', 'manajemen Moscow Supplies'], ['Kendali Bisnis', 'kendali.html', 'manajemen, Mike, kendali bisnis'], ['Stok', 'stok.html', 'manajemen, accounting, gudang, staf toko (lokasinya sendiri)'], ['Kasir Toko Offline', 'kasir.html', 'staf toko offline'], ['Manager Kreatif', 'kreatif.html', 'manajemen, manager kreatif, tim kreatif']].map(function (a) {
       return '<tr><td><b>' + a[0] + '</b><small>Untuk ' + esc(a[2]) + ' · masuk dengan akun Google yang terdaftar</small></td><td class="r"><button type="button" class="tbl" data-salin-url="' + esc(dasar + a[1]) + '">Salin link</button></td></tr>'; }).join('') + '</tbody></table></div>';
     return h;
   }
 
   // ---------- Akses & perangkat ----------
   AT.akf = 'Menunggu'; AT.pgBuka = null;
-  var PERAN = [['manajemen', 'Manajemen Moscow Supplies', 'Semua aplikasi'], ['kendali_bisnis', 'Kendali Bisnis', 'Kendali Bisnis, Stok'], ['accounting', 'Accounting', 'Stok, laporan keuangan'], ['gudang', 'Gudang Utama', 'Stok'], ['purchasing_shopeepay', 'Purchasing', 'Stok'], ['produksi', 'Staf produksi', 'Stok'], ['bahan_baku', 'Staf bahan baku', 'Stok'], ['payroll', 'Admin gaji', '–'], ['toko', 'Staf toko', 'Stok tokonya sendiri, Kasir (toko offline)']];
+  var PERAN = [['manajemen', 'Manajemen Moscow Supplies', 'Semua aplikasi'], ['kendali_bisnis', 'Kendali Bisnis', 'Kendali Bisnis, Stok'], ['accounting', 'Accounting', 'Stok, laporan keuangan'], ['gudang', 'Gudang Utama', 'Stok'], ['purchasing_shopeepay', 'Purchasing', 'Stok'], ['produksi', 'Staf produksi', 'Stok'], ['bahan_baku', 'Staf bahan baku', 'Stok'], ['payroll', 'Admin gaji', '–'], ['toko', 'Staf toko', 'Stok tokonya sendiri, Kasir (toko offline)'], ['kreatif_manager', 'Manager kreatif', 'Manager Kreatif (semua fitur)'], ['kreatif', 'Tim kreatif', 'Manager Kreatif (papan, tugas, catatan)']];
   function namaPeran(p) { for (var i = 0; i < PERAN.length; i++) if (PERAN[i][0] === p) return PERAN[i][1]; return p || '–'; }
   function emailSaya() { return D.email || ''; }
   function isiAkses() {

@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Manager Kreatif</title>
+<meta name="theme-color" content="#172434">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kreatif">
+<link rel="manifest" href="manifest-kreatif.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="moscow.css?v=11">
+<style>
+  /* Papan produksi */
+  .papan { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(250px,1fr); gap:12px; overflow-x:auto; padding-bottom:8px; align-items:start; }
+  .kol { background:var(--garis2); border-radius:14px; padding:10px; min-height:120px; }
+  .kol > h4 { margin:2px 4px 10px; font-size:13px; font-weight:800; display:flex; justify-content:space-between; color:var(--teks2); }
+  .kartu-k { background:#fff; border:1px solid var(--garis); border-radius:12px; padding:11px 12px; margin-bottom:8px; display:flex; flex-direction:column; gap:6px; }
+  .kartu-k b { font-size:14px; line-height:1.3; cursor:pointer; }
+  .kartu-k b:hover { color:var(--biru); }
+  .kartu-k small { color:var(--abu); font-size:12px; line-height:1.4; }
+  .kartu-k small.telat { color:var(--merah); font-weight:700; }
+  .kartu-k .tb { display:flex; gap:6px; flex-wrap:wrap; }
+  .kartu-k .tb .tbl { padding:6px 10px; font-size:12.5px; }
+  .kartu-k a { color:var(--biru); font-size:12.5px; font-weight:600; text-decoration:none; }
+
+  /* Kalender */
+  .kal { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); border-top:1px solid var(--garis); border-left:1px solid var(--garis); }
+  .kal > div { border-right:1px solid var(--garis); border-bottom:1px solid var(--garis); min-height:92px; padding:6px; font-size:12px; min-width:0; }
+  .kal .hd { min-height:0; font-weight:700; color:var(--abu); background:var(--garis2); text-align:center; }
+  .kal .lain { background:var(--latar); color:#A0A9B5; }
+  .kal .ini { box-shadow:inset 0 0 0 2px var(--biru); }
+  .kal .tg { font-weight:700; margin-bottom:4px; }
+  .kal .ev { display:block; border-radius:6px; padding:2px 6px; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+  .ev.s { background:var(--biruMuda); color:var(--biruTua); }
+  .ev.t { background:var(--kuningMuda); color:var(--kuning); }
+  .ev.y { background:var(--hijauMuda); color:var(--hijau); }
+  html.m-m .kal > div { min-height:64px; padding:3px; font-size:10.5px; }
+  .legenda { display:flex; gap:8px; flex-wrap:wrap; font-size:12px; }
+  .legenda .ev { display:inline-block; border-radius:6px; padding:2px 8px; }
+
+  /* Dialog */
+  #dlg { position:fixed; inset:0; background:rgba(15,27,42,.45); display:flex; align-items:flex-start; justify-content:center; padding:5vh 12px; z-index:60; overflow-y:auto; }
+  #dlg .isi { background:#fff; border-radius:16px; width:100%; max-width:620px; padding:20px; display:flex; flex-direction:column; gap:12px; }
+  #dlg h3 { margin:0; font-size:17px; }
+  .aksi-bawah { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+  .aksi-bawah .kiri { margin-right:auto; }
+
+  .grafik svg { width:100%; height:auto; display:block; }
+  .angka-in { width:90px; padding:8px 10px; border:1px solid var(--garis); border-radius:10px; font-size:14px; text-align:right; }
+  .bar { height:8px; border-radius:4px; background:var(--garis2); overflow:hidden; min-width:80px; }
+  .bar > i { display:block; height:100%; background:var(--biru); }
+  .bar > i.ok { background:var(--hijau); }
+  .bar > i.w { background:var(--jingga); }
+  @media print { .tak-cetak { display:none !important; } .cd { break-inside:avoid; } }
+</style>
+</head>
+<body>
+<main id="mIsi">
+  <div id="msg" role="status"></div>
+
+  <section data-bagian="papan">
+    <div class="chip" id="papanFilter"></div>
+    <div class="papan" id="papan"><div class="ksg">Memuat…</div></div>
+  </section>
+
+  <section data-bagian="kalender">
+    <div class="cd">
+      <div class="kpl"><h3 id="kalJudul"></h3>
+        <div class="baris tak-cetak" style="flex:0 0 auto"><button type="button" class="tbl" id="kalMundur">Bulan lalu</button><button type="button" class="tbl" id="kalIni">Bulan ini</button><button type="button" class="tbl" id="kalMaju">Bulan depan</button></div>
+      </div>
+      <div class="legenda"><span class="ev s">Shooting</span><span class="ev t">Tenggat editing</span><span class="ev y">Tayang</span></div>
+      <div class="gulir"><div class="kal" id="kal"></div></div>
+    </div>
+  </section>
+
+  <section data-bagian="tugas">
+    <div class="cd" id="tugasPilihC"><label class="sb">Lihat tugas milik<select class="isian" id="tugasPilih"></select></label></div>
+    <div class="cd"><div class="kpl"><h3>Giliran saya sekarang</h3><span class="sb" id="tugasJml"></span></div><div id="tugasDaftar"></div></div>
+    <div class="cd">
+      <h3>Catatan harian</h3>
+      <div class="baris"><label>Tanggal<input class="isian" type="date" id="ctTgl"></label></div>
+      <label class="sb">Yang dikerjakan hari ini<textarea class="isian" id="ctIsi" rows="3"></textarea></label>
+      <label class="sb">Kendala (kalau ada)<textarea class="isian" id="ctKendala" rows="2"></textarea></label>
+      <div><button type="button" class="tbl pri" id="ctSimpan">Simpan catatan</button></div>
+      <div id="ctDaftar"></div>
+    </div>
+  </section>
+
+  <section data-bagian="target">
+    <div class="cd">
+      <div class="kpl"><h3>Target per orang</h3><label class="sb">Bulan <input class="isian" type="month" id="tgBulan" style="display:inline-block;width:auto"></label></div>
+      <p class="sb">Isi jumlah konten yang harus selesai. Talent dan videografer dihitung dari shooting selesai, editor dari video yang disetujui, tim dari video tayang.</p>
+      <div class="gulir" id="tgTabel"></div>
+      <div><button type="button" class="tbl pri" id="tgSimpan">Simpan target</button></div>
+    </div>
+  </section>
+
+  <section data-bagian="laporan">
+    <div class="cd tak-cetak"><div class="kpl"><h3>Periode laporan</h3><input class="isian" type="month" id="lpBulan" style="width:auto"></div></div>
+    <div id="lpIsi"></div>
+  </section>
+
+  <section data-bagian="tim">
+    <div class="cd">
+      <div class="kpl"><h3>Anggota tim kreatif</h3><button type="button" class="tbl pri" id="timBaru">Tambah anggota</button></div>
+      <div class="gulir" id="timTabel"></div>
+      <p class="sb">Supaya anggota bisa masuk sendiri, daftarkan juga emailnya di Master Data dengan peran "Tim kreatif". Email di sini dipakai untuk menampilkan tugasnya.</p>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="moscow.js?v=8"></script>
+<script>
+(function () {
+  'use strict';
+  var TZ = 'Asia/Makassar';
+  var sb = Moscow.sb, esc = Moscow.esc;
+  function $(i) { return document.getElementById(i); }
+
+  var STATUS = [['ide', 'Ide dan naskah'], ['terjadwal', 'Jadwal shooting'], ['shooting', 'Shooting'], ['editing', 'Editing'], ['review', 'Review manager'], ['tayang', 'Tayang']];
+  var PERAN = [['talent', 'Talent'], ['videografer', 'Videografer'], ['editor', 'Editor'], ['lainnya', 'Lainnya']];
+  var PLATFORM = ['TikTok', 'Instagram', 'YouTube', 'Facebook', 'Shopee', 'Lainnya'];
+  var BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  // Bobot skor kinerja bulanan (lihat dokumen spesifikasi).
+  var BOBOT = { capai: 0.6, tepat: 0.3, revisi: 0.1 };
+
+  var D = { anggota: [], konten: [], target: [], kelola: false, saya: null, email: '' };
+  var S = { filter: 0, kal: bulanIni(), tugas: 0 };
+
+  // ----- tanggal (zona waktu toko) -----
+  function hariIni() { try { return new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date()); } catch (e) { return new Date().toISOString().slice(0, 10); } }
+  function bulanIni() { return hariIni().slice(0, 7); }
+  function tglLokal(ts) { if (!ts) return ''; try { return new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(ts)); } catch (e) { return String(ts).slice(0, 10); } }
+  function tglIndo(iso) { if (!iso) return ''; var p = iso.split('-'); return Number(p[2]) + ' ' + BULAN[Number(p[1]) - 1].slice(0, 3); }
+  function namaBulan(ym) { var p = ym.split('-'); return BULAN[Number(p[1]) - 1] + ' ' + p[0]; }
+  function geserBulan(ym, n) { var p = ym.split('-'), d = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1 + n, 1)); return d.toISOString().slice(0, 7); }
+  function hariDalam(ym) { var p = ym.split('-'); return new Date(Date.UTC(Number(p[0]), Number(p[1]), 0)).getUTCDate(); }
+
+  function pesan(t, baik) {
+    $('msg').innerHTML = t ? '<div class="msg ' + (baik ? 'ok' : 'bad') + '">' + esc(t) + '</div>' : '';
+    if (t) try { window.scrollTo(0, 0); } catch (e) { }
+  }
+  function namaStatus(s) { for (var i = 0; i < STATUS.length; i++) if (STATUS[i][0] === s) return STATUS[i][1]; return s; }
+  function namaPeran(p) { for (var i = 0; i < PERAN.length; i++) if (PERAN[i][0] === p) return PERAN[i][1]; return p; }
+  function anggota(id) { for (var i = 0; i < D.anggota.length; i++) if (D.anggota[i].id === id) return D.anggota[i]; return null; }
+  function nama(id) { var a = anggota(id); return a ? a.nama : ''; }
+  function aktif(peran) { return D.anggota.filter(function (a) { return a.aktif && (!peran || a.peran === peran); }); }
+  function terlibat(k, id) { return k.talent_id === id || k.videografer_id === id || k.editor_id === id; }
+  function idxStatus(s) { for (var i = 0; i < STATUS.length; i++) if (STATUS[i][0] === s) return i; return 0; }
+
+  // ----- masuk (bingkai bersama) -----
+  var OPSI = {
+    aplikasi: 'MANAGER KREATIF',
+    izin: function (ctx) {
+      if (['manajemen', 'kreatif_manager', 'kreatif'].indexOf(ctx.peran) === -1) return 'Akun ' + ctx.email + ' tidak punya akses ke Manager Kreatif.';
+      D.kelola = ctx.peran !== 'kreatif'; D.email = String(ctx.email || '').toLowerCase();
+      // Target dan Tim hanya untuk manager: menu dibangun setelah izin, jadi cukup dibuang dari daftar.
+      if (!D.kelola) OPSI.menu = OPSI.menu.filter(function (m) { return m.k !== 'target' && m.k !== 'tim'; });
+      return true;
+    },
+    menu: [
+      { k: 'papan', nm: 'Papan produksi', ik: 'produksi' },
+      { k: 'kalender', nm: 'Kalender', ik: 'riwayat', judul: 'Kalender produksi' },
+      { k: 'tugas', nm: 'Tugas saya', ik: 'setuju' },
+      { k: 'laporan', nm: 'Laporan', ik: 'laporan', judul: 'Laporan kinerja' },
+      { k: 'target', nm: 'Target', ik: 'dasbor', judul: 'Target harian dan bulanan' },
+      { k: 'tim', nm: 'Tim', ik: 'pelanggan', judul: 'Anggota tim' }
+    ],
+    bawah: ['papan', 'kalender', 'tugas', 'laporan', 'lain'],
+    pindah: function (k) { pesan(''); tampil(k); },
+    siap: function (ctx) {
+      if (ctx.peran === 'manajemen') {
+        var nav = document.querySelector('#mSide nav');
+        if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + Moscow.svg('beranda') + '<span class="nm">Master Data</span></a>');
+      }
+      muatSemua();
+    }
+  };
+  Moscow.mulai(OPSI);
+
+  async function muatSemua() {
+    var h = await Promise.all([
+      sb.from('kreatif_anggota').select('*').order('nama'),
+      sb.from('kreatif_konten').select('*').order('id', { ascending: false }).limit(3000),
+      sb.from('kreatif_target').select('*')
+    ]);
+    var gagal = h.filter(function (r) { return r.error; })[0];
+    if (gagal) {
+      pesan('Data kreatif gagal dimuat: ' + gagal.error.message + (/does not exist|schema cache/i.test(gagal.error.message) ? '. Tabel belum dibuat: jalankan sql/kreatif.sql di Supabase.' : ''), false);
+      return;
+    }
+    D.anggota = h[0].data || []; D.konten = h[1].data || []; D.target = h[2].data || [];
+    D.saya = D.anggota.filter(function (a) { return a.email && a.email.toLowerCase() === D.email; })[0] || null;
+    if (!S.tugas) S.tugas = D.saya ? D.saya.id : (aktif()[0] ? aktif()[0].id : 0);
+    tampil(Moscow.aktif());
+  }
+
+  function tampil(k) {
+    var a = [];
+    if (k === 'papan' && D.kelola) a.push({ nm: 'Konten baru', ik: 'plus', kelas: 'pri', klik: function () { formKonten(null); } });
+    if (k === 'laporan') { a.push({ nm: 'Unduh Excel', ik: 'nota', klik: unduhLaporan }); a.push({ nm: 'Cetak / PDF', ik: 'nota', klik: function () { window.print(); } }); }
+    a.push({ nm: 'Muat ulang', ik: 'muat', klik: muatSemua });
+    Moscow.aksi(a);
+    if (k === 'papan') papan();
+    else if (k === 'kalender') kalender();
+    else if (k === 'tugas') tugas();
+    else if (k === 'target') target();
+    else if (k === 'laporan') laporan();
+    else if (k === 'tim') tim();
+  }
+
+  // ===================== PAPAN PRODUKSI =====================
+  function papan() {
+    var pil = [{ id: 0, nama: 'Semua' }].concat(aktif());
+    $('papanFilter').innerHTML = pil.map(function (a) {
+      var n = a.id ? D.konten.filter(function (k) { return k.status !== 'tayang' && terlibat(k, a.id); }).length : D.konten.filter(function (k) { return k.status !== 'tayang'; }).length;
+      return '<button type="button" data-id="' + a.id + '" aria-pressed="' + (S.filter === a.id) + '"><span>' + esc(a.id ? namaPeran(a.peran) : 'Tim') + '</span><b>' + esc(a.nama) + ' · ' + n + '</b></button>';
+    }).join('');
+    $('papanFilter').querySelectorAll('button').forEach(function (b) { b.onclick = function () { S.filter = Number(b.getAttribute('data-id')); papan(); }; });
+
+    var hari = hariIni(), batasTayang = geserBulan(bulanIni(), -1) + '-01';
+    var daftar = D.konten.filter(function (k) { return !S.filter || terlibat(k, S.filter); });
+    $('papan').innerHTML = STATUS.map(function (st) {
+      var isi = daftar.filter(function (k) { return k.status === st[0] && (st[0] !== 'tayang' || tglLokal(k.ditayangkan) >= batasTayang); });
+      if (st[0] === 'tayang') isi.sort(function (a, b) { return String(b.ditayangkan).localeCompare(String(a.ditayangkan)); });
+      return '<div class="kol"><h4><span>' + esc(st[1]) + '</span><span>' + isi.length + '</span></h4>' +
+        (isi.length ? isi.map(function (k) { return kartu(k, hari); }).join('') : '<div class="ksg">Kosong</div>') + '</div>';
+    }).join('');
+    $('papan').querySelectorAll('[data-buka]').forEach(function (b) { b.onclick = function () { formKonten(cari(b.getAttribute('data-buka'))); }; });
+    $('papan').querySelectorAll('[data-ke]').forEach(function (b) { b.onclick = function () { pindahStatus(cari(b.getAttribute('data-id')), b.getAttribute('data-ke'), b); }; });
+  }
+  function cari(id) { id = Number(id); return D.konten.filter(function (k) { return k.id === id; })[0]; }
+
+  function kartu(k, hari) {
+    var orang = [k.talent_id && 'Talent: ' + nama(k.talent_id), k.videografer_id && 'Video: ' + nama(k.videografer_id), k.editor_id && 'Editor: ' + nama(k.editor_id)].filter(Boolean).join(' · ');
+    var tgl = [];
+    if (k.tgl_shooting && idxStatus(k.status) <= 2) tgl.push('Shooting ' + tglIndo(k.tgl_shooting));
+    if (k.tenggat && k.status !== 'tayang') tgl.push('Tenggat ' + tglIndo(k.tenggat));
+    if (k.tgl_tayang && k.status !== 'tayang') tgl.push('Tayang ' + tglIndo(k.tgl_tayang));
+    if (k.status === 'tayang') tgl.push('Tayang ' + tglIndo(tglLokal(k.ditayangkan)));
+    var telat = k.status !== 'tayang' && k.tenggat && k.tenggat < hari;
+    var i = idxStatus(k.status), tb = '';
+    var maju = STATUS[i + 1];
+    if (k.status === 'review') {
+      if (D.kelola) tb = '<button type="button" class="tbl pri" data-id="' + k.id + '" data-ke="tayang">Setujui</button><button type="button" class="tbl" data-id="' + k.id + '" data-ke="editing">Perlu revisi</button>';
+    } else if (maju) {
+      tb = '<button type="button" class="tbl" data-id="' + k.id + '" data-ke="' + maju[0] + '">Lanjut ke ' + esc(maju[1].toLowerCase()) + '</button>';
+    }
+    return '<div class="kartu-k"><b data-buka="' + k.id + '">' + esc(k.judul) + '</b>' +
+      (k.platform ? '<span><span class="label biru">' + esc(k.platform) + '</span>' + (k.revisi ? ' <span class="label w">' + k.revisi + ' revisi</span>' : '') + '</span>' : (k.revisi ? '<span><span class="label w">' + k.revisi + ' revisi</span></span>' : '')) +
+      (orang ? '<small>' + esc(orang) + '</small>' : '') +
+      (tgl.length ? '<small class="' + (telat ? 'telat' : '') + '">' + esc(tgl.join(' · ')) + (telat ? ' · terlambat' : '') + '</small>' : '') +
+      (k.link_drive ? '<a href="' + esc(k.link_drive) + '" target="_blank" rel="noopener">Buka file di Drive</a>' : '') +
+      (tb ? '<div class="tb">' + tb + '</div>' : '') + '</div>';
+  }
+
+  async function pindahStatus(k, ke, tombol) {
+    if (!k) return;
+    if (ke === 'tayang' && !D.kelola) return;
+    if (tombol) tombol.disabled = true;
+    var r = await sb.from('kreatif_konten').update({ status: ke }).eq('id', k.id).select().single();
+    if (r.error) { pesan('Gagal mengubah status: ' + r.error.message, false); if (tombol) tombol.disabled = false; return; }
+    Object.assign(k, r.data);
+    pesan('"' + k.judul + '" pindah ke ' + namaStatus(ke).toLowerCase() + '.', true);
+    tampil(Moscow.aktif());
+  }
+
+  // ----- form konten -----
+  function opsiAnggota(peran, pilih) {
+    return '<option value="">–</option>' + D.anggota.filter(function (a) { return (a.aktif || a.id === pilih) && (a.peran === peran || a.peran === 'lainnya'); })
+      .map(function (a) { return '<option value="' + a.id + '"' + (a.id === pilih ? ' selected' : '') + '>' + esc(a.nama) + '</option>'; }).join('');
+  }
+  function formKonten(k) {
+    var baru = !k, x = k || { status: 'ide' }, kunci = !D.kelola ? ' disabled' : '';
+    var el = document.createElement('div'); el.id = 'dlg';
+    el.innerHTML = '<div class="isi" role="dialog" aria-label="Konten"><h3>' + (baru ? 'Konten baru' : esc(x.judul)) + '</h3>' +
+      '<label class="sb">Judul / ide konten<input class="isian" data-f="judul" value="' + esc(x.judul || '') + '"' + kunci + '></label>' +
+      '<div class="baris"><label>Platform<select class="isian" data-f="platform"' + kunci + '><option value="">–</option>' + PLATFORM.map(function (p) { return '<option' + (p === x.platform ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select></label>' +
+      '<label>Status<select class="isian" data-f="status"' + kunci + '>' + STATUS.map(function (s) { return '<option value="' + s[0] + '"' + (s[0] === x.status ? ' selected' : '') + '>' + s[1] + '</option>'; }).join('') + '</select></label></div>' +
+      '<div class="baris"><label>Talent<select class="isian" data-f="talent_id"' + kunci + '>' + opsiAnggota('talent', x.talent_id) + '</select></label>' +
+      '<label>Videografer<select class="isian" data-f="videografer_id"' + kunci + '>' + opsiAnggota('videografer', x.videografer_id) + '</select></label>' +
+      '<label>Editor<select class="isian" data-f="editor_id"' + kunci + '>' + opsiAnggota('editor', x.editor_id) + '</select></label></div>' +
+      '<div class="baris"><label>Tanggal shooting<input class="isian" type="date" data-f="tgl_shooting" value="' + esc(x.tgl_shooting || '') + '"' + kunci + '></label>' +
+      '<label>Tenggat editing<input class="isian" type="date" data-f="tenggat" value="' + esc(x.tenggat || '') + '"' + kunci + '></label>' +
+      '<label>Rencana tayang<input class="isian" type="date" data-f="tgl_tayang" value="' + esc(x.tgl_tayang || '') + '"' + kunci + '></label></div>' +
+      '<label class="sb">Link folder Google Drive<input class="isian" type="url" data-f="link_drive" placeholder="https://drive.google.com/..." value="' + esc(x.link_drive || '') + '"></label>' +
+      '<label class="sb">Catatan / naskah singkat<textarea class="isian" rows="3" data-f="catatan">' + esc(x.catatan || '') + '</textarea></label>' +
+      (!baru ? '<div class="sb" id="dlgLog">Memuat riwayat…</div>' : '') +
+      '<div id="dlgMsg"></div><div class="aksi-bawah">' + (!baru && D.kelola ? '<button type="button" class="tbl mer kiri" data-a="hapus">Hapus</button>' : '') +
+      '<button type="button" class="tbl" data-a="tutup">Tutup</button><button type="button" class="tbl pri" data-a="simpan">Simpan</button></div></div>';
+    document.body.appendChild(el);
+    el.addEventListener('click', function (e) { if (e.target === el) el.remove(); });
+    el.querySelector('[data-a="tutup"]').onclick = function () { el.remove(); };
+    if (!baru) riwayat(x.id);
+    el.querySelector('[data-a="simpan"]').onclick = async function () {
+      var b = this, v = function (f) { return el.querySelector('[data-f="' + f + '"]').value.trim(); };
+      var row = { link_drive: v('link_drive') || null, catatan: v('catatan') || null };
+      if (row.link_drive && !/^https:\/\//i.test(row.link_drive)) { salah('Link harus diawali https://'); return; }
+      if (D.kelola) {
+        Object.assign(row, { judul: v('judul'), platform: v('platform') || null, status: v('status'),
+          talent_id: Number(v('talent_id')) || null, videografer_id: Number(v('videografer_id')) || null, editor_id: Number(v('editor_id')) || null,
+          tgl_shooting: v('tgl_shooting') || null, tenggat: v('tenggat') || null, tgl_tayang: v('tgl_tayang') || null });
+        if (!row.judul) { salah('Judul belum diisi.'); return; }
+      }
+      b.disabled = true;
+      var r = baru ? await sb.from('kreatif_konten').insert(row).select().single() : await sb.from('kreatif_konten').update(row).eq('id', x.id).select().single();
+      if (r.error) { salah('Gagal menyimpan: ' + r.error.message); b.disabled = false; return; }
+      if (baru) D.konten.unshift(r.data); else Object.assign(k, r.data);
+      el.remove(); pesan('Konten disimpan.', true); tampil(Moscow.aktif());
+    };
+    var h = el.querySelector('[data-a="hapus"]');
+    if (h) h.onclick = async function () {
+      if (!confirm('Hapus konten "' + x.judul + '"? Riwayatnya ikut terhapus.')) return;
+      var r = await sb.from('kreatif_konten').delete().eq('id', x.id);
+      if (r.error) { salah('Gagal menghapus: ' + r.error.message); return; }
+      D.konten = D.konten.filter(function (c) { return c.id !== x.id; });
+      el.remove(); pesan('Konten dihapus.', true); tampil(Moscow.aktif());
+    };
+    function salah(t) { el.querySelector('#dlgMsg').innerHTML = '<div class="msg bad">' + esc(t) + '</div>'; }
+  }
+  async function riwayat(id) {
+    var r = await sb.from('kreatif_log').select('dari,ke,oleh,waktu').eq('konten_id', id).order('waktu');
+    var el = $('dlgLog'); if (!el) return;
+    if (r.error) { el.textContent = 'Riwayat gagal dimuat.'; return; }
+    el.innerHTML = '<b>Riwayat status</b><br>' + (r.data || []).map(function (l) {
+      return esc(tglIndo(tglLokal(l.waktu))) + ': ' + esc(l.dari ? namaStatus(l.dari) + ' ke ' + namaStatus(l.ke) : 'dibuat di ' + namaStatus(l.ke)) + (l.oleh ? ' (' + esc(l.oleh) + ')' : '');
+    }).join('<br>');
+  }
+
+  // ===================== KALENDER =====================
+  $('kalMundur').onclick = function () { S.kal = geserBulan(S.kal, -1); kalender(); };
+  $('kalMaju').onclick = function () { S.kal = geserBulan(S.kal, 1); kalender(); };
+  $('kalIni').onclick = function () { S.kal = bulanIni(); kalender(); };
+  function kalender() {
+    $('kalJudul').textContent = namaBulan(S.kal);
+    var p = S.kal.split('-'), awal = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, 1));
+    var geser = (awal.getUTCDay() + 6) % 7, hari = hariIni(), ev = {};
+    function tambah(t, k, j) { if (!t) return; (ev[t] = ev[t] || []).push({ k: k, j: j }); }
+    D.konten.forEach(function (k) {
+      if (idxStatus(k.status) <= 2) tambah(k.tgl_shooting, k, 's');
+      if (k.status !== 'tayang') { tambah(k.tenggat, k, 't'); tambah(k.tgl_tayang, k, 'y'); }
+      else tambah(tglLokal(k.ditayangkan), k, 'y');
+    });
+    var h = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'].map(function (d) { return '<div class="hd">' + d + '</div>'; }).join('');
+    var sel = Math.ceil((geser + hariDalam(S.kal)) / 7) * 7;
+    for (var i = 0; i < sel; i++) {
+      var d = new Date(awal.getTime() + (i - geser) * 864e5), t = d.toISOString().slice(0, 10), lain = t.slice(0, 7) !== S.kal;
+      h += '<div class="' + (lain ? 'lain' : '') + (t === hari ? ' ini' : '') + '"><div class="tg">' + d.getUTCDate() + '</div>' +
+        (ev[t] || []).map(function (e) { return '<span class="ev ' + e.j + '" data-buka="' + e.k.id + '" title="' + esc(e.k.judul) + '">' + esc(e.k.judul) + '</span>'; }).join('') + '</div>';
+    }
+    $('kal').innerHTML = h;
+    $('kal').querySelectorAll('[data-buka]').forEach(function (b) { b.onclick = function () { formKonten(cari(b.getAttribute('data-buka'))); }; });
+  }
+
+  // ===================== TUGAS SAYA =====================
+  function giliran(a) {
+    if (!a) return [];
+    return D.konten.filter(function (k) {
+      if (a.peran === 'editor') return k.editor_id === a.id && (k.status === 'editing' || k.status === 'review');
+      if (a.peran === 'talent') return k.talent_id === a.id && (k.status === 'terjadwal' || k.status === 'shooting');
+      if (a.peran === 'videografer') return k.videografer_id === a.id && (k.status === 'terjadwal' || k.status === 'shooting');
+      return terlibat(k, a.id) && k.status !== 'tayang';
+    }).sort(function (x, y) { return String(x.tenggat || x.tgl_shooting || '9').localeCompare(String(y.tenggat || y.tgl_shooting || '9')); });
+  }
+  function tugas() {
+    $('tugasPilihC').hidden = !D.kelola;
+    $('tugasPilih').innerHTML = aktif().map(function (a) { return '<option value="' + a.id + '"' + (a.id === S.tugas ? ' selected' : '') + '>' + esc(a.nama + ' (' + namaPeran(a.peran) + ')') + '</option>'; }).join('');
+    $('tugasPilih').onchange = function () { S.tugas = Number(this.value); tugas(); };
+    if (!$('ctTgl').value) $('ctTgl').value = hariIni();
+    var a = D.kelola ? anggota(S.tugas) : D.saya;
+    if (!a) {
+      $('tugasDaftar').innerHTML = '<div class="ksg">' + (D.kelola ? 'Belum ada anggota tim. Tambahkan di menu Tim.' : 'Email ' + esc(D.email) + ' belum terhubung ke anggota tim. Minta manager menambahkannya di menu Tim.') + '</div>';
+      $('tugasJml').textContent = ''; $('ctDaftar').innerHTML = ''; return;
+    }
+    var g = giliran(a), hari = hariIni();
+    $('tugasJml').textContent = g.length + ' konten';
+    $('tugasDaftar').innerHTML = g.length ? g.map(function (k) { return kartu(k, hari); }).join('') : '<div class="ksg">Tidak ada tugas yang menunggu.</div>';
+    $('tugasDaftar').querySelectorAll('[data-buka]').forEach(function (b) { b.onclick = function () { formKonten(cari(b.getAttribute('data-buka'))); }; });
+    $('tugasDaftar').querySelectorAll('[data-ke]').forEach(function (b) { b.onclick = function () { pindahStatus(cari(b.getAttribute('data-id')), b.getAttribute('data-ke'), b); }; });
+    muatCatatan(a);
+  }
+  async function muatCatatan(a) {
+    $('ctDaftar').innerHTML = '<div class="ksg">Memuat catatan…</div>';
+    var r = await sb.from('kreatif_catatan').select('*').eq('anggota_id', a.id).order('tanggal', { ascending: false }).order('id', { ascending: false }).limit(20);
+    if (r.error) { $('ctDaftar').innerHTML = '<div class="msg bad">Catatan gagal dimuat: ' + esc(r.error.message) + '</div>'; return; }
+    $('ctDaftar').innerHTML = (r.data || []).length ? '<table class="tabel"><thead><tr><th>Tanggal</th><th>Dikerjakan</th><th>Kendala</th></tr></thead><tbody>' + r.data.map(function (c) {
+      return '<tr><td style="white-space:nowrap">' + esc(tglIndo(c.tanggal)) + '</td><td>' + esc(c.isi) + '</td><td>' + esc(c.kendala || '') + '</td></tr>';
+    }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada catatan.</div>';
+  }
+  $('ctSimpan').onclick = async function () {
+    var a = D.kelola ? anggota(S.tugas) : D.saya, b = this;
+    if (!a) { pesan('Pilih anggota tim dulu.', false); return; }
+    var isi = $('ctIsi').value.trim(); if (!isi) { pesan('Isi dulu apa yang dikerjakan hari ini.', false); return; }
+    b.disabled = true;
+    var r = await sb.from('kreatif_catatan').insert({ anggota_id: a.id, tanggal: $('ctTgl').value || hariIni(), isi: isi, kendala: $('ctKendala').value.trim() || null });
+    b.disabled = false;
+    if (r.error) { pesan('Catatan gagal disimpan: ' + r.error.message, false); return; }
+    $('ctIsi').value = ''; $('ctKendala').value = ''; pesan('Catatan harian disimpan.', true); muatCatatan(a);
+  };
+
+  // ===================== TARGET =====================
+  function nilaiTarget(id, jenis, ym) {
+    var b = ym + '-01';
+    var t = D.target.filter(function (x) { return (x.anggota_id || 0) === (id || 0) && x.jenis === jenis && x.bulan === b; })[0];
+    return t ? t.angka : null;
+  }
+  function target() {
+    if (!$('tgBulan').value) $('tgBulan').value = bulanIni();
+    var ym = $('tgBulan').value, baris = [{ id: 0, nama: 'Tim (video tayang)', peran: '' }].concat(aktif().filter(function (a) { return a.peran !== 'lainnya'; }));
+    $('tgTabel').innerHTML = '<table class="tabel"><thead><tr><th>Anggota</th><th class="r">Target harian</th><th class="r">Target bulanan</th></tr></thead><tbody>' + baris.map(function (a) {
+      var h = nilaiTarget(a.id, 'harian', ym), m = nilaiTarget(a.id, 'bulanan', ym);
+      return '<tr><td><b>' + esc(a.nama) + '</b>' + (a.peran ? '<small>' + esc(namaPeran(a.peran)) + '</small>' : '') + '</td>' +
+        '<td class="r"><input class="angka-in" type="number" min="0" inputmode="numeric" data-id="' + a.id + '" data-j="harian" value="' + (h === null ? '' : h) + '"></td>' +
+        '<td class="r"><input class="angka-in" type="number" min="0" inputmode="numeric" data-id="' + a.id + '" data-j="bulanan" value="' + (m === null ? '' : m) + '"></td></tr>';
+    }).join('') + '</tbody></table>';
+  }
+  $('tgBulan').onchange = target;
+  $('tgSimpan').onclick = async function () {
+    var b = this, ym = $('tgBulan').value, bulan = ym + '-01', rows = [];
+    $('tgTabel').querySelectorAll('input[data-j]').forEach(function (i) {
+      if (i.value === '') return;
+      var n = Math.round(Number(i.value)); if (!isFinite(n) || n < 0) return;
+      rows.push({ anggota_id: Number(i.getAttribute('data-id')) || null, jenis: i.getAttribute('data-j'), bulan: bulan, angka: n });
+    });
+    b.disabled = true;
+    var d = await sb.from('kreatif_target').delete().eq('bulan', bulan);
+    var r = d.error ? d : (rows.length ? await sb.from('kreatif_target').insert(rows) : { error: null });
+    b.disabled = false;
+    if (r.error) { pesan('Target gagal disimpan: ' + r.error.message, false); return; }
+    var t = await sb.from('kreatif_target').select('*'); if (!t.error) D.target = t.data || [];
+    pesan('Target ' + namaBulan(ym) + ' disimpan.', true); target();
+  };
+
+  // ===================== LAPORAN =====================
+  // Output tiap peran: talent & videografer = shooting selesai, editor = video disetujui (tayang), tim = video tayang.
+  function hasil(a) {
+    if (!a) return D.konten.filter(function (k) { return k.ditayangkan; }).map(function (k) { return { t: tglLokal(k.ditayangkan), tepat: !k.tenggat || tglLokal(k.ditayangkan) <= k.tenggat, rev: k.revisi }; });
+    if (a.peran === 'editor') return D.konten.filter(function (k) { return k.editor_id === a.id && k.ditayangkan; }).map(function (k) { return { t: tglLokal(k.ditayangkan), tepat: !k.tenggat || tglLokal(k.ditayangkan) <= k.tenggat, rev: k.revisi }; });
+    if (a.peran === 'talent' || a.peran === 'videografer') return D.konten.filter(function (k) { return k[a.peran + '_id'] === a.id && k.selesai_shooting; }).map(function (k) { return { t: tglLokal(k.selesai_shooting), tepat: !k.tgl_shooting || tglLokal(k.selesai_shooting) <= k.tgl_shooting, rev: null }; });
+    return [];
+  }
+  function hitung(a, ym) {
+    var semua = hasil(a), bln = semua.filter(function (x) { return x.t.slice(0, 7) === ym; }), hari = hariIni();
+    var tH = nilaiTarget(a ? a.id : 0, 'harian', ym), tB = nilaiTarget(a ? a.id : 0, 'bulanan', ym);
+    var tepat = bln.length ? Math.round(bln.filter(function (x) { return x.tepat; }).length / bln.length * 100) : null;
+    var rv = bln.filter(function (x) { return x.rev !== null; }), rata = rv.length ? rv.reduce(function (s, x) { return s + x.rev; }, 0) / rv.length : null;
+    var capai = tB ? Math.round(bln.length / tB * 100) : null;
+    // Skor revisi: 0 revisi = 100, turun 50 per revisi rata-rata. Peran tanpa revisi memakai 100.
+    var skorRev = rata === null ? 100 : Math.max(0, 100 - rata * 50);
+    var skor = capai === null ? null : Math.round(BOBOT.capai * Math.min(capai, 100) + BOBOT.tepat * (tepat === null ? 0 : tepat) + BOBOT.revisi * skorRev);
+    return { a: a, bln: bln, hariIni: semua.filter(function (x) { return x.t === hari; }).length, tH: tH, tB: tB, capai: capai, tepat: tepat, rata: rata, skor: skor };
+  }
+  function bar(p) { if (p === null) return ''; var c = p >= 100 ? 'ok' : (p < 50 ? 'w' : ''); return '<div class="bar"><i class="' + c + '" style="width:' + Math.min(p, 100) + '%"></i></div>'; }
+  function pct(p) { return p === null ? '–' : p + '%'; }
+
+  $('lpBulan').onchange = laporan;
+  function dataLaporan() {
+    if (!$('lpBulan').value) $('lpBulan').value = bulanIni();
+    var ym = $('lpBulan').value;
+    return { ym: ym, tim: hitung(null, ym), orang: aktif().filter(function (a) { return a.peran !== 'lainnya'; }).map(function (a) { return hitung(a, ym); }) };
+  }
+  function laporan() {
+    var L = dataLaporan(), ym = L.ym, t = L.tim, iniBulan = ym === bulanIni();
+    var jalan = D.konten.filter(function (k) { return k.status !== 'tayang' && k.status !== 'ide'; }).length;
+    var telat = D.konten.filter(function (k) { return k.status !== 'tayang' && k.tenggat && k.tenggat < hariIni(); }).length;
+    var h = '<div class="kp">' +
+      '<div class="kt"><span class="l">Video tayang ' + esc(namaBulan(ym)) + '</span><span class="v">' + t.bln.length + (t.tB ? ' / ' + t.tB : '') + '</span><span class="k">' + (t.tB ? pct(t.capai) + ' dari target bulanan' : 'Target tim belum diisi') + '</span></div>' +
+      (iniBulan ? '<div class="kt"><span class="l">Tayang hari ini</span><span class="v">' + t.hariIni + (t.tH ? ' / ' + t.tH : '') + '</span><span class="k' + (t.tH && t.hariIni < t.tH ? ' w' : '') + '">' + (t.tH ? (t.hariIni >= t.tH ? 'Target harian tercapai' : 'Kurang ' + (t.tH - t.hariIni) + ' video') : 'Target harian belum diisi') + '</span></div>' : '') +
+      '<div class="kt"><span class="l">Tepat waktu</span><span class="v">' + pct(t.tepat) + '</span><span class="k">video tayang sebelum tenggat</span></div>' +
+      '<div class="kt"><span class="l">Sedang diproduksi</span><span class="v">' + jalan + '</span><span class="k' + (telat ? ' w' : '') + '">' + (telat ? telat + ' melewati tenggat' : 'tidak ada yang terlambat') + '</span></div></div>';
+
+    h += '<div class="cd"><div class="kpl"><h3>Progres tim menuju target bulanan</h3><span class="sb">' + esc(namaBulan(ym)) + '</span></div><div class="grafik">' + grafik(ym, t) + '</div></div>';
+
+    if (iniBulan) h += '<div class="cd"><div class="kpl"><h3>Pencapaian hari ini</h3><span class="sb">' + esc(tglIndo(hariIni())) + '</span></div><div class="gulir"><table class="tabel"><thead><tr><th>Anggota</th><th class="r">Selesai</th><th class="r">Target</th><th></th></tr></thead><tbody>' +
+      L.orang.map(function (o) { var p = o.tH ? Math.round(o.hariIni / o.tH * 100) : null; return '<tr><td><b>' + esc(o.a.nama) + '</b><small>' + esc(namaPeran(o.a.peran)) + '</small></td><td class="r">' + o.hariIni + '</td><td class="r">' + (o.tH === null ? '–' : o.tH) + '</td><td>' + bar(p) + '</td></tr>'; }).join('') +
+      '</tbody></table></div></div>';
+
+    h += '<div class="cd"><div class="kpl"><h3>Kinerja bulanan per orang</h3><span class="sb">Skor = 60% pencapaian + 30% tepat waktu + 10% revisi</span></div><div class="gulir"><table class="tabel"><thead><tr><th>Anggota</th><th class="r">Selesai</th><th class="r">Target</th><th class="r">Pencapaian</th><th class="r">Tepat waktu</th><th class="r">Rata revisi</th><th class="r">Skor</th></tr></thead><tbody>' +
+      L.orang.map(function (o) {
+        return '<tr><td><b>' + esc(o.a.nama) + '</b><small>' + esc(namaPeran(o.a.peran)) + '</small></td><td class="r">' + o.bln.length + '</td><td class="r">' + (o.tB === null ? '–' : o.tB) + '</td><td class="r">' + pct(o.capai) + bar(o.capai) + '</td><td class="r">' + pct(o.tepat) + '</td><td class="r">' + (o.rata === null ? '–' : o.rata.toFixed(1).replace('.', ',')) + '</td><td class="r"><b>' + (o.skor === null ? '–' : o.skor) + '</b></td></tr>';
+      }).join('') + '</tbody></table></div>' + (L.orang.some(function (o) { return o.tB === null; }) ? '<p class="sb">Skor kosong berarti target bulanan orang itu belum diisi di menu Target.</p>' : '') + '</div>';
+
+    var plan = D.konten.filter(function (k) { return [k.tgl_shooting, k.tenggat, k.tgl_tayang, tglLokal(k.ditayangkan)].some(function (d) { return d && d.slice(0, 7) === ym; }); });
+    h += '<div class="cd"><div class="kpl"><h3>Planning produksi</h3><span class="sb">' + plan.length + ' konten dengan jadwal di bulan ini</span></div><div class="gulir"><table class="tabel"><thead><tr>' +
+      STATUS.map(function (s) { return '<th class="r">' + esc(s[1]) + '</th>'; }).join('') + '</tr></thead><tbody><tr>' +
+      STATUS.map(function (s) { return '<td class="r">' + plan.filter(function (k) { return k.status === s[0]; }).length + '</td>'; }).join('') + '</tr></tbody></table></div></div>';
+    $('lpIsi').innerHTML = h;
+  }
+
+  // Garis kumulatif video tayang per hari, dibanding garis target yang naik rata sampai akhir bulan.
+  function grafik(ym, t) {
+    var n = hariDalam(ym), hari = hariIni(), batas = ym === bulanIni() ? Number(hari.slice(8)) : (ym < bulanIni() ? n : 0);
+    var per = []; for (var i = 1; i <= n; i++) per.push(0);
+    t.bln.forEach(function (x) { per[Number(x.t.slice(8)) - 1]++; });
+    var kum = [], s = 0; per.forEach(function (v) { s += v; kum.push(s); });
+    var maks = Math.max(t.tB || 0, s, 1), W = 720, H = 220, L = 40, R = 16, T = 16, B = 30;
+    var X = function (d) { return L + (d - 1) / Math.max(n - 1, 1) * (W - L - R); }, Y = function (v) { return T + (1 - v / maks) * (H - T - B); };
+    var g = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Video tayang kumulatif dibanding target">';
+    [0, 0.5, 1].forEach(function (f) { var v = Math.round(maks * f); g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="#EEF2F6"/><text x="' + (L - 8) + '" y="' + (Y(v) + 4) + '" text-anchor="end" font-size="11" fill="#5A6677">' + v + '</text>'; });
+    [1, 8, 15, 22, n].forEach(function (d) { g += '<text x="' + X(d) + '" y="' + (H - 10) + '" text-anchor="middle" font-size="11" fill="#5A6677">' + d + '</text>'; });
+    if (t.tB) g += '<line x1="' + X(1) + '" y1="' + Y(t.tB / n) + '" x2="' + X(n) + '" y2="' + Y(t.tB) + '" stroke="#9A5B00" stroke-dasharray="5 5" stroke-width="1.5"/><text x="' + (W - R) + '" y="' + (Y(t.tB) - 6) + '" text-anchor="end" font-size="11.5" fill="#9A5B00">Target ' + t.tB + '</text>';
+    if (batas) {
+      var pts = kum.slice(0, batas).map(function (v, i) { return X(i + 1) + ',' + Y(v); }).join(' ');
+      g += '<polyline points="' + pts + '" fill="none" stroke="#1E78A8" stroke-width="2.5"/><circle cx="' + X(batas) + '" cy="' + Y(kum[batas - 1]) + '" r="4" fill="#1E78A8"/>' +
+        '<text x="' + Math.min(X(batas) + 8, W - R - 60) + '" y="' + (Y(kum[batas - 1]) - 8) + '" font-size="12" font-weight="700" fill="#145A80">' + kum[batas - 1] + ' tayang</text>';
+    }
+    return g + '</svg>';
+  }
+
+  function unduhLaporan() {
+    var L = dataLaporan(), baris = [['Laporan kinerja tim kreatif', namaBulan(L.ym)], [], ['Anggota', 'Peran', 'Selesai', 'Target bulanan', 'Pencapaian (%)', 'Tepat waktu (%)', 'Rata revisi', 'Skor']];
+    L.orang.concat([L.tim]).forEach(function (o) {
+      baris.push([o.a ? o.a.nama : 'Tim (video tayang)', o.a ? namaPeran(o.a.peran) : '', o.bln.length, o.tB === null ? '' : o.tB, o.capai === null ? '' : o.capai, o.tepat === null ? '' : o.tepat, o.rata === null ? '' : o.rata.toFixed(1), o.skor === null ? '' : o.skor]);
+    });
+    baris.push([], ['Daftar konten'], ['Judul', 'Platform', 'Status', 'Talent', 'Videografer', 'Editor', 'Tanggal shooting', 'Tenggat', 'Tayang', 'Revisi', 'Link Drive']);
+    D.konten.filter(function (k) { return [k.tgl_shooting, k.tenggat, k.tgl_tayang, tglLokal(k.ditayangkan)].some(function (d) { return d && d.slice(0, 7) === L.ym; }); }).forEach(function (k) {
+      baris.push([k.judul, k.platform || '', namaStatus(k.status), nama(k.talent_id), nama(k.videografer_id), nama(k.editor_id), k.tgl_shooting || '', k.tenggat || '', tglLokal(k.ditayangkan) || k.tgl_tayang || '', k.revisi, k.link_drive || '']);
+    });
+    var csv = '﻿' + baris.map(function (r) { return r.map(function (v) { v = String(v === null || v === undefined ? '' : v); return /[";\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(';'); }).join('\r\n');
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'laporan-kreatif-' + L.ym + '.csv'; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+
+  // ===================== TIM =====================
+  function tim() {
+    $('timTabel').innerHTML = D.anggota.length ? '<table class="tabel"><thead><tr><th>Nama</th><th>Peran</th><th>Email</th><th>Status</th><th></th></tr></thead><tbody>' + D.anggota.map(function (a) {
+      return '<tr><td><b>' + esc(a.nama) + '</b></td><td>' + esc(namaPeran(a.peran)) + '</td><td>' + esc(a.email || '–') + '</td><td>' + (a.aktif ? '<span class="label ok">Aktif</span>' : '<span class="label abu">Nonaktif</span>') + '</td><td class="r"><button type="button" class="tbl kcl" data-ubah="' + a.id + '">Ubah</button></td></tr>';
+    }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada anggota. Tambahkan talent, videografer, dan editor.</div>';
+    $('timTabel').querySelectorAll('[data-ubah]').forEach(function (b) { b.onclick = function () { formAnggota(anggota(Number(b.getAttribute('data-ubah')))); }; });
+  }
+  $('timBaru').onclick = function () { formAnggota(null); };
+  function formAnggota(a) {
+    var baru = !a, x = a || { peran: 'talent', aktif: true };
+    var el = document.createElement('div'); el.id = 'dlg';
+    el.innerHTML = '<div class="isi" role="dialog" aria-label="Anggota"><h3>' + (baru ? 'Anggota baru' : 'Ubah anggota') + '</h3>' +
+      '<label class="sb">Nama<input class="isian" data-f="nama" value="' + esc(x.nama || '') + '"></label>' +
+      '<div class="baris"><label>Peran<select class="isian" data-f="peran">' + PERAN.map(function (p) { return '<option value="' + p[0] + '"' + (p[0] === x.peran ? ' selected' : '') + '>' + p[1] + '</option>'; }).join('') + '</select></label>' +
+      '<label>Email Google (boleh kosong)<input class="isian" type="email" data-f="email" value="' + esc(x.email || '') + '"></label></div>' +
+      '<label class="sb"><input type="checkbox" data-f="aktif"' + (x.aktif ? ' checked' : '') + '> Aktif</label>' +
+      '<div id="dlgMsg"></div><div class="aksi-bawah"><button type="button" class="tbl" data-a="tutup">Tutup</button><button type="button" class="tbl pri" data-a="simpan">Simpan</button></div></div>';
+    document.body.appendChild(el);
+    el.addEventListener('click', function (e) { if (e.target === el) el.remove(); });
+    el.querySelector('[data-a="tutup"]').onclick = function () { el.remove(); };
+    el.querySelector('[data-a="simpan"]').onclick = async function () {
+      var b = this, f = function (n) { return el.querySelector('[data-f="' + n + '"]'); };
+      var row = { nama: f('nama').value.trim(), peran: f('peran').value, email: f('email').value.trim().toLowerCase() || null, aktif: f('aktif').checked };
+      var salah = function (t) { el.querySelector('#dlgMsg').innerHTML = '<div class="msg bad">' + esc(t) + '</div>'; };
+      if (!row.nama) { salah('Nama belum diisi.'); return; }
+      if (row.email && !/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(row.email)) { salah('Email tidak valid.'); return; }
+      b.disabled = true;
+      var r = baru ? await sb.from('kreatif_anggota').insert(row) : await sb.from('kreatif_anggota').update(row).eq('id', x.id);
+      if (r.error) { salah('Gagal menyimpan: ' + r.error.message); b.disabled = false; return; }
+      el.remove(); pesan('Anggota ' + row.nama + ' disimpan.', true); muatSemua();
+    };
+  }
+})();
+</script>
+</body>
+</html>
