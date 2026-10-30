@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="moscow.css?v=8">
+<link rel="stylesheet" href="moscow.css?v=9">
 <style>
   #pilih { display:grid; gap:8px; margin-top:4px; max-height:none; }
   #pilih a { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 14px; border:1px solid var(--garis);
@@ -68,7 +68,7 @@
     manajemen: [['Master Data', 'master.html'],
       ['#Consignment'], ['Consignment Sidoarjo', 'consignment.html?toko=Consignment%20Sidoarjo'], ['Consignment Medan', 'consignment.html?toko=Consignment%20Medan'],
       ['Consignment Renon', 'consignment.html?toko=Consignment%20Renon'],
-      ['#Toko & staf'], ['Toko Offline', 'consignment.html?toko=Toko%20Offline', 'Laporan, stok, order'], ['Kasir Toko Offline', 'kasir.html', 'Nota penjualan'],
+      ['#Toko & staf'], ['Toko Offline', 'consignment.html?toko=Toko%20Offline', 'Laporan, stok, order, kasir'],
       ['Purchasing', 'form.html?f=purchasing'], ['Gudang Utama', 'form.html?f=gudang'],
       ['Reseller', 'master.html#jual', 'Order reseller di Master Data › Penjualan'],
       ['Staf Produksi', 'form.html?f=produksi'], ['Staf Bahan Baku', 'form.html?f=bahanbaku'],
@@ -130,7 +130,6 @@
       layarMasuk('Akun ' + sesi.user.email + ' belum didaftarkan. Minta manajemen Moscow Supplies menambahkan email ini.');
       return;
     }
-    if (peran === 'toko' && /offline/i.test(l || '')) daftar = [['Form toko', 'consignment.html', 'Laporan, stok, order'], ['Kasir', 'kasir.html', 'Nota penjualan']];
     if (daftar.length === 1 || (peran === 'toko' && !/offline/i.test(l || ''))) { M.muat('Membuka halaman…'); location.replace(daftar[0][1]); return; }
     M.muat(false); $('akses').hidden = true; $('inapp').hidden = true;
     $('judul').textContent = 'Pilih halaman';

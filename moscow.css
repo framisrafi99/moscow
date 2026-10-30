@@ -31,11 +31,11 @@ button, input, select, textarea { font:inherit; color:inherit; }
 #mMasuk .mm-kiri h2 span { color:#7CCBEE; }
 #mMasuk .mm-kiri .sub { margin:16px 0 0; font-size:clamp(15px, 1.4vw, 19px); color:#C9D6E4; max-width:28em; }
 #mMasuk .mm-ilus { margin-top:44px; width:100%; max-width:560px; height:auto; }
-#mMasuk .mm-kanan { position:relative; display:flex; align-items:center; justify-content:center; padding:48px 32px;
+#mMasuk .mm-kanan { position:relative; display:flex; align-items:flex-start; justify-content:center; padding:48px 32px;
   background:#FFFFFF; overflow:hidden; }
 #mMasuk .mm-kanan::after { content:''; position:absolute; right:-180px; bottom:-240px; width:420px; height:420px; border-radius:50%;
   border:40px solid #E7F3F9; pointer-events:none; }
-#mMasuk .kotak { position:relative; z-index:1; width:100%; max-width:420px; }
+#mMasuk .kotak { position:relative; z-index:1; width:100%; max-width:420px; margin:auto 0; }
 #mMasuk .lg { display:block; width:240px; height:80px; margin:0 0 34px; background:url(logo.png) left center/contain no-repeat; mix-blend-mode:multiply; }
 #mMasuk .ey { display:block; font-size:12px; font-weight:700; letter-spacing:.14em; color:var(--abu); }
 #mMasuk h1 { font-size:clamp(30px, 3vw, 40px); line-height:1.1; font-weight:800; letter-spacing:-.02em; margin:6px 0 10px; color:var(--tinta); }
