@@ -115,8 +115,8 @@
     payroll: {
       judul: 'PAYROLL', masuk: 'Payroll gaji staf', peran: ['manajemen'],
       sembunyi: '.tidak-ada',
-      menu: [{ k: 'gaji', nm: 'Gaji staf', ik: 'uang', l: [] }, { k: 'absen', nm: 'Upload absensi', ik: 'dok' }],
-      bawah: ['gaji', 'absen']
+      menu: [{ k: 'gaji', nm: 'Gaji staf', ik: 'uang', l: [] }, { k: 'absensi', nm: 'Absensi staf', ik: 'riwayat', pendek: 'Absensi' }, { k: 'absen', nm: 'Hitung absensi', ik: 'dok', pendek: 'Hitung' }],
+      bawah: ['gaji', 'absensi', 'absen']
     }
   };
 
@@ -639,15 +639,14 @@
     bar.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-sub') === (C.sub || 'botol'))); });
     if (pk) { document.documentElement.classList.remove('berbingkai'); if (window.StokPacking) StokPacking.gambar($('packing'), M.sb); }
   }
-  // Payroll › Upload absensi: tampilan sendiri (absen.js), bukan form lama di bingkai.
+  // Payroll › Hitung absensi (absen.js) dan Absensi staf (absen-kelola.js): tampilan sendiri, bukan form lama di bingkai.
   function panelAbsen(k) {
-    var el = $('absen'), sec = document.querySelector('#mIsi > section[data-bagian="isi"]'); if (!el || !sec || APP !== 'payroll') return;
-    var ada = k === 'absen';
-    el.hidden = !ada; sec.classList.toggle('pk-mode', ada);
-    if (ada) {
-      document.documentElement.classList.remove('berbingkai');
-      if (window.Absensi) Absensi.gambar(el, M.sb, { tersimpan: function () { salinKeSheet(); muat(); } });
-    }
+    var el = $('absen'), el2 = $('absenKelola'), sec = document.querySelector('#mIsi > section[data-bagian="isi"]'); if (!el || !sec || APP !== 'payroll') return;
+    var ada = k === 'absen', ada2 = k === 'absensi' && !!el2;
+    el.hidden = !ada; if (el2) el2.hidden = !ada2; sec.classList.toggle('pk-mode', ada || ada2);
+    if (ada || ada2) document.documentElement.classList.remove('berbingkai');
+    if (ada && window.Absensi) Absensi.gambar(el, M.sb, { tersimpan: function () { salinKeSheet(); muat(); } });
+    if (ada2 && window.AbsenKelola) AbsenKelola.gambar(el2, M.sb);
   }
   if ($('subBotol')) $('subBotol').addEventListener('click', function (e) {
     var b = e.target.closest ? e.target.closest('[data-sub]') : null; if (!b) return;

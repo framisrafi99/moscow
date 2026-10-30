@@ -68,10 +68,14 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   // Satu link untuk semua: halaman tujuan ditentukan dari peran akun (tabel pengguna), bukan dipilih sendiri.
   var TUJUAN = {
-    gudang: [['Gudang Utama', 'form.html?f=gudang']],
-    purchasing_shopeepay: [['Purchasing', 'form.html?f=purchasing'], ['Gudang Utama', 'form.html?f=gudang']],
-    produksi: [['Staf Produksi', 'form.html?f=produksi']],
-    bahan_baku: [['Staf Bahan Baku', 'form.html?f=bahanbaku']],
+    gudang: [['Gudang Utama', 'form.html?f=gudang'], ['Absensi', 'absensi.html', 'Absen masuk & pulang, izin']],
+    purchasing_shopeepay: [['Purchasing', 'form.html?f=purchasing'], ['Gudang Utama', 'form.html?f=gudang'], ['Absensi', 'absensi.html', 'Absen masuk & pulang, izin']],
+    produksi: [['Staf Produksi', 'form.html?f=produksi'], ['Absensi', 'absensi.html', 'Absen masuk & pulang, izin']],
+    bahan_baku: [['Staf Bahan Baku', 'form.html?f=bahanbaku'], ['Absensi', 'absensi.html', 'Absen masuk & pulang, izin']],
+    // Staf yang hanya absen (packing dll.), didaftarkan dari Payroll › Absensi staf.
+    staf: [['Absensi', 'absensi.html']],
+    kreatif_manager: [['Manager Kreatif', 'kreatif.html'], ['Absensi', 'absensi.html', 'Absen masuk & pulang, izin']],
+    kreatif: [['Manager Kreatif', 'kreatif.html'], ['Absensi', 'absensi.html', 'Absen masuk & pulang, izin']],
     kendali_bisnis: [['Kendali Bisnis', 'kendali.html', 'Beranda, laporan bulanan, HPP'], ['Persetujuan & pembayaran', 'form.html?f=mike'], ['Persetujuan & laporan (lama)', 'form.html?f=mikelama'], ['Stok semua lokasi', 'stok.html']],
     toko: [['Form toko', 'consignment.html']],
     manajemen: [['Master Data', 'master.html'],
@@ -81,7 +85,7 @@
       ['Purchasing', 'form.html?f=purchasing'], ['Gudang Utama', 'form.html?f=gudang'],
       ['Reseller', 'master.html#jual', 'Order reseller di Master Data › Penjualan'],
       ['Staf Produksi', 'form.html?f=produksi'], ['Staf Bahan Baku', 'form.html?f=bahanbaku'],
-      ['#Lainnya'], ['Payroll', 'form.html?f=payroll'], ['Form accounting', 'form.html?f=akunting'], ['Stok semua lokasi', 'stok.html'], ['Kendali Bisnis', 'form.html?f=mike', 'Khusus Mike dan Junior']]
+      ['#Lainnya'], ['Payroll', 'form.html?f=payroll'], ['Absensi', 'absensi.html', 'Halaman absen staf'], ['Form accounting', 'form.html?f=akunting'], ['Stok semua lokasi', 'stok.html'], ['Kendali Bisnis', 'form.html?f=mike', 'Khusus Mike dan Junior']]
   };
   M.logoPutih(); $('ilus').outerHTML = M.ILUS; $('aksesIk').outerHTML = M.KUNCI_IK;
   // Google menolak masuk dari browser di dalam aplikasi (WhatsApp, Instagram, Facebook, LINE, TikTok di Android/iPhone).

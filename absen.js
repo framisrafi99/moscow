@@ -1,6 +1,7 @@
 /* =====================================================================
-   UPLOAD ABSENSI (Payroll): baca file export mesin absensi (.xlsx / .xls / .csv),
-   hitung telat, lembur, alpa, dan uang makan per staf, lalu masukkan ke Gaji staf (Draft).
+   UPLOAD ABSENSI (Payroll): ambil absen dari aplikasi Absensi (absensi.html, Supabase absen_rekap)
+   atau baca file export mesin absensi (.xlsx / .xls / .csv), hitung telat, lembur, alpa, dan uang makan
+   per staf, lalu masukkan ke Gaji staf (Draft). Izin / cuti / sakit yang disetujui di aplikasi tidak dihitung alpa.
    Aturan hitung (manajemen Moscow Supplies, Okt 2026):
    - Jam kerja 10.00-17.00. Gaji per menit = gaji pokok / 26 / 8 / 60.
    - Telat: toleransi 15 menit; lewat toleransi semua menit telat dipotong (gaji per menit x menit).
@@ -13,6 +14,7 @@
 (function () {
   'use strict';
   var BLS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  var NAMA_IZIN = { izin: 'Izin', cuti: 'Cuti', sakit: 'Sakit' };
   var HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   var ATUR = { masuk: 600, toleransi: 15, pulang: 1020, batasLembur: 1040, hariKerja: 26, jamSehari: 8, pembagiLembur: 173, makanSehari: 20000 };
 
@@ -44,7 +46,7 @@
     '.ab-aksi{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}' +
     '.ab-pre{overflow:auto;max-height:260px;font-size:12px;background:var(--latar);border-radius:10px;padding:8px}.ab-pre td{padding:2px 8px;border-bottom:1px solid var(--garis2);white-space:nowrap}';
 
-  var A = { el: null, sb: null, opsi: {}, file: '', scan: null, per: '', gaji: null, peta: {}, alpa: {}, pesan: '', kelas: 'ok', sibuk: false, mentah: null,
+  var A = { el: null, sb: null, opsi: {}, file: '', scan: null, izin: {}, sumber: '', perPilih: '', per: '', gaji: null, peta: {}, alpa: {}, pesan: '', kelas: 'ok', sibuk: false, mentah: null,
             libur: bacaLokal('abLibur', [0]), merah: '' };
 
   /* ---------- membaca file ---------- */
@@ -161,12 +163,14 @@
       if (!libur) r.kerja++;
       var baris = { tg: tg, d: d, dow: dow, libur: libur, masuk: null, pulang: null, telat: 0, lembur: 0, ket: '' };
       if (!t.length) {
-        if (!libur) { r.alpaOtomatis++; baris.ket = 'Tidak ada scan'; r.hari.push(baris); }
+        var iz = (A.izin[namaMesin] || {})[tg];
+        if (!libur && iz) { r.izin = (r.izin || 0) + 1; baris.ket = NAMA_IZIN[iz] + ' (disetujui)'; r.hari.push(baris); }
+        else if (!libur) { r.alpaOtomatis++; baris.ket = A.sumber === 'app' ? 'Tidak absen' : 'Tidak ada scan'; r.hari.push(baris); }
         continue;
       }
       if (t.length === 1 || t[t.length - 1] - t[0] < 60) {
         if (t[0] < 13 * 60) baris.masuk = t[0]; else baris.pulang = t[t.length - 1];
-        baris.ket = 'Scan cuma sekali'; r.kurang++;
+        baris.ket = A.sumber === 'app' ? (baris.pulang == null ? 'Tidak absen pulang' : 'Tidak absen masuk') : 'Scan cuma sekali'; r.kurang++;
       } else { baris.masuk = t[0]; baris.pulang = t[t.length - 1]; }
       if (libur) { r.libur++; baris.ket = (baris.ket ? baris.ket + '; ' : '') + 'Hari libur (tidak dihitung lembur)'; r.hari.push(baris); continue; }
       r.hadir++;
@@ -212,9 +216,11 @@
   /* ---------- tampilan ---------- */
   function gambar() {
     var el = A.el; if (!el) return;
-    var h = '<div class="ab"><h2>Upload absensi</h2><p class="sb">Unggah file export mesin absensi (Excel atau CSV). Sistem menghitung telat, lembur, alpa, dan uang makan per staf, lalu kamu periksa sebelum dimasukkan ke Gaji staf sebagai Draft.</p>';
+    var h = '<div class="ab"><h2>Hitung absensi ke gaji</h2><p class="sb">Ambil absen bulan ini dari aplikasi Absensi (atau unggah file mesin absensi lama). Sistem menghitung telat, lembur, alpa, dan uang makan per staf, lalu kamu periksa sebelum dimasukkan ke Gaji staf sebagai Draft.</p>';
     h += '<div class="ab-kotak"><div class="ab-f">' +
-      '<label>File mesin absensi<input type="file" id="abFile" accept=".xlsx,.xls,.csv,.txt"' + (A.sibuk ? ' disabled' : '') + '></label>' +
+      '<label>Periode aplikasi Absensi<span style="display:flex;gap:8px"><input type="month" id="abPer" value="' + esc(A.perPilih || bulanIni()) + '" style="height:44px;padding:0 10px;border:1px solid var(--garis);border-radius:12px;font-size:15px">' +
+        '<button type="button" class="tbl pri" id="abAmbil"' + (A.sibuk ? ' disabled' : '') + '>Ambil absen</button></span></label>' +
+      '<label>Atau file mesin absensi<input type="file" id="abFile" accept=".xlsx,.xls,.csv,.txt"' + (A.sibuk ? ' disabled' : '') + '></label>' +
       '<label>Hari libur rutin<span class="ab-hr">' + HARI.map(function (nm, i) {
         return '<label><input type="checkbox" data-libur="' + i + '"' + (A.libur.indexOf(i) > -1 ? ' checked' : '') + '>' + nm.slice(0, 3) + '</label>';
       }).join('') + '</span></label>' +
@@ -237,10 +243,10 @@
       if (A.gaji.status === 'Disetujui') h += '<div class="msg bad">Gaji ' + esc(A.gaji.nama) + ' sudah disetujui, jadi tidak bisa diubah dari absensi. Buka kembali dulu di menu Gaji staf kalau ada yang salah.</div>';
       else if (A.gaji.status === 'Menunggu') h += '<div class="msg w">Gaji ' + esc(A.gaji.nama) + ' sedang menunggu persetujuan. Kalau absensi dimasukkan, statusnya kembali Draft.</div>';
       var opsiStaf = stafList();
-      h += '<div class="ab-gl"><table class="ab-t"><thead><tr><th>Nama di mesin</th><th>Staf di Payroll</th><th class="r">Hadir</th><th class="r">Alpa (hari)</th><th class="r">Telat</th><th class="r">Lembur</th><th class="r">Uang makan</th><th class="r">Potong telat + alpa</th></tr></thead><tbody>';
+      h += '<div class="ab-gl"><table class="ab-t"><thead><tr><th>' + (A.sumber === 'app' ? 'Nama di Absensi' : 'Nama di mesin') + '</th><th>Staf di Payroll</th><th class="r">Hadir</th><th class="r">Alpa (hari)</th><th class="r">Telat</th><th class="r">Lembur</th><th class="r">Uang makan</th><th class="r">Potong telat + alpa</th></tr></thead><tbody>';
       hs.forEach(function (x, i) {
         var r = x.r;
-        h += '<tr' + (x.staf ? '' : ' class="lewat"') + '><td><b>' + esc(x.mesin) + '</b>' + (r.kurang ? '<small class="ab-merah">' + r.kurang + ' hari scan cuma sekali</small>' : '') +
+        h += '<tr' + (x.staf ? '' : ' class="lewat"') + '><td><b>' + esc(x.mesin) + '</b>' + (r.kurang ? '<small class="ab-merah">' + r.kurang + (A.sumber === 'app' ? ' hari absen tidak lengkap' : ' hari scan cuma sekali') + '</small>' : '') + (r.izin ? '<small>' + r.izin + ' hari izin/cuti/sakit disetujui</small>' : '') +
           (r.hari.length ? '<details class="ab-rinci"><summary>Rincian per hari</summary><table><tr><th>Tanggal</th><th>Masuk</th><th>Pulang</th><th>Telat</th><th>Lembur</th><th>Ket.</th></tr>' +
             r.hari.map(function (d) {
               return '<tr><td>' + HARI[d.dow].slice(0, 3) + ' ' + d.d + '</td><td>' + jam(d.masuk) + '</td><td>' + jam(d.pulang) + '</td><td>' + (d.telat ? '<span class="ab-merah">' + d.telat + ' mnt</span>' : '') +
@@ -251,7 +257,7 @@
           }).join('') + '</select>' + (x.staf ? '<small>Gaji pokok ' + rp(x.staf.gp) + '</small>' : '') + '</td>' +
           '<td class="r">' + r.hadir + '/' + r.kerja + '</td>' +
           '<td class="r"><input type="text" inputmode="numeric" data-alpa="' + i + '" value="' + r.alpa + '" aria-label="Hari alpa ' + esc(x.mesin) + '">' +
-            (r.alpaOtomatis ? '<small>' + r.alpaOtomatis + ' hari tanpa scan</small>' : '') + '</td>' +
+            (r.alpaOtomatis ? '<small>' + r.alpaOtomatis + (A.sumber === 'app' ? ' hari tidak absen' : ' hari tanpa scan') + '</small>' : '') + '</td>' +
           '<td class="r">' + (r.telatMenit ? r.telatMenit + ' mnt<small>' + r.telatHari + ' hari</small>' : '–') + '</td>' +
           '<td class="r">' + (r.lemburMenit ? (x.staf ? rp(r.lb) : '') + '<small>' + durasi(r.lemburMenit) + ', ' + r.lemburHari + ' hari</small>' : '–') + '</td>' +
           '<td class="r">' + (x.staf ? rp(r.um) : '') + '</td>' +
@@ -259,8 +265,8 @@
       });
       h += '</tbody></table></div>';
       var belum = stafList().filter(function (s) { return !hs.some(function (x) { return x.staf && x.staf.n === s.n; }); });
-      if (belum.length) h += '<p class="sb" style="margin-top:10px">Tidak ada di file absensi (angkanya tidak diubah): ' + belum.map(function (s) { return esc(s.n); }).join(', ') + '.</p>';
-      h += '<p class="sb" style="margin-top:10px">Alpa terisi otomatis dari hari kerja tanpa scan. Kalau staf izin atau cuti yang disetujui, kurangi angkanya. Potongan alpa dimasukkan ke kolom Telat, rinciannya ditulis di catatan.</p>';
+      if (belum.length) h += '<p class="sb" style="margin-top:10px">' + (A.sumber === 'app' ? 'Belum terdaftar di Absensi' : 'Tidak ada di file absensi') + ' (angkanya tidak diubah): ' + belum.map(function (s) { return esc(s.n); }).join(', ') + '.</p>';
+      h += '<p class="sb" style="margin-top:10px">Alpa terisi otomatis dari hari kerja tanpa absen' + (A.sumber === 'app' ? ' dan tanpa izin/cuti/sakit yang disetujui' : '') + '. Kalau masih ada izin yang belum tercatat, kurangi angkanya. Potongan alpa dimasukkan ke kolom Telat, rinciannya ditulis di catatan.</p>';
       h += '<div class="ab-aksi"><button type="button" class="tbl pri" id="abSimpan"' + (A.sibuk || A.gaji.status === 'Disetujui' || !cocok.length ? ' disabled' : '') + '>Masukkan ke Gaji staf (Draft)</button>' +
         '<span class="sb" style="margin:0">' + cocok.length + ' staf akan diperbarui: uang makan, lembur, dan potongan telat.</span></div>';
     }
@@ -271,6 +277,8 @@
   function pasangAksi() {
     var el = A.el, f = el.querySelector('#abFile');
     if (f) f.onchange = function () { if (f.files && f.files[0]) proses(f.files[0]); };
+    var pa = el.querySelector('#abPer'); if (pa) pa.onchange = function () { A.perPilih = pa.value; };
+    var ba = el.querySelector('#abAmbil'); if (ba) ba.onclick = function () { ambilAplikasi((pa && pa.value) || bulanIni()); };
     el.querySelectorAll('[data-libur]').forEach(function (c) {
       c.onchange = function () {
         var i = +c.getAttribute('data-libur');
@@ -301,7 +309,34 @@
     if (!r.data || !r.data.ok) throw new Error((r.data && r.data.pesan) || 'Data gaji gagal dimuat.');
     A.gaji = r.data;
   }
+  function bulanIni() { try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date()).slice(0, 7); } catch (e) { return new Date().toISOString().slice(0, 7); } }
+  // Sumber baru: aplikasi Absensi (jam masuk & pulang dari server, izin yang disetujui).
+  async function ambilAplikasi(per) {
+    A.sibuk = true; A.pesan = 'Mengambil absen ' + BLS[+per.slice(5, 7) - 1] + ' ' + per.slice(0, 4) + '…'; A.kelas = 'ok'; A.mentah = null; A.scan = null; A.gaji = null; A.alpa = {}; A.izin = {}; gambar();
+    try {
+      var r = await A.sb.rpc('absen_rekap', { p_per: per });
+      if (r.error) throw new Error(/does not exist|schema cache/i.test(r.error.message) ? 'Fitur absensi belum aktif: jalankan sql/absensi.sql di Supabase.' : r.error.message);
+      if (!r.data || !r.data.ok) throw new Error((r.data && r.data.pesan) || 'Absen gagal diambil.');
+      var scan = {}, izin = {};
+      (r.data.staf || []).forEach(function (n) { scan[n] = {}; });
+      (r.data.hari || []).forEach(function (x) {
+        var o = scan[x.nama] || (scan[x.nama] = {}), t = o[x.tanggal] || (o[x.tanggal] = []);
+        if (x.masuk != null) t.push(Number(x.masuk)); if (x.pulang != null) t.push(Number(x.pulang));
+      });
+      (r.data.izin || []).forEach(function (x) { (izin[x.nama] || (izin[x.nama] = {}))[x.tanggal] = x.jenis; });
+      if (!Object.keys(scan).length) throw new Error('Belum ada staf terdaftar di Absensi. Daftarkan di menu Absensi staf › Staf & lokasi.');
+      A.scan = scan; A.izin = izin; A.per = per; A.perPilih = per; A.sumber = 'app'; A.file = '';
+      await muatGaji();
+      A.peta = {}; Object.keys(A.scan).forEach(function (nm) { A.peta[nm] = cocokOtomatis(nm); });
+      var belum = Object.keys(A.peta).filter(function (k) { return !A.peta[k]; }).length;
+      A.pesan = 'Absen ' + BLS[+per.slice(5, 7) - 1] + ' ' + per.slice(0, 4) + ' terambil: ' + Object.keys(scan).length + ' staf.' +
+        (belum ? ' ' + belum + ' nama tidak sama dengan nama di Payroll, pilih di kolom "Staf di Payroll".' : '');
+      A.kelas = belum ? 'w' : 'ok';
+    } catch (e) { A.pesan = esc(e.message || e); A.kelas = 'bad'; A.scan = null; }
+    finally { A.sibuk = false; gambar(); }
+  }
   async function proses(f) {
+    A.sumber = 'file'; A.izin = {};
     A.sibuk = true; A.pesan = 'Membaca ' + esc(f.name) + '…'; A.kelas = 'ok'; A.mentah = null; A.scan = null; A.gaji = null; A.alpa = {}; gambar();
     try {
       var h = await bacaFile(f);
@@ -352,6 +387,6 @@
       gambar();
     },
     // untuk uji: hitung dari data scan tanpa tampilan
-    _uji: { bacaSel: bacaSel, bacaLembar: bacaLembar, hitung: function (scan, per, staf, libur, merah) { A.scan = scan; A.per = per; A.libur = libur || [0]; A.merah = merah || ''; return hitungStaf(Object.keys(scan)[0], staf); } }
+    _uji: { bacaSel: bacaSel, bacaLembar: bacaLembar, hitung: function (scan, per, staf, libur, merah, izin) { A.scan = scan; A.per = per; A.libur = libur || [0]; A.merah = merah || ''; A.izin = izin || {}; A.sumber = izin ? 'app' : ''; return hitungStaf(Object.keys(scan)[0], staf); } }
   };
 })();

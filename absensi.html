@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Absensi Moscow</title>
+<meta name="theme-color" content="#0C1F40">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Absensi">
+<link rel="manifest" href="manifest-absensi.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="moscow.css?v=29">
+<style>
+  .ab-wrap { max-width:560px; }
+  .ab-jam { font-size:44px; font-weight:800; letter-spacing:-1px; font-variant-numeric:tabular-nums; line-height:1; }
+  .ab-tgl { color:var(--abu); font-size:14px; font-weight:600; }
+  .ab-lok { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; color:var(--teks2); }
+  .ab-lok small { color:var(--abu); font-weight:500; }
+  .ab-st { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .ab-st div { border:1px solid var(--garis); border-radius:14px; padding:12px 14px; background:#fff; }
+  .ab-st span { display:block; font-size:12.5px; color:var(--abu); font-weight:600; }
+  .ab-st b { display:block; font-size:22px; font-weight:800; margin-top:2px; font-variant-numeric:tabular-nums; }
+  .ab-st b.belum { color:#A0A9B5; font-size:16px; font-weight:700; padding:4px 0; }
+  .ab-besar { width:100%; height:64px; border:0; border-radius:16px; background:var(--biru); color:#fff; font-size:18px; font-weight:800; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:10px; }
+  .ab-besar.pulang { background:var(--navy); }
+  .ab-besar:disabled { opacity:.45; cursor:default; }
+  .ab-catat { font-size:12.5px; color:var(--abu); line-height:1.5; }
+  /* Kamera */
+  #kamera { position:fixed; inset:0; z-index:200; background:#05101f; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px 16px calc(16px + env(safe-area-inset-bottom)); }
+  #kamera[hidden] { display:none; }
+  #kamera .bingkai { position:relative; width:min(92vw, 420px); aspect-ratio:3/4; border-radius:20px; overflow:hidden; background:#000; }
+  #kamera video, #kamera img { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
+  #kamera img { transform:none; }
+  #kamera .info { color:#cdd6e3; font-size:14px; text-align:center; margin:14px 0 10px; min-height:20px; max-width:420px; line-height:1.45; }
+  #kamera .tb { display:flex; gap:10px; width:min(92vw, 420px); }
+  #kamera .tb button { flex:1; height:54px; border-radius:14px; font-size:16px; font-weight:800; cursor:pointer; border:0; }
+  #kamera .ambil { background:#fff; color:var(--navy); }
+  #kamera .batal { background:transparent; color:#fff; border:1px solid #3a4b66 !important; }
+  .ab-r td.r { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .ab-r td { padding:9px 8px; border-bottom:1px solid var(--garis2); font-size:13.5px; }
+  .ab-r th { text-align:left; font-size:12px; color:var(--abu); padding:8px; border-bottom:1px solid var(--garis); }
+  .ab-r { width:100%; border-collapse:collapse; }
+  .iz-it { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--garis2); font-size:14px; }
+  .iz-it:last-child { border-bottom:0; }
+  .iz-it small { display:block; color:var(--abu); font-size:12.5px; margin-top:2px; }
+  .f2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
+  .f2 input { min-width:0; }
+  label.lb { font-size:13px; font-weight:700; color:var(--teks2); display:block; }
+</style>
+</head>
+<body>
+<main id="mIsi">
+  <section data-bagian="absen">
+    <div class="ab-wrap">
+      <div id="msg"></div>
+      <div class="cd" id="abKartu">
+        <div class="ksg">Memuat…</div>
+      </div>
+    </div>
+  </section>
+
+  <section data-bagian="izin">
+    <div class="ab-wrap">
+      <div id="msgIz"></div>
+      <div class="cd">
+        <h3>Ajukan izin, cuti, atau sakit</h3>
+        <label class="lb">Jenis
+          <select class="isian" id="izJenis"><option value="izin">Izin</option><option value="cuti">Cuti</option><option value="sakit">Sakit</option></select>
+        </label>
+        <div class="f2">
+          <label class="lb">Dari tanggal<input class="isian" type="date" id="izMulai"></label>
+          <label class="lb">Sampai tanggal<input class="isian" type="date" id="izSelesai"></label>
+        </div>
+        <label class="lb">Alasan<textarea class="isian" id="izAlasan" rows="3" maxlength="300" placeholder="mis. acara keluarga, demam"></textarea></label>
+        <button type="button" class="tbl pri lebar" id="izKirim">Kirim pengajuan</button>
+        <p class="sb" style="margin:0">Izin, cuti, atau sakit yang disetujui manajemen tidak dihitung alpa. Sakit boleh diajukan sampai 7 hari ke belakang.</p>
+      </div>
+      <div class="cd"><h3>Pengajuan saya</h3><div id="izDaftar"><div class="ksg">Belum ada pengajuan.</div></div></div>
+    </div>
+  </section>
+
+  <section data-bagian="riwayat">
+    <div class="ab-wrap">
+      <div class="cd">
+        <div class="kpl"><h3>Riwayat absen</h3><input class="isian" type="month" id="rwBulan" style="width:auto"></div>
+        <div id="rwIsi"><div class="ksg">Memuat…</div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="kamera" hidden role="dialog" aria-label="Foto selfie absen">
+  <div class="bingkai"><video id="kmVideo" playsinline muted autoplay></video><img id="kmFoto" alt="Foto selfie" hidden></div>
+  <div class="info" id="kmInfo"></div>
+  <div class="tb"><button type="button" class="batal" id="kmBatal">Batal</button><button type="button" class="ambil" id="kmAmbil">Ambil foto</button></div>
+</div>
+<input type="file" id="kmCadangan" accept="image/*" capture="user" hidden>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="moscow.js?v=14"></script>
+<script>
+(function () {
+  'use strict';
+  var TZ = 'Asia/Makassar';
+  var sb = Moscow.sb, esc = Moscow.esc;
+  function $(i) { return document.getElementById(i); }
+  // Jam kerja staf (sama dengan aturan Payroll): masuk 10.00, toleransi 15 menit, lembur mulai 17.20.
+  var JAM = { masuk: 600, toleransi: 15, lembur: 1040 };
+  var HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  var BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  var D = { uid: '', saya: null, selisih: 0, sibuk: false, posisi: null };
+  var K = { strim: null, foto: null, jenis: '', gps: null };
+
+  function waktuServer() { return new Date(Date.now() + D.selisih); }
+  function bagian(d) {
+    var p = {}; new Intl.DateTimeFormat('en-GB', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23', weekday: 'short' })
+      .formatToParts(d).forEach(function (x) { p[x.type] = x.value; }); return p;
+  }
+  function hariIni() { var p = bagian(waktuServer()); return p.year + '-' + p.month + '-' + p.day; }
+  function tglPanjang(iso) { var p = iso.split('-'), d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); return HARI[d.getUTCDay()] + ', ' + (+p[2]) + ' ' + BULAN[+p[1] - 1] + ' ' + p[0]; }
+  function tglPendek(iso) { var p = String(iso).split('-'); return (+p[2]) + ' ' + BULAN[+p[1] - 1].slice(0, 3); }
+  function menit(j) { if (!j) return null; var p = String(j).split(/[.:]/); return +p[0] * 60 + (+p[1]); }
+  function jarakM(a, b, c, d) {
+    var r = Math.PI / 180, x = Math.sin((c - a) * r / 2), y = Math.sin((d - b) * r / 2);
+    return 2 * 6371000 * Math.asin(Math.sqrt(x * x + Math.cos(a * r) * Math.cos(c * r) * y * y));
+  }
+  function pesan(id, t, kelas) { $(id).innerHTML = t ? '<div class="msg ' + (kelas || 'ok') + '" role="status">' + esc(t) + '</div>' : ''; }
+
+  // ----- data -----
+  async function muatSaya() {
+    var r = await sb.rpc('absen_saya');
+    if (r.error) {
+      $('abKartu').innerHTML = '<div class="msg bad">' + esc(/does not exist|schema cache/i.test(r.error.message) ? 'Fitur absensi belum aktif. Manajemen perlu menjalankan sql/absensi.sql di Supabase.' : 'Gagal memuat: ' + r.error.message) + '</div>';
+      return;
+    }
+    var d = r.data || {};
+    if (!d.ok) { D.saya = null; $('abKartu').innerHTML = '<div class="msg w">' + esc(d.pesan) + '</div>'; gambarIzin(); return; }
+    D.saya = d; D.selisih = new Date(d.server).getTime() - Date.now();
+    gambarAbsen(); gambarIzin();
+  }
+
+  // ----- layar absen -----
+  function gambarAbsen() {
+    var d = D.saya; if (!d) return;
+    var l = d.lokasi, mm = menit(d.masuk), telat = mm != null && mm > JAM.masuk + JAM.toleransi ? mm - JAM.masuk : 0;
+    var jenis = !d.masuk ? 'masuk' : !d.pulang ? 'pulang' : '';
+    var h = '<div class="kpl"><div><div class="ab-tgl">' + esc(tglPanjang(d.tanggal)) + '</div><div class="ab-jam" id="abJam">--.--</div></div></div>' +
+      '<div class="ab-lok">' + Moscow.svg('toko', 18) + '<span>' + (l ? esc(l.nama) : 'Lokasi belum diatur') + ' <small id="abJarak"></small></span></div>' +
+      '<div class="ab-st"><div><span>Masuk</span>' + (d.masuk ? '<b>' + esc(d.masuk) + '</b>' + (telat ? '<span class="label no">Telat ' + telat + ' mnt</span>' : '') : '<b class="belum">Belum</b>') + '</div>' +
+      '<div><span>Pulang</span>' + (d.pulang ? '<b>' + esc(d.pulang) + '</b>' : '<b class="belum">Belum</b>') + '</div></div>';
+    if (!l || l.lat == null) h += '<div class="msg w">Titik lokasi kerjamu belum diatur manajemen, jadi belum bisa absen.</div>';
+    else if (jenis) h += '<button type="button" class="ab-besar ' + jenis + '" id="abTombol"' + (D.sibuk ? ' disabled' : '') + '>' + Moscow.svg(jenis === 'masuk' ? 'setuju' : 'keluar', 24) + 'Absen ' + jenis + '</button>';
+    else h += '<div class="aman">Absen hari ini sudah lengkap. Terima kasih!</div>';
+    h += '<p class="ab-catat">Absen memakai lokasi HP dan foto selfie. Jam diambil dari server, bukan dari jam HP. Lupa absen atau HP bermasalah? Hubungi manajemen untuk koreksi.</p>';
+    $('abKartu').innerHTML = h;
+    if ($('abTombol')) $('abTombol').onclick = function () { mulaiAbsen(jenis); };
+    detak(); cekJarak();
+  }
+  function detak() { var el = $('abJam'); if (!el) return; var p = bagian(waktuServer()); el.textContent = p.hour + '.' + p.minute; }
+  setInterval(detak, 5000);
+
+  // Perkiraan jarak di layar (pemeriksaan sebenarnya di server).
+  function cekJarak() {
+    var l = D.saya && D.saya.lokasi; if (!l || l.lat == null || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(function (p) {
+      D.posisi = p; var el = $('abJarak'); if (!el) return;
+      var j = Math.round(jarakM(l.lat, l.lng, p.coords.latitude, p.coords.longitude));
+      el.textContent = '· ±' + j + ' m dari lokasi' + (j > l.radius ? ' (di luar area)' : '');
+      el.style.color = j > l.radius ? 'var(--merah)' : '';
+    }, function () { }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+  }
+
+  // ----- alur absen: GPS + selfie -> unggah foto -> catat di server -----
+  function ambilGps() {
+    return new Promise(function (ok, gagal) {
+      if (!navigator.geolocation) { gagal(new Error('HP ini tidak bisa membaca lokasi.')); return; }
+      navigator.geolocation.getCurrentPosition(ok, function (e) {
+        gagal(new Error(e && e.code === 1 ? 'Izin lokasi ditolak. Buka pengaturan browser, izinkan Lokasi untuk aplikasi ini, lalu coba lagi.' : 'Lokasi HP belum terbaca. Nyalakan GPS / Lokasi lalu coba lagi.'));
+      }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+    });
+  }
+  async function mulaiAbsen(jenis) {
+    if (D.sibuk) return;
+    pesan('msg', '');
+    K.jenis = jenis; K.foto = null;
+    K.gps = ambilGps(); K.gps.catch(function () { });
+    $('kmFoto').hidden = true; $('kmVideo').hidden = false;
+    $('kmAmbil').disabled = false; $('kmAmbil').textContent = 'Ambil foto';
+    $('kmInfo').textContent = 'Arahkan kamera ke wajahmu, lalu tekan Ambil foto.';
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('tanpa kamera langsung');
+      K.strim = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 960 } }, audio: false });
+      $('kmVideo').srcObject = K.strim; $('kamera').hidden = false;
+    } catch (e) {
+      // Cadangan: kamera bawaan HP lewat pemilih file.
+      $('kmCadangan').value = ''; $('kmCadangan').click();
+    }
+  }
+  function tutupKamera() {
+    if (K.strim) { K.strim.getTracks().forEach(function (t) { t.stop(); }); K.strim = null; }
+    $('kmVideo').srcObject = null; $('kamera').hidden = true;
+  }
+  // Foto diperkecil (sisi terpanjang 640 px, JPEG) supaya kirim cepat dan hemat penyimpanan.
+  function keJpeg(sumber, w, h, cermin) {
+    var s = Math.min(1, 640 / Math.max(w, h)), c = document.createElement('canvas');
+    c.width = Math.round(w * s); c.height = Math.round(h * s);
+    var x = c.getContext('2d');
+    if (cermin) { x.translate(c.width, 0); x.scale(-1, 1); }
+    x.drawImage(sumber, 0, 0, c.width, c.height);
+    return new Promise(function (ok) { c.toBlob(function (b) { ok(b); }, 'image/jpeg', 0.72); });
+  }
+  $('kmAmbil').onclick = async function () {
+    var v = $('kmVideo'); if (!v.videoWidth) { $('kmInfo').textContent = 'Kamera belum siap, tunggu sebentar.'; return; }
+    var blob = await keJpeg(v, v.videoWidth, v.videoHeight, true);
+    $('kmFoto').src = URL.createObjectURL(blob); $('kmFoto').hidden = false; v.hidden = true;
+    if (K.strim) { K.strim.getTracks().forEach(function (t) { t.stop(); }); K.strim = null; }
+    this.disabled = true; this.textContent = 'Mengirim…';
+    kirim(blob);
+  };
+  $('kmBatal').onclick = function () { if (!D.sibuk) tutupKamera(); };
+  $('kmCadangan').onchange = function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    var img = new Image();
+    img.onload = async function () {
+      var blob = await keJpeg(img, img.naturalWidth, img.naturalHeight, false);
+      $('kmFoto').src = URL.createObjectURL(blob); $('kmFoto').hidden = false; $('kmVideo').hidden = true;
+      $('kmAmbil').disabled = true; $('kmAmbil').textContent = 'Mengirim…'; $('kamera').hidden = false;
+      kirim(blob);
+    };
+    img.onerror = function () { pesan('msg', 'Foto tidak bisa dibaca. Coba lagi.', 'bad'); };
+    img.src = URL.createObjectURL(f);
+  };
+  async function kirim(blob) {
+    D.sibuk = true; $('kmBatal').disabled = true;
+    try {
+      $('kmInfo').textContent = 'Membaca lokasi HP…';
+      var p = await K.gps;
+      $('kmInfo').textContent = 'Mengirim foto…';
+      var jalur = D.uid + '/' + hariIni() + '-' + K.jenis + '-' + Date.now() + '.jpg';
+      var u = await sb.storage.from('absen').upload(jalur, blob, { contentType: 'image/jpeg', upsert: false });
+      if (u.error) throw new Error('Foto gagal terkirim: ' + u.error.message);
+      $('kmInfo').textContent = 'Mencatat absen…';
+      var r = await sb.rpc('absen_catat', { p_jenis: K.jenis, p_lat: p.coords.latitude, p_lng: p.coords.longitude, p_akurasi: p.coords.accuracy, p_foto: jalur });
+      if (r.error) throw new Error(r.error.message);
+      if (!r.data || !r.data.ok) throw new Error((r.data && r.data.pesan) || 'Absen gagal dicatat.');
+      tutupKamera();
+      pesan('msg', 'Absen ' + K.jenis + ' tercatat jam ' + r.data.jam + ' di ' + r.data.lokasi + '.', 'ok');
+      await muatSaya();
+    } catch (e) {
+      tutupKamera();
+      pesan('msg', e.message || String(e), 'bad');
+    } finally { D.sibuk = false; $('kmBatal').disabled = false; gambarAbsen(); }
+  }
+
+  // ----- izin -----
+  var NAMA_JENIS = { izin: 'Izin', cuti: 'Cuti', sakit: 'Sakit' };
+  var STATUS = { menunggu: ['Menunggu', 'w'], disetujui: ['Disetujui', 'ok'], ditolak: ['Ditolak', 'no'] };
+  function gambarIzin() {
+    var d = D.saya, el = $('izDaftar'); if (!el) return;
+    if (!d) { el.innerHTML = '<div class="ksg">Akun ini belum terdaftar untuk absensi.</div>'; $('izKirim').disabled = true; return; }
+    $('izKirim').disabled = false;
+    if (!$('izMulai').value) { $('izMulai').value = d.tanggal; $('izSelesai').value = d.tanggal; }
+    var daf = d.izin || [];
+    el.innerHTML = daf.length ? daf.map(function (i) {
+      var st = STATUS[i.status] || [i.status, 'abu'];
+      return '<div class="iz-it"><div><b>' + esc(NAMA_JENIS[i.jenis] || i.jenis) + '</b> · ' + esc(tglPendek(i.mulai)) + (i.selesai !== i.mulai ? ' – ' + esc(tglPendek(i.selesai)) : '') +
+        '<small>' + esc(i.alasan) + (i.catatan ? ' · Manajemen: ' + esc(i.catatan) : '') + '</small></div>' +
+        '<div style="text-align:right"><span class="label ' + st[1] + '">' + st[0] + '</span>' +
+        (i.status === 'menunggu' ? '<div><button type="button" class="tbl kcl mer" data-batal="' + i.id + '" style="margin-top:6px">Batalkan</button></div>' : '') + '</div></div>';
+    }).join('') : '<div class="ksg">Belum ada pengajuan.</div>';
+    el.querySelectorAll('[data-batal]').forEach(function (b) {
+      b.onclick = async function () {
+        if (!confirm('Batalkan pengajuan ini?')) return;
+        b.disabled = true;
+        var r = await sb.rpc('absen_izin_batal', { p_id: +b.getAttribute('data-batal') });
+        if (r.error || !r.data.ok) pesan('msgIz', r.error ? r.error.message : r.data.pesan, 'bad'); else pesan('msgIz', 'Pengajuan dibatalkan.', 'ok');
+        await muatSaya();
+      };
+    });
+  }
+  $('izMulai').onchange = function () { if (!$('izSelesai').value || $('izSelesai').value < this.value) $('izSelesai').value = this.value; };
+  $('izKirim').onclick = async function () {
+    var b = this; b.disabled = true; pesan('msgIz', '');
+    try {
+      var r = await sb.rpc('absen_izin_ajukan', { p_jenis: $('izJenis').value, p_mulai: $('izMulai').value || null, p_selesai: $('izSelesai').value || null, p_alasan: $('izAlasan').value });
+      if (r.error) throw new Error(r.error.message);
+      if (!r.data.ok) throw new Error(r.data.pesan);
+      $('izAlasan').value = '';
+      pesan('msgIz', 'Pengajuan terkirim. Tunggu persetujuan manajemen.', 'ok');
+      await muatSaya();
+    } catch (e) { pesan('msgIz', e.message || String(e), 'bad'); }
+    finally { b.disabled = false; }
+  };
+
+  // ----- riwayat -----
+  async function muatRiwayat() {
+    var per = $('rwBulan').value || hariIni().slice(0, 7), el = $('rwIsi');
+    el.innerHTML = '<div class="ksg">Memuat…</div>';
+    var r = await sb.rpc('absen_riwayat', { p_per: per });
+    if (r.error || !r.data.ok) { el.innerHTML = '<div class="msg bad">' + esc(r.error ? r.error.message : r.data.pesan) + '</div>'; return; }
+    var hari = r.data.hari || [];
+    if (!hari.length) { el.innerHTML = '<div class="ksg">Belum ada absen di bulan ini.</div>'; return; }
+    var telat = 0, lembur = 0;
+    var baris = hari.map(function (x) {
+      var m = menit(x.masuk), p = menit(x.pulang), k = [];
+      if (m != null && m > JAM.masuk + JAM.toleransi) { telat += m - JAM.masuk; k.push('<span class="label no">Telat ' + (m - JAM.masuk) + ' mnt</span>'); }
+      if (p != null && p > JAM.lembur) { lembur += p - JAM.lembur; k.push('<span class="label biru">Lembur ' + (p - JAM.lembur) + ' mnt</span>'); }
+      if (m != null && p == null && x.tanggal !== hariIni()) k.push('<span class="label w">Tidak absen pulang</span>');
+      if (x.koreksi) k.push('<span class="label abu">Dikoreksi</span>');
+      var p2 = String(x.tanggal).split('-'), dow = new Date(Date.UTC(+p2[0], +p2[1] - 1, +p2[2])).getUTCDay();
+      return '<tr><td>' + HARI[dow].slice(0, 3) + ' ' + (+p2[2]) + '</td><td class="r">' + esc(x.masuk || '–') + '</td><td class="r">' + esc(x.pulang || '–') + '</td><td>' + k.join(' ') + '</td></tr>';
+    }).join('');
+    el.innerHTML = '<p class="sb" style="margin:0 0 6px">' + hari.length + ' hari hadir' + (telat ? ' · telat ' + telat + ' mnt' : '') + (lembur ? ' · lembur ' + lembur + ' mnt' : '') + '</p>' +
+      '<div class="gulir"><table class="ab-r"><thead><tr><th>Tanggal</th><th class="r">Masuk</th><th class="r">Pulang</th><th>Keterangan</th></tr></thead><tbody>' + baris + '</tbody></table></div>';
+  }
+  $('rwBulan').onchange = muatRiwayat;
+
+  Moscow.mulai({
+    aplikasi: 'ABSENSI',
+    izin: function (ctx) { return ctx.peran ? true : 'Akun ' + ctx.email + ' belum didaftarkan. Minta manajemen Moscow Supplies menambahkan email ini.'; },
+    menu: [
+      { k: 'absen', nm: 'Absen', ik: 'setuju', judul: 'Absen hari ini' },
+      { k: 'izin', nm: 'Izin & cuti', ik: 'nota', judul: 'Izin, cuti & sakit', pendek: 'Izin' },
+      { k: 'riwayat', nm: 'Riwayat', ik: 'riwayat', judul: 'Riwayat absen' }
+    ],
+    bawah: ['absen', 'izin', 'riwayat'],
+    pindah: function (k) {
+      if (k === 'absen') { pesan('msg', ''); if (D.saya) gambarAbsen(); }
+      if (k === 'riwayat') { if (!$('rwBulan').value) $('rwBulan').value = hariIni().slice(0, 7); muatRiwayat(); }
+    },
+    siap: function (ctx) {
+      D.uid = ctx.sesi.user.id;
+      var nav = document.querySelector('#mSide nav');
+      if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="./">' + Moscow.svg('app') + '<span class="nm">Halaman utama</span></a>');
+      muatSaya();
+      document.addEventListener('visibilitychange', function () { if (!document.hidden && !D.sibuk) muatSaya(); });
+    }
+  });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () { });
+})();
+</script>
+</body>
+</html>
