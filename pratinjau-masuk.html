@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pratinjau masuk · Moscow Supplies</title><meta name="robots" content="noindex">
+<meta name="theme-color" content="#172434">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Moscow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="moscow.css?v=11">
+<style>
+  #pilih { display:grid; gap:8px; margin-top:4px; max-height:none; }
+  #pilih a { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 14px; border:1px solid var(--garis);
+    border-radius:12px; color:inherit; text-decoration:none; font-weight:700; }
+  #pilih a span { font-weight:500; font-size:12.5px; color:var(--abu); }
+  #pilih a:hover { background:var(--latar); }
+  #pilih .grp { margin:10px 0 0; font-size:11.5px; font-weight:700; letter-spacing:.08em; color:var(--abu); text-transform:uppercase; }
+  #pilih a b small { display:block; font-weight:500; font-size:12px; color:var(--abu); margin-top:1px; }
+  .inapp { margin:0 0 16px; padding:14px 16px; border-radius:12px; background:#FFF6E0; border:1px solid #F0D48A; color:#5C4300; font-size:14px; line-height:1.5; }
+  .inapp b { display:block; font-size:15px; margin-bottom:4px; color:#3F2E00; }
+  .inapp ol { margin:6px 0 0; padding-left:20px; }
+  .inapp .aksi { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .inapp .aksi a, .inapp .aksi button { font:inherit; font-size:14px; font-weight:700; padding:9px 14px; border-radius:10px; border:1px solid #D9B24A; background:#fff; color:#3F2E00; text-decoration:none; cursor:pointer; }
+  .inapp .aksi a { background:#3F2E00; border-color:#3F2E00; color:#fff; }
+  #pilih a.masukApp { background:var(--biru); border-color:var(--biru); color:#fff; padding:16px 18px; font-size:17px; min-height:62px; }
+  #pilih a.masukApp small { color:rgba(255,255,255,.82); font-size:13px; }
+  #pilih a.masukApp span { color:#fff; font-size:24px; font-weight:700; }
+  #pilih a.masukApp:hover { background:var(--biruTua); }
+  #pilih details.lain summary { cursor:pointer; list-style:none; padding:12px 2px 4px; font-weight:700; color:var(--biru); font-size:14.5px; }
+  #pilih details.lain summary::-webkit-details-marker { display:none; }
+  #pilih details.lain summary::after { content:' ›'; }
+  #pilih details.lain[open] summary::after { content:' ‹'; }
+  #pilih details.lain .isi { display:grid; gap:8px; margin-top:6px; }
+  .keluar { margin-top:16px; background:none; border:0; color:var(--abu); font:inherit; font-size:13px; cursor:pointer; padding:4px 0; }
+</style>
+</head>
+<body>
+<div id="mMasuk">
+  <section class="mm-kiri"><span class="mm-garis" aria-hidden="true"></span>
+    <h2>Sistem Manajemen <span>Moscow Supplies</span></h2><p class="sub">Semua operasional dalam satu kendali.</p><span id="ilus"></span></section>
+  <section class="mm-kanan"><div class="kotak">
+    <span class="lg" role="img" aria-label="Moscow Supplies"></span>
+    <span class="ey">APLIKASI MOSCOW SUPPLIES</span>
+    <h1 id="judul">Selamat datang</h1>
+    <p id="teks">Masuk menggunakan akun Google yang sudah terdaftar. Halaman bagianmu terbuka otomatis.</p>
+    <div class="inapp" id="inapp" role="alert" hidden></div>
+    <button type="button" class="google" id="tMasuk" hidden></button>
+    <div id="pilih" hidden></div>
+    <div class="pesan" id="pesan" role="alert"></div>
+    <p class="mm-akses" id="akses"><span id="aksesIk"></span><span>Akses aman untuk tim terdaftar</span></p>
+    <button type="button" class="keluar" id="tKeluar" hidden>Keluar / ganti akun</button>
+    <a class="priv" href="privasi.html">Kebijakan privasi</a>
+  </div><p class="mm-status" id="mStatus" role="status"></p></section>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="moscow.js?v=8"></script>
+<script>
+(function () {
+  var M = window.Moscow, sb = M.sb, GOOGLE = M.GOOGLE;
+  function $(i) { return document.getElementById(i); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  // Satu link untuk semua: halaman tujuan ditentukan dari peran akun (tabel pengguna), bukan dipilih sendiri.
+  var TUJUAN = {
+    gudang: [['Gudang Utama', 'form.html?f=gudang']],
+    purchasing_shopeepay: [['Purchasing', 'form.html?f=purchasing'], ['Gudang Utama', 'form.html?f=gudang']],
+    produksi: [['Staf Produksi', 'form.html?f=produksi']],
+    bahan_baku: [['Staf Bahan Baku', 'form.html?f=bahanbaku']],
+    kendali_bisnis: [['Kendali Bisnis', 'form.html?f=mike'], ['Persetujuan & laporan', 'form.html?f=mikelama'], ['Stok semua lokasi', 'stok.html']],
+    toko: [['Form toko', 'consignment.html']],
+    manajemen: [['Master Data', 'master.html'],
+      ['#Consignment'], ['Consignment Sidoarjo', 'consignment.html?toko=Consignment%20Sidoarjo'], ['Consignment Medan', 'consignment.html?toko=Consignment%20Medan'],
+      ['Consignment Renon', 'consignment.html?toko=Consignment%20Renon'],
+      ['#Toko & staf'], ['Toko Offline', 'consignment.html?toko=Toko%20Offline', 'Laporan, stok, order, kasir'],
+      ['Purchasing', 'form.html?f=purchasing'], ['Gudang Utama', 'form.html?f=gudang'],
+      ['Reseller', 'master.html#jual', 'Order reseller di Master Data › Penjualan'],
+      ['Staf Produksi', 'form.html?f=produksi'], ['Staf Bahan Baku', 'form.html?f=bahanbaku'],
+      ['#Lainnya'], ['Payroll', 'form.html?f=payroll'], ['Form accounting', 'form.html?f=akunting'], ['Stok semua lokasi', 'stok.html'], ['Kendali Bisnis', 'form.html?f=mike', 'Khusus Mike dan Junior']]
+  };
+  M.logoPutih(); $('ilus').outerHTML = M.ILUS; $('aksesIk').outerHTML = M.KUNCI_IK;
+  // Google menolak masuk dari browser di dalam aplikasi (WhatsApp, Instagram, Facebook, LINE, TikTok di Android/iPhone).
+  var UA = navigator.userAgent || '', ANDROID = /Android/i.test(UA), IOS = /iPhone|iPad|iPod/i.test(UA);
+  var DALAM_APP = /FBAN|FBAV|FB_IAB|Instagram|Line\/|musical_ly|TikTok|Twitter|Snapchat|WhatsApp/i.test(UA)
+    || (ANDROID && /; wv\)/.test(UA)) || (IOS && /AppleWebKit/.test(UA) && !/Safari\//.test(UA));
+  function peringatanApp() {
+    if (!DALAM_APP) return;
+    var link = location.origin + '/';
+    var h = '<b>Buka link ini di ' + (IOS ? 'Safari' : 'Chrome') + ' dulu</b>Google tidak mengizinkan masuk dari dalam WhatsApp atau aplikasi lain.<ol>'
+      + (IOS ? '<li>Ketuk tombol <b style="display:inline">⋯</b> atau ikon kompas di pojok layar.</li><li>Pilih <b style="display:inline">Buka di Safari</b>.</li>'
+             : '<li>Ketuk <b style="display:inline">⋮</b> di pojok kanan atas.</li><li>Pilih <b style="display:inline">Buka di Chrome</b>.</li>')
+      + '</ol><div style="margin-top:6px">Bisa juga salin link lalu tempel di ' + (IOS ? 'Safari' : 'Chrome') + '.</div><div class="aksi">'
+      + (ANDROID ? '<a href="intent://' + location.host + '/#Intent;scheme=https;package=com.android.chrome;end">Buka di Chrome</a>' : '')
+      + '<button type="button" id="tSalin">Salin link</button></div>';
+    $('inapp').innerHTML = h; $('inapp').hidden = false;
+    $('tSalin').onclick = function () {
+      var b = this, ok = function () { b.textContent = 'Link tersalin'; };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(ok, function () { prompt('Salin link ini:', link); });
+      else prompt('Salin link ini:', link);
+    };
+  }
+  function tombolAwal() { $('tMasuk').disabled = false; $('tMasuk').innerHTML = GOOGLE + '<span>Masuk dengan Google</span>'; }
+  function layarMasuk(pesan) {
+    M.muat(false);
+    $('judul').textContent = 'Selamat datang'; $('teks').textContent = 'Masuk menggunakan akun Google yang sudah terdaftar. Halaman bagianmu terbuka otomatis.';
+    $('pilih').hidden = true; $('tKeluar').hidden = true; $('akses').hidden = false; peringatanApp();
+    tombolAwal(); $('tMasuk').hidden = false; $('pesan').textContent = pesan || ''; $('mStatus').hidden = false; M.cekSistem($('mStatus'));
+  }
+  // Pesan gagal yang dikembalikan Google / Supabase lewat alamat halaman.
+  var galatMasuk = '';
+  try {
+    var q1 = new URLSearchParams(location.search), q2 = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+    var g = q1.get('error_description') || q2.get('error_description') || q1.get('error') || q2.get('error');
+    if (g) galatMasuk = 'Masuk gagal: ' + String(g).replace(/\+/g, ' ').slice(0, 200) + '. Coba lagi.';
+  } catch (x) { }
+  M.muat('Memuat aplikasi…');
+  $('tMasuk').onclick = function () {
+    var b = this; $('pesan').textContent = '';
+    b.disabled = true; b.innerHTML = '<span class="spin" aria-hidden="true"></span><span>Membuka Google…</span>';
+    sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } })
+      .then(function (r) { if (r.error) { tombolAwal(); $('pesan').textContent = 'Gagal membuka Google: ' + r.error.message; } })
+      .catch(function () { tombolAwal(); $('pesan').textContent = 'Gagal membuka Google. Periksa internet lalu coba lagi.'; });
+  };
+  $('tKeluar').onclick = async function () { await sb.auth.signOut({ scope: 'local' }); layarMasuk(''); };
+  async function periksa(sesi) {
+    $('tMasuk').hidden = true; M.muat('Memeriksa akses…');
+    var r = await sb.rpc('peran_saya');
+    if (r.error) { layarMasuk('Tidak bisa memeriksa akses: ' + r.error.message); return; }
+    var peran = r.data, l = null;
+    try { l = (await sb.rpc('lingkup_saya')).data; } catch (e) { l = null; }
+    var daftar = TUJUAN[peran];
+    if (!daftar) {
+      await sb.auth.signOut({ scope: 'local' });
+      layarMasuk('Akun ' + sesi.user.email + ' belum didaftarkan. Minta manajemen Moscow Supplies menambahkan email ini.');
+      return;
+    }
+    // Layar selamat datang: selalu tampil saat sesi masih ada, cukup satu ketukan "Masuk aplikasi" tanpa pilih akun Google lagi.
+    var meta = sesi.user.user_metadata || {}, nama = String(meta.full_name || meta.name || sesi.user.email.split('@')[0]).trim().split(/\s+/)[0];
+    var link = daftar.filter(function (d) { return d[0].charAt(0) !== '#'; }), utama = link[0];
+    M.muat(false); $('akses').hidden = true; $('inapp').hidden = true; $('mStatus').hidden = true;
+    $('judul').textContent = 'Selamat datang, ' + nama;
+    $('teks').textContent = 'Kamu masuk sebagai ' + sesi.user.email + (l ? ' (' + l + ')' : '') + '.';
+    var daftarHtml = daftar.slice(1).map(function (d) {
+      if (d[0].charAt(0) === '#') return '<div class="grp">' + esc(d[0].slice(1)) + '</div>';
+      return '<a href="' + esc(d[1]) + '"><b>' + esc(d[0]) + (d[2] ? '<small>' + esc(d[2]) + '</small>' : '') + '</b><span>Buka ›</span></a>';
+    }).join('');
+    $('pilih').innerHTML = '<a class="masukApp" href="' + esc(utama[1]) + '"><b>Masuk aplikasi<small>' + esc(utama[0]) + '</small></b><span aria-hidden="true">›</span></a>' +
+      (link.length < 2 ? '' : link.length > 4 ? '<details class="lain"><summary>Buka halaman lain</summary><div class="isi">' + daftarHtml + '</div></details>'
+        : '<div class="grp">Halaman lain</div>' + daftarHtml);
+    $('pilih').hidden = false; $('tKeluar').hidden = false;
+  }
+  sb.auth.getSession().then(function (r) {
+    var s = r.data && r.data.session;
+    if (s) periksa(s); else layarMasuk(galatMasuk);
+  });
+  sb.auth.onAuthStateChange(function (ev, s) { if (ev === 'SIGNED_IN' && s) periksa(s); });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () { });
+})();
+</script>
+</body>
+</html>
