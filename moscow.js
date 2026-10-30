@@ -205,10 +205,26 @@
     document.querySelectorAll('[data-bd="' + k + '"]').forEach(function (x) { x.textContent = n || ''; x.hidden = !n; });
   }
 
+  // Pita kecil di atas isi halaman: belum absen masuk (atau pulang) hari ini.
+  function pengingatAbsen(a) {
+    if ($('mAbsen') || !$('mIsi')) return;
+    var masuk = !a.masuk, el = document.createElement('a');
+    el.id = 'mAbsen'; el.href = 'absensi.html';
+    el.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 16px 0;padding:12px 14px;border-radius:12px;text-decoration:none;font-weight:700;font-size:14px;' +
+      (masuk ? 'background:var(--biru);color:#fff' : 'background:var(--kuningMuda);color:var(--kuning)');
+    el.innerHTML = '<span>' + (masuk ? 'Kamu belum absen masuk hari ini' : 'Jangan lupa absen pulang') + (a.uji ? ' <small style="font-weight:600;opacity:.85">(uji coba)</small>' : '') + '</span><span>Absen ›</span>';
+    $('mIsi').insertBefore(el, $('mIsi').firstChild);
+  }
+
   async function periksa(sesi) {
     muat('Memeriksa akses…');
     // peran & lingkup diperiksa bersamaan (dulu berurutan)
-    var dua = await Promise.all([sb.rpc('peran_saya'), sb.rpc('lingkup_saya').then(function (x) { return x; }, function () { return { data: null }; })]), r = dua[0];
+    // Absensi: staf terdaftar mendapat menu Absensi + pengingat di semua halaman aplikasi (kecuali halaman Absensi sendiri).
+    var diAbsen = /absensi\.html$/.test(location.pathname);
+    var dua = await Promise.all([sb.rpc('peran_saya'), sb.rpc('lingkup_saya').then(function (x) { return x; }, function () { return { data: null }; }),
+      diAbsen ? Promise.resolve({ data: null }) : sb.rpc('absen_saya').then(function (x) { return x; }, function () { return { data: null }; })]), r = dua[0];
+    var abs = dua[2] && dua[2].data && dua[2].data.ok ? dua[2].data : null;
+    if (abs && !O.menu.some(function (m) { return m.href === 'absensi.html'; })) O.menu = O.menu.concat([{ grup: 'ABSENSI' }, { k: '__absen', nm: 'Absen masuk / pulang', ik: 'setuju', href: 'absensi.html' }]);
     if (r.error) { layarMasuk('Tidak bisa memeriksa akses: ' + r.error.message); return; }
     var ctx = { sb: sb, email: sesi.user.email, peran: r.data, sesi: sesi, lingkup: (dua[1] && dua[1].data) || null };
     S.email = ctx.email;
@@ -223,6 +239,7 @@
     muat(false);
     if (!$('mApp')) bangun(ctx);
     $('mApp').hidden = false;
+    if (abs && (!abs.masuk || !abs.pulang)) pengingatAbsen(abs);
     var awal = (location.hash || '').slice(1);
     if (location.search) try { history.replaceState(null, '', location.pathname + location.hash); } catch (x) { }
     var pertama = O.menu.filter(function (x) { return !x.grup && !x.href; })[0].k;
