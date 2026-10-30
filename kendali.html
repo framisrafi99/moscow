@@ -106,7 +106,7 @@
     menu: [{ k: 'beranda', nm: 'Beranda' }, { k: 'laporan', nm: 'Laporan', judul: 'Laporan bulanan' }, { k: 'hpp', nm: 'HPP & Harga', ik: 'harga' }],
     pindah: function (k) { document.documentElement.classList.toggle('m-bx', k === 'beranda'); if (k === 'hpp' && !barang) muatHpp(); },
     siap: function (ctx) {
-      KB.email = String(ctx.email || '').toLowerCase(); var um = (ctx.sesi && ctx.sesi.user && ctx.sesi.user.user_metadata) || {}; KB.nama = um.full_name || um.name || '';
+      KB.email = String(ctx.email || '').toLowerCase(); KB.peran = ctx.peran === 'manajemen' ? 'Manajemen' : 'Kendali Bisnis'; var um = (ctx.sesi && ctx.sesi.user && ctx.sesi.user.user_metadata) || {}; KB.nama = um.full_name || um.name || '';
       M.aksi([{ nm: 'Muat ulang', ik: 'muat', klik: function () { muatSemua(); } }]);
       if (ctx.peran === 'manajemen') {
         // tautan kembali ke Master Data untuk manajemen
@@ -156,7 +156,7 @@
     BerandaBaru.gambar(el, C.B, (KB.md || {}).beranda || {}, tindakanKB(), {
       gantiBulan: function (m) { KB.bulan = m; gambarBeranda(); },
       buka: function (b) { if (b === 'laporan' || b === 'hpp') M.buka(b); else { var t = $(b === 'purch' ? 'bxPo' : 'bxRinci'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
-      kpi: C.K, pengguna: { nama: KB.namaTim || KB.nama, email: KB.email }, peran: 'Kendali Bisnis',
+      kpi: C.K, pengguna: { nama: KB.namaTim || KB.nama, email: KB.email }, peran: KB.peran,
       menuAkun: [{ nm: 'Muat ulang data', klik: muatSemua }, { nm: 'Laporan bulanan', k: 'laporan' }, { nm: 'HPP & Harga', k: 'hpp' },
         { nm: 'Keluar / ganti akun', klik: function () { sb.auth.signOut({ scope: 'local' }).then(function () { location.href = 'index.html'; }); } }]
     });
