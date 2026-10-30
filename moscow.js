@@ -31,32 +31,9 @@
   function jt(n) { n = Number(n) || 0; var a = Math.abs(n), s = n < 0 ? '-' : ''; if (a >= 1e9) return s + 'Rp' + (a / 1e9).toFixed(1).replace('.', ',') + ' M'; if (a >= 1e6) return s + 'Rp' + (a / 1e6).toFixed(1).replace('.', ',') + ' jt'; if (a >= 1e3) return s + 'Rp' + Math.round(a / 1e3) + ' rb'; return s + 'Rp' + fmt(a); }
 
   // Logo putih untuk latar gelap: bagian hitam jadi putih, latar putih jadi transparan.
-  function logoPutih() {
-    var im = new Image();
-    im.onload = function () {
-      try {
-        var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
-        var x = c.getContext('2d'); x.drawImage(im, 0, 0);
-        var p = x.getImageData(0, 0, c.width, c.height), a = p.data, i, mn, mx;
-        for (i = 0; i < a.length; i += 4) {
-          mn = Math.min(a[i], a[i + 1], a[i + 2]); mx = Math.max(a[i], a[i + 1], a[i + 2]);
-          if (mn > 232) a[i + 3] = 0;
-          else if (mx < 110) { a[i] = 255; a[i + 1] = 255; a[i + 2] = 255; }
-        }
-        x.putImageData(p, 0, 0);
-        // potong margin kosong supaya logo memenuhi tempatnya
-        var W = c.width, H = c.height, x0 = W, y0 = H, x1 = -1, y1 = -1, px, py;
-        for (py = 0; py < H; py++) for (px = 0; px < W; px++) if (a[(py * W + px) * 4 + 3] > 20) { if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py; }
-        var hasil = c;
-        if (x1 > x0 && y1 > y0) {
-          hasil = document.createElement('canvas'); hasil.width = x1 - x0 + 1; hasil.height = y1 - y0 + 1;
-          hasil.getContext('2d').drawImage(c, x0, y0, hasil.width, hasil.height, 0, 0, hasil.width, hasil.height);
-        }
-        root.style.setProperty('--mLogo', 'url(' + hasil.toDataURL('image/png') + ')');
-      } catch (e) { root.style.setProperty('--mLogo', 'url(icon-512.png)'); }
-    };
-    im.src = 'icon-512.png';
-  }
+  // Logo untuk latar biru gelap (menu samping, kepala HP): file PNG tajam beresolusi tinggi.
+  function logoPutih() { root.style.setProperty('--mLogo', 'url(logo-putih.png)'); }
+
 
   function mode() {
     var d = window.innerWidth >= 900;
