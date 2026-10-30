@@ -306,10 +306,9 @@
     if (S.data) el.style.opacity = '.55';
     var r = await opsi.sb.rpc('laporan_pajak', { p_bulan: bulan || '' });
     if (!r.error && r.data) {
-      // Payroll bulan itu (periode disimpan sebagai tanggal 1 bulan, format dd/mm/yyyy).
-      var p = String(r.data.bulan).split('-'), g = await opsi.sb.from('gaji_log')
-        .select('nama,divisi,kelompok,gaji_pokok,uang_makan,lembur,bonus,telat,bpjs_karyawan,bpjs_ditanggung_pt,kasbon,thp,status').eq('periode', '01/' + p[1] + '/' + p[0]);
-      r.data.gaji = g.error ? [] : (g.data || []).filter(function (x) { return !/tolak|batal/i.test(x.status || ''); });
+      // Payroll bulan itu dari form Payroll.
+      var g = await opsi.sb.rpc('laporan_gaji', { p_bulan: r.data.bulan });
+      r.data.gaji = g.error ? [] : g.data || [];
     }
     S.memuat = false; el.style.opacity = '';
     if (r.error) { el.innerHTML = '<div class="msg bad">Laporan gagal dimuat: ' + esc(r.error.message) + '</div>'; return; }
