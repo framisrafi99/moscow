@@ -26,7 +26,7 @@
         v: num(x[7]), w: jam(x[8]), p: pg.replace(/^staf:\s*/i, ''), batal: 0, staf: 1
       };
     }).filter(function (x) { return x.j === 'Keluar' && /\(gudang\)$/.test(String(x.p || '')); }).slice(0, 60);
-    return { ok: true, mgmt: !!(p && p.mm), tanggal: d.tanggal, akun: (d.akun || []).map(function (a) { return { n: a[0], j: a[1] }; }), kat: d.kat || [], riwayat: riwayat };
+    return { ok: true, mgmt: !!(p && p.mm), tanggal: d.tanggal, akun: (d.akun || []).filter(function (a) { return !/belum cair/i.test(a[0]); }).map(function (a) { return { n: a[0], j: a[1] }; }), kat: d.kat || [], riwayat: riwayat };
   }
 
   async function gdxLokasi(sb) {
