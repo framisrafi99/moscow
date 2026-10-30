@@ -261,6 +261,14 @@
     $('ksSimpan').disabled = sibuk; $('ksSimpanCetak').disabled = sibuk;
     $('ksSimpanCetak').textContent = sibuk ? 'Menyimpan…' : 'Simpan & cetak struk';
   }
+  // Nota sudah tercatat di Supabase; minta Apps Script menyalinnya ke Google Sheet sekarang (tidak ditunggu).
+  var BALIK = 'https://script.google.com/macros/s/AKfycbxcidGDrc33WJYcxzPf1dnRFzgafzbhwomXKlj3KjfYUHosPyI0qNpBcY9tvI7-PgI2/exec?app=balik';
+  async function salinKeSheet() {
+    try {
+      var s = await sb.auth.getSession(), t = s && s.data && s.data.session ? s.data.session.access_token : '';
+      if (t) fetch(BALIK, { method: 'POST', body: JSON.stringify({ t: t }), keepalive: true }).catch(function () { });
+    } catch (e) { }
+  }
   async function simpan(denganCetak) {
     if (S.sibuk) return;
     var kasir = $('ksKasir').value.trim();
@@ -282,6 +290,7 @@
     if (r.error) { pesan('Gagal terhubung. Periksa internet lalu tekan simpan lagi (nota tidak akan tercatat dua kali).', false); return; }
     var h = r.data || {};
     if (!h.ok) { pesan(h.pesan || 'Gagal menyimpan.', false); return; }
+    if (!h.ulang) salinKeSheet();
     S.terakhir = notaDari(h.nota);
     if (bayarTeks !== '' && isFinite(bayar)) S.terakhir.bayar = bayar;
     kosongkan(); tampilStruk();
