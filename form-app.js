@@ -13,7 +13,7 @@
         { k: 'stok', nm: 'Stok', ik: 'stok', l: ['Stok@.m'] },
         { k: 'order', nm: 'Order masuk', ik: 'nota', l: ['Order Masuk@.m'], pendek: 'Order' },
         { k: 'ajuan', nm: 'Pengajuan', ik: 'purch', l: ['Pengajuan@.m'] },
-        { k: 'salur', nm: 'Penyaluran', ik: 'gudang', l: ['Penyaluran@.m'] },
+        { k: 'salur', nm: 'Penyaluran', ik: 'pemasok', l: ['Penyaluran@.m'] },
         { k: 'riwayat', nm: 'Riwayat', ik: 'riwayat', l: ['Riwayat@.m'] },
         { k: 'uang', nm: 'Uang keluar', ik: 'uang', l: ['Uang keluar@.m'], pendek: 'Uang' }
       ],
@@ -512,6 +512,45 @@
     });
   }
 
+  // Gudang Utama: ikon emoji di isi form diganti ikon garis yang sama dengan menu aplikasi (lebih jelas & seragam).
+  var IKON_GD = {
+    '📥': 'M22 12h-6l-2 3h-4l-2-3H2M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z',
+    '🚚': 'M3 7h11v9H3zM14 10h4l3 3v3h-7M7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+    '🛒': 'M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 8H6M9 21h.01M18 21h.01',
+    '📦': 'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8',
+    '🤖': 'M12 3v4M7 7h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zM9.5 12h.01M14.5 12h.01M9.5 16h5M3 12v3M21 12v3',
+    '📋': 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+    '💸': 'M3 6h18v13H3zM3 10h18M7 15h3',
+    '🏠': 'M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5'
+  };
+  var EMOJI_GD = /^[\s‍️]*(\p{Extended_Pictographic})[‍️]*\s*/u;
+  function ikonGd(dok) {
+    if (!dok.getElementById('ikGaya')) {
+      var g = dok.createElement('style'); g.id = 'ikGaya';
+      g.textContent = '.gx-ik{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:10px;background:#E7F3F9;color:#1E78A8}' +
+        '.gx-ik svg{width:58%;height:58%}span.gx-ik.ik{width:40px;height:40px;font-size:0}h3 .gx-ik{width:30px;height:30px;margin-right:10px;vertical-align:middle;border-radius:9px}' +
+        'h3:has(> .gx-ik){display:flex;align-items:center}.mrh span.gx-ik{background:#FFF6E6;color:#9A5B00}';
+      dok.head.appendChild(g);
+    }
+    function svgIk(d) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + d + '"></path></svg>'; }
+    function ganti() {
+      Array.prototype.forEach.call(dok.querySelectorAll('span.ik:not(.gx-ik)'), function (sp) {
+        var m = EMOJI_GD.exec(sp.textContent || ''); if (!m || sp.closest('#gdxBar')) return;
+        sp.classList.add('gx-ik'); sp.innerHTML = svgIk(IKON_GD[m[1]] || IKON_GD['📦']);
+      });
+      Array.prototype.forEach.call(dok.querySelectorAll('h3'), function (h) {
+        var t = h.firstChild; if (!t || t.nodeType !== 3) return;
+        var m = EMOJI_GD.exec(t.textContent); if (!m) return;
+        t.textContent = t.textContent.slice(m[0].length);
+        var sp = dok.createElement('span'); sp.className = 'gx-ik'; sp.innerHTML = svgIk(IKON_GD[m[1]] || IKON_GD['📦']);
+        h.insertBefore(sp, t);
+      });
+    }
+    ganti();
+    var tunda = 0;
+    new MutationObserver(function () { if (tunda) return; tunda = requestAnimationFrame(function () { tunda = 0; ganti(); }); })
+      .observe(dok.body, { childList: true, subtree: true });
+  }
   // Gudang › Penyaluran: tiap baris barang dapat kotak "ketik kode / nama" (tidak perlu menggulir daftar panjang).
   // Kotak ini hanya memilih barang di daftar lama lalu memicu 'change', jadi cara simpan form tidak berubah.
   function cariKodeKirim(dok) {
@@ -660,7 +699,7 @@
       var nm = dok.getElementById('nama');
       if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
       ukur(); tekan(C.aktif);
-      if (APP === 'gudang') try { cariKodeKirim(dok); } catch (e) { }
+      if (APP === 'gudang') { try { cariKodeKirim(dok); } catch (e) { } try { ikonGd(dok); } catch (e) { } }
       if (BUKA.length) jalankanBuka(dok);
       // Stok di dalam tampilan simpanan bisa sudah lama: langsung dimuat ulang (form produksi).
       if (dariSimpanan) try { if (typeof fr.contentWindow.muatStok === 'function') fr.contentWindow.muatStok(); } catch (e) { }
