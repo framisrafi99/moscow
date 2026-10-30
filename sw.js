@@ -1,5 +1,5 @@
 // Menyimpan tampilan pembuka saja. Data sistem selalu diambil langsung dari Google.
-var CACHE = 'moscow-v15';
+var CACHE = 'moscow-v16';
 var FILES = ['./', 'lama.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', function (e) {

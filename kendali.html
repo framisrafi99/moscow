@@ -63,6 +63,7 @@
 </head>
 <body>
 <main id="mIsi">
+  <section data-bagian="beranda" id="bBeranda"><div class="ksg">Memuat beranda…</div></section>
   <section data-bagian="laporan">
     <div class="bulan">
       <button id="tSebelum" type="button" aria-label="Bulan sebelumnya">‹</button>
@@ -87,7 +88,8 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="moscow.js?v=8"></script>
+<script src="moscow.js?v=9"></script>
+<script src="beranda2.js?v=6"></script>
 <script>
 (function () {
   var M = Moscow, sb = M.sb, esc = M.esc;
@@ -99,20 +101,66 @@
   var laporan = [], posisi = 0, barang = null;
 
   M.mulai({
-    aplikasi: 'KENDALI BISNIS', masukJudul: 'Kendali Bisnis', masukTeks: 'Laporan bulanan dan HPP Moscow Supplies. Masuk memakai akun Google yang sudah didaftarkan.',
+    aplikasi: 'KENDALI BISNIS', masukJudul: 'Kendali Bisnis', masukTeks: 'Ringkasan usaha, laporan bulanan, dan HPP Moscow Supplies. Masuk memakai akun Google yang sudah didaftarkan.',
     izin: function (ctx) { return ['manajemen', 'kendali_bisnis', 'accounting'].indexOf(ctx.peran) > -1 ? true : (ctx.peran ? 'Akun ' + ctx.email + ' tidak punya akses ke Kendali Bisnis.' : false); },
-    menu: [{ k: 'laporan', nm: 'Laporan', judul: 'Laporan bulanan' }, { k: 'hpp', nm: 'HPP & Harga', ik: 'harga' }],
-    pindah: function (k) { if (k === 'hpp' && !barang) muatHpp(); },
+    menu: [{ k: 'beranda', nm: 'Beranda' }, { k: 'laporan', nm: 'Laporan', judul: 'Laporan bulanan' }, { k: 'hpp', nm: 'HPP & Harga', ik: 'harga' }],
+    pindah: function (k) { document.documentElement.classList.toggle('m-bx', k === 'beranda'); if (k === 'hpp' && !barang) muatHpp(); },
     siap: function (ctx) {
-      M.aksi([{ nm: 'Muat ulang', ik: 'muat', klik: function () { muatLaporan(); barang = null; if (M.aktif() === 'hpp') muatHpp(); } }]);
+      KB.email = String(ctx.email || '').toLowerCase(); var um = (ctx.sesi && ctx.sesi.user && ctx.sesi.user.user_metadata) || {}; KB.nama = um.full_name || um.name || '';
+      M.aksi([{ nm: 'Muat ulang', ik: 'muat', klik: function () { muatSemua(); } }]);
       if (ctx.peran === 'manajemen') {
         // tautan kembali ke Master Data untuk manajemen
         var nav = document.querySelector('#mSide nav');
         if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + M.svg('beranda') + '<span class="nm">Master Data</span></a>');
+      } else if (ctx.peran === 'kendali_bisnis') {
+        var nav2 = document.querySelector('#mSide nav');
+        if (nav2) nav2.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="form.html?f=mike">' + M.svg('setuju') + '<span class="nm">Persetujuan &amp; pembayaran</span></a>' +
+          '<a class="it" href="stok.html">' + M.svg('stok') + '<span class="nm">Stok semua lokasi</span></a>');
       }
-      muatLaporan();
+      muatLaporan(); gambarBeranda();
     }
   });
+
+  // ======================= BERANDA (tampilan sama dengan Beranda Master Data, hanya melihat) =======================
+  var KB = { bulan: '', cache: {}, md: null, email: '', nama: '', namaTim: undefined };
+  function muatSemua() { KB.cache = {}; KB.md = null; gambarBeranda(); muatLaporan(); barang = null; if (M.aktif() === 'hpp') muatHpp(); }
+  function namaBln(b) { var p = String(b || '').split('-'); return (NAMA_BULAN[Number(p[1]) - 1] || '') + ' ' + p[0]; }
+  function tindakanKB() {
+    var md = KB.md || {}, d = md.beranda || {}, r = md.ringkasan || {}, L = [];
+    if (d.nota && d.nota.n) L.push({ teks: d.nota.n + ' nota toko offline belum ada metode bayar', w: true });
+    (d.akun || []).forEach(function (a) { if (a.v < 0) L.push({ teks: (/^saldo /i.test(a.n) ? a.n : 'Saldo ' + a.n) + ' minus ' + rp(-a.v), w: true }); });
+    if (md.pantau && md.pantau.nTahan) L.push({ teks: md.pantau.nTahan + ' pengiriman tertahan', w: true });
+    var t = ((md.setuju && md.setuju.menunggu) || 0) + ((md.request && md.request.n) || 0); if (t) L.push({ teks: t + ' persetujuan menunggu', w: true });
+    if (r.pinjam && r.pinjam.lewat) L.push({ teks: r.pinjam.lewat + ' pinjaman barang lewat tanggal kembali', w: true });
+    (r.akhir || []).forEach(function (a) { if (a.lalu !== null && a.lalu > (r.batas || 3)) L.push({ teks: a.n + ' belum lapor ' + a.lalu + ' hari', w: true }); });
+    if (d.hari) {
+      var tg = Number(String(d.hari).slice(8)), akhir = new Date(Number(d.hari.slice(0, 4)), Number(d.hari.slice(5, 7)), 0).getDate();
+      if (tg >= akhir - 7) L.push({ teks: 'Hitung fisik akhir bulan · ' + akhir + ' ' + namaBln(d.bulan), w: false });
+    }
+    return L.map(function (x) { x.buka = ''; return x; });
+  }
+  async function gambarBeranda() {
+    var el = $('bBeranda'); if (!el || !window.BerandaBaru) return;
+    var k = KB.bulan || '';
+    if (!KB.cache[k]) {
+      if (el.querySelector('.bx-grid')) el.style.opacity = '.55';
+      var rr = await Promise.all([sb.rpc('beranda_data', { p_bulan: k }), sb.rpc('beranda_kpi', { p_bulan: k }), KB.md ? null : sb.rpc('beranda_md'),
+        KB.namaTim === undefined ? sb.from('pengguna').select('nama').eq('email', KB.email).maybeSingle() : null]);
+      el.style.opacity = '';
+      if (rr[0].error) { el.innerHTML = '<div class="msg bad">Beranda gagal dimuat: ' + esc(rr[0].error.message) + '</div>'; return; }
+      if (rr[2]) KB.md = rr[2].error ? {} : rr[2].data || {};
+      if (rr[3]) KB.namaTim = (rr[3].data && rr[3].data.nama) || '';
+      KB.cache[k] = { B: rr[0].data, K: rr[1].error ? null : rr[1].data };
+    }
+    var C = KB.cache[k];
+    BerandaBaru.gambar(el, C.B, (KB.md || {}).beranda || {}, tindakanKB(), {
+      gantiBulan: function (m) { KB.bulan = m; gambarBeranda(); },
+      buka: function (b) { if (b === 'laporan' || b === 'hpp') M.buka(b); else { var t = $(b === 'purch' ? 'bxPo' : 'bxRinci'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
+      kpi: C.K, pengguna: { nama: KB.namaTim || KB.nama, email: KB.email }, peran: 'Kendali Bisnis',
+      menuAkun: [{ nm: 'Muat ulang data', klik: muatSemua }, { nm: 'Laporan bulanan', k: 'laporan' }, { nm: 'HPP & Harga', k: 'hpp' },
+        { nm: 'Keluar / ganti akun', klik: function () { sb.auth.signOut({ scope: 'local' }).then(function () { location.href = 'index.html'; }); } }]
+    });
+  }
 
   async function muatLaporan() {
     var r = await sb.from('hasil_hitung').select('kunci,data').like('kunci', 'laporan:%').order('kunci');
