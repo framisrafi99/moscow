@@ -324,7 +324,7 @@
     $('bJual').innerHTML = '<div id="msgJual"></div>' +
       '<div class="chip" role="group" aria-label="Bagian penjualan">' +
       [['toko', 'Toko & consignment', ''], ['omzet', 'Omzet semua', ''], ['order', 'Order reseller', nOrder ? nOrder + ' berjalan' : ''], ['pinjam', 'Pinjaman barang', nPinjam ? nPinjam + ' belum kembali' : ''],
-        ['titip', 'Titipan staf', nAjuanTitip() ? nAjuanTitip() + ' ajuan' : ''], ['mkt', 'Marketplace', ''], ['bh', 'Bagi hasil consignment', '']].map(function (b) {
+        ['titip', 'Titipan staf', nAjuanTitip() ? nAjuanTitip() + ' ajuan' : ''], ['mkt', 'Marketplace', ''], ['cocok', 'Cocokkan upload consignment', ''], ['bh', 'Bagi hasil consignment', '']].map(function (b) {
         return '<button type="button" data-jb="' + b[0] + '" aria-pressed="' + (J.bagian === b[0]) + '"><span>' + b[1] + '</span><b>' + (b[2] || '&nbsp;') + '</b></button>';
       }).join('') + '</div>' +
       '<div class="periode" id="jPeriode"' + (J.bagian === 'toko' || J.bagian === 'omzet' || J.bagian === 'order' ? '' : ' hidden') + '><label>Dari<input class="isian" type="date" id="jDari" value="' + J.dari + '"></label><label>Sampai<input class="isian" type="date" id="jSampai" value="' + J.sampai + '"></label>' +
@@ -346,6 +346,7 @@
 
   function gambarJualIsi() {
     var el = $('jIsi'); if (!el) return;
+    if (J.bagian === 'cocok') { if (window.CocokConsignment) CocokConsignment.gambar(el, sb); return; }
     if (J.bagian === 'titip' || J.bagian === 'mkt' || J.bagian === 'bh') { gambarPotretJual(el); return; }
     if (!J.data) return;
     if (J.bagian === 'toko') el.innerHTML = isiToko();

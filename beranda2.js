@@ -292,6 +292,7 @@
     window.__bxKol = pasangKol; pasangKol();
   }
 
+  var UPLOAD = {};
   function omzet(B) {
     var O = B.omzet || [], tot = 0, totL = 0, G = {}, urut = [];
     O.forEach(function (x) { tot += x.v; totL += x.l; if (!G[x.g]) { G[x.g] = []; urut.push(x.g); } G[x.g].push(x); });
@@ -309,6 +310,11 @@
         if (g === 'Official') ket = x.s ? 'data file pesanan s/d ' + tgl(x.s) : 'belum ada file pesanan';
         else if (g === 'Reseller') ket = x.s ? 'order terakhir ' + tgl(x.s) : 'belum ada order';
         else ket = x.s ? 'laporan terakhir ' + tgl(x.s) : 'belum ada laporan';
+        if (g === 'Consignment' && UPLOAD['Consignment ' + x.n] !== undefined) {
+          var up = UPLOAD['Consignment ' + x.n] || {}, wajib = x.n === 'Medan' ? ['Shopee', 'Tokopedia'] : x.n === 'Sidoarjo' ? ['Shopee'] : [];
+          var fl = wajib.map(function (p) { return (p === 'Tokopedia' ? 'Tokopedia' : p) + ' ' + (up[p] ? 's/d ' + tgl(up[p]) : 'belum'); });
+          if (fl.length) ket += ' · file ' + fl.join(', ');
+        }
         var telat = x.s && B.berjalan && (new Date(B.sampai) - new Date(x.s)) / 864e5 >= 3 && g !== 'Reseller';
         var nm = g === 'Official' && x.n === 'Tokopedia' ? 'Tokopedia/TikTok' : x.n;
         h += '<div class="bx-r"' + (satu ? ' style="padding-left:0"' : '') + '><span class="n"' + (satu ? ' style="font-weight:800;color:var(--teks2);font-size:13px"' : '') + '>' + esc(nm) + '<small class="' + (telat || !x.s ? 'w' : '') + '">' + esc(ket) + '</small></span>' +
@@ -401,6 +407,7 @@
   function gambar(el, B, S, T, opsi) {
     pasangCss(); opsi = opsi || {};
     var f = el.getAttribute('data-f') || 'semua', K = opsi.kpi || {};
+    UPLOAD = K.upload ? Object.assign({ 'Consignment Medan': null, 'Consignment Sidoarjo': null }, K.upload) : {};
     var bulan = (B.bulanAda || []).slice(); if (bulan.indexOf(B.bulan) < 0) bulan.unshift(B.bulan);
     var lalu = namaBulan(B.laluDari).split(' '), laluPendek = BLS[BLN.indexOf(lalu[0])] + ' ' + lalu[1];
     var pilihBulan = function (id) {
