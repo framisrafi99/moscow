@@ -79,6 +79,7 @@
   <section data-bagian="setuju" id="bSetuju"><div class="ksg">Memuat persetujuan…</div></section>
   <section data-bagian="produksi" id="bProduksi"><div class="ksg">Memuat produksi…</div></section>
   <section data-bagian="uang" id="bUang"><div class="ksg">Memuat accounting…</div></section>
+  <section data-bagian="laporan" id="bLaporan"><div class="ksg">Memuat laporan…</div></section>
   <section data-bagian="riwayat" id="bRiwayat"><div class="ksg">Memuat riwayat…</div></section>
   <section data-bagian="atur" id="bAtur"><div class="ksg">Memuat pengaturan…</div></section>
   <section data-bagian="gudang" id="bGudang"><div class="ksg">Memuat gudang utama…</div></section>
@@ -96,6 +97,7 @@
 <script src="moscow.js?v=8"></script>
 <script src="beranda.js?v=3"></script>
 <script src="upload.js?v=1"></script>
+<script src="laporan.js?v=1"></script>
 <script>
 (function () {
   var M = Moscow, esc = M.esc, rp = M.rp, jt = M.jt, fmt = M.fmt;
@@ -116,7 +118,7 @@
     menu: [
       { k: 'beranda', nm: 'Beranda' }, { k: 'setuju', nm: 'Persetujuan' },
       { k: 'produksi', nm: 'Produksi' }, { k: 'gudang', nm: 'Gudang Utama', pendek: 'Gudang' }, { k: 'purch', nm: 'Purchasing' },
-      { k: 'jual', nm: 'Penjualan' }, { k: 'upload', nm: 'Upload laporan', ik: 'nota' }, { k: 'uang', nm: 'Accounting' }, { k: 'riwayat', nm: 'Riwayat' }, { k: 'atur', nm: 'Pengaturan' },
+      { k: 'jual', nm: 'Penjualan' }, { k: 'upload', nm: 'Upload laporan', ik: 'nota' }, { k: 'uang', nm: 'Accounting' }, { k: 'laporan', nm: 'Laporan', ik: 'laporan' }, { k: 'riwayat', nm: 'Riwayat' }, { k: 'atur', nm: 'Pengaturan' },
       { grup: 'APLIKASI LAIN' },
       { k: 'app-kb', nm: 'Kendali Bisnis', ik: 'laporan', href: 'kendali.html' },
       { k: 'app-stok', nm: 'Stok', ik: 'stok', href: 'stok.html' },
@@ -125,7 +127,7 @@
       { k: 'app-mdlama', nm: 'Master Data lama', ik: 'dasbor', href: 'form.html?f=mdlama' }
     ],
     bawah: ['beranda', 'setuju', 'gudang', 'uang', 'lain'],
-    pindah: function (k, m) { if (k === 'upload') gambarUpload(); if ($('lamaJudul')) $('lamaJudul').textContent = m.nm + ' masih di Master Data lama'; if (k === 'jual' && !J.mulai) { J.mulai = true; siapJual(); } if (k === 'riwayat' && !RW.mulai) { RW.mulai = true; siapRiwayat(); } if (k === 'atur' && !AT.mulai) { AT.mulai = true; muatAtur(); } },
+    pindah: function (k, m) { if (k === 'upload') gambarUpload(); if (k === 'laporan' && window.LaporanPajak && !LaporanPajak.dimuat) { LaporanPajak.dimuat = true; LaporanPajak.gambar($('bLaporan'), { sb: sb }); } if ($('lamaJudul')) $('lamaJudul').textContent = m.nm + ' masih di Master Data lama'; if (k === 'jual' && !J.mulai) { J.mulai = true; siapJual(); } if (k === 'riwayat' && !RW.mulai) { RW.mulai = true; siapRiwayat(); } if (k === 'atur' && !AT.mulai) { AT.mulai = true; muatAtur(); } },
     siap: function (ctx) {
       D.email = String((ctx && ctx.email) || '').toLowerCase();
       M.aksi([
