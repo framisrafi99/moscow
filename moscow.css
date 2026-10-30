@@ -46,16 +46,8 @@ button, input, select, textarea { font:inherit; color:inherit; }
 #mMasuk .mm-seni .a6 { animation-duration:2.6s; animation-delay:-.8s; stroke-dasharray:24 200; stroke-width:2.4; }
 #mMasuk .mm-seni .kotakNyala { fill:#5BC8F5; filter:drop-shadow(0 0 8px rgba(91,200,245,.95)); animation:mmDenyut 2.4s ease-in-out infinite; }
 #mMasuk .mm-seni .kilat { stroke:#5BC8F5; stroke-width:2; stroke-linecap:round; filter:drop-shadow(0 0 4px rgba(91,200,245,.9)); animation:mmKilat 3.6s ease-in-out infinite; }
-#mMasuk .mm-jeda { position:absolute; z-index:2; left:10%; bottom:28px; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; padding:0;
-  border-radius:999px; border:1px solid rgba(200,214,230,.35); background:rgba(10,29,60,.55); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); color:#C8D6E6; cursor:pointer; }
-#mMasuk .mm-jeda:hover { border-color:rgba(91,200,245,.7); color:#fff; }
-#mMasuk .mm-jeda svg { width:18px; height:18px; }
-#mMasuk .mm-jeda .ikPutar { display:none; }
-#mMasuk.jeda .mm-jeda .ikPutar { display:block; } #mMasuk.jeda .mm-jeda .ikJeda { display:none; }
-#mMasuk.jeda .mm-seni *, #mMasuk.jeda .mm-garis { animation-play-state:paused !important; }
 @media (prefers-reduced-motion: reduce) {
-  #mMasuk:not(.putar) .mm-seni *, #mMasuk:not(.putar) .mm-garis { animation-play-state:paused !important; }
-  #mMasuk:not(.putar) .mm-jeda .ikPutar { display:block; } #mMasuk:not(.putar) .mm-jeda .ikJeda { display:none; }
+  #mMasuk .mm-seni *, #mMasuk .mm-garis { animation:none !important; }
 }
 @keyframes mmApung { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-9px); } }
 @keyframes mmTumbuh { 0%,12% { transform:scaleY(.18); } 70%,100% { transform:scaleY(1); } }
@@ -99,7 +91,6 @@ button, input, select, textarea { font:inherit; color:inherit; }
   #mMasuk .mm-seni { position:relative; inset:auto; order:5; container-type:normal; margin:14px -20px -26px; aspect-ratio:1140/660;
     -webkit-mask-image:linear-gradient(to bottom, transparent 0%, #000 22%); mask-image:linear-gradient(to bottom, transparent 0%, #000 22%); }
   #mMasuk .mm-seni svg { width:122.807%; left:-11.404%; top:-71.212%; bottom:auto; }
-  #mMasuk .mm-jeda { left:auto; right:16px; bottom:14px; }
   #mMasuk .mm-garis { margin-bottom:14px; }
   #mMasuk .mm-kiri h2 span { display:inline; }
   #mMasuk .mm-kiri .sub { margin-top:8px; }
