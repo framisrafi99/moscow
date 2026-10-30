@@ -140,7 +140,9 @@
       return;
     }
     // Layar selamat datang: selalu tampil saat sesi masih ada, cukup satu ketukan "Masuk aplikasi" tanpa pilih akun Google lagi.
-    var meta = sesi.user.user_metadata || {}, nama = String(meta.full_name || meta.name || sesi.user.email.split('@')[0]).trim().split(/\s+/)[0];
+    var meta = sesi.user.user_metadata || {}, nTim = null;
+    try { nTim = ((await sb.from('pengguna').select('nama').eq('email', sesi.user.email).maybeSingle()).data || {}).nama; } catch (e) { nTim = null; }
+    var nama = String(nTim || meta.full_name || meta.name || sesi.user.email.split('@')[0]).trim().split(/\s+/)[0];
     var link = daftar.filter(function (d) { return d[0].charAt(0) !== '#'; }), utama = link[0];
     M.muat(false); $('akses').hidden = true; $('inapp').hidden = true; $('mStatus').hidden = true;
     $('judul').textContent = 'Selamat datang, ' + nama;
