@@ -46,7 +46,7 @@
     '.ab-aksi{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}' +
     '.ab-pre{overflow:auto;max-height:260px;font-size:12px;background:var(--latar);border-radius:10px;padding:8px}.ab-pre td{padding:2px 8px;border-bottom:1px solid var(--garis2);white-space:nowrap}';
 
-  var A = { el: null, sb: null, opsi: {}, file: '', scan: null, izin: {}, sumber: '', perPilih: '', per: '', gaji: null, peta: {}, alpa: {}, pesan: '', kelas: 'ok', sibuk: false, mentah: null,
+  var A = { el: null, sb: null, opsi: {}, file: '', scan: null, izin: {}, uji: {}, sumber: '', perPilih: '', per: '', gaji: null, peta: {}, alpa: {}, pesan: '', kelas: 'ok', sibuk: false, mentah: null,
             libur: bacaLokal('abLibur', [0]), merah: '' };
 
   /* ---------- membaca file ---------- */
@@ -159,6 +159,7 @@
     var r = { hadir: 0, kerja: 0, alpaOtomatis: 0, telatHari: 0, telatMenit: 0, lemburHari: 0, lemburMenit: 0, lemburRp: 0, kurang: 0, libur: 0, hari: [] };
     for (var d = 1; d <= jml; d++) {
       var tg = ymd(y, b, d), dow = new Date(y, b - 1, d).getDay(), libur = A.libur.indexOf(dow) > -1 || !!merah[d];
+      if (A.uji[tg]) continue; // hari uji coba aplikasi Absensi: tidak dihitung (bukan hari kerja, bukan alpa)
       var t = (data[tg] || []).slice().sort(function (p, q) { return p - q; });
       if (!libur) r.kerja++;
       var baris = { tg: tg, d: d, dow: dow, libur: libur, masuk: null, pulang: null, telat: 0, lembur: 0, ket: '' };
@@ -317,7 +318,8 @@
       var r = await A.sb.rpc('absen_rekap', { p_per: per });
       if (r.error) throw new Error(/does not exist|schema cache/i.test(r.error.message) ? 'Fitur absensi belum aktif: jalankan sql/absensi.sql di Supabase.' : r.error.message);
       if (!r.data || !r.data.ok) throw new Error((r.data && r.data.pesan) || 'Absen gagal diambil.');
-      var scan = {}, izin = {};
+      var scan = {}, izin = {}, uji = {};
+      (r.data.uji || []).forEach(function (x) { uji[x.tanggal] = x.keterangan; });
       (r.data.staf || []).forEach(function (n) { scan[n] = {}; });
       (r.data.hari || []).forEach(function (x) {
         var o = scan[x.nama] || (scan[x.nama] = {}), t = o[x.tanggal] || (o[x.tanggal] = []);
@@ -325,18 +327,19 @@
       });
       (r.data.izin || []).forEach(function (x) { (izin[x.nama] || (izin[x.nama] = {}))[x.tanggal] = x.jenis; });
       if (!Object.keys(scan).length) throw new Error('Belum ada staf terdaftar di Absensi. Daftarkan di menu Absensi staf › Staf & lokasi.');
-      A.scan = scan; A.izin = izin; A.per = per; A.perPilih = per; A.sumber = 'app'; A.file = '';
+      A.scan = scan; A.izin = izin; A.uji = uji; A.per = per; A.perPilih = per; A.sumber = 'app'; A.file = '';
       await muatGaji();
       A.peta = {}; Object.keys(A.scan).forEach(function (nm) { A.peta[nm] = cocokOtomatis(nm); });
       var belum = Object.keys(A.peta).filter(function (k) { return !A.peta[k]; }).length;
       A.pesan = 'Absen ' + BLS[+per.slice(5, 7) - 1] + ' ' + per.slice(0, 4) + ' terambil: ' + Object.keys(scan).length + ' staf.' +
-        (belum ? ' ' + belum + ' nama tidak sama dengan nama di Payroll, pilih di kolom "Staf di Payroll".' : '');
+        (belum ? ' ' + belum + ' nama tidak sama dengan nama di Payroll, pilih di kolom "Staf di Payroll".' : '') +
+        (Object.keys(uji).length ? ' Tanggal ' + Object.keys(uji).map(function (t) { return +t.slice(8); }).join(', ') + ' adalah uji coba, tidak dihitung.' : '');
       A.kelas = belum ? 'w' : 'ok';
     } catch (e) { A.pesan = esc(e.message || e); A.kelas = 'bad'; A.scan = null; }
     finally { A.sibuk = false; gambar(); }
   }
   async function proses(f) {
-    A.sumber = 'file'; A.izin = {};
+    A.sumber = 'file'; A.izin = {}; A.uji = {};
     A.sibuk = true; A.pesan = 'Membaca ' + esc(f.name) + '…'; A.kelas = 'ok'; A.mentah = null; A.scan = null; A.gaji = null; A.alpa = {}; gambar();
     try {
       var h = await bacaFile(f);

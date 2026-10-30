@@ -98,13 +98,20 @@ create table if not exists public.absen_log (
 );
 create index if not exists absen_log_tanggal on public.absen_log (tanggal);
 
+-- Hari uji coba: absen tetap tercatat dan diberi keterangan, tapi tidak dihitung ke gaji.
+create table if not exists public.absen_uji (
+  tanggal date primary key,
+  keterangan text not null default 'Uji coba absen aplikasi Moscow'
+);
+
 -- Tidak ada akses langsung ke tabel: hanya lewat fungsi di bawah.
 alter table public.absen_lokasi enable row level security;
 alter table public.absen_staf enable row level security;
 alter table public.absen_hari enable row level security;
 alter table public.absen_izin enable row level security;
 alter table public.absen_log enable row level security;
-revoke all on public.absen_lokasi, public.absen_staf, public.absen_hari, public.absen_izin, public.absen_log from anon, authenticated;
+alter table public.absen_uji enable row level security;
+revoke all on public.absen_lokasi, public.absen_staf, public.absen_hari, public.absen_izin, public.absen_log, public.absen_uji from anon, authenticated;
 
 -- 3. Penyimpanan foto selfie (privat, maks 1 MB, JPEG). Folder = id akun staf.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -129,6 +136,11 @@ language sql stable as $$ select (now() at time zone 'Asia/Makassar')::date $$;
 
 create or replace function public.absen_jam(t timestamptz) returns text
 language sql stable as $$ select to_char(t at time zone 'Asia/Makassar', 'HH24.MI') $$;
+
+create or replace function public.absen_uji_ket(d date) returns text
+language sql stable security definer set search_path = public as $$
+  select keterangan from public.absen_uji where tanggal = d
+$$;
 
 create or replace function public.absen_staf_saya() returns public.absen_staf
 language sql stable security definer set search_path = public as $$
@@ -155,7 +167,7 @@ begin
   select * into l from public.absen_lokasi where id = s.lokasi_id;
   select * into h from public.absen_hari where staf_id = s.id and tanggal = public.absen_hari_ini();
   return jsonb_build_object('ok', true,
-    'nama', s.nama, 'server', now(), 'tanggal', public.absen_hari_ini(),
+    'nama', s.nama, 'server', now(), 'tanggal', public.absen_hari_ini(), 'uji', public.absen_uji_ket(public.absen_hari_ini()),
     'lokasi', case when l.id is null then null else jsonb_build_object('nama', l.nama, 'lat', l.lat, 'lng', l.lng, 'radius', l.radius_m) end,
     'masuk', public.absen_jam(h.masuk), 'pulang', public.absen_jam(h.pulang),
     'izin', coalesce((select jsonb_agg(jsonb_build_object('id', i.id, 'jenis', i.jenis, 'mulai', i.mulai, 'selesai', i.selesai, 'alasan', i.alasan,
@@ -206,7 +218,7 @@ begin
     update public.absen_hari set pulang = now(), pulang_lat = p_lat, pulang_lng = p_lng, pulang_akurasi = p_akurasi, pulang_jarak = round(j), pulang_foto = p_foto, diubah = now()
     where id = h.id;
   end if;
-  return jsonb_build_object('ok', true, 'jenis', p_jenis, 'jam', public.absen_jam(now()), 'jarak', round(j), 'lokasi', l.nama);
+  return jsonb_build_object('ok', true, 'jenis', p_jenis, 'jam', public.absen_jam(now()), 'jarak', round(j), 'lokasi', l.nama, 'uji', public.absen_uji_ket(tg));
 end $$;
 
 -- Pengajuan izin / cuti / sakit (paling lama 14 hari, boleh mundur 7 hari untuk sakit / lupa mengajukan).
@@ -247,7 +259,7 @@ begin
   if s.id is null then return jsonb_build_object('ok', false, 'pesan', 'Akun ini belum terdaftar untuk absensi.'); end if;
   a := to_date(p_per || '-01', 'YYYY-MM-DD');
   return jsonb_build_object('ok', true, 'hari', coalesce((select jsonb_agg(jsonb_build_object('tanggal', tanggal, 'masuk', public.absen_jam(masuk),
-      'pulang', public.absen_jam(pulang), 'koreksi', koreksi) order by tanggal)
+      'pulang', public.absen_jam(pulang), 'koreksi', koreksi, 'uji', public.absen_uji_ket(tanggal)) order by tanggal)
     from public.absen_hari where staf_id = s.id and tanggal >= a and tanggal < (a + interval '1 month')::date), '[]'::jsonb));
 end $$;
 
@@ -256,7 +268,7 @@ create or replace function public.absen_kelola_data(p_tanggal date) returns json
 language plpgsql stable security definer set search_path = public as $$
 begin
   if not public.absen_kelola() then return jsonb_build_object('ok', false, 'pesan', 'Khusus manajemen Moscow Supplies.'); end if;
-  return jsonb_build_object('ok', true, 'tanggal', p_tanggal, 'hari_ini', public.absen_hari_ini(),
+  return jsonb_build_object('ok', true, 'tanggal', p_tanggal, 'hari_ini', public.absen_hari_ini(), 'uji', public.absen_uji_ket(p_tanggal),
     'lokasi', coalesce((select jsonb_agg(to_jsonb(l) order by l.id) from public.absen_lokasi l), '[]'::jsonb),
     'staf', coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'nama', s.nama, 'email', s.email, 'lokasi_id', s.lokasi_id, 'aktif', s.aktif) order by s.nama) from public.absen_staf s), '[]'::jsonb),
     'hari', coalesce((select jsonb_agg(jsonb_build_object('staf_id', h.staf_id, 'masuk', public.absen_jam(h.masuk), 'pulang', public.absen_jam(h.pulang),
@@ -362,6 +374,7 @@ begin
   if p_per !~ '^\d{4}-\d{2}$' then return jsonb_build_object('ok', false, 'pesan', 'Periode harus yyyy-mm.'); end if;
   a := to_date(p_per || '-01', 'YYYY-MM-DD'); b := (a + interval '1 month')::date;
   return jsonb_build_object('ok', true, 'per', p_per,
+    'uji', coalesce((select jsonb_agg(jsonb_build_object('tanggal', tanggal, 'keterangan', keterangan)) from public.absen_uji where tanggal >= a and tanggal < b), '[]'::jsonb),
     'staf', coalesce((select jsonb_agg(nama order by nama) from public.absen_staf where aktif), '[]'::jsonb),
     'hari', coalesce((select jsonb_agg(jsonb_build_object('nama', s.nama, 'tanggal', h.tanggal,
         'masuk', case when h.masuk is null then null else extract(hour from h.masuk at time zone 'Asia/Makassar') * 60 + extract(minute from h.masuk at time zone 'Asia/Makassar') end,

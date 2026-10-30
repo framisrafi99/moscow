@@ -123,7 +123,8 @@
           '<button type="button" class="tbl pri" id="krSimpan" data-staf="' + s.id + '"' + (A.sibuk ? ' disabled' : '') + '>Simpan koreksi</button></div>' +
           '<p class="sb" style="margin:8px 0 0">Kosongkan jam untuk menghapusnya. Koreksi dicatat atas nama akunmu.</p></td></tr>' : '');
     }).join('');
-    var h = '<div class="ak-kotak"><div class="ak-f"><label>Tanggal<input type="date" id="akTgl" value="' + esc(A.tanggal) + '" max="' + esc(d.hari_ini) + '"></label>' +
+    var h = (d.uji ? '<div class="msg w"><b>' + esc(d.uji) + '.</b> Absen tanggal ini hanya uji coba, tidak dihitung ke gaji.</div>' : '') +
+      '<div class="ak-kotak"><div class="ak-f"><label>Tanggal<input type="date" id="akTgl" value="' + esc(A.tanggal) + '" max="' + esc(d.hari_ini) + '"></label>' +
       '<button type="button" class="tbl" id="akMuat"' + (A.sibuk ? ' disabled' : '') + '>Muat ulang</button></div></div>';
     h += '<div class="ak-kp"><div><span>' + esc(tgl(d.tanggal)) + '</span><b>' + hadir + '/' + aktif.length + '</b><span>hadir</span></div>' +
       '<div><span>Telat</span><b>' + telat + '</b></div><div><span>Izin / cuti / sakit</span><b>' + nIzin + '</b></div><div><span>Belum absen</span><b>' + belum + '</b></div></div>';

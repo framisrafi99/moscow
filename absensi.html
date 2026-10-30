@@ -173,7 +173,8 @@
     var d = D.saya; if (!d) return;
     var l = d.lokasi, mm = menit(d.masuk), telat = mm != null && mm > JAM.masuk + JAM.toleransi ? mm - JAM.masuk : 0;
     var jenis = !d.masuk ? 'masuk' : !d.pulang ? 'pulang' : '';
-    var h = '<div class="kpl"><div><div class="ab-tgl">' + esc(tglPanjang(d.tanggal)) + '</div><div class="ab-jam" id="abJam">--.--</div></div></div>' +
+    var h = (d.uji ? '<div class="msg w"><b>' + esc(d.uji) + '.</b> Absen hari ini tercatat sebagai uji coba dan tidak dihitung ke gaji.</div>' : '') +
+      '<div class="kpl"><div><div class="ab-tgl">' + esc(tglPanjang(d.tanggal)) + '</div><div class="ab-jam" id="abJam">--.--</div></div></div>' +
       '<div class="ab-lok">' + Moscow.svg('toko', 18) + '<span>' + (l ? esc(l.nama) : 'Lokasi belum diatur') + ' <small id="abJarak"></small></span></div>' +
       '<div class="ab-st"><div><span>Masuk</span>' + (d.masuk ? '<b>' + esc(d.masuk) + '</b>' + (telat ? '<span class="label no">Telat ' + telat + ' mnt</span>' : '') : '<b class="belum">Belum</b>') + '</div>' +
       '<div><span>Pulang</span>' + (d.pulang ? '<b>' + esc(d.pulang) + '</b>' : '<b class="belum">Belum</b>') + '</div></div>';
@@ -273,7 +274,7 @@
       if (r.error) throw new Error(r.error.message);
       if (!r.data || !r.data.ok) throw new Error((r.data && r.data.pesan) || 'Absen gagal dicatat.');
       tutupKamera();
-      pesan('msg', 'Absen ' + K.jenis + ' tercatat jam ' + r.data.jam + ' di ' + r.data.lokasi + '.', 'ok');
+      pesan('msg', 'Absen ' + K.jenis + ' tercatat jam ' + r.data.jam + ' di ' + r.data.lokasi + '.' + (r.data.uji ? ' (' + r.data.uji + ')' : ''), 'ok');
       await muatSaya();
     } catch (e) {
       tutupKamera();
@@ -336,6 +337,7 @@
       if (p != null && p > JAM.lembur) { lembur += p - JAM.lembur; k.push('<span class="label biru">Lembur ' + (p - JAM.lembur) + ' mnt</span>'); }
       if (m != null && p == null && x.tanggal !== hariIni()) k.push('<span class="label w">Tidak absen pulang</span>');
       if (x.koreksi) k.push('<span class="label abu">Dikoreksi</span>');
+      if (x.uji) k.push('<span class="label w">' + esc(x.uji) + '</span>');
       var p2 = String(x.tanggal).split('-'), dow = new Date(Date.UTC(+p2[0], +p2[1] - 1, +p2[2])).getUTCDay();
       return '<tr><td>' + HARI[dow].slice(0, 3) + ' ' + (+p2[2]) + '</td><td class="r">' + esc(x.masuk || '–') + '</td><td class="r">' + esc(x.pulang || '–') + '</td><td>' + k.join(' ') + '</td></tr>';
     }).join('');
