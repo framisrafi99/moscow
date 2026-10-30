@@ -28,6 +28,7 @@
       { k: 'app-stok', nm: 'Stok', ik: 'stok', href: 'stok.html' },
       { k: 'app-kasir', nm: 'Kasir Toko Offline', ik: 'kasir', href: 'kasir.html' },
       { k: 'app-akunting', nm: 'Form accounting', ik: 'uang', href: 'form.html?f=akunting' },
+      { k: 'app-payroll', nm: 'Payroll', ik: 'pelanggan', href: 'form.html?f=payroll' },
       { k: 'app-mdlama', nm: 'Master Data lama', ik: 'dasbor', href: 'form.html?f=mdlama' }
     ],
     bawah: ['beranda', 'setuju', 'gudang', 'uang', 'lain'],
