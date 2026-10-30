@@ -63,20 +63,43 @@
     root.classList.toggle('m-d', d); root.classList.toggle('m-m', !d);
   }
 
-  // Ilustrasi abstrak (panel transparan + garis bercahaya). Hanya hiasan: tidak ada angka atau data.
-  var ILUS = '<svg class="mm-ilus" viewBox="0 0 560 300" aria-hidden="true" focusable="false"><defs>' +
-    '<linearGradient id="mmP" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7CCBEE" stop-opacity=".18"/><stop offset="1" stop-color="#7CCBEE" stop-opacity=".04"/></linearGradient>' +
-    '<linearGradient id="mmG" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7CCBEE" stop-opacity="0"/><stop offset=".5" stop-color="#7CCBEE" stop-opacity=".9"/><stop offset="1" stop-color="#7CCBEE" stop-opacity="0"/></linearGradient></defs>' +
-    '<path d="M0 250 C120 230 170 270 300 236 S470 180 560 196" fill="none" stroke="url(#mmG)" stroke-width="1.5"/>' +
-    '<path d="M0 214 C140 196 200 232 320 204 S480 150 560 160" fill="none" stroke="url(#mmG)" stroke-width="1" opacity=".55"/>' +
-    '<g stroke="#7CCBEE" stroke-opacity=".45" fill="url(#mmP)">' +
-    '<rect x="24" y="64" width="150" height="178" rx="14"/><rect x="196" y="28" width="300" height="196" rx="16"/></g>' +
-    '<g fill="#7CCBEE" fill-opacity=".35"><rect x="46" y="92" width="22" height="22" rx="6"/><rect x="46" y="132" width="22" height="22" rx="6"/><rect x="46" y="172" width="22" height="22" rx="6"/>' +
-    '<rect x="80" y="99" width="70" height="7" rx="3.5"/><rect x="80" y="139" width="56" height="7" rx="3.5"/><rect x="80" y="179" width="64" height="7" rx="3.5"/>' +
-    '<rect x="222" y="52" width="120" height="8" rx="4"/><rect x="222" y="68" width="76" height="6" rx="3" fill-opacity=".2"/></g>' +
-    '<g stroke="#7CCBEE" stroke-opacity=".5" fill="none" stroke-width="1"><rect x="222" y="92" width="150" height="108" rx="10"/><rect x="388" y="92" width="86" height="108" rx="10"/>' +
-    '<path d="M236 182 L268 158 L296 168 L326 132 L358 144" stroke-width="1.6" stroke-opacity=".85"/><circle cx="431" cy="146" r="24" stroke-width="7" stroke-opacity=".35"/></g>' +
-    '<circle cx="496" cy="28" r="3" fill="#7CCBEE"/><path d="M496 28 V-10" stroke="#7CCBEE" stroke-opacity=".4"/></svg>';
+  // Ilustrasi panel kaca (hiasan saja: tidak ada angka atau data asli). Dua panel dimiringkan dengan CSS 3D.
+  var IK_PANEL = {
+    box: 'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8',
+    dok: 'M14 3H6v18h12V7zM14 3v4h4M9 12h6M9 16h6',
+    org: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
+    atur: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z'
+  };
+  var ILUS = (function () {
+    var ik = function (d, y) {
+      return '<rect x="18" y="' + y + '" width="40" height="40" rx="10" fill="#7FB8FF" fill-opacity=".10" stroke="#8CC8FF" stroke-opacity=".35"/>' +
+        '<g transform="translate(26 ' + (y + 8) + ')" fill="none" stroke="#CFE6FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="' + d + '"/></g>' +
+        '<rect x="72" y="' + (y + 16) + '" width="' + (70 - (y % 3) * 8) + '" height="8" rx="4" fill="#9CCBFF" fill-opacity=".35"/>';
+    };
+    var p1 = '<svg class="p1" viewBox="0 0 170 290" aria-hidden="true">' + ik(IK_PANEL.box, 24) + ik(IK_PANEL.dok, 88) + ik(IK_PANEL.org, 152) + ik(IK_PANEL.atur, 216) + '</svg>';
+    var batang = [44, 62, 54, 76, 70, 96], b = '';
+    batang.forEach(function (h, i) { b += '<rect x="' + (34 + i * 30) + '" y="' + (196 - h) + '" width="18" height="' + h + '" rx="3" fill="url(#mmBt)"/>'; });
+    var titik = ''; for (var r = 0; r < 4; r++) for (var c = 0; c < 4; c++) titik += '<circle cx="' + (378 + c * 13) + '" cy="' + (30 + r * 13) + '" r="2" fill="#9CCBFF" fill-opacity=".45"/>';
+    var p2 = '<svg class="p2" viewBox="0 0 440 290" aria-hidden="true"><defs>' +
+      '<linearGradient id="mmBt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5AA9F0"/><stop offset="1" stop-color="#2D5FA8" stop-opacity=".55"/></linearGradient></defs>' +
+      '<rect x="22" y="22" width="22" height="22" rx="5" fill="none" stroke="#9CCBFF" stroke-opacity=".45"/>' +
+      '<rect x="56" y="26" width="120" height="8" rx="4" fill="#9CCBFF" fill-opacity=".45"/><rect x="56" y="40" width="70" height="6" rx="3" fill="#9CCBFF" fill-opacity=".25"/>' + titik +
+      '<rect x="22" y="72" width="232" height="150" rx="12" fill="#7FB8FF" fill-opacity=".06" stroke="#8CC8FF" stroke-opacity=".35"/>' +
+      '<rect x="34" y="86" width="90" height="7" rx="3.5" fill="#9CCBFF" fill-opacity=".35"/>' + b +
+      '<line x1="34" y1="196.5" x2="236" y2="196.5" stroke="#9CCBFF" stroke-opacity=".35"/>' +
+      '<rect x="270" y="72" width="148" height="150" rx="12" fill="#7FB8FF" fill-opacity=".06" stroke="#8CC8FF" stroke-opacity=".35"/>' +
+      '<circle cx="344" cy="147" r="38" fill="none" stroke="#2F5E9E" stroke-width="20" stroke-opacity=".75"/>' +
+      '<circle cx="344" cy="147" r="38" fill="none" stroke="#6FB2F5" stroke-width="20" stroke-dasharray="150 239" transform="rotate(-90 344 147)"/>' +
+      '<circle cx="344" cy="147" r="38" fill="none" stroke="#B5DBFF" stroke-width="20" stroke-dasharray="40 239" stroke-dashoffset="-150" transform="rotate(-90 344 147)"/>' +
+      '<rect x="22" y="240" width="396" height="8" rx="4" fill="#9CCBFF" fill-opacity=".18"/><rect x="22" y="240" width="210" height="8" rx="4" fill="#9CCBFF" fill-opacity=".35"/></svg>';
+    var garis = '<svg class="gr" viewBox="0 0 600 400" preserveAspectRatio="none" aria-hidden="true"><defs>' +
+      '<linearGradient id="mmGs" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5BC8F5" stop-opacity="0"/><stop offset=".55" stop-color="#5BC8F5" stop-opacity=".9"/><stop offset="1" stop-color="#5BC8F5" stop-opacity="0"/></linearGradient></defs>' +
+      '<path d="M0 330 C140 300 260 360 380 318 S540 250 600 262" fill="none" stroke="url(#mmGs)" stroke-width="1.6"/>' +
+      '<path d="M0 360 C160 340 300 380 420 350 S560 300 600 306" fill="none" stroke="url(#mmGs)" stroke-width="1" opacity=".5"/>' +
+      '<path d="M540 20 V70 Q540 82 528 82 H470" fill="none" stroke="#5BC8F5" stroke-opacity=".55" stroke-width="1.4"/><rect x="532" y="12" width="16" height="16" rx="3" fill="#5BC8F5" fill-opacity=".9"/>' +
+      '<path d="M120 300 V350 Q120 362 132 362 H190" fill="none" stroke="#5BC8F5" stroke-opacity=".45" stroke-width="1.4"/><rect x="114" y="344" width="12" height="12" rx="2.5" fill="#5BC8F5" fill-opacity=".85"/></svg>';
+    return '<div class="mm-ilus" aria-hidden="true">' + garis + '<div class="mm-3d"><div class="kc k1">' + p1 + '</div><div class="kc k2">' + p2 + '</div></div></div>';
+  })();
   var KUNCI_IK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 
   // Layar memuat: saat aplikasi dibuka / dimuat ulang, saat akses diperiksa, dan saat membuka halaman Google.
@@ -92,19 +115,31 @@
     el.hidden = false;
   }
 
+  // Status sistem di layar masuk: hanya "siap" bila layanan masuk (Supabase Auth) benar-benar menjawab.
+  function cekSistem(el) {
+    if (!el) return;
+    el.className = 'mm-status'; el.textContent = 'Memeriksa sistem…';
+    var selesai = false, batas = setTimeout(function () { if (!selesai) { selesai = true; el.className = 'mm-status mati'; el.textContent = 'Sistem belum bisa dihubungi. Periksa internet lalu muat ulang.'; } }, 8000);
+    fetch(URL_SB + '/auth/v1/health', { headers: { apikey: KUNCI_SB }, cache: 'no-store' })
+      .then(function (r) { if (selesai) return; selesai = true; clearTimeout(batas);
+        if (r.ok) { el.className = 'mm-status ok'; el.textContent = 'Sistem siap digunakan'; }
+        else { el.className = 'mm-status mati'; el.textContent = 'Sistem sedang gangguan. Coba lagi sebentar.'; } })
+      .catch(function () { if (selesai) return; selesai = true; clearTimeout(batas); el.className = 'mm-status mati'; el.textContent = 'Sistem belum bisa dihubungi. Periksa internet lalu muat ulang.'; });
+  }
+
   function layarMasuk(pesan) {
     muat(false);
     var el = $('mMasuk');
     if (!el) {
       el = document.createElement('div'); el.id = 'mMasuk';
-      el.innerHTML = '<section class="mm-kiri"><span class="lgP" role="img" aria-label="Moscow Supplies"></span><span class="mm-garis" aria-hidden="true"></span>' +
+      el.innerHTML = '<section class="mm-kiri"><span class="mm-garis" aria-hidden="true"></span>' +
         '<h2>Sistem Manajemen <span>Moscow Supplies</span></h2><p class="sub">Semua operasional dalam satu kendali.</p>' + ILUS + '</section>' +
         '<section class="mm-kanan"><div class="kotak"><span class="lg" role="img" aria-label="Moscow Supplies"></span><span class="ey">' + esc(O.aplikasi) + '</span>' +
         '<h1>Selamat datang</h1><p>Masuk menggunakan akun Google yang sudah terdaftar.</p>' +
         '<button type="button" class="google" id="mTMasuk">' + GOOGLE + '<span>Masuk dengan Google</span></button>' +
         '<div class="pesan" id="mPesan" role="alert"></div>' +
-        '<p class="mm-akses">' + KUNCI_IK + '<span>Hanya untuk akun yang sudah didaftarkan manajemen Moscow Supplies.</span></p>' +
-        '<a class="priv" href="privasi.html">Kebijakan privasi</a></div></section>';
+        '<p class="mm-akses">' + KUNCI_IK + '<span>Akses aman untuk tim terdaftar</span></p>' +
+        '<a class="priv" href="privasi.html">Kebijakan privasi</a></div><p class="mm-status" id="mStatus" role="status"></p></section>';
       document.body.insertBefore(el, document.body.firstChild);
       $('mTMasuk').onclick = function () {
         var b = this;
@@ -117,6 +152,7 @@
       };
     }
     el.hidden = false;
+    cekSistem($('mStatus'));
     $('mPesan').textContent = pesan || '';
     if ($('mApp')) $('mApp').hidden = true;
   }
@@ -248,7 +284,7 @@
   window.Moscow = {
     sb: sb, esc: esc, fmt: fmt, rp: rp, jt: jt, svg: svg,
     // Dipakai halaman masuk satu link (index.html) supaya tampilannya sama.
-    logoPutih: logoPutih, muat: muat, ILUS: ILUS, KUNCI_IK: KUNCI_IK, GOOGLE: GOOGLE,
+    logoPutih: logoPutih, muat: muat, ILUS: ILUS, KUNCI_IK: KUNCI_IK, GOOGLE: GOOGLE, cekSistem: cekSistem,
     buka: buka, aksi: aksi, badge: badge, judul: function (t) { $('mJudul').textContent = t; },
     aktif: function () { return S.aktif; },
     mulai: function (opsi) {

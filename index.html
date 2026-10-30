@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="moscow.css?v=9">
+<link rel="stylesheet" href="moscow.css?v=10">
 <style>
   #pilih { display:grid; gap:8px; margin-top:4px; max-height:none; }
   #pilih a { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 14px; border:1px solid var(--garis);
@@ -34,7 +34,7 @@
 </head>
 <body>
 <div id="mMasuk">
-  <section class="mm-kiri"><span class="lgP" role="img" aria-label="Moscow Supplies"></span><span class="mm-garis" aria-hidden="true"></span>
+  <section class="mm-kiri"><span class="mm-garis" aria-hidden="true"></span>
     <h2>Sistem Manajemen <span>Moscow Supplies</span></h2><p class="sub">Semua operasional dalam satu kendali.</p><span id="ilus"></span></section>
   <section class="mm-kanan"><div class="kotak">
     <span class="lg" role="img" aria-label="Moscow Supplies"></span>
@@ -45,13 +45,13 @@
     <button type="button" class="google" id="tMasuk" hidden></button>
     <div id="pilih" hidden></div>
     <div class="pesan" id="pesan" role="alert"></div>
-    <p class="mm-akses" id="akses"><span id="aksesIk"></span><span>Hanya untuk akun yang sudah didaftarkan manajemen Moscow Supplies.</span></p>
+    <p class="mm-akses" id="akses"><span id="aksesIk"></span><span>Akses aman untuk tim terdaftar</span></p>
     <button type="button" class="keluar" id="tKeluar" hidden>Keluar / ganti akun</button>
     <a class="priv" href="privasi.html">Kebijakan privasi</a>
-  </div></section>
+  </div><p class="mm-status" id="mStatus" role="status"></p></section>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="moscow.js?v=7"></script>
+<script src="moscow.js?v=8"></script>
 <script>
 (function () {
   var M = window.Moscow, sb = M.sb, GOOGLE = M.GOOGLE;
@@ -100,7 +100,7 @@
     M.muat(false);
     $('judul').textContent = 'Selamat datang'; $('teks').textContent = 'Masuk menggunakan akun Google yang sudah terdaftar. Halaman bagianmu terbuka otomatis.';
     $('pilih').hidden = true; $('tKeluar').hidden = true; $('akses').hidden = false; peringatanApp();
-    tombolAwal(); $('tMasuk').hidden = false; $('pesan').textContent = pesan || '';
+    tombolAwal(); $('tMasuk').hidden = false; $('pesan').textContent = pesan || ''; $('mStatus').hidden = false; M.cekSistem($('mStatus'));
   }
   // Pesan gagal yang dikembalikan Google / Supabase lewat alamat halaman.
   var galatMasuk = '';
@@ -131,7 +131,7 @@
       return;
     }
     if (daftar.length === 1 || (peran === 'toko' && !/offline/i.test(l || ''))) { M.muat('Membuka halaman…'); location.replace(daftar[0][1]); return; }
-    M.muat(false); $('akses').hidden = true; $('inapp').hidden = true;
+    M.muat(false); $('akses').hidden = true; $('inapp').hidden = true; $('mStatus').hidden = true;
     $('judul').textContent = 'Pilih halaman';
     $('teks').textContent = 'Masuk sebagai ' + sesi.user.email + (l ? ' (' + l + ')' : '') + '.';
     $('pilih').innerHTML = daftar.map(function (d) {
