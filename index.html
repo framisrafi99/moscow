@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="moscow.css?v=13">
+<link rel="stylesheet" href="moscow.css?v=14">
 <style>
   #pilih { display:grid; gap:8px; margin-top:4px; max-height:none; }
   #pilih a { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 14px; border:1px solid var(--garis);
@@ -45,7 +45,7 @@
 <div id="mMasuk">
   <section class="mm-kiri"><span class="mm-garis" aria-hidden="true"></span>
     <h2>Sistem Manajemen <span>Moscow Supplies</span></h2><p class="sub">Semua operasional dalam satu kendali.</p><span id="ilus"></span></section>
-  <section class="mm-kanan"><div class="kotak">
+  <section class="mm-kanan"><span class="mm-produk" aria-hidden="true"></span><div class="kotak">
     <span class="lg" role="img" aria-label="Moscow Supplies"></span>
     <span class="ey">APLIKASI MOSCOW SUPPLIES</span>
     <h1 id="judul">Selamat datang</h1>
@@ -144,6 +144,7 @@
     try { nTim = ((await sb.from('pengguna').select('nama').eq('email', sesi.user.email).maybeSingle()).data || {}).nama; } catch (e) { nTim = null; }
     var nama = String(nTim || meta.full_name || meta.name || sesi.user.email.split('@')[0]).trim().split(/\s+/)[0];
     var link = daftar.filter(function (d) { return d[0].charAt(0) !== '#'; }), utama = link[0];
+    try { sessionStorage.setItem('mSambut', '1'); } catch (e) { }
     M.muat(false); $('akses').hidden = true; $('inapp').hidden = true; $('mStatus').hidden = true;
     $('judul').textContent = 'Selamat datang, ' + nama;
     $('teks').textContent = 'Kamu masuk sebagai ' + sesi.user.email + (l ? ' (' + l + ')' : '') + '.';

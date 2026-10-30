@@ -236,3 +236,9 @@ html.m-m .cd { padding:14px; margin-bottom:12px; }
   #mSide .it { min-height:48px; padding:12px 14px; gap:14px; font-size:15.5px; border-radius:12px; }
   #mSide .it.on { background:#1F7AE0; box-shadow:0 6px 16px rgba(31,122,224,.35); }
   #mSide .grp { margin:18px 14px 6px; padding-top:16px; border-top:1px solid var(--navy3); font-size:12px; letter-spacing:.1em; }
+
+/* Foto produk samar di panel kanan halaman masuk / selamat datang (laptop & tablet lebar) */
+#mMasuk .mm-produk { position:absolute; right:0; bottom:0; z-index:0; width:min(56%, 620px); aspect-ratio:900/688; pointer-events:none;
+  background:url(produk-masuk.jpg) right bottom / cover no-repeat; opacity:.5;
+  -webkit-mask-image:radial-gradient(ellipse 100% 100% at 100% 100%, #000 45%, transparent 80%); mask-image:radial-gradient(ellipse 100% 100% at 100% 100%, #000 45%, transparent 80%); }
+@media (max-width: 899px) { #mMasuk .mm-produk { display:none; } }
