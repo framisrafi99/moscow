@@ -8,7 +8,14 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 
-const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+// Kunci rahasia server: sistem kunci baru (SUPABASE_SECRET_KEYS) atau kunci lama (service_role).
+function kunciServer(): string {
+  const satu = Deno.env.get('SUPABASE_SECRET_KEY');
+  if (satu) return satu;
+  try { const banyak = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}'); const k = banyak.default || Object.values(banyak)[0]; if (k) return String(k); } catch (_) { /* lanjut */ }
+  return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+}
+const sb = createClient(Deno.env.get('SUPABASE_URL')!, kunciServer(), { auth: { persistSession: false } });
 
 const PESAN: Record<string, { title: string; body: string }> = {
   masuk: { title: 'Jangan lupa absen masuk', body: 'Sudah sampai di tempat kerja? Ketuk untuk absen masuk.' },
