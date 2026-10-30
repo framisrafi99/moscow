@@ -8,14 +8,15 @@
   var FORM = {
     gudang: {
       judul: 'GUDANG UTAMA', masuk: 'Gudang Utama & Purchasing', peran: ['gudang', 'purchasing_shopeepay', 'manajemen'],
-      sembunyi: '.m:has(> [data-m])',
+      sembunyi: '.m:has(> [data-m]), #mmhBtn',
       menu: [
         { k: 'stok', nm: 'Stok', ik: 'stok', l: ['Stok@.m'] },
         { k: 'order', nm: 'Order masuk', ik: 'nota', l: ['Order Masuk@.m'], pendek: 'Order' },
         { k: 'ajuan', nm: 'Pengajuan', ik: 'purch', l: ['Pengajuan@.m'] },
         { k: 'salur', nm: 'Penyaluran', ik: 'pemasok', l: ['Penyaluran@.m'] },
         { k: 'riwayat', nm: 'Riwayat', ik: 'riwayat', l: ['Riwayat@.m'] },
-        { k: 'uang', nm: 'Uang keluar', ik: 'uang', l: ['Uang keluar@.m'], pendek: 'Uang' }
+        { k: 'uang', nm: 'Uang keluar', ik: 'uang', l: ['Uang keluar@.m'], pendek: 'Uang' },
+        { k: 'hpp', nm: 'HPP & Harga', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox' }
       ],
       bawah: ['stok', 'order', 'salur', 'ajuan', 'lain']
     },
@@ -512,6 +513,20 @@
     });
   }
 
+  // Menu yang membuka jendela di dalam form lama (mis. HPP & Harga di Gudang Utama). Setelah jendela ditutup, menu kembali ke halaman sebelumnya.
+  function bukaModal(mm) {
+    var kembali = C.aktif, fr = C.frame, dok = fr && fr.contentDocument;
+    var b = dok && dok.querySelector(mm.modal);
+    if (!b) { M.buka(kembali, true); return; }
+    b.click();
+    var box = dok.getElementById(mm.kotak);
+    if (!box) { M.buka(kembali, true); return; }
+    var am = new MutationObserver(function () {
+      if (box.classList.contains('on')) return;
+      am.disconnect(); M.buka(kembali, true);
+    });
+    am.observe(box, { attributes: true, attributeFilter: ['class'] });
+  }
   // Gudang Utama: ikon emoji di isi form diganti ikon garis yang sama dengan menu aplikasi (lebih jelas & seragam).
   var IKON_GD = {
     '📥': 'M22 12h-6l-2 3h-4l-2-3H2M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z',
@@ -716,13 +731,18 @@
     },
     menu: F.menu.map(function (x) { return x.grup ? { grup: x.grup } : x.href ? { k: x.k, nm: x.nm, ik: x.ik, href: x.href } : { k: x.k, nm: x.nm, ik: x.ik, bagian: 'isi', pendek: x.pendek }; }),
     bawah: F.bawah,
-    pindah: function (k) { C.aktif = k; tekan(k); subBotol(k); setTimeout(ukur, 0); },
+    pindah: function (k) {
+      var mm = F.menu.filter(function (x) { return x.k === k; })[0];
+      if (mm && mm.modal) { bukaModal(mm); return; }
+      C.aktif = k; tekan(k); subBotol(k); setTimeout(ukur, 0);
+    },
     siap: function (ctx) {
       if (ctx.peran === 'manajemen') {
         var nav = document.querySelector('#mSide nav');
         if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + M.svg('beranda') + '<span class="nm">Master Data</span></a>');
       }
       C.aktif = M.aktif() || F.menu[0].k;
+      if (F.menu.some(function (x) { return x.k === C.aktif && x.modal; })) { C.aktif = F.menu[0].k; M.buka(C.aktif, true); }
       muat();
     }
   });
