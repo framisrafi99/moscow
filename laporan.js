@@ -39,6 +39,7 @@
     '.lp-akun{border:1px solid var(--garis);border-radius:12px;padding:12px 14px;margin-top:10px}' +
     '.lp-akun h4{margin:0 0 6px;font-size:15px;display:flex;justify-content:space-between;gap:8px}' +
     '.lp-print-only{display:none}' +
+    '.lp-gaji .lp-t td:first-child{min-width:170px}.lp-gaji .lp-t td:nth-child(2){min-width:110px}' +
     '@media (max-width:600px){.lp-t{font-size:12px}.lp-t th,.lp-t td{padding:7px 6px 7px 0}.lp-t small{font-size:11px}.lp-kp{grid-template-columns:1fr 1fr;gap:8px}.lp-kp b{font-size:17px}.lp-aksi .tbl{flex:1 1 auto}}' +
     '@media print{' +
     '  @page{size:A4;margin:12mm}@page lanskap{size:A4 landscape;margin:10mm}' +
