@@ -54,6 +54,11 @@ create table if not exists public.absen_staf (
   dibuat timestamptz not null default now()
 );
 
+-- Jam kerja per staf (bawaan 10.00–17.00). Telat dihitung lewat toleransi 15 menit dari jam masuk,
+-- lembur dihitung mulai 20 menit setelah jam pulang.
+alter table public.absen_staf add column if not exists jam_masuk time not null default '10:00';
+alter table public.absen_staf add column if not exists jam_pulang time not null default '17:00';
+
 -- Satu baris per staf per hari (tanggal WITA).
 create table if not exists public.absen_hari (
   id bigint generated always as identity primary key,
@@ -168,6 +173,7 @@ begin
   select * into h from public.absen_hari where staf_id = s.id and tanggal = public.absen_hari_ini();
   return jsonb_build_object('ok', true,
     'nama', s.nama, 'server', now(), 'tanggal', public.absen_hari_ini(), 'uji', public.absen_uji_ket(public.absen_hari_ini()),
+    'jam_masuk', to_char(s.jam_masuk, 'HH24.MI'), 'jam_pulang', to_char(s.jam_pulang, 'HH24.MI'),
     'lokasi', case when l.id is null then null else jsonb_build_object('nama', l.nama, 'lat', l.lat, 'lng', l.lng, 'radius', l.radius_m) end,
     'masuk', public.absen_jam(h.masuk), 'pulang', public.absen_jam(h.pulang),
     'izin', coalesce((select jsonb_agg(jsonb_build_object('id', i.id, 'jenis', i.jenis, 'mulai', i.mulai, 'selesai', i.selesai, 'alasan', i.alasan,
@@ -258,7 +264,8 @@ begin
   s := public.absen_staf_saya();
   if s.id is null then return jsonb_build_object('ok', false, 'pesan', 'Akun ini belum terdaftar untuk absensi.'); end if;
   a := to_date(p_per || '-01', 'YYYY-MM-DD');
-  return jsonb_build_object('ok', true, 'hari', coalesce((select jsonb_agg(jsonb_build_object('tanggal', tanggal, 'masuk', public.absen_jam(masuk),
+  return jsonb_build_object('ok', true, 'jam_masuk', to_char(s.jam_masuk, 'HH24.MI'), 'jam_pulang', to_char(s.jam_pulang, 'HH24.MI'),
+    'hari', coalesce((select jsonb_agg(jsonb_build_object('tanggal', tanggal, 'masuk', public.absen_jam(masuk),
       'pulang', public.absen_jam(pulang), 'koreksi', koreksi, 'uji', public.absen_uji_ket(tanggal)) order by tanggal)
     from public.absen_hari where staf_id = s.id and tanggal >= a and tanggal < (a + interval '1 month')::date), '[]'::jsonb));
 end $$;
@@ -270,7 +277,8 @@ begin
   if not public.absen_kelola() then return jsonb_build_object('ok', false, 'pesan', 'Khusus manajemen Moscow Supplies.'); end if;
   return jsonb_build_object('ok', true, 'tanggal', p_tanggal, 'hari_ini', public.absen_hari_ini(), 'uji', public.absen_uji_ket(p_tanggal),
     'lokasi', coalesce((select jsonb_agg(to_jsonb(l) order by l.id) from public.absen_lokasi l), '[]'::jsonb),
-    'staf', coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'nama', s.nama, 'email', s.email, 'lokasi_id', s.lokasi_id, 'aktif', s.aktif) order by s.nama) from public.absen_staf s), '[]'::jsonb),
+    'staf', coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'nama', s.nama, 'email', s.email, 'lokasi_id', s.lokasi_id, 'aktif', s.aktif,
+        'jam_masuk', to_char(s.jam_masuk, 'HH24:MI'), 'jam_pulang', to_char(s.jam_pulang, 'HH24:MI')) order by s.nama) from public.absen_staf s), '[]'::jsonb),
     'hari', coalesce((select jsonb_agg(jsonb_build_object('staf_id', h.staf_id, 'masuk', public.absen_jam(h.masuk), 'pulang', public.absen_jam(h.pulang),
         'masuk_jarak', h.masuk_jarak, 'pulang_jarak', h.pulang_jarak, 'masuk_akurasi', h.masuk_akurasi, 'pulang_akurasi', h.pulang_akurasi,
         'masuk_foto', h.masuk_foto, 'pulang_foto', h.pulang_foto, 'koreksi', h.koreksi, 'catatan', h.catatan))
@@ -335,9 +343,18 @@ begin
     if e is not null and exists (select 1 from public.absen_staf where lower(email) = e and nama <> trim(it->>'nama')) then
       return jsonb_build_object('ok', false, 'pesan', 'Email ' || e || ' sudah dipakai staf lain.');
     end if;
-    insert into public.absen_staf (nama, email, lokasi_id, aktif)
-    values (trim(it->>'nama'), e, nullif(it->>'lokasi_id', '')::bigint, coalesce((it->>'aktif')::boolean, true))
-    on conflict (nama) do update set email = excluded.email, lokasi_id = excluded.lokasi_id, aktif = excluded.aktif;
+    if coalesce(it->>'jam_masuk', '') <> '' and (it->>'jam_masuk') !~ '^([01]?\d|2[0-3])[:.][0-5]\d$' then
+      return jsonb_build_object('ok', false, 'pesan', 'Jam masuk ' || trim(it->>'nama') || ' harus seperti 10:00.');
+    end if;
+    if coalesce(it->>'jam_pulang', '') <> '' and (it->>'jam_pulang') !~ '^([01]?\d|2[0-3])[:.][0-5]\d$' then
+      return jsonb_build_object('ok', false, 'pesan', 'Jam pulang ' || trim(it->>'nama') || ' harus seperti 17:00.');
+    end if;
+    insert into public.absen_staf (nama, email, lokasi_id, aktif, jam_masuk, jam_pulang)
+    values (trim(it->>'nama'), e, nullif(it->>'lokasi_id', '')::bigint, coalesce((it->>'aktif')::boolean, true),
+            coalesce(nullif(replace(it->>'jam_masuk', '.', ':'), '')::time, '10:00'), coalesce(nullif(replace(it->>'jam_pulang', '.', ':'), '')::time, '17:00'))
+    on conflict (nama) do update set email = excluded.email, lokasi_id = excluded.lokasi_id, aktif = excluded.aktif,
+      jam_masuk = case when coalesce(it->>'jam_masuk', '') = '' then public.absen_staf.jam_masuk else excluded.jam_masuk end,
+      jam_pulang = case when coalesce(it->>'jam_pulang', '') = '' then public.absen_staf.jam_pulang else excluded.jam_pulang end;
     if e is not null and not exists (select 1 from public.pengguna where lower(email) = e) then
       begin
         insert into public.pengguna (email, nama, peran) values (e, trim(it->>'nama'), 'staf');
@@ -376,6 +393,9 @@ begin
   return jsonb_build_object('ok', true, 'per', p_per,
     'uji', coalesce((select jsonb_agg(jsonb_build_object('tanggal', tanggal, 'keterangan', keterangan)) from public.absen_uji where tanggal >= a and tanggal < b), '[]'::jsonb),
     'staf', coalesce((select jsonb_agg(nama order by nama) from public.absen_staf where aktif), '[]'::jsonb),
+    'jam', coalesce((select jsonb_object_agg(nama, jsonb_build_object(
+        'masuk', extract(hour from jam_masuk) * 60 + extract(minute from jam_masuk),
+        'pulang', extract(hour from jam_pulang) * 60 + extract(minute from jam_pulang))) from public.absen_staf where aktif), '{}'::jsonb),
     'hari', coalesce((select jsonb_agg(jsonb_build_object('nama', s.nama, 'tanggal', h.tanggal,
         'masuk', case when h.masuk is null then null else extract(hour from h.masuk at time zone 'Asia/Makassar') * 60 + extract(minute from h.masuk at time zone 'Asia/Makassar') end,
         'pulang', case when h.pulang is null then null else extract(hour from h.pulang at time zone 'Asia/Makassar') * 60 + extract(minute from h.pulang at time zone 'Asia/Makassar') end))
@@ -397,3 +417,7 @@ grant execute on function public.absen_saya(), public.absen_catat(text, double p
   public.absen_kelola_data(date), public.absen_izin_putus(bigint, text, text), public.absen_koreksi(bigint, date, text, text, text),
   public.absen_staf_simpan(jsonb), public.absen_lokasi_simpan(bigint, double precision, double precision, int), public.absen_rekap(text),
   public.absen_kelola() to authenticated;
+
+-- Jam kerja khusus (permintaan manajemen 31 Okt 2026). Staf lain memakai bawaan 10.00–17.00.
+update public.absen_staf set jam_masuk = '10:00', jam_pulang = '17:15' where nama = 'Daffa Arib Al Hakim';
+update public.absen_staf set jam_masuk = '11:00', jam_pulang = '18:00' where nama = 'I Nyoman Jesta Rijaksa';

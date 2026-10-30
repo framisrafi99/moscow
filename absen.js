@@ -46,7 +46,7 @@
     '.ab-aksi{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}' +
     '.ab-pre{overflow:auto;max-height:260px;font-size:12px;background:var(--latar);border-radius:10px;padding:8px}.ab-pre td{padding:2px 8px;border-bottom:1px solid var(--garis2);white-space:nowrap}';
 
-  var A = { el: null, sb: null, opsi: {}, file: '', scan: null, izin: {}, uji: {}, sumber: '', perPilih: '', per: '', gaji: null, peta: {}, alpa: {}, pesan: '', kelas: 'ok', sibuk: false, mentah: null,
+  var A = { el: null, sb: null, opsi: {}, file: '', scan: null, izin: {}, uji: {}, jamStaf: {}, sumber: '', perPilih: '', per: '', gaji: null, peta: {}, alpa: {}, pesan: '', kelas: 'ok', sibuk: false, mentah: null,
             libur: bacaLokal('abLibur', [0]), merah: '' };
 
   /* ---------- membaca file ---------- */
@@ -156,6 +156,8 @@
     var per = A.per, y = +per.slice(0, 4), b = +per.slice(5, 7), jml = new Date(y, b, 0).getDate();
     var merah = tanggalMerah(), data = A.scan[namaMesin] || {}, gp = staf ? Number(staf.gp) || 0 : 0;
     var perMenit = gp / ATUR.hariKerja / ATUR.jamSehari / 60, perJamLembur = gp / ATUR.pembagiLembur;
+    // Jam kerja staf ini (aplikasi Absensi); file mesin memakai bawaan 10.00–17.00. Lembur mulai 20 menit sesudah jam pulang.
+    var js = A.jamStaf[namaMesin] || {}, jMasuk = js.masuk != null ? Number(js.masuk) : ATUR.masuk, jLembur = js.pulang != null ? Number(js.pulang) + 20 : ATUR.batasLembur;
     var r = { hadir: 0, kerja: 0, alpaOtomatis: 0, telatHari: 0, telatMenit: 0, lemburHari: 0, lemburMenit: 0, lemburRp: 0, kurang: 0, libur: 0, hari: [] };
     for (var d = 1; d <= jml; d++) {
       var tg = ymd(y, b, d), dow = new Date(y, b - 1, d).getDay(), libur = A.libur.indexOf(dow) > -1 || !!merah[d];
@@ -175,9 +177,9 @@
       } else { baris.masuk = t[0]; baris.pulang = t[t.length - 1]; }
       if (libur) { r.libur++; baris.ket = (baris.ket ? baris.ket + '; ' : '') + 'Hari libur (tidak dihitung lembur)'; r.hari.push(baris); continue; }
       r.hadir++;
-      if (baris.masuk != null && baris.masuk > ATUR.masuk + ATUR.toleransi) { baris.telat = baris.masuk - ATUR.masuk; r.telatHari++; r.telatMenit += baris.telat; }
-      if (baris.pulang != null && baris.pulang > ATUR.batasLembur) {
-        baris.lembur = baris.pulang - ATUR.batasLembur; r.lemburHari++; r.lemburMenit += baris.lembur;
+      if (baris.masuk != null && baris.masuk > jMasuk + ATUR.toleransi) { baris.telat = baris.masuk - jMasuk; r.telatHari++; r.telatMenit += baris.telat; }
+      if (baris.pulang != null && baris.pulang > jLembur) {
+        baris.lembur = baris.pulang - jLembur; r.lemburHari++; r.lemburMenit += baris.lembur;
         r.lemburRp += perJamLembur * (1.5 * Math.min(baris.lembur, 60) / 60 + 2 * Math.max(baris.lembur - 60, 0) / 60);
       }
       if (baris.telat || baris.lembur || baris.ket) r.hari.push(baris);
@@ -327,7 +329,7 @@
       });
       (r.data.izin || []).forEach(function (x) { (izin[x.nama] || (izin[x.nama] = {}))[x.tanggal] = x.jenis; });
       if (!Object.keys(scan).length) throw new Error('Belum ada staf terdaftar di Absensi. Daftarkan di menu Absensi staf › Staf & lokasi.');
-      A.scan = scan; A.izin = izin; A.uji = uji; A.per = per; A.perPilih = per; A.sumber = 'app'; A.file = '';
+      A.scan = scan; A.izin = izin; A.uji = uji; A.jamStaf = r.data.jam || {}; A.per = per; A.perPilih = per; A.sumber = 'app'; A.file = '';
       await muatGaji();
       A.peta = {}; Object.keys(A.scan).forEach(function (nm) { A.peta[nm] = cocokOtomatis(nm); });
       var belum = Object.keys(A.peta).filter(function (k) { return !A.peta[k]; }).length;
@@ -339,7 +341,7 @@
     finally { A.sibuk = false; gambar(); }
   }
   async function proses(f) {
-    A.sumber = 'file'; A.izin = {}; A.uji = {};
+    A.sumber = 'file'; A.izin = {}; A.uji = {}; A.jamStaf = {};
     A.sibuk = true; A.pesan = 'Membaca ' + esc(f.name) + '…'; A.kelas = 'ok'; A.mentah = null; A.scan = null; A.gaji = null; A.alpa = {}; gambar();
     try {
       var h = await bacaFile(f);
@@ -390,6 +392,6 @@
       gambar();
     },
     // untuk uji: hitung dari data scan tanpa tampilan
-    _uji: { bacaSel: bacaSel, bacaLembar: bacaLembar, hitung: function (scan, per, staf, libur, merah, izin) { A.scan = scan; A.per = per; A.libur = libur || [0]; A.merah = merah || ''; A.izin = izin || {}; A.sumber = izin ? 'app' : ''; return hitungStaf(Object.keys(scan)[0], staf); } }
+    _uji: { bacaSel: bacaSel, bacaLembar: bacaLembar, hitung: function (scan, per, staf, libur, merah, izin) { A.scan = scan; A.per = per; A.libur = libur || [0]; A.merah = merah || ''; A.izin = izin || {}; A.sumber = izin ? 'app' : ''; A.jamStaf = arguments[6] || {}; return hitungStaf(Object.keys(scan)[0], staf); } }
   };
 })();

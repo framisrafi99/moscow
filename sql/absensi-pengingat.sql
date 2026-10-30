@@ -1,15 +1,15 @@
 -- =====================================================================
--- ABSENSI: PENGINGAT NOTIFIKASI HP (absen masuk 09.50, absen pulang 17.00 WITA)
+-- ABSENSI: PENGINGAT NOTIFIKASI HP (10 menit sebelum jam masuk, dan saat jam pulang, per staf)
 -- Jalankan sekali di Supabase SETELAH Edge Function "absen-pengingat" dipasang
 -- (supabase/functions/absen-pengingat/index.ts). Aman dijalankan ulang.
 --
 -- Cara kerja:
 --  - Staf menekan "Aktifkan pengingat" di aplikasi Absensi -> langganan HP disimpan di absen_push.
---  - Jadwal (pg_cron) memanggil Edge Function jam 09.50 & 17.00 WITA, Senin–Sabtu.
+--  - Jadwal (pg_cron) memanggil Edge Function tiap 10 menit (09.00–19.59 WITA), Senin–Sabtu.
 --  - Edge Function meminta daftar penerima ke absen_pengingat_target, lalu mengirim notifikasi.
 --    Masuk  : staf aktif yang belum absen masuk dan tidak sedang izin/cuti/sakit.
 --    Pulang : staf yang sudah absen masuk tapi belum absen pulang.
---  - Tiap jenis hanya dikirim sekali sehari dan hanya di jam yang ditentukan, jadi aman dipanggil berulang.
+--  - Tiap staf hanya dikirimi sekali per jenis per hari, sesuai jam kerjanya, jadi aman dipanggil berulang.
 --  - Kunci pengirim (VAPID) dibuat sendiri oleh Edge Function dan disimpan di absen_push_kunci (tidak bisa dibaca staf).
 -- =====================================================================
 
@@ -90,34 +90,58 @@ begin
 end $$;
 
 -- Daftar penerima untuk Edge Function (hanya service_role). Mengunci "sudah dikirim hari ini".
+-- Pengingat per staf mengikuti jam kerja masing-masing (absen_staf.jam_masuk / jam_pulang):
+--   masuk  : mulai 10 menit sebelum jam masuk (sampai 30 menit sesudahnya), kalau belum absen masuk dan tidak izin/cuti/sakit
+--   pulang : mulai jam pulang (sampai 60 menit sesudahnya), kalau sudah absen masuk tapi belum absen pulang
+-- Dipanggil jadwal tiap 10 menit; tiap staf hanya dikirimi sekali per jenis per hari (absen_pengingat_kirim).
+create table if not exists public.absen_pengingat_kirim (
+  tanggal date not null,
+  staf_id bigint not null references public.absen_staf (id) on delete cascade,
+  jenis text not null check (jenis in ('masuk', 'pulang')),
+  waktu timestamptz not null default now(),
+  primary key (tanggal, staf_id, jenis)
+);
+alter table public.absen_pengingat_kirim enable row level security;
+revoke all on public.absen_pengingat_kirim from anon, authenticated;
+grant select, insert, delete on public.absen_pengingat_kirim to service_role;
+
 create or replace function public.absen_pengingat_target(p_jenis text) returns jsonb
 language plpgsql volatile security definer set search_path = public as $$
-declare tg date := public.absen_hari_ini(); jam int; mulai int; selesai int; hasil jsonb;
+declare tg date := public.absen_hari_ini(); jam int; hasil jsonb; pilih bigint[];
 begin
-  -- catat panggilan + pemutus: lebih dari 20 panggilan hari ini = berhenti
+  -- catat panggilan + pemutus: normal ±135 panggilan sehari (2 jenis x tiap 10 menit); lebih dari 200 = aneh, berhenti
   insert into public.absen_pengingat_panggil (tanggal, jenis) values (tg, left(coalesce(p_jenis, ''), 20));
   delete from public.absen_pengingat_panggil where tanggal < tg - 30;
-  if (select count(*) from public.absen_pengingat_panggil where tanggal = tg) > 20 then
+  if (select count(*) from public.absen_pengingat_panggil where tanggal = tg) > 200 then
     return jsonb_build_object('ok', false, 'pesan', 'Terlalu banyak panggilan hari ini, pengingat dihentikan sampai besok.');
   end if;
   if p_jenis not in ('masuk', 'pulang') then return jsonb_build_object('ok', false, 'pesan', 'Jenis tidak dikenal.'); end if;
-  jam := extract(hour from now() at time zone 'Asia/Makassar') * 60 + extract(minute from now() at time zone 'Asia/Makassar');
-  -- jendela kirim: masuk 09.30–11.30, pulang 16.45–19.00 (WITA); hari Minggu tidak dikirim
-  mulai := case p_jenis when 'masuk' then 570 else 1005 end;
-  selesai := case p_jenis when 'masuk' then 690 else 1140 end;
-  if jam < mulai or jam > selesai then return jsonb_build_object('ok', false, 'pesan', 'Di luar jam pengingat.'); end if;
   if extract(dow from tg) = 0 then return jsonb_build_object('ok', false, 'pesan', 'Hari libur.'); end if;
-  insert into public.absen_pengingat_log (tanggal, jenis) values (tg, p_jenis) on conflict do nothing;
-  if not found then return jsonb_build_object('ok', false, 'pesan', 'Pengingat ' || p_jenis || ' hari ini sudah dikirim.'); end if;
+  jam := extract(hour from now() at time zone 'Asia/Makassar') * 60 + extract(minute from now() at time zone 'Asia/Makassar');
 
-  select coalesce(jsonb_agg(jsonb_build_object('endpoint', p.endpoint, 'p256dh', p.p256dh, 'auth', p.auth, 'nama', s.nama)), '[]'::jsonb) into hasil
-  from public.absen_push p
-  join public.absen_staf s on s.id = p.staf_id and s.aktif
+  select array_agg(s.id) into pilih
+  from public.absen_staf s
   left join public.absen_hari h on h.staf_id = s.id and h.tanggal = tg
-  where case when p_jenis = 'masuk' then h.masuk is null
-               and not exists (select 1 from public.absen_izin i where i.staf_id = s.id and i.status = 'disetujui' and tg between i.mulai and i.selesai)
-             else h.masuk is not null and h.pulang is null end;
-  update public.absen_pengingat_log set penerima = jsonb_array_length(hasil) where tanggal = tg and jenis = p_jenis;
+  where s.aktif
+    and exists (select 1 from public.absen_push p where p.staf_id = s.id)
+    and not exists (select 1 from public.absen_pengingat_kirim k where k.tanggal = tg and k.staf_id = s.id and k.jenis = p_jenis)
+    and case when p_jenis = 'masuk' then
+           jam between (extract(hour from s.jam_masuk) * 60 + extract(minute from s.jam_masuk)) - 10
+                   and (extract(hour from s.jam_masuk) * 60 + extract(minute from s.jam_masuk)) + 30
+           and h.masuk is null
+           and not exists (select 1 from public.absen_izin i where i.staf_id = s.id and i.status = 'disetujui' and tg between i.mulai and i.selesai)
+         else
+           jam between (extract(hour from s.jam_pulang) * 60 + extract(minute from s.jam_pulang))
+                   and (extract(hour from s.jam_pulang) * 60 + extract(minute from s.jam_pulang)) + 60
+           and h.masuk is not null and h.pulang is null
+         end;
+  if pilih is null then return jsonb_build_object('ok', true, 'jenis', p_jenis, 'target', '[]'::jsonb); end if;
+
+  insert into public.absen_pengingat_kirim (tanggal, staf_id, jenis) select tg, unnest(pilih), p_jenis on conflict do nothing;
+  select coalesce(jsonb_agg(jsonb_build_object('endpoint', p.endpoint, 'p256dh', p.p256dh, 'auth', p.auth)), '[]'::jsonb) into hasil
+  from public.absen_push p where p.staf_id = any (pilih);
+  insert into public.absen_pengingat_log (tanggal, jenis, penerima) values (tg, p_jenis, array_length(pilih, 1))
+  on conflict (tanggal, jenis) do update set penerima = public.absen_pengingat_log.penerima + excluded.penerima, waktu = now();
   return jsonb_build_object('ok', true, 'jenis', p_jenis, 'uji', public.absen_uji_ket(tg), 'target', hasil);
 end $$;
 
@@ -128,7 +152,7 @@ begin
   if not public.absen_kelola() then return jsonb_build_object('ok', false, 'pesan', 'Khusus manajemen Moscow Supplies.'); end if;
   return jsonb_build_object('ok', true,
     'hp', (select count(distinct staf_id) from public.absen_push),
-    'kirim', coalesce((select jsonb_object_agg(jenis, penerima) from public.absen_pengingat_log where tanggal = p_tanggal), '{}'::jsonb),
+    'kirim', coalesce((select jsonb_object_agg(jenis, n) from (select jenis, count(*) n from public.absen_pengingat_kirim where tanggal = p_tanggal group by jenis) x), '{}'::jsonb),
     'panggil', (select count(*) from public.absen_pengingat_panggil where tanggal = p_tanggal));
 end $$;
 grant execute on function public.absen_pengingat_info(date) to authenticated;
@@ -140,7 +164,8 @@ grant execute on function public.absen_push_publik(), public.absen_push_simpan(t
 revoke all on function public.absen_pengingat_target(text) from authenticated;
 grant execute on function public.absen_pengingat_target(text) to service_role;
 
--- Jadwal (jam server = UTC): 09.50 WITA = 01.50 UTC, 17.00 WITA = 09.00 UTC, Senin–Sabtu.
+-- Jadwal (jam server = UTC): tiap 10 menit, 09.00–19.59 WITA = 01.00–11.59 UTC, Senin–Sabtu.
+-- Database yang menentukan siapa dikirimi sesuai jam kerja masing-masing.
 do $$
 declare j record;
 begin
@@ -148,10 +173,10 @@ begin
     perform cron.unschedule(j.jobid);
   end loop;
 end $$;
-select cron.schedule('absen-pengingat-masuk', '50 1 * * 1-6',
+select cron.schedule('absen-pengingat-masuk', '*/10 1-11 * * 1-6',
   $$select net.http_post(url := 'https://ufhuvwfudblbyrwzugaa.supabase.co/functions/v1/absen-pengingat',
     headers := '{"Content-Type": "application/json", "X-Moscow-Pengingat": "1"}'::jsonb, body := '{"jenis": "masuk"}'::jsonb)$$);
-select cron.schedule('absen-pengingat-pulang', '0 9 * * 1-6',
+select cron.schedule('absen-pengingat-pulang', '*/10 1-11 * * 1-6',
   $$select net.http_post(url := 'https://ufhuvwfudblbyrwzugaa.supabase.co/functions/v1/absen-pengingat',
     headers := '{"Content-Type": "application/json", "X-Moscow-Pengingat": "1"}'::jsonb, body := '{"jenis": "pulang"}'::jsonb)$$);
 

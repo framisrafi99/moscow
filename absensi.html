@@ -113,6 +113,8 @@
   function $(i) { return document.getElementById(i); }
   // Jam kerja staf (sama dengan aturan Payroll): masuk 10.00, toleransi 15 menit, lembur mulai 17.20.
   var JAM = { masuk: 600, toleransi: 15, lembur: 1040 };
+  // Jam kerja staf ini (diatur manajemen); lembur mulai 20 menit sesudah jam pulang.
+  function aturJam(jm, jp) { var m = menit(jm), p = menit(jp); if (m != null) JAM.masuk = m; if (p != null) { JAM.pulang = p; JAM.lembur = p + 20; } }
   var HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   var BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   var D = { uid: '', saya: null, selisih: 0, sibuk: false, posisi: null };
@@ -142,7 +144,7 @@
     }
     var d = r.data || {};
     if (!d.ok) { D.saya = null; gambarIzin(); await gambarDaftar(); return; }
-    D.saya = d; D.selisih = new Date(d.server).getTime() - Date.now();
+    D.saya = d; D.selisih = new Date(d.server).getTime() - Date.now(); aturJam(d.jam_masuk, d.jam_pulang);
     gambarAbsen(); gambarIzin(); gambarNotif();
   }
 
@@ -177,6 +179,7 @@
     var h = (d.uji ? '<div class="msg w"><b>' + esc(d.uji) + '.</b> Absen hari ini tercatat sebagai uji coba dan tidak dihitung ke gaji.</div>' : '') +
       '<div class="kpl"><div><div class="ab-tgl">' + esc(tglPanjang(d.tanggal)) + '</div><div class="ab-jam" id="abJam">--.--</div></div></div>' +
       '<div class="ab-lok">' + Moscow.svg('toko', 18) + '<span>' + (l ? esc(l.nama) : 'Lokasi belum diatur') + ' <small id="abJarak"></small></span></div>' +
+      (d.jam_masuk ? '<p class="ab-catat" style="margin:0">Jam kerjamu: <b>' + esc(d.jam_masuk) + '–' + esc(d.jam_pulang) + '</b> (toleransi telat 15 menit)</p>' : '') +
       '<div class="ab-st"><div><span>Masuk</span>' + (d.masuk ? '<b>' + esc(d.masuk) + '</b>' + (telat ? '<span class="label no">Telat ' + telat + ' mnt</span>' : '') : '<b class="belum">Belum</b>') + '</div>' +
       '<div><span>Pulang</span>' + (d.pulang ? '<b>' + esc(d.pulang) + '</b>' : '<b class="belum">Belum</b>') + '</div></div>';
     if (!l || l.lat == null) h += '<div class="msg w">Titik lokasi kerjamu belum diatur manajemen, jadi belum bisa absen.</div>';
@@ -293,7 +296,8 @@
   async function gambarNotif() {
     var el = $('ntKartu'); if (!el || !D.saya) { if (el) el.hidden = true; return; }
     el.hidden = false;
-    var h = '<h3>Pengingat absen</h3><p class="sb" style="margin:0">Notifikasi di HP jam <b>09.50</b> kalau belum absen masuk, dan jam <b>17.00</b> kalau belum absen pulang (Senin–Sabtu).</p>';
+    var jmM = JAM.masuk - 10, jmP = JAM.pulang != null ? JAM.pulang : 1020, dua = function (n) { return ('0' + Math.floor(n / 60)).slice(-2) + '.' + ('0' + (n % 60)).slice(-2); };
+    var h = '<h3>Pengingat absen</h3><p class="sb" style="margin:0">Notifikasi di HP jam <b>' + dua(jmM) + '</b> kalau belum absen masuk, dan jam <b>' + dua(jmP) + '</b> kalau belum absen pulang (Senin–Sabtu).</p>';
     var dukung = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
     if (!dukung) {
       h += IOS && !MANDIRI ? '<div class="msg w">Di iPhone, pengingat hanya bisa aktif kalau aplikasi dibuka dari ikon di Layar Utama. Tekan tombol Bagikan di Safari › <b>Tambahkan ke Layar Utama</b>, lalu buka dari ikon itu.</div>'
@@ -322,7 +326,7 @@
       var sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keKunci(k.data) });
       var r = await sb.rpc('absen_push_simpan', { p_endpoint: sub.endpoint, p_p256dh: b64(sub.getKey('p256dh')), p_auth: b64(sub.getKey('auth')), p_perangkat: (navigator.userAgent || '').slice(0, 120) });
       if (r.error || !r.data.ok) throw new Error(r.error ? r.error.message : r.data.pesan);
-      pesan('msg', 'Pengingat aktif. HP ini akan diberi notifikasi jam 09.50 dan 17.00.', 'ok');
+      pesan('msg', 'Pengingat aktif. HP ini akan diberi notifikasi sebelum jam masuk dan saat jam pulang.', 'ok');
     } catch (e) { pesan('msg', e.message || String(e), 'bad'); }
     gambarNotif();
   }
@@ -381,6 +385,7 @@
     el.innerHTML = '<div class="ksg">Memuat…</div>';
     var r = await sb.rpc('absen_riwayat', { p_per: per });
     if (r.error || !r.data.ok) { el.innerHTML = '<div class="msg bad">' + esc(r.error ? r.error.message : r.data.pesan) + '</div>'; return; }
+    aturJam(r.data.jam_masuk, r.data.jam_pulang);
     var hari = r.data.hari || [];
     if (!hari.length) { el.innerHTML = '<div class="ksg">Belum ada absen di bulan ini.</div>'; return; }
     var telat = 0, lembur = 0;

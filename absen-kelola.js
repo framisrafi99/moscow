@@ -28,7 +28,7 @@
     '.ak-gl{overflow-x:auto;background:#fff;border:1px solid var(--garis);border-radius:14px;margin-bottom:14px}' +
     '.ak-t{width:100%;border-collapse:collapse;font-size:13.5px}.ak-t th{text-align:left;font-size:12px;color:var(--abu);padding:10px 8px;border-bottom:1px solid var(--garis);white-space:nowrap}' +
     '.ak-t td{padding:9px 8px;border-bottom:1px solid var(--garis2);vertical-align:middle}.ak-t small{display:block;color:var(--abu);font-size:12px}' +
-    '.ak-t input,.ak-t select{height:38px;border:1px solid var(--garis);border-radius:10px;font-size:14px;padding:0 10px;background:#fff}.ak-t input[type=email]{min-width:220px}' +
+    '.ak-t input[type=time]{width:110px}.ak-t input,.ak-t select{height:38px;border:1px solid var(--garis);border-radius:10px;font-size:14px;padding:0 10px;background:#fff}.ak-t input[type=email]{min-width:220px}' +
     '.ak-jam{display:flex;align-items:center;gap:8px}.ak-jam img{width:40px;height:40px;border-radius:10px;object-fit:cover;cursor:zoom-in;background:var(--garis2)}' +
     '.ak-jam b{font-size:15px;font-variant-numeric:tabular-nums}.ak-belum{color:#A0A9B5;font-weight:700}' +
     '.ak-f{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end}.ak-f label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:var(--teks2)}' +
@@ -103,9 +103,10 @@
     var hadir = 0, telat = 0, belum = 0, nIzin = 0;
     var baris = aktif.map(function (s) {
       var x = hari[s.id] || {}, m = menit(x.masuk), p = menit(x.pulang), ket = [], l = lokasi(s.lokasi_id);
+      var jm = menit(s.jam_masuk) != null ? menit(s.jam_masuk) : JAM.masuk, jl = menit(s.jam_pulang) != null ? menit(s.jam_pulang) + 20 : JAM.lembur;
       if (x.masuk) hadir++;
-      if (m != null && m > JAM.masuk + JAM.toleransi) { telat++; ket.push('<span class="label no">Telat ' + (m - JAM.masuk) + ' mnt</span>'); }
-      if (p != null && p > JAM.lembur) ket.push('<span class="label biru">Lembur ' + (p - JAM.lembur) + ' mnt</span>');
+      if (m != null && m > jm + JAM.toleransi) { telat++; ket.push('<span class="label no">Telat ' + (m - jm) + ' mnt</span>'); }
+      if (p != null && p > jl) ket.push('<span class="label biru">Lembur ' + (p - jl) + ' mnt</span>');
       if (!x.masuk && izin[s.id]) { nIzin++; ket.push('<span class="label ok">' + NAMA_IZIN[izin[s.id]] + '</span>'); }
       else if (!x.masuk) { belum++; ket.push('<span class="label abu">Belum absen</span>'); }
       if (x.masuk && !x.pulang && d.tanggal !== d.hari_ini) ket.push('<span class="label w">Tidak absen pulang</span>');
@@ -114,7 +115,7 @@
         return j ? '<div class="ak-jam">' + foto(f, s.nama) + '<div><b>' + esc(j) + '</b>' + (jr != null ? '<small>' + jr + ' m' + (ak ? ' · GPS ±' + Math.round(ak) + ' m' : '') + '</small>' : '') + '</div></div>' : '<span class="ak-belum">–</span>';
       };
       var kr = A.koreksi === s.id;
-      return '<tr><td><b>' + esc(s.nama) + '</b><small>' + esc(l ? l.nama : 'Lokasi belum dipilih') + '</small></td>' +
+      return '<tr><td><b>' + esc(s.nama) + '</b><small>' + esc(l ? l.nama : 'Lokasi belum dipilih') + ' · ' + esc(String(s.jam_masuk || '10:00').replace(':', '.')) + '–' + esc(String(s.jam_pulang || '17:00').replace(':', '.')) + '</small></td>' +
         '<td>' + sel(x.masuk, x.masuk_foto, x.masuk_jarak, x.masuk_akurasi) + '</td><td>' + sel(x.pulang, x.pulang_foto, x.pulang_jarak, x.pulang_akurasi) + '</td>' +
         '<td>' + ket.join(' ') + '</td><td><button type="button" class="tbl kcl" data-koreksi="' + s.id + '">' + (kr ? 'Tutup' : 'Koreksi') + '</button></td></tr>' +
         (kr ? '<tr><td colspan="5" style="background:var(--latar)"><div class="ak-f">' +
@@ -136,7 +137,7 @@
       var kr = nf.kirim || {};
       h += '<p class="sb" style="margin:0 0 12px">Pengingat HP aktif di <b>' + nf.hp + '</b> staf. ' +
         (kr.masuk != null ? 'Pengingat masuk terkirim ke ' + kr.masuk + ' staf. ' : '') + (kr.pulang != null ? 'Pengingat pulang terkirim ke ' + kr.pulang + ' staf.' : '') + '</p>';
-      if (nf.panggil > 20) h += '<div class="msg bad"><b>Ada yang aneh:</b> layanan pengingat dipanggil ' + nf.panggil + ' kali hari ini (normalnya 2). Pengiriman otomatis dihentikan sampai besok. Kabari Claude untuk dicek.</div>';
+      if (nf.panggil > 200) h += '<div class="msg bad"><b>Ada yang aneh:</b> layanan pengingat dipanggil ' + nf.panggil + ' kali hari ini (normalnya sekitar 130). Pengiriman otomatis dihentikan sampai besok. Kabari Claude untuk dicek.</div>';
     }
     var tolak = d.ditolak || [];
     if (tolak.length) {
@@ -209,16 +210,18 @@
     nama.sort(function (a, b) { return a.localeCompare(b, 'id'); });
     h += '<div class="ak-kotak"><b>Staf yang absen</b><p class="sb" style="margin:4px 0 10px">Isi email Google yang dipakai staf untuk masuk aplikasi, pilih lokasinya, lalu simpan. Nama mengikuti Payroll supaya gaji terhitung otomatis. Staf consignment tidak perlu didaftarkan.</p>';
     if (!nama.length) h += '<div class="ksg">' + (A.payroll ? 'Belum ada staf di Payroll.' : 'Memuat daftar staf Payroll…') + '</div>';
-    else h += '<div class="ak-gl" style="border:0"><table class="ak-t"><thead><tr><th>Nama (Payroll)</th><th>Email Google</th><th>Lokasi</th><th>Absen</th></tr></thead><tbody>' +
+    else h += '<div class="ak-gl" style="border:0"><table class="ak-t"><thead><tr><th>Nama (Payroll)</th><th>Email Google</th><th>Lokasi</th><th>Jam masuk</th><th>Jam pulang</th><th>Absen</th></tr></thead><tbody>' +
       nama.map(function (n, i) {
         var s = ada[n] || {};
         return '<tr><td><b>' + esc(n) + '</b>' + (A.payroll && A.payroll.indexOf(n) < 0 ? '<small style="color:var(--merah)">Tidak ada di Payroll bulan ini</small>' : '') + '</td>' +
           '<td><input type="email" data-email="' + i + '" value="' + esc(s.email || '') + '" placeholder="nama@gmail.com" autocomplete="off"></td>' +
           '<td><select data-lok="' + i + '"><option value="">— pilih —</option>' + lok.map(function (l) { return '<option value="' + l.id + '"' + (s.lokasi_id === l.id ? ' selected' : '') + '>' + esc(l.nama) + '</option>'; }).join('') + '</select></td>' +
+          '<td><input type="time" data-jm="' + i + '" value="' + esc(s.jam_masuk || '10:00') + '" aria-label="Jam masuk ' + esc(n) + '"></td>' +
+          '<td><input type="time" data-jp="' + i + '" value="' + esc(s.jam_pulang || '17:00') + '" aria-label="Jam pulang ' + esc(n) + '"></td>' +
           '<td><input type="checkbox" data-aktif="' + i + '"' + (s.id ? (s.aktif ? ' checked' : '') : '') + ' style="width:22px;height:22px" aria-label="' + esc(n) + ' ikut absen"></td></tr>';
       }).join('') + '</tbody></table></div>' +
       '<div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button type="button" class="tbl pri" id="stSimpan"' + (A.sibuk ? ' disabled' : '') + '>Simpan daftar staf</button>' +
-      '<span class="sb" style="margin:0">Centang "Absen" untuk staf yang wajib absen.</span></div>';
+      '<span class="sb" style="margin:0">Centang "Absen" untuk staf yang wajib absen. Telat dihitung lewat 15 menit dari jam masuk, lembur mulai 20 menit sesudah jam pulang.</span></div>';
     h += '</div>';
     A._nama = nama;
     return h;
@@ -304,7 +307,7 @@
         var email = el.querySelector('[data-email="' + i + '"]').value.trim(), lok = el.querySelector('[data-lok="' + i + '"]').value, aktif = el.querySelector('[data-aktif="' + i + '"]').checked;
         var lama = ((A.data.staf || []).filter(function (s) { return s.nama === n; })[0]);
         if (!lama && !email && !aktif) return;
-        items.push({ nama: n, email: email, lokasi_id: lok, aktif: aktif });
+        items.push({ nama: n, email: email, lokasi_id: lok, aktif: aktif, jam_masuk: el.querySelector('[data-jm="' + i + '"]').value, jam_pulang: el.querySelector('[data-jp="' + i + '"]').value });
       });
       var kurang = items.filter(function (x) { return x.aktif && (!x.email || !x.lokasi_id); }).map(function (x) { return x.nama; });
       if (kurang.length) { A.pesan = 'Lengkapi email dan lokasi untuk: ' + esc(kurang.join(', ')) + '.'; A.kelas = 'bad'; gambar(); return; }
