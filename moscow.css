@@ -4,7 +4,7 @@
    HP: kepala biru gelap + menu bawah.
    ===================================================================== */
 :root {
-  --navy:#172434; --navy2:#22344A; --navy3:#2A3A4F; --navyTeks:#D5DEE9; --navyRedup:#8FA0B5;
+  --navy:#0C1F40; --navy2:#16305A; --navy3:#1F3A66; --navyTeks:#DCE6F5; --navyRedup:#8EA3C4;
   --biru:#1E78A8; --biruTua:#145A80; --biruMuda:#E7F3F9;
   --latar:#F4F7FA; --kartu:#FFFFFF; --garis:#E2E7EE; --garis2:#EEF2F6;
   --tinta:#0F1B2A; --teks2:#344154; --abu:#5A6677;
@@ -229,3 +229,10 @@ html.m-m .kt .v { font-size:19px; }
 html.m-m .dua { grid-template-columns:1fr; gap:12px; }
 html.m-m .cd { padding:14px; margin-bottom:12px; }
 @media print { #mSide, #mBawah, #mAksi { display:none !important; } html.m-d body { padding-left:0 !important; } }
+
+/* Menu samping gaya baru (sama dengan Master Data) */
+  html.m-d #mSide { padding:22px 14px 14px; }
+  #mSide .lg { width:150px; height:64px; margin:0 auto 22px; flex:0 0 auto; }
+  #mSide .it { min-height:48px; padding:12px 14px; gap:14px; font-size:15.5px; border-radius:12px; }
+  #mSide .it.on { background:#1F7AE0; box-shadow:0 6px 16px rgba(31,122,224,.35); }
+  #mSide .grp { margin:18px 14px 6px; padding-top:16px; border-top:1px solid var(--navy3); font-size:12px; letter-spacing:.1em; }
