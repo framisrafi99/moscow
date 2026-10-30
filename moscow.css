@@ -70,7 +70,7 @@ button, input, select, textarea { font:inherit; color:inherit; }
 #mMasuk .mm-status.mati::before { background:var(--merah); }
 #mMasuk .mm-status:empty { display:none; }
 @media (max-width: 899px) {
-  #mMasuk { grid-template-columns:1fr; grid-template-rows:auto minmax(min-content, 1fr); }
+  #mMasuk { grid-template-columns:1fr; grid-template-rows:max-content minmax(min-content, 1fr); }
   #mMasuk .mm-kiri { padding:28px 20px 26px; background:radial-gradient(90% 120% at 100% 100%, rgba(46,128,232,.40), rgba(46,128,232,0) 70%), linear-gradient(165deg, #081830 0%, #0B2347 55%, #0E3466 100%); }
   #mMasuk .mm-ilus { display:none; }
   #mMasuk .mm-garis { margin-bottom:14px; }
