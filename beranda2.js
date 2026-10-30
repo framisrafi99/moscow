@@ -174,7 +174,7 @@
     'html.m-m .bh-bc,html.m-m .bh-jd h1{display:none}html.m-m .bh-jd p{font-size:13px}' +
     'html.m-m .bh-head{margin-bottom:14px;gap:10px}html.m-m .bh-kn{width:100%;justify-content:space-between;gap:8px}' +
     'html.m-m .bh-av .nm{display:none}html.m-m .bh-bln{height:44px;flex:1}html.m-m .bh-bln select{flex:1}' +
-    'html.m-m .bh-kpi{grid-template-columns:1fr 1fr;gap:10px}html.m-m .bh-k{padding:14px;gap:10px}html.m-m .bh-k .bh-ik.bulat{width:40px;height:40px}html.m-m .bh-k .bh-ik.bulat svg{width:20px;height:20px}' +
+    'html.m-m.m-bx #mAksi{display:none}html.m-m .bh-jd{display:none}html.m-m .bh-kpi{grid-template-columns:1fr 1fr;gap:10px}html.m-m .bh-k{display:flex;flex-direction:column;align-items:flex-start;padding:14px;gap:8px}html.m-m .bh-k .tx{width:100%}html.m-m .bh-k .tx b{white-space:normal}html.m-m .bh-k .bh-ik.bulat{width:40px;height:40px}html.m-m .bh-k .bh-ik.bulat svg{width:20px;height:20px}' +
     'html.m-m .bh-k .tx b{font-size:21px}html.m-m .bh-k .l{font-size:13px}html.m-m .bh-dl{font-size:12px}' +
     'html.m-m .bh-awas{padding:14px}html.m-m .bh-awas .ch{justify-content:flex-start}html.m-m .bh-awas .ch button{font-size:13px;min-height:38px}' +
     'html.m-m .bh-kp .bh-bln{display:none}';
