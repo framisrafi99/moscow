@@ -191,7 +191,10 @@
       gdxOrderMasuk: function () { return window.Gudang.gdxOrderMasuk(sb); },
       ptrData: function () { return window.Pengadaan.ptrData(sb, 'gudang'); },
       hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'gudang', a[0]); },
-      gdxPengajuan: function (a) { return a[0] && a[0].mm ? null : window.Pengadaan.gdxPengajuan(sb); }
+      gdxPengajuan: function (a) { return a[0] && a[0].mm ? null : window.Pengadaan.gdxPengajuan(sb); },
+      // Kantor Packing (stok, per warna) dihitung dari Supabase (kp.js).
+      gdxKp: function () { return window.KantorPacking.gdxKp(sb); },
+      gdxKpW: function (a) { return window.KantorPacking.gdxKpW(sb, a[0]); }
     },
     produksi: {
       prodKebutuhan: function () { return window.Gudang.prodKebutuhan(sb); },
@@ -278,6 +281,10 @@
     gudang: {
       hppUsul: hppUsulRpc('gudang'),
       gdxKpUsul: hppUsulRpc('kp'),
+      // Hitung stok & penyesuaian Kantor Packing: stok sistem dari kp.js, dicatat RPC kp_ajuan.
+      gdxKpHitung: function (p) { return window.KantorPacking.gdxKpHitung(sb, p); },
+      gdxKpHitungW: function (p) { return window.KantorPacking.gdxKpHitungW(sb, p); },
+      gdxKpSesuaiW: function (p) { return window.KantorPacking.gdxKpSesuaiW(sb, p); },
       // Pengajuan pembelian (pgdAjukan + pembungkus): robot dari potret; Telegram, pesan Mike & Viory oleh Apps Script (efek_antre).
       gdxAjukan: function (p) {
         return ['pengadaan_ajukan', { p_app: 'gudang', p_nama: teks(p.nama), p_yakin: p.yakin === true, p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];

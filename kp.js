@@ -218,7 +218,7 @@
     return { ok: true, list: list, ajuan: ajuanKP(A.pss, false), hariIni: fmt(new Date(), WITA, 'yyyy-MM-dd') };
   }
 
-  async function gdxKpW(sb) {
+  async function gdxKpW(sb, p) {
     var h = await Promise.all([siap(sb), sb.rpc('hpp_staf')]), S = h[0], A = S.A, r = h[1];
     var hpp = (r && !r.error && r.data && r.data.hpp) || {}, usul = {};
     ((r && r.data && r.data.usul) || []).forEach(function (u) {
@@ -237,7 +237,7 @@
     A.on.list.forEach(function (x) { isi(x.k, x.n, x.kat); });
     A.brg.list.forEach(function (b) { isi(b.k, b.n, b.kat); });
     urutkan(list, A.brg);
-    return { ok: true, list: list, ajuan: ajuanKP(A.pss, true), alasan: ALASAN.slice(), mgmt: S.peran === 'manajemen' };
+    return { ok: true, list: list, ajuan: ajuanKP(A.pss, true), alasan: ALASAN.slice(), mgmt: !!(p && p.mm) };
   }
 
   // Ajuan: stok sistem dihitung di sini (rumus di atas), lalu RPC kp_ajuan mencatat & memberi nomor.
@@ -271,7 +271,7 @@
   }
 
   window.KantorPacking = {
-    gdxKp: gdxKp, gdxKpW: gdxKpW, lupakan: lupakan, hitung: hitung,
+    gdxKp: gdxKp, gdxKpW: function (sb, p) { return gdxKpW(sb, p); }, lupakan: lupakan, hitung: hitung,
     gdxKpHitung: function (sb, p) { return ajukan(sb, 'hitung', p); },
     gdxKpHitungW: function (sb, p) { return ajukan(sb, 'hitungW', p); },
     gdxKpSesuaiW: function (sb, p) { return ajukan(sb, 'sesuaiW', p); }
