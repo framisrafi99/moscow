@@ -413,14 +413,20 @@
   }
 
   // Data lembar dipakai bersama beberapa panggilan yang datang hampir bersamaan (gdData + gdxOrderMasuk saat halaman dibuka).
-  var muatan = null, waktuMuat = 0;
+  // Permintaan yang masih berjalan selalu dipakai bersama (dulu: lewat 3 detik dibuat permintaan baru walau yang lama belum selesai,
+  // sehingga saat server lambat permintaan menumpuk). Hasil yang sudah selesai dipakai ulang 3 detik.
+  var muatan = null, waktuMuat = 0, selesai = true;
   function lembar(sb) {
-    if (!muatan || Date.now() - waktuMuat > 3000) { waktuMuat = Date.now(); muatan = window.Lembar.muat(sb, TABEL); muatan.catch(function () { muatan = null; }); }
+    if (!muatan || (selesai && Date.now() - waktuMuat > 3000)) {
+      waktuMuat = Date.now(); selesai = false;
+      var ini = muatan = window.Lembar.muat(sb, TABEL);
+      ini.then(function () { if (muatan === ini) { selesai = true; waktuMuat = Date.now(); } }, function () { if (muatan === ini) { muatan = null; selesai = true; } });
+    }
     return muatan;
   }
   async function gdData(sb) { return buat(await lembar(sb)).gdData(); }
   async function gdxOrderMasuk(sb) { return buat(await lembar(sb)).gdxOrderMasuk(); }
   async function prodKebutuhan(sb) { return buat(await lembar(sb)).prodKebutuhan(); }
-  function lupakan() { muatan = null; }
+  function lupakan() { muatan = null; selesai = true; }
   window.Gudang = { gdData: gdData, gdxOrderMasuk: gdxOrderMasuk, prodKebutuhan: prodKebutuhan, lupakan: lupakan, buat: buat, TABEL: TABEL };
 })();

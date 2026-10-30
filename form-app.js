@@ -238,10 +238,25 @@
   var basiSampai = 0;
   // Fungsi simpan (sama dengan daftar fungsi tulis di Apps Script). Kalau salinannya ke Supabase tidak terkonfirmasi, baca lewat Apps Script dulu.
   var TULIS_RE = /^(simpan|ajukan|gd(Biaya|Kirim|Opname|Po|Terima)|gdx(Order(Kirim|Proses)|Kp|Harga|Ajukan)|prodSesuai|putusSesuai|kembaliPinjam|tandaiSampai|ubahStatusOrder|rp(Tandai|Putus)|kemasanHargaSimpan|ptrTerima|pgsAjukan|pgdAjukan|pgdAksi|plx?(Aksi|Bayar|Tolak|PoBayar)|bahanBaku(Beli|Pakai|Produksi|Sampai|Sesuai|Warna|StafTambah)|hppUsul)/;
+  // Batas tunggu baca Supabase: biasanya < 1 detik. Kalau sesekali tersendat (mis. server sedang memuat ulang),
+  // jangan biarkan staf menunggu puluhan detik: hentikan setelah 8 detik, coba sekali lagi, baru pindah ke Apps Script.
+  function batasWaktu(p, ms) {
+    return Promise.race([p, new Promise(function (_, tolak) { setTimeout(function () { tolak(new Error('lambat')); }, ms); })]);
+  }
   async function bacaSupabase(f, a) {
     var peta = BACA_SUPABASE[APP];
     if (!peta || !peta[f] || Date.now() < basiSampai) return null;
-    try { var r = await peta[f](a || []); return r && r.ok === true ? r : null; } catch (e) { console.warn('baca Supabase gagal', f, e); return null; }
+    for (var coba = 0; coba < 2; coba++) {
+      try {
+        if (coba && window.Gudang) window.Gudang.lupakan();
+        var r = await batasWaktu(peta[f](a || []), 8000);
+        return r && r.ok === true ? r : null;
+      } catch (e) {
+        console.warn('baca Supabase gagal', f, coba, e);
+        if (!e || e.message !== 'lambat') return null;
+      }
+    }
+    return null;
   }
   // Simpan langsung di Supabase (tahap 3): pemeriksaan sama dengan Apps Script; Apps Script menyalinnya ke Google Sheets.
   function teks(v) { return String(v === undefined || v === null ? '' : v); }
