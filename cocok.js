@@ -60,12 +60,14 @@
     // Ringkasan: file vs laporan staf
     var fq = 0, fv = 0, sq = 0, sv = 0; T.file.forEach(function (f) { fq += +f.pcs || 0; fv += +f.v || 0; }); T.staf.forEach(function (s) { sq += +s.pcs || 0; sv += +s.v || 0; });
     var S = {}; T.staf.forEach(function (s) { S[s.sal] = s; });
+    var campur = !!S['Tanpa saluran'];
     var baris = pfs.map(function (p) { var f = F[p] || {}, s = S[p] || {};
-      return '<tr><td>' + esc(NAMA_PF[p] || p) + '</td><td class="r">' + fmt(f.pcs) + '</td><td class="r">' + fmt(s.pcs) + '</td><td class="r">' + sel(f.pcs, s.pcs) + '</td><td class="r">' + rp(f.v) + '</td><td class="r">' + rp(s.v) + '</td></tr>'; });
+      return '<tr><td>' + esc(NAMA_PF[p] || p) + '</td><td class="r">' + fmt(f.pcs) + '</td><td class="r">' + fmt(s.pcs) + '</td><td class="r">' + (campur ? '<small>lihat total</small>' : sel(f.pcs, s.pcs)) + '</td><td class="r">' + rp(f.v) + '</td><td class="r">' + rp(s.v) + '</td></tr>'; });
     T.staf.forEach(function (s) { if (pfs.indexOf(s.sal) >= 0) return;
       baris.push('<tr><td>' + esc(s.sal) + '<small>' + (s.sal === 'Tanpa saluran' ? 'laporan sebelum ada pilihan saluran (s/d ' + tgl(s.akhir) + ')' : 'tidak lewat marketplace') + '</small></td><td class="r">–</td><td class="r">' + fmt(s.pcs) + '</td><td class="r">–</td><td class="r">–</td><td class="r">' + rp(s.v) + '</td></tr>'); });
     baris.push('<tr style="font-weight:800"><td>TOTAL</td><td class="r">' + fmt(fq) + '</td><td class="r">' + fmt(sq) + '</td><td class="r">' + sel(fq, sq) + '</td><td class="r">' + rp(fv) + '</td><td class="r">' + rp(sv) + '</td></tr>');
     h += '<div class="cd"><div class="kpl"><h3>File marketplace vs laporan staf</h3><span class="sb">pcs terjual</span></div><div class="ck-gl"><table class="ck-t"><thead><tr><th>Saluran</th><th class="r">Pcs file</th><th class="r">Pcs laporan staf</th><th class="r">Selisih</th><th class="r">Omzet file</th><th class="r">Omzet laporan</th></tr></thead><tbody>' + baris.join('') + '</tbody></table></div>' +
+      (campur ? '<p class="sb" style="margin:8px 0 0"><b>Bandingkan baris TOTAL.</b> Sebagian laporan staf (s/d ' + tgl(S['Tanpa saluran'].akhir) + ') diisi sebelum ada pilihan saluran, jadi selisih per platform belum bisa dihitung untuk bulan ini.</p>' : '') +
       '<p class="sb" style="margin:8px 0 0">Selisih + berarti di file marketplace lebih banyak dari yang dilaporkan staf (kemungkinan ada penjualan belum dilaporkan). Omzet file memakai harga jual di marketplace (setelah diskon, tanpa pesanan batal); omzet laporan memakai harga jual daftar, jadi wajar sedikit berbeda.</p></div>';
 
     // Per hari
