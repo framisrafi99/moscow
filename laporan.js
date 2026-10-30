@@ -39,6 +39,7 @@
     '.lp-akun{border:1px solid var(--garis);border-radius:12px;padding:12px 14px;margin-top:10px}' +
     '.lp-akun h4{margin:0 0 6px;font-size:15px;display:flex;justify-content:space-between;gap:8px}' +
     '.lp-print-only{display:none}' +
+    '@media (max-width:600px){.lp-t{font-size:12px}.lp-t th,.lp-t td{padding:7px 6px 7px 0}.lp-t small{font-size:11px}.lp-kp{grid-template-columns:1fr 1fr;gap:8px}.lp-kp b{font-size:17px}.lp-aksi .tbl{flex:1 1 auto}}' +
     '@media print{' +
     '  @page{size:A4;margin:12mm}' +
     '  body{background:#fff!important;padding:0!important}' +
