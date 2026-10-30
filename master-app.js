@@ -1359,6 +1359,7 @@
 
   // ======================= GUDANG UTAMA (gdPemilikData lama, mode gudang) =======================
   var G = { bagian: 'stok', cari: '', cariOn: '' };
+  var GDL = { data: null, muat: false, pesan: '' };
   function tglId(s) { var p = String(s || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(s || ''); }
   function cocok(teks, q) { q = String(q || '').trim().toLowerCase(); return !q || String(teks).toLowerCase().indexOf(q) !== -1; }
   function kelompok(list) { var g = {}, u = []; list.forEach(function (x) { var k = x.kat || 'Lainnya'; if (!g[k]) { g[k] = []; u.push(k); } g[k].push(x); }); return u.map(function (k) { return { kat: k, list: g[k] }; }); }
@@ -1372,6 +1373,28 @@
     h += '<div id="gIsi">' + (G.bagian === 'stok' ? isiStokGudang(d) : G.bagian === 'online' ? isiOnline(d) : isiRiwayatGudang(d)) + '</div>';
     el.innerHTML = h;
     el.querySelectorAll('[data-gb]').forEach(function (b) { b.onclick = function () { G.bagian = b.getAttribute('data-gb'); gambarGudang(); }; });
+    el.onclick = function (e) {
+      var t = e.target.closest ? e.target.closest('[data-gdb1],[data-gdb0],[data-gdb2]') : null; if (!t) return;
+      var no = t.getAttribute('data-gdb1') || t.getAttribute('data-gdb0') || t.getAttribute('data-gdb2'), box = el.querySelector('[data-btl="' + no + '"]');
+      if (!box) return;
+      if (t.hasAttribute('data-gdb1')) {
+        box.innerHTML = '<label for="gBtl" class="sb" style="width:100%">Alasan pembatalan ' + esc(no) + '</label><input class="isian" id="gBtl" maxlength="200" placeholder="Mis. dobel input, salah tujuan, salah jumlah" style="flex:1 1 240px">' +
+          '<button type="button" class="tbl" data-gdb2="' + esc(no) + '" style="background:var(--merah);border-color:var(--merah);color:#fff">Ya, batalkan</button><button type="button" class="tbl" data-gdb0="' + esc(no) + '">Tidak jadi</button>';
+        var i = $('gBtl'); if (i) i.focus(); return;
+      }
+      if (t.hasAttribute('data-gdb0')) { gambarGudang(); return; }
+      var al = ($('gBtl') || {}).value || '';
+      if (al.trim().length < 3) { box.insertAdjacentHTML('beforeend', '<div class="msg no" style="width:100%">Tulis alasan pembatalan dulu.</div>'); return; }
+      t.disabled = true; t.textContent = 'Membatalkan…';
+      sb.rpc('gudang_batal', { p_no: no, p_alasan: al, p_token: no + '|' + Date.now() }).then(function (r) {
+        var h = r.data || {};
+        if (r.error || !h.ok) { t.disabled = false; t.textContent = 'Ya, batalkan'; box.insertAdjacentHTML('beforeend', '<div class="msg no" style="width:100%">' + esc(r.error ? r.error.message : h.pesan) + '</div>'); return; }
+        salinKeSheetGaji();
+        if (window.Gudang) window.Gudang.lupakan();
+        GDL.data = null; GDL.pesan = h.pesan; gambarGudang();
+      });
+    };
+    if (GDL.pesan) { el.insertAdjacentHTML('afterbegin', '<div class="msg ok">' + esc(GDL.pesan) + '</div>'); GDL.pesan = ''; }
     var c = $('gCari'); if (c) c.oninput = function () { var pos = c.selectionStart; if (G.bagian === 'stok') G.cari = c.value; else G.cariOn = c.value; gambarGudang(); var c2 = $('gCari'); c2.focus(); try { c2.setSelectionRange(pos, pos); } catch (e) { } };
   }
   function isiStokGudang(d) {
@@ -1425,14 +1448,22 @@
     var h = '', M2 = d.masukProd || [];
     if (M2.length) h += '<div class="cd"><div class="kpl"><h3>Kiriman produksi belum diterima gudang</h3><span class="sb">' + M2.length + ' kiriman</span></div><table class="tabel"><tbody>' + M2.map(function (x) {
       var it = x.items || []; return '<tr><td><b>' + esc(x.no || '') + '</b><small>' + esc(tglId(x.t)) + (x.p ? ' · ' + esc(x.p) : '') + '</small>' + (it.length ? '<small>' + it.map(function (i) { return esc(i.n) + (i.w ? ' ' + esc(i.w) : '') + ' ' + fmt(i.q); }).join(', ') + '</small>' : '') + '</td><td class="r angka">' + fmt(it.reduce(function (a, i) { return a + (Number(i.q) || 0); }, 0) || x.q || 0) + ' pcs</td></tr>'; }).join('') + '</tbody></table></div>';
-    var R = d.riwayat || [];
+    // Riwayat langsung dari Supabase (gudang.js) supaya pembatalan langsung terlihat; sebelum termuat memakai potret.
+    if (!GDL.data && !GDL.muat && window.Gudang) {
+      GDL.muat = true;
+      window.Gudang.gdData(sb).then(function (x) { GDL.data = x; GDL.muat = false; if (G.bagian === 'riwayat') gambarGudang(); }, function () { GDL.muat = false; });
+    }
+    var R = (GDL.data && GDL.data.riwayat) || d.riwayat || [], dibatal = {};
+    R.forEach(function (x) { var m = /^(SJ-\d{6}-\d+)B$/.exec(x.no || ''); if (m) dibatal[m[1]] = true; });
+    var bisaBatal = function (x, q) { return /^SJ-\d{6}-\d+$/.test(x.no || '') && /^keluar/i.test(x.j || '') && !/^RO-/i.test(x.ke || '') && !dibatal[x.no] && q > 0; };
     var warna = function (j) { return /masuk|terima/i.test(j) ? 'ok' : /keluar|kirim/i.test(j) ? 'biru' : 'abu'; };
     h += '<div class="cd"><div class="kpl"><h3>Masuk &amp; keluar gudang utama</h3><span class="sb">' + R.length + ' catatan terakhir</span></div>' + (R.length ? R.map(function (x) {
       var it = x.items || [], q = it.reduce(function (a, i) { return a + (Number(i.q) || 0); }, 0), rs = it.reduce(function (a, i) { return a + (Number(i.rs) || 0); }, 0);
-      return '<details class="grup" style="padding:10px 0"><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px"><span><b>' + esc(x.no) + '</b> <span class="label ' + warna(x.j) + '">' + esc(x.j) + '</span><small style="display:block;color:var(--abu);font-size:12.5px">' + esc(tglId(x.t)) + (x.st ? ' · ' + esc(x.st) : '') + (x.ke ? ' · ' + esc(x.ke) : '') + (x.p ? ' · ' + esc(x.p) : '') + '</small></span><span class="angka" style="white-space:nowrap">' + fmt(q) + ' pcs' + (rs ? ' <span class="label no">rusak ' + fmt(rs) + '</span>' : '') + '</span></summary>' +
-        '<table class="tabel" style="margin-top:6px"><tbody>' + it.map(function (i) { return '<tr><td>' + esc(i.n) + (i.w ? ' – ' + esc(i.w) : '') + '<small>' + esc(i.k) + '</small></td><td class="r angka">' + fmt(i.q) + (i.rs ? '<small>rusak ' + fmt(i.rs) + '</small>' : '') + '</td></tr>'; }).join('') + '</tbody></table>' + (x.c ? '<div class="sb">Catatan: ' + esc(x.c) + '</div>' : '') + '</details>';
+      return '<details class="grup" style="padding:10px 0"><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px"><span><b>' + esc(x.no) + '</b> <span class="label ' + warna(x.j) + '">' + esc(x.j) + '</span>' + (dibatal[x.no] ? ' <span class="label no">Dibatalkan</span>' : /B$/.test(x.no || '') ? ' <span class="label abu">Pembatalan</span>' : '') + '<small style="display:block;color:var(--abu);font-size:12.5px">' + esc(tglId(x.t)) + (x.st ? ' · ' + esc(x.st) : '') + (x.ke ? ' · ' + esc(x.ke) : '') + (x.p ? ' · ' + esc(x.p) : '') + '</small></span><span class="angka" style="white-space:nowrap">' + fmt(q) + ' pcs' + (rs ? ' <span class="label no">rusak ' + fmt(rs) + '</span>' : '') + '</span></summary>' +
+        '<table class="tabel" style="margin-top:6px"><tbody>' + it.map(function (i) { return '<tr><td>' + esc(i.n) + (i.w ? ' – ' + esc(i.w) : '') + '<small>' + esc(i.k) + '</small></td><td class="r angka">' + fmt(i.q) + (i.rs ? '<small>rusak ' + fmt(i.rs) + '</small>' : '') + '</td></tr>'; }).join('') + '</tbody></table>' + (x.c ? '<div class="sb">Catatan: ' + esc(x.c) + '</div>' : '') +
+        (bisaBatal(x, q) ? '<div class="aksi-baris" data-btl="' + esc(x.no) + '" style="margin-top:8px"><button type="button" class="tbl" data-gdb1="' + esc(x.no) + '">Batalkan penyaluran ini</button></div>' : '') + '</details>';
     }).join('') : '<div class="ksg">Belum ada catatan.</div>') + '</div>';
-    return h + '<p class="sb">Terima barang, kirim keluar, dan stok opname dicatat staf gudang lewat formulirnya. Koreksi catatan yang salah atau dobel masih lewat menu Gudang Utama di Master Data lama.</p>';
+    return h + '<p class="sb">Terima barang, kirim keluar, dan stok opname dicatat staf gudang lewat formulirnya. Penyaluran (SJ) yang salah atau dobel bisa dibatalkan dari daftar ini: stok kembali seperti sebelum dikirim dan catatannya tetap tersimpan.</p>';
   }
 
   // ======================= PURCHASING (gdPemilikData lama, mode beli) =======================
