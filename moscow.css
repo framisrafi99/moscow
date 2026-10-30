@@ -245,5 +245,5 @@ html.m-m .cd { padding:14px; margin-bottom:12px; }
 @media (max-width: 899px) {
   #mMasuk .mm-produk { height:auto; width:88%; max-width:420px; opacity:.55; }
   #mMasuk .mm-kanan::after { display:block; right:-190px; bottom:-300px; width:520px; height:520px; border-width:10px; }
-  #mMasuk .mm-kanan { min-height:calc(100vh - 210px); min-height:calc(100dvh - 210px); padding-bottom:min(62vw, 300px); }
+  #mMasuk .mm-kanan { padding-bottom:min(62vw, 300px); }
 }
