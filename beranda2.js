@@ -158,8 +158,8 @@
     '.bh-awas .bh-ik.bulat{width:48px;height:48px}' +
     '.bh-awas .tx{display:flex;flex-direction:column;flex:1 1 220px}.bh-awas .tx b{font-size:18px;font-weight:800}.bh-awas .tx span{font-size:14px;color:var(--teks2)}' +
     '.bh-awas .ch{display:flex;flex-wrap:wrap;gap:10px;flex:10 1 420px;justify-content:flex-end}' +
-    '.bh-awas .ch button{min-height:42px;padding:8px 16px;border:1px solid #EFCB7B;border-radius:999px;background:#FFF3D6;color:#6B4300;font-size:14px;font-weight:700;cursor:pointer}' +
-    '.bh-awas .ch button.n{background:#fff;border-color:var(--garis);color:var(--teks2)}.bh-awas .ch button:hover{filter:brightness(.97)}' +
+    '.bh-awas .ch button,.bh-awas .ch span{min-height:42px;padding:8px 16px;border:1px solid #EFCB7B;border-radius:999px;background:#FFF3D6;color:#6B4300;font-size:14px;font-weight:700;cursor:pointer}' +
+    '.bh-awas .ch span{cursor:default;display:inline-flex;align-items:center}.bh-awas .ch button.n,.bh-awas .ch span.n{background:#fff;border-color:var(--garis);color:var(--teks2)}.bh-awas .ch button:hover{filter:brightness(.97)}' +
     '.bh-kartu{border-radius:16px}' +
     '.bh-kp{display:flex;align-items:center;gap:14px;margin:0 0 14px}' +
     '.bh-kp>div{flex:1;min-width:0}.bh-kp h3{margin:0;font-size:19px;font-weight:800}.bh-kp p{margin:2px 0 0;font-size:13.5px;color:var(--abu)}' +
@@ -292,6 +292,7 @@
     window.__bxKol = pasangKol; pasangKol();
   }
 
+  var UPLOAD = {};
   function omzet(B) {
     var O = B.omzet || [], tot = 0, totL = 0, G = {}, urut = [];
     O.forEach(function (x) { tot += x.v; totL += x.l; if (!G[x.g]) { G[x.g] = []; urut.push(x.g); } G[x.g].push(x); });
@@ -309,6 +310,11 @@
         if (g === 'Official') ket = x.s ? 'data file pesanan s/d ' + tgl(x.s) : 'belum ada file pesanan';
         else if (g === 'Reseller') ket = x.s ? 'order terakhir ' + tgl(x.s) : 'belum ada order';
         else ket = x.s ? 'laporan terakhir ' + tgl(x.s) : 'belum ada laporan';
+        if (g === 'Consignment' && UPLOAD['Consignment ' + x.n] !== undefined) {
+          var up = UPLOAD['Consignment ' + x.n] || {}, wajib = x.n === 'Medan' ? ['Shopee', 'Tokopedia'] : x.n === 'Sidoarjo' ? ['Shopee'] : [];
+          var fl = wajib.map(function (p) { return (p === 'Tokopedia' ? 'Tokopedia' : p) + ' ' + (up[p] ? 's/d ' + tgl(up[p]) : 'belum'); });
+          if (fl.length) ket += ' · file ' + fl.join(', ');
+        }
         var telat = x.s && B.berjalan && (new Date(B.sampai) - new Date(x.s)) / 864e5 >= 3 && g !== 'Reseller';
         var nm = g === 'Official' && x.n === 'Tokopedia' ? 'Tokopedia/TikTok' : x.n;
         h += '<div class="bx-r"' + (satu ? ' style="padding-left:0"' : '') + '><span class="n"' + (satu ? ' style="font-weight:800;color:var(--teks2);font-size:13px"' : '') + '>' + esc(nm) + '<small class="' + (telat || !x.s ? 'w' : '') + '">' + esc(ket) + '</small></span>' +
@@ -401,6 +407,7 @@
   function gambar(el, B, S, T, opsi) {
     pasangCss(); opsi = opsi || {};
     var f = el.getAttribute('data-f') || 'semua', K = opsi.kpi || {};
+    UPLOAD = K.upload ? Object.assign({ 'Consignment Medan': null, 'Consignment Sidoarjo': null }, K.upload) : {};
     var bulan = (B.bulanAda || []).slice(); if (bulan.indexOf(B.bulan) < 0) bulan.unshift(B.bulan);
     var lalu = namaBulan(B.laluDari).split(' '), laluPendek = BLS[BLN.indexOf(lalu[0])] + ' ' + lalu[1];
     var pilihBulan = function (id) {
@@ -413,7 +420,7 @@
     var h = '<div class="bh-head"><div class="bh-jd"><div class="bh-bc">Moscow Supplies <span>/</span> Ringkasan</div><h1>Beranda</h1><p>Ringkasan aktivitas, penjualan, persediaan dan keuangan perusahaan.</p></div>' +
       '<div class="bh-kn">' + pilihBulan('bxBulan') +
       '<button type="button" class="bh-bel" data-gulir="bxPerhatian" aria-label="' + nT + ' hal perlu perhatian" title="Perlu perhatian">' + IKN.lonceng + (nT ? '<i>' + nT + '</i>' : '') + '</button>' +
-      '<div class="bh-av"><button type="button" id="bhAv" aria-haspopup="true" aria-expanded="false"><span class="in">' + esc(ini) + '</span><span class="nm">' + esc(nm.split(' ')[0]) + '<small>Manajemen</small></span>' + IKN.bawah + '</button>' +
+      '<div class="bh-av"><button type="button" id="bhAv" aria-haspopup="true" aria-expanded="false"><span class="in">' + esc(ini) + '</span><span class="nm">' + esc(nm.split(' ')[0]) + '<small>' + esc(opsi.peran || 'Manajemen') + '</small></span>' + IKN.bawah + '</button>' +
       '<div class="bh-menu" id="bhMenu" hidden>' + (U.email ? '<div class="em">' + esc(U.email) + '</div>' : '') +
       (opsi.menuAkun || []).map(function (a, i) { return a.href ? '<a href="' + esc(a.href) + '">' + esc(a.nm) + '</a>' : '<button type="button" data-ma="' + i + '">' + esc(a.nm) + '</button>'; }).join('') + '</div></div></div></div>';
 
@@ -433,7 +440,7 @@
 
     // Perlu perhatian
     var chip = '';
-    (T || []).forEach(function (t) { chip += '<button type="button" class="' + (t.w ? '' : 'n') + '" data-buka="' + esc(t.buka) + '">' + esc(t.teks) + ' ›</button>'; });
+    (T || []).forEach(function (t) { chip += t.buka ? '<button type="button" class="' + (t.w ? '' : 'n') + '" data-buka="' + esc(t.buka) + '">' + esc(t.teks) + ' ›</button>' : '<span class="' + (t.w ? '' : 'n') + '">' + esc(t.teks) + '</span>'; });
     if (lewat) chip += '<button type="button" data-gulir="bxPo">' + lewat + ' PO melewati batas penerimaan ›</button>';
     h += chip ? '<div class="bh-awas" id="bxPerhatian"><span class="bh-ik bulat kuning">' + IKN.seru + '</span><div class="tx"><b>Perlu perhatian</b><span>Beberapa aktivitas memerlukan tindak lanjut.</span></div><div class="ch">' + chip + '</div></div>'
       : '<div class="bh-awas ok" id="bxPerhatian"><span class="bh-ik bulat hijau">' + ik('M20 6 9 17l-5-5', 24) + '</span><div class="tx"><b>Semua aman</b><span>Tidak ada yang perlu ditindaklanjuti saat ini.</span></div></div>';

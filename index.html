@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="moscow.css?v=13">
+<link rel="stylesheet" href="moscow.css?v=29">
 <style>
   #pilih { display:grid; gap:8px; margin-top:4px; max-height:none; }
   #pilih a { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 14px; border:1px solid var(--garis);
@@ -45,7 +45,7 @@
 <div id="mMasuk">
   <section class="mm-kiri"><span class="mm-garis" aria-hidden="true"></span>
     <h2>Sistem Manajemen <span>Moscow Supplies</span></h2><p class="sub">Semua operasional dalam satu kendali.</p><span id="ilus"></span></section>
-  <section class="mm-kanan"><div class="kotak">
+  <section class="mm-kanan"><span class="mm-produk" aria-hidden="true"></span><div class="kotak">
     <span class="lg" role="img" aria-label="Moscow Supplies"></span>
     <span class="ey">APLIKASI MOSCOW SUPPLIES</span>
     <h1 id="judul">Selamat datang</h1>
@@ -60,7 +60,7 @@
   </div><p class="mm-status" id="mStatus" role="status"></p></section>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="moscow.js?v=8"></script>
+<script src="moscow.js?v=14"></script>
 <script>
 (function () {
   var M = window.Moscow, sb = M.sb, GOOGLE = M.GOOGLE;
@@ -72,7 +72,7 @@
     purchasing_shopeepay: [['Purchasing', 'form.html?f=purchasing'], ['Gudang Utama', 'form.html?f=gudang']],
     produksi: [['Staf Produksi', 'form.html?f=produksi']],
     bahan_baku: [['Staf Bahan Baku', 'form.html?f=bahanbaku']],
-    kendali_bisnis: [['Kendali Bisnis', 'form.html?f=mike'], ['Persetujuan & laporan', 'form.html?f=mikelama'], ['Stok semua lokasi', 'stok.html']],
+    kendali_bisnis: [['Kendali Bisnis', 'kendali.html', 'Beranda, laporan bulanan, HPP'], ['Persetujuan & pembayaran', 'form.html?f=mike'], ['Persetujuan & laporan (lama)', 'form.html?f=mikelama'], ['Stok semua lokasi', 'stok.html']],
     toko: [['Form toko', 'consignment.html']],
     manajemen: [['Master Data', 'master.html'],
       ['#Consignment'], ['Consignment Sidoarjo', 'consignment.html?toko=Consignment%20Sidoarjo'], ['Consignment Medan', 'consignment.html?toko=Consignment%20Medan'],
@@ -129,10 +129,10 @@
   $('tKeluar').onclick = async function () { await sb.auth.signOut({ scope: 'local' }); layarMasuk(''); };
   async function periksa(sesi) {
     $('tMasuk').hidden = true; M.muat('Memeriksa akses…');
-    var r = await sb.rpc('peran_saya');
+    var tiga = await Promise.all([sb.rpc('peran_saya'), sb.rpc('lingkup_saya').then(function (x) { return x; }, function () { return { data: null }; }),
+      sb.from('pengguna').select('nama').eq('email', sesi.user.email).maybeSingle().then(function (x) { return x; }, function () { return { data: null }; })]), r = tiga[0];
     if (r.error) { layarMasuk('Tidak bisa memeriksa akses: ' + r.error.message); return; }
-    var peran = r.data, l = null;
-    try { l = (await sb.rpc('lingkup_saya')).data; } catch (e) { l = null; }
+    var peran = r.data, l = (tiga[1] && tiga[1].data) || null;
     var daftar = TUJUAN[peran];
     if (!daftar) {
       await sb.auth.signOut({ scope: 'local' });
@@ -140,10 +140,10 @@
       return;
     }
     // Layar selamat datang: selalu tampil saat sesi masih ada, cukup satu ketukan "Masuk aplikasi" tanpa pilih akun Google lagi.
-    var meta = sesi.user.user_metadata || {}, nTim = null;
-    try { nTim = ((await sb.from('pengguna').select('nama').eq('email', sesi.user.email).maybeSingle()).data || {}).nama; } catch (e) { nTim = null; }
+    var meta = sesi.user.user_metadata || {}, nTim = ((tiga[2] && tiga[2].data) || {}).nama || null;
     var nama = String(nTim || meta.full_name || meta.name || sesi.user.email.split('@')[0]).trim().split(/\s+/)[0];
     var link = daftar.filter(function (d) { return d[0].charAt(0) !== '#'; }), utama = link[0];
+    try { sessionStorage.setItem('mSambut', '1'); } catch (e) { }
     M.muat(false); $('akses').hidden = true; $('inapp').hidden = true; $('mStatus').hidden = true;
     $('judul').textContent = 'Selamat datang, ' + nama;
     $('teks').textContent = 'Kamu masuk sebagai ' + sesi.user.email + (l ? ' (' + l + ')' : '') + '.';

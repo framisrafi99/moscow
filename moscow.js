@@ -31,32 +31,9 @@
   function jt(n) { n = Number(n) || 0; var a = Math.abs(n), s = n < 0 ? '-' : ''; if (a >= 1e9) return s + 'Rp' + (a / 1e9).toFixed(1).replace('.', ',') + ' M'; if (a >= 1e6) return s + 'Rp' + (a / 1e6).toFixed(1).replace('.', ',') + ' jt'; if (a >= 1e3) return s + 'Rp' + Math.round(a / 1e3) + ' rb'; return s + 'Rp' + fmt(a); }
 
   // Logo putih untuk latar gelap: bagian hitam jadi putih, latar putih jadi transparan.
-  function logoPutih() {
-    var im = new Image();
-    im.onload = function () {
-      try {
-        var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
-        var x = c.getContext('2d'); x.drawImage(im, 0, 0);
-        var p = x.getImageData(0, 0, c.width, c.height), a = p.data, i, mn, mx;
-        for (i = 0; i < a.length; i += 4) {
-          mn = Math.min(a[i], a[i + 1], a[i + 2]); mx = Math.max(a[i], a[i + 1], a[i + 2]);
-          if (mn > 232) a[i + 3] = 0;
-          else if (mx < 110) { a[i] = 255; a[i + 1] = 255; a[i + 2] = 255; }
-        }
-        x.putImageData(p, 0, 0);
-        // potong margin kosong supaya logo memenuhi tempatnya
-        var W = c.width, H = c.height, x0 = W, y0 = H, x1 = -1, y1 = -1, px, py;
-        for (py = 0; py < H; py++) for (px = 0; px < W; px++) if (a[(py * W + px) * 4 + 3] > 20) { if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py; }
-        var hasil = c;
-        if (x1 > x0 && y1 > y0) {
-          hasil = document.createElement('canvas'); hasil.width = x1 - x0 + 1; hasil.height = y1 - y0 + 1;
-          hasil.getContext('2d').drawImage(c, x0, y0, hasil.width, hasil.height, 0, 0, hasil.width, hasil.height);
-        }
-        root.style.setProperty('--mLogo', 'url(' + hasil.toDataURL('image/png') + ')');
-      } catch (e) { root.style.setProperty('--mLogo', 'url(icon-512.png)'); }
-    };
-    im.src = 'icon-512.png';
-  }
+  // Logo untuk latar biru gelap (menu samping, kepala HP): file PNG tajam beresolusi tinggi.
+  function logoPutih() { root.style.setProperty('--mLogo', 'url(logo-putih.png)'); }
+
 
   function mode() {
     var d = window.innerWidth >= 900;
@@ -70,36 +47,8 @@
     org: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
     atur: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z'
   };
-  var ILUS = (function () {
-    var ik = function (d, y) {
-      return '<rect x="18" y="' + y + '" width="40" height="40" rx="10" fill="#7FB8FF" fill-opacity=".10" stroke="#8CC8FF" stroke-opacity=".35"/>' +
-        '<g transform="translate(26 ' + (y + 8) + ')" fill="none" stroke="#CFE6FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="' + d + '"/></g>' +
-        '<rect x="72" y="' + (y + 16) + '" width="' + (70 - (y % 3) * 8) + '" height="8" rx="4" fill="#9CCBFF" fill-opacity=".35"/>';
-    };
-    var p1 = '<svg class="p1" viewBox="0 0 170 290" aria-hidden="true">' + ik(IK_PANEL.box, 24) + ik(IK_PANEL.dok, 88) + ik(IK_PANEL.org, 152) + ik(IK_PANEL.atur, 216) + '</svg>';
-    var batang = [44, 62, 54, 76, 70, 96], b = '';
-    batang.forEach(function (h, i) { b += '<rect x="' + (34 + i * 30) + '" y="' + (196 - h) + '" width="18" height="' + h + '" rx="3" fill="url(#mmBt)"/>'; });
-    var titik = ''; for (var r = 0; r < 4; r++) for (var c = 0; c < 4; c++) titik += '<circle cx="' + (378 + c * 13) + '" cy="' + (30 + r * 13) + '" r="2" fill="#9CCBFF" fill-opacity=".45"/>';
-    var p2 = '<svg class="p2" viewBox="0 0 440 290" aria-hidden="true"><defs>' +
-      '<linearGradient id="mmBt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5AA9F0"/><stop offset="1" stop-color="#2D5FA8" stop-opacity=".55"/></linearGradient></defs>' +
-      '<rect x="22" y="22" width="22" height="22" rx="5" fill="none" stroke="#9CCBFF" stroke-opacity=".45"/>' +
-      '<rect x="56" y="26" width="120" height="8" rx="4" fill="#9CCBFF" fill-opacity=".45"/><rect x="56" y="40" width="70" height="6" rx="3" fill="#9CCBFF" fill-opacity=".25"/>' + titik +
-      '<rect x="22" y="72" width="232" height="150" rx="12" fill="#7FB8FF" fill-opacity=".06" stroke="#8CC8FF" stroke-opacity=".35"/>' +
-      '<rect x="34" y="86" width="90" height="7" rx="3.5" fill="#9CCBFF" fill-opacity=".35"/>' + b +
-      '<line x1="34" y1="196.5" x2="236" y2="196.5" stroke="#9CCBFF" stroke-opacity=".35"/>' +
-      '<rect x="270" y="72" width="148" height="150" rx="12" fill="#7FB8FF" fill-opacity=".06" stroke="#8CC8FF" stroke-opacity=".35"/>' +
-      '<circle cx="344" cy="147" r="38" fill="none" stroke="#2F5E9E" stroke-width="20" stroke-opacity=".75"/>' +
-      '<circle cx="344" cy="147" r="38" fill="none" stroke="#6FB2F5" stroke-width="20" stroke-dasharray="150 239" transform="rotate(-90 344 147)"/>' +
-      '<circle cx="344" cy="147" r="38" fill="none" stroke="#B5DBFF" stroke-width="20" stroke-dasharray="40 239" stroke-dashoffset="-150" transform="rotate(-90 344 147)"/>' +
-      '<rect x="22" y="240" width="396" height="8" rx="4" fill="#9CCBFF" fill-opacity=".18"/><rect x="22" y="240" width="210" height="8" rx="4" fill="#9CCBFF" fill-opacity=".35"/></svg>';
-    var garis = '<svg class="gr" viewBox="0 0 600 400" preserveAspectRatio="none" aria-hidden="true"><defs>' +
-      '<linearGradient id="mmGs" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5BC8F5" stop-opacity="0"/><stop offset=".55" stop-color="#5BC8F5" stop-opacity=".9"/><stop offset="1" stop-color="#5BC8F5" stop-opacity="0"/></linearGradient></defs>' +
-      '<path d="M0 330 C140 300 260 360 380 318 S540 250 600 262" fill="none" stroke="url(#mmGs)" stroke-width="1.6"/>' +
-      '<path d="M0 360 C160 340 300 380 420 350 S560 300 600 306" fill="none" stroke="url(#mmGs)" stroke-width="1" opacity=".5"/>' +
-      '<path d="M540 20 V70 Q540 82 528 82 H470" fill="none" stroke="#5BC8F5" stroke-opacity=".55" stroke-width="1.4"/><rect x="532" y="12" width="16" height="16" rx="3" fill="#5BC8F5" fill-opacity=".9"/>' +
-      '<path d="M120 300 V350 Q120 362 132 362 H190" fill="none" stroke="#5BC8F5" stroke-opacity=".45" stroke-width="1.4"/><rect x="114" y="344" width="12" height="12" rx="2.5" fill="#5BC8F5" fill-opacity=".85"/></svg>';
-    return '<div class="mm-ilus" aria-hidden="true">' + garis + '<div class="mm-3d"><div class="kc k1">' + p1 + '</div><div class="kc k2">' + p2 + '</div></div></div>';
-  })();
+  // Gambar panel halaman masuk: latar + panel melayang, batang tumbuh, donat, garis cahaya, logo berkilap (file masuk-*.jpg/webp).
+  var ILUS = '<div class="mm-seni" aria-hidden="true"><svg viewBox="0 0 1400 1308" preserveAspectRatio="xMidYMax meet"><defs><clipPath id="mmCb1"><rect x="620" y="941" width="29" height="53" rx="2"/></clipPath><clipPath id="mmCb2"><rect x="656" y="910" width="30" height="83" rx="2"/></clipPath><clipPath id="mmCb3"><rect x="694" y="878" width="30" height="114" rx="2"/></clipPath><clipPath id="mmCb4"><rect x="731" y="912" width="31" height="80" rx="2"/></clipPath><clipPath id="mmCb5"><rect x="770" y="879" width="32" height="112" rx="2"/></clipPath><clipPath id="mmCb6"><rect x="810" y="843" width="36" height="146" rx="2"/></clipPath><mask id="mmDonat" maskUnits="userSpaceOnUse" x="880" y="740" width="240" height="250"><g transform="translate(997 861) scale(1 1.17) rotate(-90)"><circle class="sapu" r="64"/></g></mask><linearGradient id="mmKg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="mmKilap" maskUnits="userSpaceOnUse" x="-110" y="-50" width="220" height="100"><rect class="kilap" x="-170" y="-60" width="70" height="120" fill="url(#mmKg)"/></mask></defs><image href="masuk-latar.jpg" x="0" y="0" width="1400" height="1308"/><path class="alir" d="M1400 272 L1290 330 Q1237 362 1236 425 L1236 498"/><path class="alir a2" d="M1236 500 L1086 518"/><path class="alir a3" d="M1400 812 C1330 860 1290 868 1210 872"/><path class="alir a4" d="M0 536 C120 590 250 625 320 645 Q350 655 351 690 L351 730"/><path class="alir a5" d="M0 803 C60 815 120 835 165 858"/><rect class="kotakNyala" x="1228" y="491" width="17" height="19" rx="3"/><line class="kilat" x1="1038" y1="522" x2="1038" y2="568"/><g class="apung"><image href="masuk-panel.webp" x="150" y="535" width="1072" height="600"/><g transform="translate(694 674) skewY(-7.5)"><image href="logo-putih.png" x="-100" y="-36" width="200" height="72" opacity=".38"/><image href="logo-putih.png" x="-100" y="-36" width="200" height="72" mask="url(#mmKilap)"/></g><g class="bt" style="transform-origin:634px 993px;animation-delay:0.00s"><image href="masuk-isi.webp" x="610" y="750" width="480" height="250" clip-path="url(#mmCb1)"/></g><g class="bt" style="transform-origin:671px 992px;animation-delay:0.15s"><image href="masuk-isi.webp" x="610" y="750" width="480" height="250" clip-path="url(#mmCb2)"/></g><g class="bt" style="transform-origin:709px 991px;animation-delay:0.30s"><image href="masuk-isi.webp" x="610" y="750" width="480" height="250" clip-path="url(#mmCb3)"/></g><g class="bt" style="transform-origin:746px 991px;animation-delay:0.45s"><image href="masuk-isi.webp" x="610" y="750" width="480" height="250" clip-path="url(#mmCb4)"/></g><g class="bt" style="transform-origin:786px 990px;animation-delay:0.60s"><image href="masuk-isi.webp" x="610" y="750" width="480" height="250" clip-path="url(#mmCb5)"/></g><g class="bt" style="transform-origin:828px 988px;animation-delay:0.75s"><image href="masuk-isi.webp" x="610" y="750" width="480" height="250" clip-path="url(#mmCb6)"/></g><image href="masuk-isi.webp" x="610" y="750" width="480" height="250" mask="url(#mmDonat)"/><path class="alir a6" d="M518 980 L560 980 Q574 981 574 996 L574 1084"/><rect class="kotakNyala" x="568" y="1078" width="13" height="14" rx="2.5"/></g></svg></div>';
   var KUNCI_IK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 
   // Layar memuat: saat aplikasi dibuka / dimuat ulang, saat akses diperiksa, dan saat membuka halaman Google.
@@ -258,11 +207,11 @@
 
   async function periksa(sesi) {
     muat('Memeriksa akses…');
-    var r = await sb.rpc('peran_saya');
+    // peran & lingkup diperiksa bersamaan (dulu berurutan)
+    var dua = await Promise.all([sb.rpc('peran_saya'), sb.rpc('lingkup_saya').then(function (x) { return x; }, function () { return { data: null }; })]), r = dua[0];
     if (r.error) { layarMasuk('Tidak bisa memeriksa akses: ' + r.error.message); return; }
-    var ctx = { sb: sb, email: sesi.user.email, peran: r.data, sesi: sesi };
+    var ctx = { sb: sb, email: sesi.user.email, peran: r.data, sesi: sesi, lingkup: (dua[1] && dua[1].data) || null };
     S.email = ctx.email;
-    try { var l = await sb.rpc('lingkup_saya'); ctx.lingkup = l.data || null; } catch (e) { ctx.lingkup = null; }
     var izin = O.izin ? await O.izin(ctx) : true;
     if (izin !== true) {
       // Hanya di perangkat ini: akun yang salah buka halaman tidak boleh ikut mengeluarkan HP / laptop lain.
