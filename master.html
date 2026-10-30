@@ -74,6 +74,7 @@
 <main id="mIsi">
   <section data-bagian="beranda" id="bBeranda"><div class="ksg">Memuat beranda…</div></section>
   <section data-bagian="dasbor" id="bDasbor"><div class="ksg">Memuat ringkasan…</div></section>
+  <section data-bagian="upload" id="bUpload"><div class="ksg">Memuat…</div></section>
   <section data-bagian="jual" id="bJual"><div class="ksg">Memuat penjualan…</div></section>
   <section data-bagian="setuju" id="bSetuju"><div class="ksg">Memuat persetujuan…</div></section>
   <section data-bagian="produksi" id="bProduksi"><div class="ksg">Memuat produksi…</div></section>
@@ -93,7 +94,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="moscow.js?v=8"></script>
-<script src="beranda.js?v=2"></script>
+<script src="beranda.js?v=3"></script>
+<script src="upload.js?v=1"></script>
 <script>
 (function () {
   var M = Moscow, esc = M.esc, rp = M.rp, jt = M.jt, fmt = M.fmt;
@@ -114,7 +116,7 @@
     menu: [
       { k: 'beranda', nm: 'Beranda' }, { k: 'setuju', nm: 'Persetujuan' },
       { k: 'produksi', nm: 'Produksi' }, { k: 'gudang', nm: 'Gudang Utama', pendek: 'Gudang' }, { k: 'purch', nm: 'Purchasing' },
-      { k: 'jual', nm: 'Penjualan' }, { k: 'uang', nm: 'Accounting' }, { k: 'riwayat', nm: 'Riwayat' }, { k: 'atur', nm: 'Pengaturan' },
+      { k: 'jual', nm: 'Penjualan' }, { k: 'upload', nm: 'Upload laporan', ik: 'nota' }, { k: 'uang', nm: 'Accounting' }, { k: 'riwayat', nm: 'Riwayat' }, { k: 'atur', nm: 'Pengaturan' },
       { grup: 'APLIKASI LAIN' },
       { k: 'app-kb', nm: 'Kendali Bisnis', ik: 'laporan', href: 'kendali.html' },
       { k: 'app-stok', nm: 'Stok', ik: 'stok', href: 'stok.html' },
@@ -123,7 +125,7 @@
       { k: 'app-mdlama', nm: 'Master Data lama', ik: 'dasbor', href: 'form.html?f=mdlama' }
     ],
     bawah: ['beranda', 'setuju', 'gudang', 'uang', 'lain'],
-    pindah: function (k, m) { if ($('lamaJudul')) $('lamaJudul').textContent = m.nm + ' masih di Master Data lama'; if (k === 'jual' && !J.mulai) { J.mulai = true; siapJual(); } if (k === 'riwayat' && !RW.mulai) { RW.mulai = true; siapRiwayat(); } if (k === 'atur' && !AT.mulai) { AT.mulai = true; muatAtur(); } },
+    pindah: function (k, m) { if (k === 'upload') gambarUpload(); if ($('lamaJudul')) $('lamaJudul').textContent = m.nm + ' masih di Master Data lama'; if (k === 'jual' && !J.mulai) { J.mulai = true; siapJual(); } if (k === 'riwayat' && !RW.mulai) { RW.mulai = true; siapRiwayat(); } if (k === 'atur' && !AT.mulai) { AT.mulai = true; muatAtur(); } },
     siap: function (ctx) {
       D.email = String((ctx && ctx.email) || '').toLowerCase();
       M.aksi([
@@ -224,7 +226,7 @@
       gantiBulan: function (m) { BR.bulan = m; gambarBeranda(false); },
       buka: function (b) { M.buka(b); },
       ekor: ekor,
-      aksi: [{ nm: 'Upload penjualan harian', href: 'form.html?f=mdlama&buka=g:mkt' }, { nm: 'Upload dana cair', href: 'form.html?f=mdlama&buka=g:toko,%23bhBtn,~dcKartu' }]
+      aksi: [{ nm: 'Upload penjualan harian', k: 'upload' }, { nm: 'Upload dana cair', href: 'form.html?f=mdlama&buka=g:toko,%23bhBtn,~dcKartu' }]
     });
   }
   function isiAlur() {
@@ -678,7 +680,7 @@
     var top = d.top || [], pf = d.pf || [];
     h += '<div class="cd"><div class="kpl"><h3>Barang terlaris</h3><span class="sb">' + top.length + ' teratas menurut omzet</span></div>' + (top.length ? '<div class="gulir"><table class="tabel"><thead><tr><th>Barang</th>' + pf.map(function (p) { return '<th class="r">' + esc(p) + '</th>'; }).join('') + '<th class="r">Omzet</th></tr></thead><tbody>' + top.map(function (b) {
       return '<tr><td>' + esc(b.n) + '<small>' + esc(b.k) + ' · ' + fmt(b.pcs) + ' pcs · laba ' + rp(b.omzet - b.hpp) + '</small></td>' + pf.map(function (p) { return '<td class="r angka">' + (b.q[p] ? fmt(b.q[p]) : '–') + '</td>'; }).join('') + '<td class="r angka">' + rp(b.omzet) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="ksg">Belum ada penjualan.</div>') + '</div>';
-    return h + '<p class="sb">Angka mengikuti laporan pesanan yang terakhir diunggah. Unggah file pesanan lewat <a href="form.html?f=mdlama&buka=g:mkt">Upload penjualan harian</a>, dana cair consignment lewat <a href="form.html?f=mdlama&buka=g:toko,%23bhBtn,~dcKartu">Upload dana cair</a>. Omzet di sini belum dipotong biaya admin marketplace.</p>';
+    return h + '<p class="sb">Angka mengikuti laporan pesanan yang terakhir diunggah. Unggah file pesanan lewat menu Upload laporan, dana cair consignment lewat <a href="form.html?f=mdlama&buka=g:toko,%23bhBtn,~dcKartu">Upload dana cair</a>. Omzet di sini belum dipotong biaya admin marketplace.</p>';
   }
 
   // Bagi hasil consignment (bagiHasilDataX lama, semua toko)
@@ -1817,6 +1819,23 @@
   async function muatAksi() {
     var a = await sb.from('md_aksi').select('*').order('id', { ascending: false }).limit(15);
     if (!a.error) D.aksi = a.data || [];
+  }
+  // Memanggil fungsi Apps Script lewat jembatan aplikasi (form Master Data lama), dengan sesi masuk manajemen.
+  var SERVER_AS = 'https://script.google.com/macros/s/AKfycbxcidGDrc33WJYcxzPf1dnRFzgafzbhwomXKlj3KjfYUHosPyI0qNpBcY9tvI7-PgI2/exec?app=';
+  async function kirimAS(f, a) {
+    var s = await sb.auth.getSession(), t = s && s.data && s.data.session ? s.data.session.access_token : '';
+    if (!t) throw new Error('Sesi masuk habis. Muat ulang halaman lalu masuk lagi.');
+    var r;
+    try { r = await fetch(SERVER_AS + 'mdlama', { method: 'POST', body: JSON.stringify({ t: t, f: f, a: a || [] }), redirect: 'follow' }); }
+    catch (e) { throw new Error('Tidak tersambung ke server. Periksa internet lalu coba lagi.'); }
+    var teks = await r.text(), d = null;
+    try { d = JSON.parse(teks); } catch (e) { throw new Error('Jawaban server tidak terbaca. Coba lagi sebentar lagi.'); }
+    if (!d || d.ok !== true) throw new Error((d && d.pesan) || 'Server menolak permintaan.');
+    return d;
+  }
+  function gambarUpload() {
+    var el = $('bUpload'); if (!el || !window.UploadMP) return;
+    UploadMP.gambar(el, { kirim: kirimAS, selesai: function () { BR.cache = {}; gambarBeranda(); } });
   }
   async function kirimAksi(fungsi, param, ringkas, tempatPesan, teksOk) {
     var r = await sb.from('md_aksi').insert({ fungsi: fungsi, param: param, ringkas: String(ringkas).slice(0, 200) });

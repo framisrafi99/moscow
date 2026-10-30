@@ -323,7 +323,7 @@
     var bulan = (B.bulanAda || []).slice(); if (bulan.indexOf(B.bulan) < 0) bulan.unshift(B.bulan);
     var h = '<div class="bx-top"><div><h2>' + esc(namaBulan(B.bulan)) + '</h2><p>' + (B.berjalan ? 'Bulan berjalan, ' + esc(rentang(B.dari, B.sampai)) : 'Satu bulan penuh') +
       ' · dibandingkan ' + esc(rentang(B.laluDari, B.laluSampai)) + '</p></div>' +
-      '<div class="bx-aksi">' + (opsi.aksi || []).map(function (x) { return '<a class="tbl" href="' + esc(x.href) + '">' + esc(x.nm) + '</a>'; }).join('') +
+      '<div class="bx-aksi">' + (opsi.aksi || []).map(function (x) { return x.k ? '<button type="button" class="tbl" data-buka="' + esc(x.k) + '">' + esc(x.nm) + '</button>' : '<a class="tbl" href="' + esc(x.href) + '">' + esc(x.nm) + '</a>'; }).join('') +
       '<label><span class="sr" style="position:absolute;left:-9999px">Pilih bulan</span><select id="bxBulan">' +
       bulan.map(function (m) { return '<option value="' + esc(m) + '"' + (m === B.bulan ? ' selected' : '') + '>' + esc(namaBulan(m)) + '</option>'; }).join('') + '</select></label></div></div>';
     h += tindakan(B, T);
