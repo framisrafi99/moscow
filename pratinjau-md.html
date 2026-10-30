@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="moscow.css?v=11">
+<link rel="stylesheet" href="moscow.css?v=12">
 <style>
   .ak { display:flex; flex-wrap:wrap; gap:20px; align-items:stretch; }
   .gr { flex:3 1 460px; min-width:0; display:flex; flex-direction:column; gap:8px; }
@@ -72,7 +72,7 @@
 <style>
   :root { --navy:#0C1F40; --navy2:#16305A; --navy3:#1F3A66; --navyTeks:#DCE6F5; --navyRedup:#8EA3C4; }
   html.m-d #mSide { padding:22px 14px 14px; }
-  #mSide .lg { width:150px; height:64px; margin:0 auto 22px; }
+  #mSide .lg { width:150px; height:64px; margin:0 auto 22px; flex:0 0 auto; }
   #mSide .it { min-height:48px; padding:12px 14px; gap:14px; font-size:15.5px; border-radius:12px; }
   #mSide .it.on { background:#1F7AE0; box-shadow:0 6px 16px rgba(31,122,224,.35); }
   #mSide .grp { margin:18px 14px 6px; padding-top:16px; border-top:1px solid var(--navy3); font-size:12px; letter-spacing:.1em; }
@@ -234,7 +234,9 @@
     if (segar !== false) delete BR.cache[k];
     if (!BR.cache[k]) {
       if (el.querySelector('.bx-grid')) el.style.opacity = '.55';
-      var rr = await Promise.all([sb.rpc('beranda_data', { p_bulan: k }), sb.rpc('beranda_kpi', { p_bulan: k })]), r = rr[0];
+      var rr = await Promise.all([sb.rpc('beranda_data', { p_bulan: k }), sb.rpc('beranda_kpi', { p_bulan: k }),
+        D.namaTim === undefined ? sb.from('pengguna').select('nama').eq('email', D.email).maybeSingle() : null]), r = rr[0];
+      if (rr[2]) D.namaTim = (rr[2].data && rr[2].data.nama) || '';
       el.style.opacity = '';
       if (r.error) { el.innerHTML = '<div class="msg bad">Beranda gagal dimuat: ' + esc(r.error.message) + '</div>'; return; }
       BR.cache[k] = r.data; BR.kpi = BR.kpi || {}; BR.kpi[k] = rr[1].error ? null : rr[1].data;
@@ -243,7 +245,7 @@
     BerandaBaru.gambar(el, BR.cache[k], D.beranda || {}, tindakanList(), {
       gantiBulan: function (m) { BR.bulan = m; gambarBeranda(false); },
       buka: function (b) { M.buka(b); },
-      ekor: ekor, kpi: (BR.kpi || {})[k], pengguna: { nama: D.nama, email: D.email },
+      ekor: ekor, kpi: (BR.kpi || {})[k], pengguna: { nama: D.namaTim || D.nama, email: D.email },
       menuAkun: [{ nm: 'Muat ulang data', klik: function () { muat(); } }, { nm: 'Hitung ulang sekarang', klik: function () { var b = document.querySelector('#mAksi .pri'); if (b) b.click(); } },
         { nm: 'Upload penjualan harian', k: 'upload' }, { nm: 'Upload dana cair', href: 'form.html?f=mdlama&buka=g:toko,%23bhBtn,~dcKartu' }, { nm: 'Laporan bulanan', k: 'laporan' },
         { nm: 'Keluar / ganti akun', klik: function () { sb.auth.signOut({ scope: 'local' }).then(function () { location.href = 'index.html'; }); } }],
