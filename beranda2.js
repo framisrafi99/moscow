@@ -424,7 +424,7 @@
     h += '<div class="bh-kpi">' +
       '<button type="button" class="bh-k" data-gulir="bxRinci"><span class="bh-ik bulat biru">' + IKN.grafik + '</span><span class="tx"><span class="l">Omzet</span><b>' + jt(tot) + '</b></span>' + delta(tot, totL, totL > 0 ? laluPendek : laluPendek + ' belum tercatat') + '</button>' +
       '<button type="button" class="bh-k hijau" data-buka="jual"><span class="bh-ik bulat hijau">' + IKN.keranjang + '</span><span class="tx"><span class="l">Pesanan</span><b>' + (ps ? fmt(ps.v) : '…') + '</b></span>' +
-        (ps ? (ps.l > 0 ? delta(ps.v, ps.l, laluPendek) : '<div class="bh-dl"><span class="sb">Official ' + fmt(ps.off) + ' · Toko ' + fmt(ps.offl) + ' · Reseller ' + fmt(ps.res) + '</span></div>') : '') + '</button>' +
+        (ps ? (ps.l > 0 ? delta(ps.v, ps.l, laluPendek) : '<div class="bh-dl"><span class="sb">' + (ps.pf || []).map(function (x) { return (x.pf === 'Tokopedia' ? 'Tokopedia/TikTok' : x.pf) + ' ' + fmt(x.v); }).join(' · ') + '</span></div>') : '') + '</button>' +
       '<a class="bh-k jingga" href="stok.html"><span class="bh-ik bulat jingga">' + IKN.kotak + '</span><span class="tx"><span class="l">Stok menipis</span><b>' + (st ? fmt(st.n) + ' produk' : '…') + '</b></span>' +
         (st ? '<div class="bh-dl"><span class="sb">Stok online ≤ ' + st.batas + ' pcs' + (st.minus ? ' · <b class="dn">' + fmt(st.minus) + ' minus</b>' : '') + '</span></div>' : '') + '</a>' +
       '<button type="button" class="bh-k ungu" data-buka="purch"><span class="bh-ik bulat ungu">' + IKN.dok + '</span><span class="tx"><span class="l">Perlu ditinjau</span><b>' + fmt(semuaPo.length) + ' PO</b></span>' +

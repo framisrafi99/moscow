@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="moscow.css?v=11">
+<link rel="stylesheet" href="moscow.css?v=12">
 <style>
   #pilih { display:grid; gap:8px; margin-top:4px; max-height:none; }
   #pilih a { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 14px; border:1px solid var(--garis);
@@ -29,6 +29,15 @@
   .inapp .aksi { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
   .inapp .aksi a, .inapp .aksi button { font:inherit; font-size:14px; font-weight:700; padding:9px 14px; border-radius:10px; border:1px solid #D9B24A; background:#fff; color:#3F2E00; text-decoration:none; cursor:pointer; }
   .inapp .aksi a { background:#3F2E00; border-color:#3F2E00; color:#fff; }
+  #pilih a.masukApp { background:var(--biru); border-color:var(--biru); color:#fff; padding:16px 18px; font-size:17px; min-height:62px; }
+  #pilih a.masukApp small { color:rgba(255,255,255,.82); font-size:13px; }
+  #pilih a.masukApp span { color:#fff; font-size:24px; font-weight:700; }
+  #pilih a.masukApp:hover { background:var(--biruTua); }
+  #pilih details.lain summary { cursor:pointer; list-style:none; padding:12px 2px 4px; font-weight:700; color:var(--biru); font-size:14.5px; }
+  #pilih details.lain summary::-webkit-details-marker { display:none; }
+  #pilih details.lain summary::after { content:' ›'; }
+  #pilih details.lain[open] summary::after { content:' ‹'; }
+  #pilih details.lain .isi { display:grid; gap:8px; margin-top:6px; }
   .keluar { margin-top:16px; background:none; border:0; color:var(--abu); font:inherit; font-size:13px; cursor:pointer; padding:4px 0; }
 </style>
 </head>
@@ -130,14 +139,21 @@
       layarMasuk('Akun ' + sesi.user.email + ' belum didaftarkan. Minta manajemen Moscow Supplies menambahkan email ini.');
       return;
     }
-    if (daftar.length === 1 || (peran === 'toko' && !/offline/i.test(l || ''))) { M.muat('Membuka halaman…'); location.replace(daftar[0][1]); return; }
+    // Layar selamat datang: selalu tampil saat sesi masih ada, cukup satu ketukan "Masuk aplikasi" tanpa pilih akun Google lagi.
+    var meta = sesi.user.user_metadata || {}, nTim = null;
+    try { nTim = ((await sb.from('pengguna').select('nama').eq('email', sesi.user.email).maybeSingle()).data || {}).nama; } catch (e) { nTim = null; }
+    var nama = String(nTim || meta.full_name || meta.name || sesi.user.email.split('@')[0]).trim().split(/\s+/)[0];
+    var link = daftar.filter(function (d) { return d[0].charAt(0) !== '#'; }), utama = link[0];
     M.muat(false); $('akses').hidden = true; $('inapp').hidden = true; $('mStatus').hidden = true;
-    $('judul').textContent = 'Pilih halaman';
-    $('teks').textContent = 'Masuk sebagai ' + sesi.user.email + (l ? ' (' + l + ')' : '') + '.';
-    $('pilih').innerHTML = daftar.map(function (d) {
+    $('judul').textContent = 'Selamat datang, ' + nama;
+    $('teks').textContent = 'Kamu masuk sebagai ' + sesi.user.email + (l ? ' (' + l + ')' : '') + '.';
+    var daftarHtml = daftar.slice(1).map(function (d) {
       if (d[0].charAt(0) === '#') return '<div class="grp">' + esc(d[0].slice(1)) + '</div>';
       return '<a href="' + esc(d[1]) + '"><b>' + esc(d[0]) + (d[2] ? '<small>' + esc(d[2]) + '</small>' : '') + '</b><span>Buka ›</span></a>';
     }).join('');
+    $('pilih').innerHTML = '<a class="masukApp" href="' + esc(utama[1]) + '"><b>Masuk aplikasi<small>' + esc(utama[0]) + '</small></b><span aria-hidden="true">›</span></a>' +
+      (link.length < 2 ? '' : link.length > 4 ? '<details class="lain"><summary>Buka halaman lain</summary><div class="isi">' + daftarHtml + '</div></details>'
+        : '<div class="grp">Halaman lain</div>' + daftarHtml);
     $('pilih').hidden = false; $('tKeluar').hidden = false;
   }
   sb.auth.getSession().then(function (r) {
