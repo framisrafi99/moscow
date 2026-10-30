@@ -62,6 +62,7 @@
       <div class="cd" id="abKartu">
         <div class="ksg">Memuat…</div>
       </div>
+      <div class="cd" id="ntKartu" hidden></div>
     </div>
   </section>
 
@@ -142,7 +143,7 @@
     var d = r.data || {};
     if (!d.ok) { D.saya = null; gambarIzin(); await gambarDaftar(); return; }
     D.saya = d; D.selisih = new Date(d.server).getTime() - Date.now();
-    gambarAbsen(); gambarIzin();
+    gambarAbsen(); gambarIzin(); gambarNotif();
   }
 
   // ----- pendaftaran staf baru (disetujui manajemen) -----
@@ -280,6 +281,58 @@
       tutupKamera();
       pesan('msg', e.message || String(e), 'bad');
     } finally { D.sibuk = false; $('kmBatal').disabled = false; gambarAbsen(); }
+  }
+
+  // ----- pengingat notifikasi HP (09.50 absen masuk, 17.00 absen pulang) -----
+  var IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || ''), MANDIRI = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  function keKunci(b64) {
+    var p = '='.repeat((4 - b64.length % 4) % 4), s = atob((b64 + p).replace(/-/g, '+').replace(/_/g, '/')), a = new Uint8Array(s.length);
+    for (var i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a;
+  }
+  function b64(buf) { return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  async function gambarNotif() {
+    var el = $('ntKartu'); if (!el || !D.saya) { if (el) el.hidden = true; return; }
+    el.hidden = false;
+    var h = '<h3>Pengingat absen</h3><p class="sb" style="margin:0">Notifikasi di HP jam <b>09.50</b> kalau belum absen masuk, dan jam <b>17.00</b> kalau belum absen pulang (Senin–Sabtu).</p>';
+    var dukung = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    if (!dukung) {
+      h += IOS && !MANDIRI ? '<div class="msg w">Di iPhone, pengingat hanya bisa aktif kalau aplikasi dibuka dari ikon di Layar Utama. Tekan tombol Bagikan di Safari › <b>Tambahkan ke Layar Utama</b>, lalu buka dari ikon itu.</div>'
+        : '<div class="msg w">HP atau browser ini belum mendukung notifikasi. Pakai Chrome (Android) atau pasang aplikasi ke Layar Utama (iPhone).</div>';
+      el.innerHTML = h; return;
+    }
+    var aktif = false;
+    try { var reg = await navigator.serviceWorker.ready; aktif = !!(await reg.pushManager.getSubscription()) && Notification.permission === 'granted'; } catch (e) { }
+    if (Notification.permission === 'denied') h += '<div class="msg bad">Notifikasi diblokir di HP ini. Buka pengaturan browser › Notifikasi › izinkan untuk app.moscowsupplies.com, lalu muat ulang.</div>';
+    else if (aktif) h += '<div class="aman">Pengingat aktif di HP ini ✓</div><button type="button" class="tbl" id="ntMati">Matikan pengingat</button>';
+    else h += '<button type="button" class="tbl pri lebar" id="ntAktif">Aktifkan pengingat</button>';
+    el.innerHTML = h;
+    if ($('ntAktif')) $('ntAktif').onclick = aktifkanNotif;
+    if ($('ntMati')) $('ntMati').onclick = matikanNotif;
+  }
+  async function aktifkanNotif() {
+    var b = $('ntAktif'); b.disabled = true; b.textContent = 'Mengaktifkan…';
+    try {
+      var izin = await Notification.requestPermission();
+      if (izin !== 'granted') throw new Error('Izin notifikasi tidak diberikan. Tekan Izinkan saat HP bertanya.');
+      var k = await sb.rpc('absen_push_publik');
+      if (k.error) throw new Error(k.error.message);
+      if (!k.data) throw new Error('Pengingat belum disiapkan manajemen. Coba lagi nanti.');
+      var reg = await navigator.serviceWorker.register('sw.js'); reg = await navigator.serviceWorker.ready;
+      var lama = await reg.pushManager.getSubscription(); if (lama) try { await lama.unsubscribe(); } catch (e) { }
+      var sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keKunci(k.data) });
+      var r = await sb.rpc('absen_push_simpan', { p_endpoint: sub.endpoint, p_p256dh: b64(sub.getKey('p256dh')), p_auth: b64(sub.getKey('auth')), p_perangkat: (navigator.userAgent || '').slice(0, 120) });
+      if (r.error || !r.data.ok) throw new Error(r.error ? r.error.message : r.data.pesan);
+      pesan('msg', 'Pengingat aktif. HP ini akan diberi notifikasi jam 09.50 dan 17.00.', 'ok');
+    } catch (e) { pesan('msg', e.message || String(e), 'bad'); }
+    gambarNotif();
+  }
+  async function matikanNotif() {
+    try {
+      var reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
+      if (sub) { await sb.rpc('absen_push_hapus', { p_endpoint: sub.endpoint }); await sub.unsubscribe(); }
+      pesan('msg', 'Pengingat dimatikan di HP ini.', 'ok');
+    } catch (e) { pesan('msg', e.message || String(e), 'bad'); }
+    gambarNotif();
   }
 
   // ----- izin -----

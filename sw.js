@@ -2,7 +2,7 @@
 // Halaman (HTML): selalu versi terbaru dari server, cadangan bila offline.
 // File berversi (?v=…): langsung dari simpanan HP/laptop (versi baru = alamat baru), jadi tidak perlu menunggu server.
 // Gambar & ikon: tampil dari simpanan, diperbarui diam-diam di belakang.
-var CACHE = 'moscow-v41';
+var CACHE = 'moscow-v42';
 var FILES = ['./', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', function (e) {
@@ -41,4 +41,22 @@ self.addEventListener('fetch', function (e) {
     return;
   }
   e.respondWith(fetch(r, { cache: 'no-cache' }).then(function (res) { return simpan(r, res); }).catch(function () { return caches.match(r); }));
+});
+
+// Pengingat absen (notifikasi HP) dari Edge Function absen-pengingat.
+self.addEventListener('push', function (e) {
+  var d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (x) { d = { body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Absensi Moscow', {
+    body: d.body || '', icon: 'icon-192.png', badge: 'icon-192.png', tag: d.tag || 'absen',
+    renotify: true, requireInteraction: true, vibrate: [300, 150, 300, 150, 300], data: { url: d.url || '/absensi.html' }
+  }));
+});
+self.addEventListener('notificationclick', function (e) {
+  e.notification.close();
+  var tujuan = new URL((e.notification.data && e.notification.data.url) || '/absensi.html', self.location.origin).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (ws) {
+    for (var i = 0; i < ws.length; i++) { if (ws[i].url.indexOf('/absensi.html') > -1 && 'focus' in ws[i]) return ws[i].focus(); }
+    return self.clients.openWindow(tujuan);
+  }));
 });
