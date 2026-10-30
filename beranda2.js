@@ -118,6 +118,7 @@
     'html.m-m .bx-akun .sd{font-size:22px}' +
     'html.m-m .bx-top h2{font-size:18px}' +
     'html.m-d.m-bx #mHead{display:none}' +
+    '.bx-gf .col .gd{opacity:0}.bx-gf .col:hover .gd,.bx-gf .col:focus .gd{opacity:1}' +
     '.bh-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:14px 20px;margin:0 0 22px}' +
     '.bh-bc{font-size:14px;color:var(--abu);font-weight:500}.bh-bc span{margin:0 6px;color:#A3AFBD}' +
     '.bh-jd h1{margin:6px 0 4px;font-size:34px;font-weight:800;letter-spacing:-.02em;line-height:1.1}' +
