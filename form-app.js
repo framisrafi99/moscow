@@ -518,7 +518,7 @@
     var wadah = dok.getElementById('v-kirim'); if (!wadah) return;
     if (!dok.getElementById('ckGaya')) {
       var g = dok.createElement('style'); g.id = 'ckGaya';
-      g.textContent = '.ck-cari{display:block;width:100%;box-sizing:border-box;margin:0 0 6px;font-size:16px}.ir .a{flex-wrap:wrap}.ir .a .ck-cari{flex:1 0 100%}';
+      g.textContent = '.ir > .ck-cari{display:block;width:100%;box-sizing:border-box;margin:0 0 8px;font-size:16px}';
       dok.head.appendChild(g);
     }
     function daftar(sel) {
@@ -540,7 +540,8 @@
     }
     function pasang() {
       Array.prototype.forEach.call(wadah.querySelectorAll('.ir select[data-f="k"]'), function (sel) {
-        if (sel.previousElementSibling && sel.previousElementSibling.classList.contains('ck-cari')) return;
+        var kotak = sel.parentNode;
+        if (kotak.previousElementSibling && kotak.previousElementSibling.classList.contains('ck-cari')) return;
         var dl = daftar(sel), inp = dok.createElement('input');
         inp.className = 'ck-cari'; inp.type = 'text'; inp.setAttribute('list', dl.id); inp.setAttribute('autocomplete', 'off');
         inp.setAttribute('autocapitalize', 'characters'); inp.setAttribute('aria-label', 'Ketik kode atau nama barang');
@@ -559,7 +560,7 @@
         inp.addEventListener('input', function (e) { e.stopPropagation(); if (/·/.test(inp.value)) pilih(true); });
         inp.addEventListener('change', function (e) { e.stopPropagation(); pilih(true); });
         inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); if (!pilih(true)) inp.select(); } });
-        sel.parentNode.insertBefore(inp, sel);
+        kotak.parentNode.insertBefore(inp, kotak);
       });
     }
     pasang();
