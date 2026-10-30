@@ -27,7 +27,7 @@
         { k: 'data', nm: 'Data produksi', ik: 'dasbor', l: ['#pgsT1', '#tab2'], pendek: 'Data' },
         { k: 'riwayat', nm: 'Riwayat', ik: 'riwayat', l: ['#pgsT1', '#tab3'] },
         { k: 'order', nm: 'Order masuk', ik: 'nota', l: ['#pgsT1', '#tab4'], pendek: 'Order' },
-        { k: 'botol', nm: 'Botol & stiker', ik: 'stok', l: ['#pgsT1', '#tab5'], pendek: 'Botol' },
+        { k: 'botol', nm: 'Botol, stiker & packaging', ik: 'stok', l: ['#pgsT1', '#tab5'], pendek: 'Botol & packing' },
         { k: 'pantau', nm: 'Pantau produksi', ik: 'laporan', l: ['#pgsT1', '#tabPP'] },
         { k: 'rencana', nm: 'Rencana produksi', ik: 'setuju', l: ['#pgsT1', '#tabRPD'] },
         { k: 'sesuai', nm: 'Penyesuaian stok', ik: 'atur', l: ['#pgsT1', '#tabPS'] },
@@ -512,8 +512,22 @@
     });
   }
 
+  // Form produksi: menu "Botol, stiker & packaging" punya dua bagian. Botol & stiker = form lama (bingkai), Packaging = stok packing (packing.js).
+  function subBotol(k) {
+    var bar = $('subBotol'), sec = document.querySelector('#mIsi > section[data-bagian="isi"]'); if (!bar || !sec) return;
+    var ada = APP === 'produksi' && k === 'botol', pk = ada && C.sub === 'packing';
+    bar.hidden = !ada; sec.classList.toggle('pk-mode', pk); $('packing').hidden = !pk;
+    bar.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-sub') === (C.sub || 'botol'))); });
+    if (pk) { document.documentElement.classList.remove('berbingkai'); if (window.StokPacking) StokPacking.gambar($('packing'), M.sb); }
+  }
+  if ($('subBotol')) $('subBotol').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-sub]') : null; if (!b) return;
+    C.sub = b.getAttribute('data-sub'); subBotol('botol'); setTimeout(ukur, 0);
+  });
+
   function ukur() {
     var fr = C.frame; if (!fr || fr.hidden) return;
+    if (document.querySelector('#mIsi > section.pk-mode')) return;
     document.documentElement.classList.add('berbingkai'); window.scrollTo(0, 0);
     var bawah = document.documentElement.classList.contains('m-m') && $('mBawah') ? $('mBawah').offsetHeight : 0;
     fr.style.height = Math.max(320, window.innerHeight - fr.getBoundingClientRect().top - bawah) + 'px';
@@ -608,7 +622,7 @@
     },
     menu: F.menu.map(function (x) { return x.grup ? { grup: x.grup } : x.href ? { k: x.k, nm: x.nm, ik: x.ik, href: x.href } : { k: x.k, nm: x.nm, ik: x.ik, bagian: 'isi', pendek: x.pendek }; }),
     bawah: F.bawah,
-    pindah: function (k) { C.aktif = k; tekan(k); setTimeout(ukur, 0); },
+    pindah: function (k) { C.aktif = k; tekan(k); subBotol(k); setTimeout(ukur, 0); },
     siap: function (ctx) {
       if (ctx.peran === 'manajemen') {
         var nav = document.querySelector('#mSide nav');
