@@ -43,9 +43,9 @@ button, input, select, textarea { font:inherit; color:inherit; }
 #mMasuk .k2 { left:31%; top:6%; width:66%; height:84%; transform:rotateY(-12deg) rotateX(5deg); transform-origin:left center; }
 #mMasuk .mm-kanan { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding:48px 32px 28px;
   background:#FFFFFF; overflow:hidden; }
-#mMasuk .mm-kanan::after { content:''; position:absolute; right:-200px; bottom:-260px; width:520px; height:520px; border-radius:50%;
-  border:56px solid #EEF6FB; pointer-events:none; }
-#mMasuk .kotak { position:relative; z-index:1; width:100%; max-width:470px; margin:auto 0; }
+#mMasuk .mm-kanan::after { content:''; position:absolute; z-index:0; right:-170px; bottom:-330px; width:660px; height:660px; border-radius:50%;
+  border:12px solid #E4EFFA; pointer-events:none; }
+#mMasuk .kotak { position:relative; z-index:2; width:100%; max-width:470px; margin:auto 0; }
 #mMasuk .lg { display:block; width:min(320px, 80%); height:110px; margin:0 auto 40px; background:url(logo.png) center/contain no-repeat; mix-blend-mode:multiply; }
 #mMasuk .ey { display:block; font-size:13px; font-weight:700; letter-spacing:.18em; color:var(--abu); }
 #mMasuk h1 { font-size:clamp(32px, 3.3vw, 48px); line-height:1.08; font-weight:800; letter-spacing:-.02em; margin:8px 0 12px; color:var(--tinta); }
@@ -238,8 +238,8 @@ html.m-m .cd { padding:14px; margin-bottom:12px; }
   #mSide .grp { margin:18px 14px 6px; padding-top:16px; border-top:1px solid var(--navy3); font-size:12px; letter-spacing:.1em; }
 
 /* Foto produk samar di panel kanan halaman masuk / selamat datang (laptop & tablet lebar) */
-#mMasuk .mm-produk { position:absolute; right:0; bottom:0; z-index:0; height:54%; aspect-ratio:900/879; pointer-events:none;
-  background:url(produk-masuk.jpg) right bottom / cover no-repeat; opacity:.62;
-  -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,.35) 35%, #000 70%), linear-gradient(to bottom, transparent 0%, #000 22%);
-  -webkit-mask-composite:source-in; mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,.35) 35%, #000 70%), linear-gradient(to bottom, transparent 0%, #000 22%); mask-composite:intersect; }
+#mMasuk .mm-produk { position:absolute; right:0; bottom:0; z-index:1; height:55%; aspect-ratio:1000/852; pointer-events:none;
+  background:url(produk-masuk.jpg) right bottom / cover no-repeat; opacity:.72; filter:saturate(.9) brightness(1.04);
+  -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,.28) 30%, rgba(0,0,0,.55) 60%, #000 82%), linear-gradient(to bottom, transparent 0%, #000 18%);
+  -webkit-mask-composite:source-in; mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,.28) 30%, rgba(0,0,0,.55) 60%, #000 82%), linear-gradient(to bottom, transparent 0%, #000 18%); mask-composite:intersect; }
 @media (max-width: 899px) { #mMasuk .mm-produk { display:none; } }
