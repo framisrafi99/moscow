@@ -63,8 +63,9 @@
     var out = {};
     (st && st.barang || []).forEach(function (b) {
       Object.keys(b.q || {}).forEach(function (id) {
-        var q = Number(b.q[id]) || 0; if (q <= 0) return;
-        if (!out[id]) out[id] = { q: 0, v: 0, n: 0, tanpa: 0 };
+        var q = Number(b.q[id]) || 0; if (!q) return;
+        if (!out[id]) out[id] = { q: 0, v: 0, n: 0, tanpa: 0, min: 0, minQ: 0 };
+        if (q < 0) { out[id].min++; out[id].minQ += q; return; }
         out[id].q += q; out[id].n++;
         if (b.hpp > 0) out[id].v += q * b.hpp; else out[id].tanpa++;
       });
@@ -203,6 +204,9 @@
     ring.push(tr(['TOTAL', '', fmt(jml(ids, function (id) { return N[id].q; })), rp(jml(ids, function (id) { return N[id].v; }))], [2, 3], 'tot'));
     h += '<p class="lp-cat">Posisi ' + (H.P.dariArsip ? 'arsip akhir bulan' : 'saat ini') + ', diperbarui ' + esc(st.diperbarui) + '. Nilai = qty × HPP.</p>' +
       tabel(['Lokasi', 'Jenis produk', 'Pcs', 'Nilai aset (HPP)'], ring, [1, 2, 3]);
+    var mins = ids.filter(function (id) { return N[id].min; });
+    if (mins.length) h += '<div class="lp-w">' + mins.map(function (id) { return esc(namaLok(st, id)) + ': ' + fmt(N[id].min) + ' produk stoknya minus (total ' + fmt(N[id].minQ) + ' pcs)'; }).join('; ') +
+      '. Stok minus tidak dihitung sebagai aset. Biasanya terjadi karena penjualan sudah tercatat tetapi kiriman barang ke lokasi itu belum dicatat; perlu dicek sebelum laporan diserahkan.</div>';
     ids.forEach(function (id) {
       var B = st.barang.filter(function (b) { return Number(b.q && b.q[id]) > 0; }).sort(function (a, b) { return String(a.n).localeCompare(String(b.n)); });
       h += '<details class="lp-rinci"><summary>' + esc(namaLok(st, id)) + ': ' + fmt(B.length) + ' produk · ' + rp(N[id].v) + ' ›</summary>' +
