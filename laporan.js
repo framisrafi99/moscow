@@ -63,7 +63,7 @@
     var out = {};
     (st && st.barang || []).forEach(function (b) {
       Object.keys(b.q || {}).forEach(function (id) {
-        var q = Number(b.q[id]) || 0; if (!q) return;
+        var q = Number(b.q[id]) || 0; if (q <= 0) return;
         if (!out[id]) out[id] = { q: 0, v: 0, n: 0, tanpa: 0 };
         out[id].q += q; out[id].n++;
         if (b.hpp > 0) out[id].v += q * b.hpp; else out[id].tanpa++;
