@@ -512,6 +512,59 @@
     });
   }
 
+  // Gudang › Penyaluran: tiap baris barang dapat kotak "ketik kode / nama" (tidak perlu menggulir daftar panjang).
+  // Kotak ini hanya memilih barang di daftar lama lalu memicu 'change', jadi cara simpan form tidak berubah.
+  function cariKodeKirim(dok) {
+    var wadah = dok.getElementById('v-kirim'); if (!wadah) return;
+    if (!dok.getElementById('ckGaya')) {
+      var g = dok.createElement('style'); g.id = 'ckGaya';
+      g.textContent = '.ck-cari{display:block;width:100%;box-sizing:border-box;margin:0 0 6px;font-size:16px}.ir .a{flex-wrap:wrap}.ir .a .ck-cari{flex:1 0 100%}';
+      dok.head.appendChild(g);
+    }
+    function daftar(sel) {
+      var dl = dok.getElementById('ckDaftar'); if (dl) return dl;
+      dl = dok.createElement('datalist'); dl.id = 'ckDaftar';
+      Array.prototype.forEach.call(sel.options, function (o) {
+        if (!o.value) return;
+        var op = dok.createElement('option'); op.value = o.value + ' · ' + String(o.textContent || '').replace(/\s*\([^)]*\)\s*$/, ''); dl.appendChild(op);
+      });
+      dok.body.appendChild(dl); return dl;
+    }
+    function cocok(sel, teks) {
+      var t = String(teks || '').trim().toUpperCase(); if (!t) return null;
+      var kode = t.split(/[\s·]+/)[0], opsi = Array.prototype.filter.call(sel.options, function (o) { return o.value; });
+      var pas = opsi.filter(function (o) { return o.value.toUpperCase() === kode; })[0];
+      if (pas) return pas.value;
+      var nama = opsi.filter(function (o) { return String(o.textContent).toUpperCase().indexOf(t) > -1; });
+      return nama.length === 1 ? nama[0].value : null;
+    }
+    function pasang() {
+      Array.prototype.forEach.call(wadah.querySelectorAll('.ir select[data-f="k"]'), function (sel) {
+        if (sel.previousElementSibling && sel.previousElementSibling.classList.contains('ck-cari')) return;
+        var dl = daftar(sel), inp = dok.createElement('input');
+        inp.className = 'ck-cari'; inp.type = 'text'; inp.setAttribute('list', dl.id); inp.setAttribute('autocomplete', 'off');
+        inp.setAttribute('autocapitalize', 'characters'); inp.setAttribute('aria-label', 'Ketik kode atau nama barang');
+        inp.placeholder = 'Ketik kode / nama barang, mis. K01';
+        if (sel.value) inp.value = sel.value;
+        function pilih(fokus) {
+          var v = cocok(sel, inp.value); if (!v) return false;
+          if (sel.value !== v) { sel.value = v; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+          if (fokus) setTimeout(function () {
+            var baris = wadah.querySelectorAll('.ir')[Number(inp.dataset.i)];
+            var q = baris && (baris.querySelector('select[data-f="w"]') || baris.querySelector('input[data-f="q"]')); if (q) q.focus();
+          }, 30);
+          return true;
+        }
+        var baris = sel.closest('.ir'); inp.dataset.i = baris ? baris.getAttribute('data-i') : '';
+        inp.addEventListener('input', function (e) { e.stopPropagation(); if (/·/.test(inp.value)) pilih(true); });
+        inp.addEventListener('change', function (e) { e.stopPropagation(); pilih(true); });
+        inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); if (!pilih(true)) inp.select(); } });
+        sel.parentNode.insertBefore(inp, sel);
+      });
+    }
+    pasang();
+    new MutationObserver(pasang).observe(wadah, { childList: true, subtree: true });
+  }
   // Form produksi: menu "Botol, stiker & packaging" punya dua bagian. Botol & stiker = form lama (bingkai), Packaging = stok packing (packing.js).
   function subBotol(k) {
     var bar = $('subBotol'), sec = document.querySelector('#mIsi > section[data-bagian="isi"]'); if (!bar || !sec) return;
@@ -606,6 +659,7 @@
       var nm = dok.getElementById('nama');
       if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
       ukur(); tekan(C.aktif);
+      if (APP === 'gudang') try { cariKodeKirim(dok); } catch (e) { }
       if (BUKA.length) jalankanBuka(dok);
       // Stok di dalam tampilan simpanan bisa sudah lama: langsung dimuat ulang (form produksi).
       if (dariSimpanan) try { if (typeof fr.contentWindow.muatStok === 'function') fr.contentWindow.muatStok(); } catch (e) { }
