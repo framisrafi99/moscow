@@ -30,6 +30,7 @@
       { k: 'app-kreatif', nm: 'Manager Kreatif', ik: 'produksi', href: 'kreatif.html' },
       { k: 'app-akunting', nm: 'Form accounting', ik: 'uang', href: 'form.html?f=akunting' },
       { k: 'app-payroll', nm: 'Payroll', ik: 'pelanggan', href: 'form.html?f=payroll' },
+      { k: 'app-absensi', nm: 'Absensi staf', ik: 'setuju', href: 'form.html?f=payroll#absensi' },
       { k: 'app-mdlama', nm: 'Master Data lama', ik: 'dasbor', href: 'form.html?f=mdlama' },
       { grup: 'FORM STAF' },
       { k: 'f-gudang', nm: 'Gudang Utama', ik: 'gudang', href: 'form.html?f=gudang' },
@@ -40,7 +41,8 @@
       { k: 'f-sidoarjo', nm: 'Consignment Sidoarjo', ik: 'toko', href: 'consignment.html?toko=Consignment%20Sidoarjo' },
       { k: 'f-renon', nm: 'Consignment Renon', ik: 'toko', href: 'consignment.html?toko=Consignment%20Renon' },
       { k: 'f-offline', nm: 'Toko Offline', ik: 'toko', href: 'consignment.html?toko=Toko%20Offline' },
-      { k: 'f-mike', nm: 'Persetujuan & pembayaran', ik: 'harga', href: 'form.html?f=mike' }
+      { k: 'f-mike', nm: 'Persetujuan & pembayaran', ik: 'harga', href: 'form.html?f=mike' },
+      { k: 'f-absen', nm: 'Absen staf (tampilan HP)', ik: 'setuju', href: 'absensi.html' }
     ],
     bawah: ['beranda', 'setuju', 'gudang', 'uang', 'lain'],
     pindah: function (k, m) { document.documentElement.classList.toggle('m-bx', k === 'beranda');
