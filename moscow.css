@@ -22,18 +22,16 @@ button, input, select, textarea { font:inherit; color:inherit; }
 
 /* ---------- Layar masuk (dua kolom: panel merek navy + kartu masuk) ---------- */
 #mMasuk { position:fixed; inset:0; z-index:150; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; display:grid; grid-template-columns:minmax(0, 1.15fr) minmax(0, 1fr); background:var(--kartu); }
-#mMasuk .mm-kiri { position:relative; overflow:hidden; min-height:100%; display:flex; flex-direction:column; justify-content:center; padding:56px 5vw 40px 6vw;
-  color:#fff; background:
-  radial-gradient(70% 55% at 70% 78%, rgba(46,128,232,.45) 0%, rgba(46,128,232,0) 70%),
-  radial-gradient(60% 50% at 100% 20%, rgba(36,96,190,.30) 0%, rgba(36,96,190,0) 70%),
-  linear-gradient(165deg, #081830 0%, #0B2347 45%, #0E3466 100%); }
+#mMasuk .mm-kiri { position:relative; overflow:hidden; min-height:100%; display:flex; flex-direction:column; justify-content:flex-start;
+  padding:clamp(64px, 14vh, 150px) 6% 40px 10%; color:#fff;
+  background:#0A1D3C url(panel-masuk.jpg) 30% 100% / cover no-repeat; }
 #mMasuk .mm-kiri .lgP { display:none; }
-#mMasuk .mm-garis { display:block; width:56px; height:3px; border-radius:3px; background:#4CC3F2; margin:0 0 28px; box-shadow:0 0 12px rgba(76,195,242,.6); }
-#mMasuk .mm-kiri h2 { position:relative; z-index:1; margin:0; font-size:clamp(34px, 3.9vw, 62px); line-height:1.06; font-weight:800; letter-spacing:-.025em; }
+#mMasuk .mm-garis { display:block; width:56px; height:3px; border-radius:3px; background:#4CC3F2; margin:0 0 clamp(28px, 5vh, 52px); box-shadow:0 0 12px rgba(76,195,242,.6); }
+#mMasuk .mm-kiri h2 { position:relative; z-index:1; margin:0; font-size:clamp(34px, 3.6vw, 66px); line-height:1.06; font-weight:800; letter-spacing:-.025em; }
 #mMasuk .mm-kiri h2 span { display:block; background:linear-gradient(90deg, #5FD0FA, #3FA9EE); -webkit-background-clip:text; background-clip:text; color:transparent; }
-#mMasuk .mm-kiri .sub { position:relative; z-index:1; margin:18px 0 0; font-size:clamp(16px, 1.55vw, 24px); color:#D3E1F0; max-width:28em; }
+#mMasuk .mm-kiri .sub { position:relative; z-index:1; margin:clamp(14px, 2.4vh, 26px) 0 0; font-size:clamp(16px, 1.62vw, 30px); color:#C8D6E6; max-width:28em; }
 /* Ilustrasi: dua panel kaca dimiringkan + garis bercahaya */
-#mMasuk .mm-ilus { position:relative; margin-top:clamp(28px, 5vh, 64px); width:100%; max-width:720px; aspect-ratio:600/360; }
+#mMasuk .mm-ilus { display:none; position:relative; margin-top:clamp(28px, 5vh, 64px); width:100%; max-width:720px; aspect-ratio:600/360; }
 #mMasuk .mm-ilus .gr { position:absolute; inset:0; width:100%; height:100%; }
 #mMasuk .mm-3d { position:absolute; inset:2% 6% 10% 0; perspective:1300px; }
 #mMasuk .kc { position:absolute; border-radius:16px; border:1.5px solid rgba(140,200,255,.55);
@@ -73,7 +71,7 @@ button, input, select, textarea { font:inherit; color:inherit; }
 #mMasuk .mm-status:empty { display:none; }
 @media (max-width: 899px) {
   #mMasuk { grid-template-columns:1fr; grid-template-rows:auto minmax(min-content, 1fr); }
-  #mMasuk .mm-kiri { padding:28px 20px 26px; }
+  #mMasuk .mm-kiri { padding:28px 20px 26px; background:radial-gradient(90% 120% at 100% 100%, rgba(46,128,232,.40), rgba(46,128,232,0) 70%), linear-gradient(165deg, #081830 0%, #0B2347 55%, #0E3466 100%); }
   #mMasuk .mm-ilus { display:none; }
   #mMasuk .mm-garis { margin-bottom:14px; }
   #mMasuk .mm-kiri h2 span { display:inline; }
@@ -84,6 +82,8 @@ button, input, select, textarea { font:inherit; color:inherit; }
   #mMasuk .google { min-height:56px; font-size:16px; }
 }
 @media (max-height: 760px) and (min-width: 900px) {
+  #mMasuk .mm-kiri { padding-top:48px; }
+  #mMasuk .mm-garis { margin-bottom:22px; }
   #mMasuk .lg { height:84px; margin-bottom:26px; }
   #mMasuk .kotak > p { margin-bottom:22px; }
 }
