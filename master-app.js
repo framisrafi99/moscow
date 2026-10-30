@@ -29,7 +29,17 @@
       { k: 'app-kasir', nm: 'Kasir Toko Offline', ik: 'kasir', href: 'kasir.html' },
       { k: 'app-akunting', nm: 'Form accounting', ik: 'uang', href: 'form.html?f=akunting' },
       { k: 'app-payroll', nm: 'Payroll', ik: 'pelanggan', href: 'form.html?f=payroll' },
-      { k: 'app-mdlama', nm: 'Master Data lama', ik: 'dasbor', href: 'form.html?f=mdlama' }
+      { k: 'app-mdlama', nm: 'Master Data lama', ik: 'dasbor', href: 'form.html?f=mdlama' },
+      { grup: 'FORM STAF' },
+      { k: 'f-gudang', nm: 'Gudang Utama', ik: 'gudang', href: 'form.html?f=gudang' },
+      { k: 'f-purch', nm: 'Purchasing', ik: 'purch', href: 'form.html?f=purchasing' },
+      { k: 'f-produksi', nm: 'Staf Produksi', ik: 'produksi', href: 'form.html?f=produksi' },
+      { k: 'f-bbk', nm: 'Staf Bahan Baku', ik: 'produk', href: 'form.html?f=bahanbaku' },
+      { k: 'f-medan', nm: 'Consignment Medan', ik: 'toko', href: 'consignment.html?toko=Consignment%20Medan' },
+      { k: 'f-sidoarjo', nm: 'Consignment Sidoarjo', ik: 'toko', href: 'consignment.html?toko=Consignment%20Sidoarjo' },
+      { k: 'f-renon', nm: 'Consignment Renon', ik: 'toko', href: 'consignment.html?toko=Consignment%20Renon' },
+      { k: 'f-offline', nm: 'Toko Offline', ik: 'toko', href: 'consignment.html?toko=Toko%20Offline' },
+      { k: 'f-mike', nm: 'Persetujuan & pembayaran', ik: 'harga', href: 'form.html?f=mike' }
     ],
     bawah: ['beranda', 'setuju', 'gudang', 'uang', 'lain'],
     pindah: function (k, m) { document.documentElement.classList.toggle('m-bx', k === 'beranda');
