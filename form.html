@@ -162,6 +162,21 @@
 
   // Form yang dibuka: dari alamat (?f=...), atau yang terakhir dibuka di HP ini (alamat dirapikan setelah masuk Google).
   var APP = new URLSearchParams(location.search).get('f') || '';
+  // Langsung ke layar tertentu di Master Data lama: buka=g:mkt (menu), #id (tekan tombol), ~id (gulir ke kotak).
+  var BUKA = APP === 'mdlama' ? String(new URLSearchParams(location.search).get('buka') || '').split(',').filter(Boolean) : [];
+  async function jalankanBuka(dok) {
+    for (var i = 0; i < BUKA.length; i++) {
+      var l = BUKA[i], el = null;
+      for (var t = 0; t < 40 && !el; t++) {
+        el = l.indexOf('g:') === 0 ? dok.querySelector('[data-g="' + l.slice(2) + '"]') : dok.getElementById(l.replace(/^[#~]/, ''));
+        if (!el) await new Promise(function (r) { setTimeout(r, 500); });
+      }
+      if (!el) return;
+      if (l.charAt(0) === '~') { try { el.scrollIntoView({ block: 'start' }); } catch (x) { } }
+      else { el.click(); await new Promise(function (r) { setTimeout(r, 900); }); }
+    }
+    BUKA = [];
+  }
   try { if (APP) localStorage.setItem('formApp', APP); else APP = localStorage.getItem('formApp') || ''; } catch (x) { }
   var F = FORM[APP];
   var C = { nama: '', frame: null, aktif: '' };
@@ -618,6 +633,7 @@
       var nm = dok.getElementById('nama');
       if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
       ukur(); tekan(C.aktif);
+      if (BUKA.length) jalankanBuka(dok);
       // Stok di dalam tampilan simpanan bisa sudah lama: langsung dimuat ulang (form produksi).
       if (dariSimpanan) try { if (typeof fr.contentWindow.muatStok === 'function') fr.contentWindow.muatStok(); } catch (e) { }
     };

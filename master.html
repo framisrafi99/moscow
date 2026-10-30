@@ -93,7 +93,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="moscow.js?v=8"></script>
-<script src="beranda.js?v=1"></script>
+<script src="beranda.js?v=2"></script>
 <script>
 (function () {
   var M = Moscow, esc = M.esc, rp = M.rp, jt = M.jt, fmt = M.fmt;
@@ -223,7 +223,8 @@
     BerandaBaru.gambar(el, BR.cache[k], D.beranda || {}, tindakanList(), {
       gantiBulan: function (m) { BR.bulan = m; gambarBeranda(false); },
       buka: function (b) { M.buka(b); },
-      ekor: ekor
+      ekor: ekor,
+      aksi: [{ nm: 'Upload penjualan harian', href: 'form.html?f=mdlama&buka=g:mkt' }, { nm: 'Upload dana cair', href: 'form.html?f=mdlama&buka=g:toko,%23bhBtn,~dcKartu' }]
     });
   }
   function isiAlur() {
@@ -677,7 +678,7 @@
     var top = d.top || [], pf = d.pf || [];
     h += '<div class="cd"><div class="kpl"><h3>Barang terlaris</h3><span class="sb">' + top.length + ' teratas menurut omzet</span></div>' + (top.length ? '<div class="gulir"><table class="tabel"><thead><tr><th>Barang</th>' + pf.map(function (p) { return '<th class="r">' + esc(p) + '</th>'; }).join('') + '<th class="r">Omzet</th></tr></thead><tbody>' + top.map(function (b) {
       return '<tr><td>' + esc(b.n) + '<small>' + esc(b.k) + ' · ' + fmt(b.pcs) + ' pcs · laba ' + rp(b.omzet - b.hpp) + '</small></td>' + pf.map(function (p) { return '<td class="r angka">' + (b.q[p] ? fmt(b.q[p]) : '–') + '</td>'; }).join('') + '<td class="r angka">' + rp(b.omzet) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="ksg">Belum ada penjualan.</div>') + '</div>';
-    return h + '<p class="sb">Angka mengikuti laporan pesanan yang terakhir diunggah. Unggah laporan marketplace masih lewat menu Marketplace di Master Data lama. Omzet di sini belum dipotong biaya admin marketplace.</p>';
+    return h + '<p class="sb">Angka mengikuti laporan pesanan yang terakhir diunggah. Unggah file pesanan lewat <a href="form.html?f=mdlama&buka=g:mkt">Upload penjualan harian</a>, dana cair consignment lewat <a href="form.html?f=mdlama&buka=g:toko,%23bhBtn,~dcKartu">Upload dana cair</a>. Omzet di sini belum dipotong biaya admin marketplace.</p>';
   }
 
   // Bagi hasil consignment (bagiHasilDataX lama, semua toko)

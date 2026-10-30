@@ -34,6 +34,7 @@
     '.bx-top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 16px;margin:0 0 14px}' +
     '.bx-top h2{margin:0;font-size:20px;font-weight:800;letter-spacing:-.01em}' +
     '.bx-top p{margin:2px 0 0;font-size:13px;color:var(--abu)}' +
+    '.bx-aksi{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.bx-aksi .tbl{height:40px}' +
     '.bx-top select{height:40px;padding:0 12px;border:1px solid var(--garis);border-radius:10px;background:#fff;font-weight:700}' +
     '.bx-tdk{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}' +
     '.bx-tdk button{display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:7px 12px;border:1px solid #F0D48A;border-radius:999px;background:var(--kuningMuda);color:#6B4300;font-size:13px;font-weight:700;cursor:pointer;text-align:left}' +
@@ -322,8 +323,9 @@
     var bulan = (B.bulanAda || []).slice(); if (bulan.indexOf(B.bulan) < 0) bulan.unshift(B.bulan);
     var h = '<div class="bx-top"><div><h2>' + esc(namaBulan(B.bulan)) + '</h2><p>' + (B.berjalan ? 'Bulan berjalan, ' + esc(rentang(B.dari, B.sampai)) : 'Satu bulan penuh') +
       ' · dibandingkan ' + esc(rentang(B.laluDari, B.laluSampai)) + '</p></div>' +
+      '<div class="bx-aksi">' + (opsi.aksi || []).map(function (x) { return '<a class="tbl" href="' + esc(x.href) + '">' + esc(x.nm) + '</a>'; }).join('') +
       '<label><span class="sr" style="position:absolute;left:-9999px">Pilih bulan</span><select id="bxBulan">' +
-      bulan.map(function (m) { return '<option value="' + esc(m) + '"' + (m === B.bulan ? ' selected' : '') + '>' + esc(namaBulan(m)) + '</option>'; }).join('') + '</select></label></div>';
+      bulan.map(function (m) { return '<option value="' + esc(m) + '"' + (m === B.bulan ? ' selected' : '') + '>' + esc(namaBulan(m)) + '</option>'; }).join('') + '</select></label></div></div>';
     h += tindakan(B, T);
     h += '<div class="bx-grid">' + omzet(B) + saldo(B, S || {}) + po(B, f) + '</div>';
     if (opsi.ekor) h += opsi.ekor;
