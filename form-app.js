@@ -115,8 +115,8 @@
     payroll: {
       judul: 'PAYROLL', masuk: 'Payroll gaji staf', peran: ['manajemen'],
       sembunyi: '.tidak-ada',
-      menu: [{ k: 'gaji', nm: 'Gaji staf', ik: 'uang', l: [] }],
-      bawah: ['gaji']
+      menu: [{ k: 'gaji', nm: 'Gaji staf', ik: 'uang', l: [] }, { k: 'absen', nm: 'Upload absensi', ik: 'dok' }],
+      bawah: ['gaji', 'absen']
     }
   };
 
@@ -639,6 +639,16 @@
     bar.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-sub') === (C.sub || 'botol'))); });
     if (pk) { document.documentElement.classList.remove('berbingkai'); if (window.StokPacking) StokPacking.gambar($('packing'), M.sb); }
   }
+  // Payroll › Upload absensi: tampilan sendiri (absen.js), bukan form lama di bingkai.
+  function panelAbsen(k) {
+    var el = $('absen'), sec = document.querySelector('#mIsi > section[data-bagian="isi"]'); if (!el || !sec || APP !== 'payroll') return;
+    var ada = k === 'absen';
+    el.hidden = !ada; sec.classList.toggle('pk-mode', ada);
+    if (ada) {
+      document.documentElement.classList.remove('berbingkai');
+      if (window.Absensi) Absensi.gambar(el, M.sb, { tersimpan: function () { salinKeSheet(); muat(); } });
+    }
+  }
   if ($('subBotol')) $('subBotol').addEventListener('click', function (e) {
     var b = e.target.closest ? e.target.closest('[data-sub]') : null; if (!b) return;
     C.sub = b.getAttribute('data-sub'); subBotol('botol'); setTimeout(ukur, 0);
@@ -745,7 +755,7 @@
     pindah: function (k) {
       var mm = F.menu.filter(function (x) { return x.k === k; })[0];
       if (mm && mm.modal) { bukaModal(mm); return; }
-      C.aktif = k; tekan(k); subBotol(k); setTimeout(ukur, 0);
+      C.aktif = k; tekan(k); subBotol(k); panelAbsen(k); setTimeout(ukur, 0);
     },
     siap: function (ctx) {
       if (ctx.peran === 'manajemen') {
@@ -754,7 +764,7 @@
       }
       C.aktif = M.aktif() || F.menu[0].k;
       if (F.menu.some(function (x) { return x.k === C.aktif && x.modal; })) { C.aktif = F.menu[0].k; M.buka(C.aktif, true); }
-      muat();
+      muat(); panelAbsen(C.aktif);
     }
   });
 })();

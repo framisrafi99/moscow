@@ -25,7 +25,7 @@
   .sub-botol button { height:40px; padding:0 18px; border:1px solid var(--garis); border-radius:999px; background:#fff; font-weight:700; font-size:14px; color:var(--teks2); cursor:pointer; }
   .sub-botol button[aria-pressed="true"] { background:var(--navy); border-color:var(--navy); color:#fff; }
   section.pk-mode #bingkai, section.pk-mode #muatan { display:none !important; }
-  #packing { padding:18px 20px 60px; max-width:1100px; }
+  #packing, #absen { padding:18px 20px 60px; max-width:1100px; }
 </style>
 </head>
 <body>
@@ -33,6 +33,7 @@
   <section data-bagian="isi">
     <div id="subBotol" class="sub-botol" role="group" aria-label="Bagian botol, stiker & packaging" hidden><button type="button" data-sub="botol" aria-pressed="true">Botol &amp; stiker</button><button type="button" data-sub="packing" aria-pressed="false">Packaging</button></div>
     <div id="packing" hidden></div>
+    <div id="absen" hidden></div>
     <div id="muatan" role="status">Memuat form…</div>
     <iframe id="bingkai" title="Form staf" hidden></iframe>
   </section>
@@ -49,6 +50,7 @@
 <script src="bahanbaku.js?v=1"></script>
 <script src="hpp.js?v=1"></script>
 <script src="packing.js?v=1"></script>
-<script src="form-app.js?v=8"></script>
+<script src="absen.js?v=1"></script>
+<script src="form-app.js?v=9"></script>
 </body>
 </html>
