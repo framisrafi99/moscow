@@ -194,7 +194,11 @@
       gdxPengajuan: function (a) { return a[0] && a[0].mm ? null : window.Pengadaan.gdxPengajuan(sb); },
       // Kantor Packing (stok, per warna) dihitung dari Supabase (kp.js).
       gdxKp: function () { return window.KantorPacking.gdxKp(sb); },
-      gdxKpW: function (a) { return window.KantorPacking.gdxKpW(sb, a[0]); }
+      gdxKpW: function (a) { return window.KantorPacking.gdxKpW(sb, a[0]); },
+      // Uang keluar (riwayat), stok Toko / Consignment, kenaikan harga & qty berlebih (gdlain.js).
+      gdxUangData: function (a) { return window.GudangLain.gdxUangData(sb, a[0]); },
+      gdxLokasi: function () { return window.GudangLain.gdxLokasi(sb); },
+      gdxHarga: function () { return window.GudangLain.gdxHarga(sb); }
     },
     produksi: {
       prodKebutuhan: function () { return window.Gudang.prodKebutuhan(sb); },
