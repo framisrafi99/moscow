@@ -43,7 +43,7 @@ button, input, select, textarea { font:inherit; color:inherit; }
 #mMasuk .k2 { left:31%; top:6%; width:66%; height:84%; transform:rotateY(-12deg) rotateX(5deg); transform-origin:left center; }
 #mMasuk .mm-kanan { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding:48px 32px 28px;
   background:#FFFFFF; overflow:hidden; }
-#mMasuk .mm-kanan::after { content:''; position:absolute; z-index:0; right:-170px; bottom:-330px; width:660px; height:660px; border-radius:50%;
+#mMasuk .mm-kanan::after { display:none; content:''; position:absolute; z-index:0; right:-170px; bottom:-330px; width:660px; height:660px; border-radius:50%;
   border:12px solid #E4EFFA; pointer-events:none; }
 #mMasuk .kotak { position:relative; z-index:2; width:100%; max-width:470px; margin:auto 0; }
 #mMasuk .lg { display:block; width:min(320px, 80%); height:110px; margin:0 auto 40px; background:url(logo.png) center/contain no-repeat; mix-blend-mode:multiply; }
@@ -244,6 +244,5 @@ html.m-m .cd { padding:14px; margin-bottom:12px; }
   -webkit-mask-composite:source-in; mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,.28) 30%, rgba(0,0,0,.55) 60%, #000 82%), linear-gradient(to bottom, transparent 0%, #000 18%); mask-composite:intersect; }
 @media (max-width: 899px) {
   #mMasuk .mm-produk { height:auto; width:88%; max-width:420px; opacity:.55; }
-  #mMasuk .mm-kanan::after { display:block; right:-190px; bottom:-300px; width:520px; height:520px; border-width:10px; }
   #mMasuk .mm-kanan { padding-bottom:min(62vw, 300px); }
 }
