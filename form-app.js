@@ -725,7 +725,7 @@
       if (!r.error && r.data && r.data.html) simpanan = r.data;
     } catch (e) { simpanan = null; }
     var umur = simpanan ? Date.now() - new Date(simpanan.dibuat).getTime() : Infinity;
-    if (simpanan && umur < 7 * 86400000) {
+    if (simpanan && umur < 30 * 86400000) { // tampilan simpanan dipakai sampai 30 hari (diperbarui di belakang tiap > 30 menit), supaya tidak menunggu Apps Script
       C.nama = simpanan.nama || '';
       tampil(segarkan(String(simpanan.html)), true);
       if (umur > 30 * 60000) kirim('halaman', []).catch(function () { });
