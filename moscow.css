@@ -238,7 +238,7 @@ html.m-m .cd { padding:14px; margin-bottom:12px; }
   #mSide .grp { margin:18px 14px 6px; padding-top:16px; border-top:1px solid var(--navy3); font-size:12px; letter-spacing:.1em; }
 
 /* Foto produk samar di panel kanan halaman masuk / selamat datang (laptop & tablet lebar) */
-#mMasuk .mm-produk { position:absolute; right:0; bottom:0; z-index:0; width:72%; height:64%; pointer-events:none;
-  background:url(produk-masuk.jpg) right bottom / auto 100% no-repeat; opacity:.6;
-  -webkit-mask-image:radial-gradient(ellipse 130% 115% at 100% 100%, #000 50%, transparent 82%); mask-image:radial-gradient(ellipse 130% 115% at 100% 100%, #000 50%, transparent 82%); }
+#mMasuk .mm-produk { position:absolute; right:0; bottom:0; z-index:0; width:74%; height:50%; pointer-events:none;
+  background:url(produk-masuk.jpg) right bottom / auto 100% no-repeat; opacity:.55;
+  -webkit-mask-image:radial-gradient(ellipse 120% 125% at 100% 100%, #000 48%, transparent 80%); mask-image:radial-gradient(ellipse 120% 125% at 100% 100%, #000 48%, transparent 80%); }
 @media (max-width: 899px) { #mMasuk .mm-produk { display:none; } }
