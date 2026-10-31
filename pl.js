@@ -68,8 +68,10 @@
     });
   }
   async function naikHarga(sb) {
-    var r = await sb.from('hasil_hitung').select('data').eq('kunci', 'md:hrgnaik').maybeSingle();
-    var d = r && r.data ? r.data.data : null;
+    // Dihitung langsung dari harga_naik_log (md.js hrgNaikData); cadangan: potret Apps Script md:hrgnaik.
+    var d = null;
+    if (window.MdLama) { try { d = await window.MdLama.hrgNaikData(sb); } catch (e) { d = null; } }
+    if (!d) { var r = await sb.from('hasil_hitung').select('data').eq('kunci', 'md:hrgnaik').maybeSingle(); d = r && r.data ? r.data.data : null; }
     if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { d = null; } }
     return d && d.ok && Array.isArray(d.list) ? d.list.slice(0, 120) : [];
   }

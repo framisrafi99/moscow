@@ -59,10 +59,12 @@
   var TAMPIL = ['no', 'wk', 't', 'bg', 'kel', 'k', 'n', 's', 'q', 'qs', 'h', 'al', 'pg', 'st', 'sr', 'an', 'oleh', 'wp', 'cp', 'ref', 'eta', 'wt'];
   async function gdxHarga(sb) {
     var h = await Promise.all([
-      sb.from('hasil_hitung').select('data').eq('kunci', 'md:hrgnaik').maybeSingle(),
+      window.MdLama ? window.MdLama.hrgNaikData(sb).catch(function () { return null; }) : null,
       window.Pengadaan.gdxPengajuan(sb)
     ]);
-    var d = h[0] && h[0].data ? h[0].data.data : null;
+    // Dihitung langsung dari harga_naik_log (md.js); cadangan: potret Apps Script md:hrgnaik.
+    var d = h[0];
+    if (!d) { var p0 = await sb.from('hasil_hitung').select('data').eq('kunci', 'md:hrgnaik').maybeSingle(); d = p0 && p0.data ? p0.data.data : null; }
     if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { d = null; } }
     var naik = d && d.ok && Array.isArray(d.list) ? d.list.slice(0, 120) : [];
     var lebih = ((h[1] && h[1].ajuan) || []).filter(function (x) { return x.sr === 'Berlebih'; }).slice(0, 80).map(function (x) {
