@@ -452,6 +452,16 @@
     },
     // Halaman Mike (Kendali Bisnis): ubah harga jual dan ACC / tolak usulan HPP (+ harga jual baru) langsung di Supabase.
     mike: {
+      // Bayar impor (31 Okt): Lunas / DP dan pelunasan / biaya PO langsung di Supabase (kb_impor_bayar, kb_bayar_lanjut).
+      kbImporBayar: function (p) {
+        return ['kb_impor_bayar', { p_nos: Array.isArray(p.nos) ? p.nos.map(teks) : [], p_total: p.total && typeof p.total === 'object' ? p.total : {},
+          p_jenis: teks(p.jenis), p_dp: teks(p.dp), p_supplier: teks(p.supplier), p_tanggal: teks(p.tanggal), p_eta: teks(p.eta),
+          p_catatan: teks(p.catatan), p_token: teks(p.token) }];
+      },
+      kbBayarLanjut: function (p) {
+        return ['kb_bayar_lanjut', { p_ref: teks(p.ref), p_jenis: teks(p.jenis), p_nominal: teks(p.nominal), p_tanggal: teks(p.tanggal),
+          p_catatan: teks(p.catatan), p_token: teks(p.token) }];
+      },
       kbHargaSimpan: function (p) { return ['kb_harga_simpan', { p_k: teks(p.k), p_harga: teks(p.harga), p_alasan: teks(p.alasan), p_token: teks(p.token) }]; },
       kbNaikPutus: function (p) {
         return ['hpp_mike_putus', { p_no: teks(p.no), p_aksi: teks(p.aksi), p_nilai: teks(p.nilai), p_catatan: teks(p.catatan), p_token: teks(p.token), p_k: teks(p.k), p_harga: teks(p.harga) }];
