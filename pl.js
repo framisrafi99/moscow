@@ -10,7 +10,7 @@
   var PL_BAYAR_LIST_ = ['ShopeePay', 'Kas Tunai', 'Rekening Belanja'];
   var PLX_HARI_DOBEL_ = 14, PLX_REF_ = 'Dibayar Viory';
   var TABEL = ['pengadaan_ajuan', 'bahan', 'po_log', 'po_item', 'po_biaya'];
-  var TG_VIORY = true;   // TG_VIORY di Script Properties sudah terisi (notifikasi Telegram Viory aktif)
+  var TG_VIORY = false;  // sama dengan Apps Script saat ini (TG_VIORY di Script Properties belum diisi)
 
   function hariIni() { return window.Lembar.format(new Date(), 'yyyy-MM-dd'); }
   function jamSekarang() { return window.Lembar.format(new Date(), 'dd/MM/yyyy HH:mm'); }

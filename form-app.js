@@ -233,6 +233,11 @@
     akuntingLaporan: function (a) { return window.Akunting.akuntingLaporan(sb, a[0]); },
     mbDaftar: function () { return window.Akunting.mbDaftar(sb); }
   };
+  // Link Purchasing (Viory, 31 Okt): daftar belanja lokal, report, PO lokal, dan Dibayar Mike / Junior dari Supabase (pl.js).
+  BACA_SUPABASE.purchasing = {
+    plData: function () { return window.Purchasing.plData(sb); },
+    plxData: function () { return window.Purchasing.plxData(sb); }
+  };
   // Payroll (tahap 5f): data gaji langsung dari Supabase.
   BACA_SUPABASE.payroll = {
     gjData: async function (a) {
