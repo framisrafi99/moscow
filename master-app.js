@@ -647,7 +647,8 @@
     var rumus = '<div class="rk">' + baris('Penjualan (' + fmt(x.qty) + ' pcs)', x.omzet) + baris('− Retur', -x.retur, x.retur ? 'mn' : '') + gs + baris('Penjualan bersih', x.penjualan, 'tb') +
       baris('− HPP barang terjual', -x.hpp, 'mn') + gs + baris('Laba kotor', x.kotor, 'tb') +
       baris('− Potongan marketplace', -x.potongan, x.potongan ? 'mn' : '') + baris('− Belanja toko', -x.belanja, x.belanja ? 'mn' : '') + baris('− Ongkir', -x.ongkir, x.ongkir ? 'mn' : '') + gs +
-      baris('Profit bersih', x.bersih, 'hasil') + baris('Bagian toko (' + fmt(x.persen) + '%)', x.medan) + baris('Bagian Moscow (' + fmt(100 - x.persen) + '%)', x.moscowBagian) + '</div>';
+      baris('Profit bersih', x.bersih, 'hasil') + baris('Bagian toko (' + fmt(x.persen) + '%)', x.medan) + baris('Bagian Moscow (' + fmt(100 - x.persen) + '%)', x.moscowBagian) +
+      (x.titipan ? gs + baris('Hasil barang titipan staf (' + fmt(x.titipan.pcs) + ' pcs, potongan aplikasi ' + String(x.titipan.pct).replace('.', ',') + '%)', x.titipan.bersih) + baris('Total untuk toko', x.medanTotal, 'tb') : '') + '</div>';
     var setor = (x.dc && x.dc.setoran) || (x.rn && x.rn.setoran) || null;
     var kanan = '<div class="rk">' + baris('HPP barang', x.hpp) + baris('Belanja toko (diganti)', x.belanja) + baris('Ongkir (diganti)', x.ongkir) + baris('Bagian Moscow', x.moscowBagian) + gs + baris('Total untuk Moscow', x.moscow, 'hasil') +
       (setor ? baris('Sudah tercatat masuk', setor.tercatat) + baris('Sisa belum disetor', setor.selisih, setor.selisih > 0 ? 'mn' : '') : '') + '</div>';

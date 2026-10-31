@@ -261,6 +261,58 @@
     return out;
   }
 
+  // ---- 31 Okt 2026: barang titipan staf (Medan) masuk ke bagi hasil, sama dengan TTPBH_terapkan_ di Apps Script ----
+  var TTP_TOKO_ = ['Consignment Medan'];
+  function ttpRingkas(D, toko, bulan) {
+    var per = {}, urut = [], tot = { pcs: 0, omzet: 0, hpp: 0 };
+    (D.ttp || []).forEach(function (r) {
+      var t = String(sel(r[2])).slice(0, 10);
+      if (teks(r[1], 60) !== toko || teks(r[3], 10).toUpperCase() !== 'JUAL' || t.slice(0, 7) !== bulan) return;
+      var k = teks(r[4], 20).toUpperCase(), q = Number(sel(r[6])) || 0, h = Number(sel(r[7])) || 0, hp = Number(sel(r[8])) || 0;
+      var x = per[k] || (per[k] = { k: k, n: teks(r[5], 120), q: 0, omzet: 0, hpp: 0 });
+      if (urut.indexOf(x) === -1) urut.push(x);
+      x.q += q; x.omzet += q * h; x.hpp += q * hp;
+      tot.pcs += q; tot.omzet += q * h; tot.hpp += q * hp;
+    });
+    return { tot: tot, per: urut.sort(function (a, b) { return b.omzet - a.omzet; }) };
+  }
+  function titipan(d, ring) {
+    var T = Math.round(Number(ring && ring.tot && ring.tot.omzet) || 0);
+    if (!d || !T) return d;
+    var s = d.salur || {};
+    var tit = { omzet: T, pcs: ring.tot.pcs, pot: 0, pct: null, sementara: true,
+      items: ring.per.map(function (x) { return { k: x.k, n: x.n, q: x.q, omzet: Math.round(x.omzet) }; }) };
+    if (s.oto && (Number(s.jualMP) || 0) + T > 0) {
+      var J = Number(s.jualMP) || 0, Dn = Number(s.danaTot) || 0, tot = J + T;
+      var potM = Math.round(J - Dn * J / tot), potAll = tot - Dn;
+      tit.pot = potAll - potM;
+      tit.pct = Math.round(potAll / tot * 1000) / 10;
+      tit.sementara = false;
+      var pasar = s.pasar || [], baris = s.baris || [];
+      if (pasar[0] === 'Shopee') {
+        if (pasar.length > 1) {
+          var b = baris.filter(function (x) { return x.s === 'Shopee'; })[0];
+          if (b && b.dana !== null && b.dana !== undefined) d.shopee = Math.round(b.jual - b.dana * J / tot);
+        } else d.shopee = potM;
+      } else d.shopee = 0;
+      d.potongan = potM;
+      d.tiktok = d.potongan - d.shopee;
+      d.bersih = d.kotor - d.potongan - d.belanja - d.ongkir;
+      d.medan = Math.round(d.bersih * d.persen / 100);
+      d.moscowBagian = d.bersih - d.medan;
+      d.moscow = d.ongkir + d.belanja + d.hpp + d.moscowBagian;
+      s.titipan = T;
+    } else {
+      var pj = Number(d.penjualan) || 0, pt = Number(d.potongan) || 0;
+      tit.pot = pj > 0 ? Math.round(T * pt / pj) : 0;
+      tit.pct = pj > 0 ? Math.round(pt / pj * 1000) / 10 : 0;
+    }
+    tit.bersih = T - tit.pot;
+    d.titipan = tit;
+    d.medanTotal = d.medan + tit.bersih;
+    return d;
+  }
+
   // ---- bagiHasilToko ----
   function hitung(toko, bulan, D) {
     if (!BHX_TOKO_[toko]) return { ok: false, pesan: 'Akses ditolak.' };
@@ -279,6 +331,8 @@
       try { d.dc = { toko: toko, bulan: bulan, namaBulan: namaBulan(bulan), pasar: SAL_pasar_(toko), info: dcInfo(D, toko, bulan) }; }
       catch (e) { d.dc = { toko: toko, galat: e.message }; }
     }
+    // 31 Okt: barang titipan staf (bungkus terakhir di Apps Script; untuk Medan file 76/78 tidak aktif, jadi urutannya sama)
+    if (TTP_TOKO_.indexOf(toko) !== -1) { try { titipan(d, ttpRingkas(D, toko, bulan)); } catch (e) { d.titipanGalat = e.message; } }
     // file 76
     if ((SAL_TOKO_[toko] || []).indexOf(TN_SAL_) !== -1) {
       try {
