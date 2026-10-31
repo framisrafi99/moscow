@@ -872,5 +872,168 @@
     return { ok: true, baru: list.filter(function (x) { return x.st !== 'Sudah dicek'; }).length, list: list.slice(0, 60) };
   }
 
-  window.MdLama = { mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar };
+
+  // ======================= GUDANG UTAMA & PURCHASING (file 12 gdPemilikData + bungkus GD_online_ file 14/15/36, GD_hpp_ file 15/61) =======================
+  async function gdPemilikData(sb, bulan) {
+    var h = await Promise.all([bahanHpp(sb), window.KantorPacking.siap(sb), window.Lembar.muat(sb, TABEL_MP),
+      sb.from('hasil_hitung').select('data').eq('kunci', 'md:gudang').maybeSingle()]);
+    var H = h[0], A = h[1].A, LM = h[2], lama = h[3] && h[3].data ? h[3].data.data : null, G = H.G, L = H.L;
+    var hariIni = fmt(new Date(), 'yyyy-MM-dd');
+    if (!/^\d{4}-\d{2}$/.test(String(bulan || ''))) bulan = hariIni.slice(0, 7);
+    var brg = G.barang(), log = H.log, po = G.po();
+    G.isiTerima(po, log);
+    var masukProd = G.salurTunggu(log), stok = G.stok(log);
+    // GD_hpp_: perPo dari rumus dasar, akhir dari rumus berlapis (file 15 + 61).
+    var perPo = [];
+    po.list.slice().sort(function (a, b) { return a.t < b.t ? -1 : a.t > b.t ? 1 : a.ms - b.ms; }).forEach(function (o) {
+      if (o.st === 'Ditolak' || o.st === 'Batal' || !o.items.length) return;
+      var barang = 0, biaya = 0;
+      o.items.forEach(function (it) { barang += it.s; }); o.biaya.forEach(function (b) { biaya += b.v; });
+      perPo.push({ no: o.no, t: o.t, sup: o.sup, asal: o.asal, barang: barang, biaya: biaya, items: o.items.map(function (it) {
+        var bagian = barang > 0 ? biaya * it.s / barang : 0;
+        return { k: it.k, n: it.n, w: it.w, q: it.q, h: it.h, hpp: it.q > 0 ? Math.round(it.h + bagian / it.q) : it.h };
+      }) });
+    });
+    perPo.reverse();
+    var akhir = H.akhirPo(po);
+    // GD_online_: jumlah dari kp.js, HPP / harga jual / catatan seperti Apps Script.
+    var onl = {};
+    window.Lembar.baca(L, 'online_stok_awal', 9).forEach(function (r) {
+      var k = rlTeks_(r[0]).slice(0, 30).toUpperCase(); if (!k) return;
+      var x = onl[k] || (onl[k] = { hpp: 0, hj: 0, c: '' }), hp = Number(r[5]), hj = Number(r[6]);
+      if (!x.hpp && isFinite(hp) && hp > 0) x.hpp = hp;
+      if (!x.hj && isFinite(hj) && hj > 0) x.hj = hj;
+      var c = MP_t_(r[8], 200).replace(/\s+/g, ' ');
+      if (c) x.c = x.c ? x.c + '; ' + c : c;
+    });
+    var bOf = function (k) { return brg.idx[k] !== undefined ? brg.list[brg.idx[k]] : null; };
+    var list = A.on.list.map(function (y) {
+      var x = { k: y.k, n: y.n, kat: y.kat, awal: y.awal, kirim: y.kirim, q: y.q, hpp: 0, hj: 0, hs: '', hjs: '', t: y.t || '', c: '' }, b = bOf(y.k), o = onl[y.k];
+      if (y.sesuai !== undefined) x.sesuai = y.sesuai;
+      if (y.jualMp !== undefined) x.jualMp = y.jualMp;
+      if (o) {
+        if (o.hpp) { x.hpp = o.hpp; x.hs = 'awal'; }
+        if (o.hj) { x.hj = o.hj; x.hjs = 'online'; }
+        x.c = o.c;
+        if (!x.hpp && akhir[y.k] && akhir[y.k].hpp) { x.hpp = akhir[y.k].hpp; x.hs = 'po'; }
+        if (!x.hj && b && b.h) { x.hj = b.h; x.hjs = 'order'; }
+      } else if (y.awal || y.kirim) {
+        if (akhir[y.k] && akhir[y.k].hpp) { x.hpp = akhir[y.k].hpp; x.hs = 'po'; }
+        if (b && b.h) { x.hj = b.h; x.hjs = 'order'; }
+      } else {
+        x.hpp = akhir[y.k] && akhir[y.k].hpp ? akhir[y.k].hpp : 0; x.hs = akhir[y.k] ? 'po' : '';
+        x.hj = b ? b.h : 0; x.hjs = b ? 'order' : '';
+      }
+      var e = H.kini(y.k); if (e && e !== x.hpp) { x.hpp = e; x.hs = 'edit'; }
+      return x;
+    });
+    var tot = { pcs: 0, hpp: 0, jual: 0, tanpaHpp: 0, tanpaHarga: 0, minus: 0, barang: 0, kirim: 0, sesuai: 0, jualMp: 0 };
+    list.forEach(function (x) {
+      tot.pcs += x.q; tot.kirim += x.kirim; tot.sesuai += x.sesuai || 0; tot.jualMp += x.jualMp || 0;
+      if (x.q) tot.barang++;
+      if (x.q < 0) tot.minus++;
+      if (x.q > 0) { tot.hpp += x.q * x.hpp; tot.jual += x.q * x.hj; if (!x.hpp) tot.tanpaHpp++; if (!x.hj) tot.tanpaHarga++; }
+    });
+    // MP_potongOnline_: ringkasan potongan penjualan marketplace Official.
+    var aktifT = lama && lama.online && lama.online.mp ? lama.online.mp.aktif : '';
+    var mp = { aktif: aktifT || '', pcs: 0, belum: 0, hari: {}, belumHari: {} };
+    if (aktifT) {
+      var m = aktifT.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/), aktifMs = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) - 7 * 3600000;
+      var B = MP_barang_(LM), P = MP_padananFn_(LM, B), batas = {}, umum = A.on.mulai ? A.on.mulai + ' 00:00' : '';
+      A.on.list.forEach(function (x) { if (x.t) batas[x.k] = x.t + ' 00:00'; });
+      A.pss.forEach(function (x) {
+        if (x.bg !== 'Kantor Packing' || x.st !== 'Disetujui' || !x.wk || !x.wa || !x.k) return;
+        if (x.wk.getTime() >= aktifMs) return;
+        var t = new Date(x.wa.getTime() + 7 * 3600000).toISOString().slice(0, 16).replace('T', ' ');
+        if (!batas[x.k] || t > batas[x.k]) batas[x.k] = t;
+      });
+      MP_bacaPsn_(LM).forEach(function (x) {
+        if (x.toko !== MP_TOKO_POTONG_ || x.batal || x.belum || !x.kirim) return;
+        var q = x.q - x.ret; if (!(q > 0)) return;
+        var pm = P(x.nm, x.vr, x.ha), tgl = x.kirim.slice(0, 10);
+        if (!pm.k || pm.k === '-' || pm.st !== 'Dikonfirmasi') {
+          if (pm.k !== '-') { mp.belum += q; mp.belumHari[tgl] = (mp.belumHari[tgl] || 0) + q; }
+          return;
+        }
+        var kk = pm.k === 'M02D5' ? 'M02' : (pm.k === 'M03D5' ? 'M03' : pm.k), c = batas[kk] || umum;
+        if (c && x.kirim < c) return;
+        mp.hari[tgl] = (mp.hari[tgl] || 0) + q; mp.pcs += q;
+      });
+    }
+    var online = { list: list, tot: tot, mulai: A.on.mulai, ada: true, mp: mp };
+    // Stok gudang per barang.
+    var hppAwal = {};
+    list.forEach(function (x) { if (x.hs === 'awal') hppAwal[x.k] = x.hpp; });
+    var perBarang = {};
+    Object.keys(stok).forEach(function (key) {
+      var k = key.split('|')[0], w = key.slice(k.length + 1);
+      if (!perBarang[k]) perBarang[k] = { q: 0, w: [] };
+      perBarang[k].q += stok[key];
+      if (w) perBarang[k].w.push({ w: w, q: stok[key] });
+    });
+    var stokList = [], nilaiJual = 0, nilaiHpp = 0, tanpaHpp = 0;
+    brg.list.forEach(function (b) {
+      var st = perBarang[b.k]; if (!st) return;
+      var hp = akhir[b.k] ? akhir[b.k].hpp : (hppAwal[b.k] || 0), hs = akhir[b.k] ? 'po' : (hppAwal[b.k] ? 'awal' : '');
+      nilaiJual += st.q * b.h;
+      if (hp) nilaiHpp += st.q * hp; else if (st.q > 0) tanpaHpp++;
+      stokList.push({ k: b.k, n: b.n, kat: b.kat, q: st.q, w: st.w, hj: b.h, hpp: hp, hs: hs });
+    });
+    Object.keys(perBarang).forEach(function (k) {
+      if (brg.idx[k] === undefined) stokList.push({ k: k, n: k + ' (tidak ada di BARANG_ORDER)', kat: 'Lainnya', q: perBarang[k].q, w: perBarang[k].w, hj: 0, hpp: 0 });
+    });
+    // GD_tindak_
+    var STAF = { 'ShopeePay': true, 'Kas Tunai': true };
+    var tindak = { setuju: 0, bayar: 0, biaya: 0, jalan: 0, prod: masukProd.length, nilaiBayar: 0, nilaiBiaya: 0 };
+    po.list.forEach(function (o) {
+      if (o.st === 'Menunggu persetujuan') tindak.setuju++;
+      if (o.st === 'Ditolak' || o.st === 'Batal') return;
+      if (!STAF[o.bayar] && !o.wb && o.st !== 'Menunggu persetujuan') { tindak.bayar++; tindak.nilaiBayar += o.tot; }
+      if (o.st === 'Dikirim supplier') tindak.jalan++;
+      o.biaya.forEach(function (b) { if (b.sb !== 'Dibayar') { tindak.biaya++; tindak.nilaiBiaya += b.v; } });
+    });
+    var poOut = po.list.slice().sort(function (a, b) { return a.t < b.t ? 1 : a.t > b.t ? -1 : b.ms - a.ms; }).slice(0, 300).map(G.poKeluar);
+    return {
+      ok: true, hariIni: hariIni, bulan: bulan, po: poOut, tindak: tindak,
+      stok: stokList, nilai: { jual: nilaiJual, hpp: nilaiHpp, tanpaHpp: tanpaHpp },
+      hpp: { perPo: perPo.slice(0, 60), akhir: Object.keys(akhir).map(function (k) { var x = akhir[k]; return { k: k, n: x.n, hpp: x.hpp, h: x.h, t: x.t, no: x.no, sup: x.sup }; }) },
+      laporan: gdLaporan(po, bulan), masukProd: masukProd, online: online,
+      riwayat: G.riwayat(log, 60), linkStaf: lama && lama.linkStaf ? lama.linkStaf : ''
+    };
+  }
+  // GD_laporan_ (file 12): laporan pembelian satu bulan.
+  function gdLaporan(po, bulan) {
+    var out = { bulan: bulan, n: 0, barang: 0, biaya: 0, sup: [], brg: [], naik: [] }, sup = {}, brg = {}, akhirHarga = {};
+    po.list.slice().sort(function (a, b) { return a.t < b.t ? -1 : a.t > b.t ? 1 : a.ms - b.ms; }).forEach(function (o) {
+      if (o.st === 'Ditolak' || o.st === 'Batal') return;
+      var ini = o.t.slice(0, 7) === bulan;
+      if (ini) {
+        var biaya = 0; o.biaya.forEach(function (b) { biaya += b.v; });
+        out.n++; out.barang += o.tot; out.biaya += biaya;
+        if (!sup[o.sup]) sup[o.sup] = { n: o.sup, asal: o.asal, po: 0, tot: 0, biaya: 0 };
+        sup[o.sup].po++; sup[o.sup].tot += o.tot; sup[o.sup].biaya += biaya;
+      }
+      o.items.forEach(function (it) {
+        var key = it.k + '|' + it.w;
+        if (ini) {
+          if (!brg[key]) brg[key] = { k: it.k, n: it.n, w: it.w, q: 0, tot: 0 };
+          brg[key].q += it.q; brg[key].tot += it.s;
+          var lalu = akhirHarga[it.k];
+          if (lalu && lalu.no !== o.no && lalu.h > 0 && it.h !== lalu.h) out.naik.push({ k: it.k, n: it.n, w: it.w, dulu: lalu.h, kini: it.h, pc: Math.round((it.h - lalu.h) / lalu.h * 1000) / 10, tDulu: lalu.t, t: o.t, sup: o.sup });
+        }
+        akhirHarga[it.k] = { h: it.h, t: o.t, no: o.no };
+      });
+    });
+    out.sup = Object.keys(sup).map(function (k) { return sup[k]; }).sort(function (a, b) { return b.tot - a.tot; });
+    out.brg = Object.keys(brg).map(function (k) { return brg[k]; }).sort(function (a, b) { return b.tot - a.tot; });
+    out.naik.sort(function (a, b) { return Math.abs(b.pc) - Math.abs(a.pc); });
+    return out;
+  }
+  async function beliLalu(sb, bulan) {
+    var H = await bahanHpp(sb), G = H.G, po = G.po();
+    G.isiTerima(po, H.log);
+    return { ok: true, bulan: bulan, laporan: gdLaporan(po, bulan) };
+  }
+
+  window.MdLama = { mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu };
 })();
