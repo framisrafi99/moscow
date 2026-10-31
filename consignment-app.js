@@ -76,6 +76,11 @@
       return ['toko_bahan_bagi_hasil', { p_toko: C.toko, p_bulan: String(p.bulan || '') },
         function (bahan) { return window.BagiHasil ? window.BagiHasil.hitung(C.toko, String(p.bulan || ''), bahan) : null; }];
     },
+    // Invoice bagi hasil (31 Okt): dihitung dari bahan yang sama (bagihasil.js invoice = bhInvoice Apps Script, sudah diuji sama persis).
+    bhInvoice: function (p) {
+      return ['toko_bahan_bagi_hasil', { p_toko: C.toko, p_bulan: String(p.bulan || '') },
+        function (bahan) { return window.BagiHasil && window.BagiHasil.invoice ? window.BagiHasil.invoice(C.toko, String(p.bulan || ''), bahan, true) : null; }];
+    },
     hppTokoSaya: function (p) {
       return ['toko_bahan_bagi_hasil', { p_toko: C.toko, p_bulan: String(p.bulan || '') },
         function (bahan) { return window.BagiHasil ? window.BagiHasil.hppSaya(C.toko, String(p.bulan || ''), bahan) : null; }];
