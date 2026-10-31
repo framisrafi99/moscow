@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
     jadwal = !!(k.data && k.data.kunci && k.data.kunci === tanda);
   }
   if (!jadwal && !(await bolehManajemen(req))) return json({ ok: false, pesan: 'Tidak diizinkan.' }, 403);
-  let body: { simpan?: boolean; kunci?: string[] } = {};
+  let body: { simpan?: boolean; kunci?: string[]; isi?: boolean } = {};
   try { body = await req.json(); } catch (_) { /* kosong */ }
   const simpan = body.simpan === true;
   const mulai = Date.now();
@@ -194,5 +194,6 @@ Deno.serve(async (req) => {
   const detik = (Date.now() - mulai) / 1000;
   const gagal = Object.keys(hasil).filter((k) => !(hasil[k] as { ok: boolean }).ok);
   await sb.from('robot_log').insert({ jenis: simpan ? (jadwal ? 'jadwal' : 'simpan') : 'banding', detik, hasil: { versi, gagal, hasil, banding } });
-  return json({ ok: true, simpan, detik, versi, gagal, hasil, banding });
+  // isi: true (hanya manajemen, bukan jadwal) = kirim juga hasil hitungan, untuk dicocokkan dengan hitungan di aplikasi.
+  return json({ ok: true, simpan, detik, versi, gagal, hasil, banding, isi: body.isi === true && !jadwal ? isi : undefined });
 });
