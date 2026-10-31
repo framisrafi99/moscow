@@ -54,7 +54,7 @@ returns json language plpgsql stable security definer set search_path = public a
 declare hari int := greatest(7, least(coalesce(p_hari, 14), 62)); dari date := (now() at time zone 'Asia/Makassar')::date - hari;
   baris jsonb; ajuan jsonb; barang jsonb;
 begin
-  if not public._boleh_tulis_toko(p_toko) then return json_build_object('ok', false, 'pesan', 'Akses ditolak.'); end if;
+  if public._boleh_tulis_toko(p_toko) is not true then return json_build_object('ok', false, 'pesan', 'Akses ditolak.'); end if;
   select coalesce(jsonb_agg(public._kj_baris(j) order by j.tanggal desc, j.id desc), '[]') into baris
     from toko_jual_log j where j.toko = p_toko and j.tanggal >= dari;
   select coalesce(jsonb_agg(jsonb_build_object('no', k.no, 'jual_id', k.jual_id, 'jenis', k.jenis, 'lama', k.lama, 'baru', k.baru,
@@ -78,7 +78,7 @@ declare j public.toko_jual_log; lama jsonb; baru jsonb; b record; kode text; w t
   alasan text := public._rapi_baris_baru(p_alasan, 200); pengaju text := public._rapi_baris_baru(p_nama, 40);
   jenis text := lower(btrim(coalesce(p_jenis, ''))); awalan text; maks int; v_no text; kini timestamptz := now(); t text; beda text[] := '{}';
 begin
-  if not public._boleh_tulis_toko(p_toko) then return json_build_object('ok', false, 'pesan', 'Akses ditolak.'); end if;
+  if public._boleh_tulis_toko(p_toko) is not true then return json_build_object('ok', false, 'pesan', 'Akses ditolak.'); end if;
   if jenis not in ('ubah', 'batal') then return json_build_object('ok', false, 'pesan', 'Jenis koreksi tidak dikenal.'); end if;
   if pengaju = '' then return json_build_object('ok', false, 'pesan', 'Nama pengaju belum diisi.'); end if;
   if length(alasan) < 5 then return json_build_object('ok', false, 'pesan', 'Tulis alasan koreksinya (minimal 5 huruf).'); end if;
