@@ -209,5 +209,212 @@
     return { ok: true, list: list.slice(0, 2000), diperbarui: fmt(new Date(), 'dd/MM/yyyy HH:mm') };
   }
 
-  window.MdLama = { hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar };
+  // ======================= mdRingkasan (file 9) =======================
+  function tglLokal(v) { var m = s(v).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) - 8 * 3600000) : ''; }
+  function wkt(v) { var d = waktu(v); return d || ''; }
+  function rlTeks_(v) { return s(v).replace(/\s+/g, ' ').trim(); }
+  function rlWaktu_(v, c) { return (v instanceof Date) ? v : ((c instanceof Date) ? c : null); }
+  function rlsAngka_(v) { var n = Number(v); return isFinite(n) ? n : 0; }
+  function rlsFmt_(n) {
+    n = Math.round(rlsAngka_(n) * 1000) / 1000;
+    var b = String(Math.abs(n)).split('.');
+    return (n < 0 ? '-' : '') + b[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (b[1] ? ',' + b[1] : '');
+  }
+  function MD_angka_(v) { var n = Number(v); return isFinite(n) ? n : 0; }
+  var RLS_PROD_ = 'Staf produksi', RLS_BBK_ = 'Staf produksi bahan baku';
+
+  function pelanggan(rows) {
+    var out = [];
+    rows.forEach(function (r) {
+      var nama = s(r.nama_pelanggan).trim();
+      if (!nama) return;
+      out.push({ n: nama, t: /resel|putus/i.test(s(r.tipe)) ? 'Reseller' : 'Consignment' });
+    });
+    return out;
+  }
+  // laporanToko_ (file 1): penjualan, biaya, return satu toko pada periode.
+  function laporanToko(T, toko, dari, sampai) {
+    var out = { jual: [], omzet: 0, qty: 0, totalBiaya: 0, totalRetur: 0 }, idx = {};
+    T.jual.forEach(function (r) {
+      var d = tglLokal(r.tanggal);
+      if (!d || s(r.toko).trim() !== toko) return;
+      var t = fmt(d, 'yyyy-MM-dd');
+      if (t < dari || t > sampai) return;
+      var kode = s(r.kode).trim().toUpperCase(), q = Number(r.qty_terjual) || 0, tot = Number(r.total) || 0;
+      var w = s(r.warna).trim().toUpperCase(), k = kode + '|' + w;
+      if (!(k in idx)) { idx[k] = out.jual.length; out.jual.push({ k: kode, n: s(r.nama_barang), w: w, q: 0, tot: 0 }); }
+      out.jual[idx[k]].q += q; out.jual[idx[k]].tot += tot; out.qty += q; out.omzet += tot;
+    });
+    out.jual.sort(function (a, b) { return b.q - a.q; });
+    T.biaya.forEach(function (r) {
+      var d = tglLokal(r.tanggal);
+      if (!d || s(r.toko).trim() !== toko) return;
+      var t = fmt(d, 'yyyy-MM-dd');
+      if (t < dari || t > sampai) return;
+      out.totalBiaya += Number(r.nominal) || 0;
+    });
+    T.retur.forEach(function (r) {
+      var d = tglLokal(r.tanggal);
+      if (!d || s(r.toko).trim() !== toko) return;
+      var t = fmt(d, 'yyyy-MM-dd');
+      if (t < dari || t > sampai) return;
+      out.totalRetur += Number(r.nilai) || 0;
+    });
+    return out;
+  }
+  // riwayatLaporanStaf (file 5) bagian ringkas: kapan terakhir tiap toko / staf mengisi dan berapa laporan pada periode.
+  function riwayatRingkas(T, L, tokoSemua, dari, sampai) {
+    var dariMs = tglLokal(dari).getTime(), sampaiMs = tglLokal(sampai).getTime() + 86400000;
+    function hitung(lihat, staf) {
+      var pakai = {}, grup = {}, urut = [], akhir = {};
+      lihat.forEach(function (n) { pakai[n] = true; });
+      var masuk = function (jenis, toko, w, pengisi, tetap) {
+        toko = staf ? toko : rlTeks_(toko);
+        if (!pakai[toko] || !(w instanceof Date)) return null;
+        if (staf && /^impor/i.test(rlTeks_(pengisi))) return null;
+        var ms = w.getTime();
+        if (!(akhir[toko] >= ms)) akhir[toko] = ms;
+        if (ms < dariMs || ms >= sampaiMs) return null;
+        var k = jenis + '|' + toko + '|' + (tetap || (Math.floor(ms / 1000) + '|' + rlTeks_(pengisi)));
+        if (!grup[k]) { grup[k] = { j: jenis, toko: toko, n: 0, q: 0 }; urut.push(grup[k]); }
+        return grup[k];
+      };
+      return { masuk: masuk, urut: urut, akhir: akhir };
+    }
+    // Toko consignment (riwayatLaporan).
+    var A = hitung(tokoSemua, false), m = A.masuk;
+    T.jual.forEach(function (r) {
+      var nota = rlTeks_(r.no_nota), g = m('Penjualan', r.toko, rlWaktu_(wkt(r.waktu_masuk), tglLokal(r.tanggal)), r.pengisi, nota ? 'nota|' + nota : '');
+      if (g) { g.n++; g.q += rlsAngka_(r.qty_terjual); }
+    });
+    T.biaya.forEach(function (r) { m('Biaya', r.toko, rlWaktu_(wkt(r.waktu_masuk), tglLokal(r.tanggal)), r.pengisi, ''); });
+    T.retur.forEach(function (r) { m('Return', r.toko, rlWaktu_(wkt(r.waktu_masuk), tglLokal(r.tanggal)), r.pengisi, ''); });
+    T.hitung.forEach(function (r) { m('Hitung stok', r.toko, rlWaktu_(wkt(r.waktu_hitung)), r.pengisi, ''); });
+    window.Lembar.baca(L, 'order_log', 16).forEach(function (r) {
+      var no = rlTeks_(r[0]);
+      if (!no) return;
+      m('Re-stock', r[2], rlWaktu_(r[13], r[1]), r[14], 'no|' + no);
+    });
+    T.pinjam.forEach(function (r) {
+      var no = rlTeks_(r.no_pinjam), jenis = rlTeks_(r.jenis).toUpperCase();
+      m('Stok dipinjam', r.toko, rlWaktu_(wkt(r.waktu_masuk), tglLokal(r.tanggal)), r.pengisi, no ? 'no|' + no + '|' + jenis : '');
+    });
+    T.sesuai.forEach(function (r) {
+      var no = rlTeks_(r.no);
+      m('Penyesuaian stok', r.toko, rlWaktu_(wkt(r.waktu_ajuan)), r.pengaju, no ? 'no|' + no : '');
+    });
+    var f = function (ms, pola) { return fmt(new Date(ms), pola); };
+    var ringkas = tokoSemua.map(function (n) { return { toko: n, akhir: A.akhir[n] ? f(A.akhir[n], 'dd/MM/yyyy HH:mm') : '', hari: A.akhir[n] ? f(A.akhir[n], 'yyyy-MM-dd') : '', lap: 0, pcs: 0 }; });
+    var pos = {};
+    ringkas.forEach(function (x, i) { pos[x.toko] = i; });
+    A.urut.forEach(function (g) { var x = ringkas[pos[g.toko]]; x.lap++; if (g.j === 'Penjualan') x.pcs += g.q; });
+
+    // Staf produksi & bahan baku (riwayatLaporanStaf).
+    var B = hitung([RLS_PROD_, RLS_BBK_], true), mb = B.masuk, baca = function (t, w) { return window.Lembar.baca(L, t, w); };
+    baca('produksi_log', 7).forEach(function (r) { var g = mb('Produksi', RLS_PROD_, rlWaktu_(r[4], r[0]), r[5], ''); if (g) { g.n++; g.q += rlsAngka_(r[3]); } });
+    baca('salur_log', 8).forEach(function (r) {
+      var tujuan = rlTeks_(r[6]), w = rlWaktu_(r[4], r[0]);
+      var g = mb('Penyaluran', RLS_PROD_, w, r[5], w ? Math.floor(w.getTime() / 1000) + '|' + rlTeks_(r[5]) + '|' + tujuan : '');
+      if (g) { g.n++; g.q += rlsAngka_(r[3]); }
+    });
+    [['bahan_masuk', 'Botol & stiker masuk'], ['bahan_log', 'Botol & stiker terpakai'], ['bahan_rusak', 'Botol & stiker rusak']].forEach(function (x) {
+      baca(x[0], 7).forEach(function (r) { var g = mb(x[1], RLS_PROD_, rlWaktu_(r[4], r[0]), r[5], ''); if (g) { g.n++; g.q += rlsAngka_(r[3]); } });
+    });
+    baca('bahan_baku_beli', 17).forEach(function (r) {
+      var no = rlTeks_(r[0]);
+      if (!no) return;
+      var g = mb('Pembelian bahan', RLS_BBK_, rlWaktu_(r[10], r[1]), r[9], 'no|' + no);
+      if (g) g.n++;
+      if (rlTeks_(r[11]) === 'Sampai' && (r[12] instanceof Date)) { g = mb('Barang sampai', RLS_BBK_, r[12], r[15], 'sampai|' + no); if (g) g.n++; }
+    });
+    baca('bahan_jadi_log', 10).forEach(function (r) { var g = mb('Produksi bahan', RLS_BBK_, rlWaktu_(r[6], r[0]), r[7], ''); if (g) g.n++; });
+    baca('bahan_baku_log', 10).forEach(function (r) {
+      var g = mb(/rusak/i.test(rlTeks_(r[1])) ? 'Bahan rusak / terbuang' : 'Bahan terpakai', RLS_BBK_, rlWaktu_(r[6], r[0]), r[7], '');
+      if (g) g.n++;
+    });
+    baca('produksi_sesuai_log', 14).forEach(function (r) {
+      var no = rlTeks_(r[0]), bagian = rlTeks_(r[2]);
+      var g = mb('Penyesuaian stok', /bahan baku/i.test(bagian) ? RLS_BBK_ : RLS_PROD_, rlWaktu_(r[1]), r[10], no ? 'no|' + no : '');
+      if (g) { g.n++; g.q += rlsAngka_(r[7]); }
+    });
+    var hit = {};
+    hit[RLS_PROD_] = { lap: 0, pcs: 0, kali: 0 }; hit[RLS_BBK_] = { lap: 0, pcs: 0, kali: 0 };
+    B.urut.forEach(function (g) {
+      var h = hit[g.toko];
+      h.lap++;
+      if (g.j === 'Produksi') h.pcs += g.q;
+      if (g.j === 'Produksi bahan') h.kali += g.n;
+    });
+    [RLS_PROD_, RLS_BBK_].forEach(function (n) {
+      ringkas.push({ toko: n, akhir: B.akhir[n] ? f(B.akhir[n], 'dd/MM/yyyy HH:mm') : '', hari: B.akhir[n] ? f(B.akhir[n], 'yyyy-MM-dd') : '',
+        lap: hit[n].lap, pcs: hit[n].pcs, teks: n === RLS_PROD_ ? rlsFmt_(hit[n].pcs) + ' pcs diproduksi' : rlsFmt_(hit[n].kali) + ' kali produksi' });
+    });
+    return ringkas;
+  }
+
+  async function mdRingkasan(sb) {
+    var hari = fmt(new Date(), 'yyyy-MM-dd'), bulan = hari.slice(0, 7), awal = bulan + '-01';
+    var h = await Promise.all([
+      semua(sb, 'pelanggan', 'nama_pelanggan,tipe'),
+      semua(sb, 'toko_jual_log', 'tanggal,toko,kode,nama_barang,qty_terjual,total,waktu_masuk,pengisi,warna,no_nota'),
+      semua(sb, 'toko_biaya_log', 'tanggal,toko,nominal,waktu_masuk,pengisi'),
+      semua(sb, 'toko_retur_log', 'tanggal,toko,nilai,waktu_masuk,pengisi'),
+      semua(sb, 'toko_hitung_log', 'waktu_hitung,toko,pengisi'),
+      semua(sb, 'toko_pinjam_log', 'no_pinjam,jenis,tanggal,toko,waktu_masuk,pengisi'),
+      semua(sb, 'toko_sesuai_log', 'no,waktu_ajuan,toko,pengaju'),
+      window.Lembar.muat(sb, ['order_log', 'produksi_log', 'salur_log', 'bahan_masuk', 'bahan_log', 'bahan_rusak', 'bahan_baku_beli', 'bahan_jadi_log', 'bahan_baku_log', 'produksi_sesuai_log']),
+      sesuaiPemilik(sb), window.Produksi.prodSesuaiDaftar(sb, true), pinjamPemilik(sb), hargaBahanBakuMaster(sb),
+      window.BahanBaku.ringkasStok(sb), window.Akunting.akuntingLaporan(sb, { bulan: bulan })
+    ]);
+    var T = { jual: h[1], biaya: h[2], retur: h[3], hitung: h[4], pinjam: h[5], sesuai: h[6] }, L = h[7];
+    var sp = h[8], pd = h[9], pj = h[10], hb = h[11], bb = h[12], acc = h[13];
+    if (!sp || !sp.ok || !pd || !pd.ok || !pj || !pj.ok || !acc || !acc.ok) return null;
+    var selisihHari = function (iso) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso || ''))) return null;
+      var a = iso.split('-'), b = hari.split('-');
+      return Math.round((Date.UTC(+b[0], +b[1] - 1, +b[2]) - Date.UTC(+a[0], +a[1] - 1, +a[2])) / 86400000);
+    };
+    var out = { ok: true, hari: hari, bulan: bulan };
+    out.tunggu = { toko: 0, tokoRinci: {}, prod: 0, bahan: 0 };
+    (sp.tunggu || []).forEach(function (x) { out.tunggu.toko++; out.tunggu.tokoRinci[x.toko] = (out.tunggu.tokoRinci[x.toko] || 0) + 1; });
+    (pd.list || []).forEach(function (x) { if (x.st !== 'Menunggu') return; if (/bahan baku/i.test(String(x.bg))) out.tunggu.bahan++; else out.tunggu.prod++; });
+    out.pinjam = { n: 0, pcs: 0, lewat: 0 };
+    (pj.luar || []).forEach(function (x) {
+      out.pinjam.n++; out.pinjam.pcs += MD_angka_(x.sisa);
+      if (x.rencana && String(x.rencana) < String(pj.hariIni || hari)) out.pinjam.lewat++;
+    });
+    var pel = pelanggan(h[0]), tokoSemua = pel.filter(function (x) { return x.t === 'Consignment'; }).map(function (x) { return x.n; });
+    out.toko = [];
+    tokoSemua.forEach(function (n) {
+      var lap = laporanToko(T, n, awal, hari), jual = lap.jual[0];
+      out.toko.push({ n: n, q: MD_angka_(lap.qty), omzet: MD_angka_(lap.omzet), retur: MD_angka_(lap.totalRetur),
+        bersih: MD_angka_(lap.omzet) - MD_angka_(lap.totalRetur), biaya: MD_angka_(lap.totalBiaya),
+        laris: jual ? String(jual.n) + (jual.w ? ' ' + String(jual.w) : '') + ' (' + MD_angka_(jual.q) + ')' : '' });
+    });
+    var totR = 0;
+    window.Gudang.buat(L).om.kumpul(awal, hari).forEach(function (o) { if (o.tp === 'Reseller' && o.st !== 'Batal') totR += o.tot; });
+    out.reseller = MD_angka_(totR);
+    out.akhir = riwayatRingkas(T, L, tokoSemua, awal, hari).map(function (x) {
+      return { n: x.toko, akhir: x.akhir || '', lalu: selisihHari(x.hari), lap: MD_angka_(x.lap), teks: x.teks || '' };
+    });
+    out.harga = { naik: 0, top: [] };
+    if (hb && hb.ok) {
+      var naik = (hb.harga || []).filter(function (x) { return MD_angka_(x.pc) > 0; });
+      naik.sort(function (a, b) { return b.pc - a.pc; });
+      out.harga.naik = naik.length;
+      out.harga.top = naik.slice(0, 3).map(function (x) { return { n: x.n, pc: x.pc }; });
+    }
+    out.bahan = bb;
+    out.uang = {
+      masuk: MD_angka_(acc.totalMasuk), keluar: MD_angka_(acc.totalKeluar), bersih: MD_angka_(acc.lr && acc.lr.bersih),
+      peringatan: (acc.peringatan || []).slice(0, 5),
+      minus: (acc.akun || []).filter(function (a) { return MD_angka_(a.akhir) < 0; }).map(function (a) { return a.n; })
+    };
+    out.gagal = [];
+    out.batas = 3;
+    out.diperbarui = fmt(new Date(), 'dd/MM/yyyy HH:mm');
+    return out;
+  }
+
+  window.MdLama = { mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar };
 })();
