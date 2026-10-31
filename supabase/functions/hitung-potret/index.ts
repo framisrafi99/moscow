@@ -98,6 +98,14 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
   'md:bh': async () => ({ 'md:bh': await W.BagiHasilMd.hitung(sb, bulanMundur(0)) }),
   'md:bh:lalu': async () => ({ 'md:bh:lalu': await W.BagiHasilMd.hitung(sb, bulanMundur(1)) }),
   'acc:oto': async () => ({ 'acc:oto': await W.Akunting.accOto(sb) }),
+  // Halaman Mike (KBS file 85): barang baru menunggu harga jual, kenaikan harga beli 61 hari, laporan bulanan (KB_laporan_).
+  'kb:bbr': async () => ({ 'kb:bbr': await W.MdLama.bbrData(sb) }),
+  'kb:hrgnaik': async () => ({ 'kb:hrgnaik': await W.MdLama.kbNaik(sb) }),
+  'laporan': async () => {
+    const out: Isi = {};
+    for (const b of [bulanMundur(0), bulanMundur(1)]) out['laporan:' + b] = await laporan(b);
+    return out;
+  },
   // HPP (SBH_hitung_ + KBS file 85): 'hpp' dibulatkan, 'hpp:asli' tanpa pembulatan.
   'hpp': async () => {
     const H = await W.MdLama.bahanHpp(sb), peta = H.peta(), bulat: Record<string, number> = {}, asli: Record<string, number> = {};
@@ -125,6 +133,9 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
     return out;
   },
 };
+
+// laporan:<bulan> sama dengan potret Apps Script (KB_laporan_ + ok: true).
+async function laporan(b: string) { const d = await W.Dasbor.laporanBulan(sb, b); return d && d.ok === undefined ? Object.assign({ ok: true }, d) : d; }
 
 // Bandingkan dua isi (abaikan jam "diperbarui"/"dibuat"/"hariIni"); hasil: daftar jalur yang berbeda (paling banyak 6).
 const ABAIKAN = new Set(['diperbarui', 'dibuat', 'hariIni']);
@@ -162,7 +173,12 @@ Deno.serve(async (req) => {
   const simpan = body.simpan === true;
   const mulai = Date.now();
   const versi = await muatRumus();
-  const minta = (Array.isArray(body.kunci) && body.kunci.length ? body.kunci : Object.keys(RUMUS)).filter((k) => RUMUS[k]);
+  // Kunci laporan:<yyyy-MM> boleh diminta untuk bulan mana pun (mis. untuk mencocokkan bulan yang sudah lewat).
+  const R: Record<string, () => Promise<Isi>> = Object.assign({}, RUMUS);
+  (Array.isArray(body.kunci) ? body.kunci : []).forEach((k) => {
+    if (/^laporan:\d{4}-\d{2}$/.test(k) && !R[k]) R[k] = async () => ({ [k]: await laporan(k.slice(8)) });
+  });
+  const minta = (Array.isArray(body.kunci) && body.kunci.length ? body.kunci : Object.keys(RUMUS)).filter((k) => R[k]);
   const hasil: Record<string, unknown> = {}, isi: Isi = {};
   SIMPANAN = {};
   // Paling banyak 4 rumus bersamaan supaya memori robot cukup.
@@ -171,7 +187,7 @@ Deno.serve(async (req) => {
   async function jalankan(k: string) {
     const t = Date.now();
     try {
-      const r = await Promise.race([RUMUS[k](), new Promise<Isi>((_, gagal) => setTimeout(() => gagal(new Error('lebih dari 60 detik')), 60000))]);
+      const r = await Promise.race([R[k](), new Promise<Isi>((_, gagal) => setTimeout(() => gagal(new Error('lebih dari 60 detik')), 60000))]);
       let semuaOk = true;
       Object.keys(r).forEach((kk) => { const v = r[kk] as { ok?: boolean } | null; if (!v || v.ok === false) semuaOk = false; else isi[kk] = JSON.parse(JSON.stringify(v)); });
       hasil[k] = { detik: (Date.now() - t) / 1000, ok: semuaOk, isi: Object.keys(r) };

@@ -1070,7 +1070,38 @@
     return { ok: true, barang: barang, kategori: kat, lokasi: lokasi, log: log, hariIni: fmt(new Date(), 'yyyy-MM-dd') };
   }
 
-  window.MdLama = { mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu, mdeData: mdeData, mpPsn: async function (sb) { return MP_bacaPsn_(await window.Lembar.muat(sb, TABEL_MP)); },
+  // ---- bbrData (file 73): barang jualan baru yang menunggu harga jual (potret kb:bbr) ----
+  async function bbrData(sb) {
+    var h = await Promise.all([semua(sb, 'barang_baru', 'kode,nama,warna,tanggal,pengajuan,diajukan,harga_beli,qty,toko,po,status,harga_jual,kategori,diisi_oleh'),
+      window.Lembar.muat(sb, ['barang_order'])]);
+    var t = function (v, n) { return s(v).replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n); };
+    var semuaB = h[0].map(function (r, i) {
+      return { baris: i + 2, k: t(r.kode, 20), n: t(r.nama, 120), w: t(r.warna, 30), t: tglIso(r.tanggal) || t(r.tanggal, 10), pg: t(r.pengajuan, 30), oleh: t(r.diajukan, 60),
+        hb: Number(r.harga_beli) || 0, q: Number(r.qty) || 0, toko: t(r.toko, 80), po: t(r.po, 30), st: t(r.status, 30), hj: Number(r.harga_jual) || 0,
+        kat: t(r.kategori, 60), isi: t(r.diisi_oleh, 60) };
+    }).filter(function (x) { return x.k; });
+    var lihat = {}, tunggu = [];
+    semuaB.forEach(function (b) {
+      if (b.st !== 'Menunggu harga jual') return;
+      var kunci = b.k + '|' + b.w;
+      if (lihat[kunci] !== undefined) { var x = tunggu[lihat[kunci]]; x.q += b.q; x.pg.push(b.pg); return; }
+      lihat[kunci] = tunggu.length;
+      tunggu.push({ k: b.k, n: b.n, w: b.w, t: b.t, hb: b.hb, q: b.q, toko: b.toko, po: b.po, oleh: b.oleh, pg: [b.pg] });
+    });
+    var selesai = semuaB.filter(function (b) { return b.st === 'Lengkap'; }).slice(-20).reverse();
+    var ada = {}, kategori = [];
+    window.Gudang.buat(h[1]).barang().list.forEach(function (b) { if (b.kat && !ada[b.kat]) { ada[b.kat] = 1; kategori.push(b.kat); } });
+    return { ok: true, tunggu: tunggu, selesai: selesai, kategori: kategori.sort() };
+  }
+  // ---- SBM_kbNaik_ (file 85): kenaikan harga beli 61 hari terakhir (potret kb:hrgnaik) ----
+  async function kbNaik(sb) {
+    var r = await hrgNaikData(sb);
+    if (!r || !r.ok) return r;
+    var batas = fmt(new Date(Date.now() - 61 * 86400000), 'yyyy-MM-dd');
+    return { ok: true, list: r.list.filter(function (x) { return x.t >= batas; }), diperbarui: r.diperbarui };
+  }
+
+  window.MdLama = { bbrData: bbrData, kbNaik: kbNaik, mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu, mdeData: mdeData, mpPsn: async function (sb) { return MP_bacaPsn_(await window.Lembar.muat(sb, TABEL_MP)); },
     // MP_dasborJual_ (file 36): penjualan marketplace Official per barang untuk dasbor.
     mpJual: async function (sb) {
       var L = await window.Lembar.muat(sb, TABEL_MP), B = MP_barang_(L), P = MP_padananFn_(L, B), out = [];
