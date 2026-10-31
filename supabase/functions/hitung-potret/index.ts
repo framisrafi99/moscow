@@ -61,7 +61,7 @@ async function muatRumus() {
 let SIMPANAN: Record<string, Promise<unknown>> = {};
 
 function json(isi: unknown, status = 200) {
-  return new Response(JSON.stringify(isi), { status, headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify(isi), { status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
 }
 function bulanMundur(m: number) { let d = new Date(Date.now() + 8 * 3600e3); d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - m, 15)); return d.toISOString().slice(0, 7); }
 function akhirBulan(b: string) { return ('0' + new Date(Number(b.slice(0, 4)), Number(b.slice(5, 7)), 0).getDate()).slice(-2); }
@@ -192,6 +192,6 @@ Deno.serve(async (req) => {
   }
   const detik = (Date.now() - mulai) / 1000;
   const gagal = Object.keys(hasil).filter((k) => !(hasil[k] as { ok: boolean }).ok);
-  await sb.from('robot_log').insert({ jenis: simpan ? (jadwal ? 'jadwal' : 'simpan') : 'banding', detik, hasil: { versi, gagal, hasil } });
+  await sb.from('robot_log').insert({ jenis: simpan ? (jadwal ? 'jadwal' : 'simpan') : 'banding', detik, hasil: { versi, gagal, hasil, banding } });
   return json({ ok: true, simpan, detik, versi, gagal, hasil, banding });
 });
