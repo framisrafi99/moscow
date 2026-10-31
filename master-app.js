@@ -94,6 +94,9 @@
   function akhirBulan(b) { return ('0' + new Date(Number(b.slice(0, 4)), Number(b.slice(5, 7)), 0).getDate()).slice(-2); }
   var LANGSUNG = {
     'md:ringkasan': function () { return window.MdLama.mdRingkasan(sb); },
+    'md:setuju': function () { return window.MdLama.mdSetujuData(sb); },
+    'md:tanpa': function () { return window.MdLama.pgsTanpaData(sb); },
+    'md:titip': async function () { var r = await sb.rpc('ttp_pemilik_data', { p_toko: '', p_bulan: '' }); if (r.error) throw r.error; return r.data; },
     'md:request': function () { return window.MdLama.rpDaftar(sb); },
     'md:pantau': function () { return window.MdLama.rpPantau(sb); },
     'md:mkt': function () { return window.MdLama.mpRingkasOfficial(sb, {}); },
