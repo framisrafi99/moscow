@@ -111,6 +111,11 @@
       var hk = Array.isArray(s.hari_kerja) ? s.hari_kerja : [1, 2, 3, 4, 5, 6], dowT = new Date(String(d.tanggal) + 'T12:00:00').getDay(), bukanKerja = hk.indexOf(dowT) === -1;
       if (!x.masuk && izin[s.id]) { nIzin++; ket.push('<span class="label ok">' + NAMA_IZIN[izin[s.id]] + '</span>'); }
       else if (!x.masuk && bukanKerja) ket.push('<span class="label biru">Libur / WFH</span>');
+      if (x.masuk && bukanKerja) {   // masuk di luar hari kerja (mis. Sabtu): tanpa telat/lembur, dibayar upah 1 hari
+        if (m != null && m > jm + JAM.toleransi) telat--;
+        ket = ket.filter(function (k) { return !/Telat|Lembur/.test(k); });
+        ket.push('<span class="label ok">Masuk ' + HARI[dowT] + ' (upah 1 hari)</span>');
+      }
       else if (!x.masuk) { belum++; ket.push('<span class="label abu">Belum absen</span>'); }
       if (x.masuk && !x.pulang && d.tanggal !== d.hari_ini) ket.push('<span class="label w">Tidak absen pulang</span>');
       if (x.koreksi) ket.push('<span class="label abu" title="' + esc(x.catatan) + '">Dikoreksi</span>');

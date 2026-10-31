@@ -176,6 +176,9 @@
         if (t[0] < 13 * 60) baris.masuk = t[0]; else baris.pulang = t[t.length - 1];
         baris.ket = A.sumber === 'app' ? (baris.pulang == null ? 'Tidak absen pulang' : 'Tidak absen masuk') : 'Scan cuma sekali'; r.kurang++;
       } else { baris.masuk = t[0]; baris.pulang = t[t.length - 1]; }
+      // Masuk di luar hari kerja staf (mis. tim kreatif masuk Sabtu): upah 1 hari (gaji pokok / 26), tanpa telat/lembur.
+      var luarKerja = Array.isArray(js.hari) && js.hari.indexOf(dow) === -1 && A.libur.indexOf(dow) === -1 && !merah[d];
+      if (libur && luarKerja && baris.masuk != null) { r.masukLibur = (r.masukLibur || 0) + 1; baris.ket = (baris.ket ? baris.ket + '; ' : '') + 'Masuk ' + HARI[dow] + ' (di luar hari kerja): upah 1 hari'; r.hari.push(baris); continue; }
       if (libur) { r.libur++; baris.ket = (baris.ket ? baris.ket + '; ' : '') + 'Hari libur (tidak dihitung lembur)'; r.hari.push(baris); continue; }
       r.hadir++;
       if (baris.masuk != null && baris.masuk > jMasuk + ATUR.toleransi) { baris.telat = baris.masuk - jMasuk; r.telatHari++; r.telatMenit += baris.telat; }
@@ -186,6 +189,7 @@
       if (baris.telat || baris.lembur || baris.ket) r.hari.push(baris);
     }
     r.telatRp = perMenit * r.telatMenit;
+    r.masukLiburRp = gp / ATUR.hariKerja * (r.masukLibur || 0);
     return r;
   }
   function stafList() { return ((A.gaji && A.gaji.rows) || []).filter(function (x) { return x.kel !== 'Direksi'; }); }
@@ -212,7 +216,7 @@
       var gp = staf ? Number(staf.gp) || 0 : 0, dapatMakan = staf ? Number(staf.um) > 0 : false;
       r.alpa = alpa; r.alpaRp = gp / ATUR.hariKerja * alpa;
       r.um = dapatMakan ? Math.max(0, ATUR.makanSehari * (ATUR.hariKerja - alpa)) : 0;
-      r.tl = Math.round(r.telatRp + r.alpaRp); r.lb = Math.round(r.lemburRp);
+      r.tl = Math.round(r.telatRp + r.alpaRp); r.lb = Math.round(r.lemburRp + (r.masukLiburRp || 0));
       return { mesin: nm, staf: staf, r: r };
     });
   }
@@ -263,7 +267,8 @@
           '<td class="r"><input type="text" inputmode="numeric" data-alpa="' + i + '" value="' + r.alpa + '" aria-label="Hari alpa ' + esc(x.mesin) + '">' +
             (r.alpaOtomatis ? '<small>' + r.alpaOtomatis + (A.sumber === 'app' ? ' hari tidak absen' : ' hari tanpa scan') + '</small>' : '') + '</td>' +
           '<td class="r">' + (r.telatMenit ? r.telatMenit + ' mnt<small>' + r.telatHari + ' hari</small>' : '–') + '</td>' +
-          '<td class="r">' + (r.lemburMenit ? (x.staf ? rp(r.lb) : '') + '<small>' + durasi(r.lemburMenit) + ', ' + r.lemburHari + ' hari</small>' : '–') + '</td>' +
+          '<td class="r">' + (r.lemburMenit || r.masukLibur ? (x.staf ? rp(r.lb) : '') + (r.lemburMenit ? '<small>' + durasi(r.lemburMenit) + ', ' + r.lemburHari + ' hari</small>' : '') +
+            (r.masukLibur ? '<small>+ masuk di luar hari kerja ' + r.masukLibur + ' hari' + (x.staf ? ' (' + rp(r.masukLiburRp) + ')' : '') + '</small>' : '') : '–') + '</td>' +
           '<td class="r">' + (x.staf ? rp(r.um) : '') + '</td>' +
           '<td class="r">' + (x.staf ? rp(r.tl) + (r.alpa ? '<small>alpa ' + rp(r.alpaRp) + '</small>' : '') : '') + '</td></tr>';
       });
@@ -367,7 +372,7 @@
       if (x) {
         var r = x.r;
         it.um = r.um; it.lb = r.lb; it.tl = r.tl;
-        var c = 'Absensi: telat ' + r.telatMenit + ' mnt, alpa ' + r.alpa + ' hr (' + rp(r.alpaRp) + '), lembur ' + r.lemburMenit + ' mnt';
+        var c = 'Absensi: telat ' + r.telatMenit + ' mnt, alpa ' + r.alpa + ' hr (' + rp(r.alpaRp) + '), lembur ' + r.lemburMenit + ' mnt' + (r.masukLibur ? ', masuk di luar hari kerja ' + r.masukLibur + ' hr (' + rp(r.masukLiburRp) + ')' : '');
         it.cat = (c + (cat ? ' | ' + cat : '')).slice(0, 200);
       }
       return it;
