@@ -233,7 +233,8 @@
       };
     }
     // ---- prodSesuaiDaftar (file 7; link produksi tidak melihat ajuan Gudang & Kantor Packing: file 13, 15) ----
-    function prodSesuaiDaftar() {
+    // semua = kunci manajemen (Master Data): tanpa saringan file 13 / 15.
+    function prodSesuaiDaftar(semua) {
       var a = PSS_baca_();
       var jam = function (d) { return d ? fmt(d, 'dd/MM/yyyy HH:mm') : ''; };
       a.sort(function (x, y) { return y.baris - x.baris; });
@@ -246,6 +247,7 @@
         }),
         diperbarui: jam(new Date())
       };
+      if (semua) return r;
       r.list = r.list.filter(function (x) { return x.bg !== 'Gudang'; });
       r.menunggu = r.list.filter(function (x) { return x.st === 'Menunggu'; }).length;
       r.list = r.list.filter(function (x) { return x.bg !== 'Kantor Packing'; });
@@ -426,7 +428,7 @@
       var awal = petaAwal(h[1]);
       return awal ? buat(h[0]).ambilStok(awal) : null;
     },
-    prodSesuaiDaftar: async function (sb) { return buat(await window.Lembar.muat(sb, ['produksi_sesuai_log'])).prodSesuaiDaftar(); },
+    prodSesuaiDaftar: async function (sb, semua) { return buat(await window.Lembar.muat(sb, ['produksi_sesuai_log'])).prodSesuaiDaftar(!!semua); },
     buat: buat, TABEL: TABEL
   };
 })();

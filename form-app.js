@@ -245,6 +245,15 @@
     kbHarga: function () { return window.KendaliBisnis.kbHarga(sb); },
     kbNaik: function () { return window.KendaliBisnis.kbNaik(sb); }
   };
+  // Master Data lama (31 Okt): bagian yang dihitung dari Supabase (md.js, akun.js, produksi.js); selebihnya tetap Apps Script.
+  BACA_SUPABASE.mdlama = {
+    akuntingLaporan: function (a) { return window.Akunting.akuntingLaporan(sb, a[0]); },
+    prodSesuaiDaftar: function () { return window.Produksi.prodSesuaiDaftar(sb, true); },
+    pinjamPemilik: function () { return window.MdLama.pinjamPemilik(sb); },
+    sesuaiPemilik: function () { return window.MdLama.sesuaiPemilik(sb); },
+    rpPantau: function () { return window.MdLama.rpPantau(sb); },
+    rpDaftar: function () { return window.MdLama.rpDaftar(sb); }
+  };
   // Payroll (tahap 5f): data gaji langsung dari Supabase.
   BACA_SUPABASE.payroll = {
     gjData: async function (a) {
