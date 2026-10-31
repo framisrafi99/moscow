@@ -382,6 +382,51 @@
     return d;
   }
 
+  // ---- invoice bagi hasil (bhInvoice, file 77 + 78; 31 Okt dipindah ke aplikasi) ----
+  function jamSekarang() { return sekarang(); }
+  function invoice(toko, bulan, D, staf) {
+    var tokoMP = SAL_pasar_(toko).length > 0 || RN_TOKO_.indexOf(toko) !== -1;
+    if (!tokoMP) return { ok: false, pesan: 'Invoice bagi hasil belum tersedia untuk toko ini.' };
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(bulan || ''))) return { ok: false, pesan: 'Bulan tidak valid.' };
+    var d = hitung(toko, bulan, D);
+    if (!d || !d.ok) return d;
+    var st = d.bhi || bhiStatus(d, toko, bulan);
+    var tercatat = 0;
+    (D.setor || []).forEach(function (r) { tercatat += DC_n_(r[3]); });
+    var items = (d.items || []).filter(function (x) { return x.q || x.rq; }).map(function (x) {
+      return { k: x.k, n: x.n, q: x.q, omzet: Math.round(x.omzet), rq: x.rq, rl: x.rl, rn: Math.round(x.rn || 0), hpp: x.hpp, hppTot: Math.round(x.hppTot), ada: x.ada };
+    });
+    var dana = [];
+    ((d.dc && d.dc.pasar) || []).forEach(function (pf) {
+      var f = d.dc.info[pf];
+      dana.push(f ? { pf: pf, dari: f.dari, sampai: f.sampai, harga: f.harga, biaya: f.biaya, pen: f.pen, cair: f.cair, jml: f.jml } : { pf: pf, belum: true });
+    });
+    var penjualan = Math.round(d.penjualan || 0), potongan = Math.round(d.potongan || 0);
+    var v = {
+      ok: true, staf: !!staf, no: st.no, terbit: st.terbit, kurang: st.kurang, waktu: st.waktu,
+      toko: toko, nama: d.nama || toko, bulan: bulan, persen: d.persen,
+      dana: dana, tunai: d.tunai && d.tunai.isi ? d.tunai.isi.v : null, tunaiAktif: !!(d.tunai && d.tunai.aktif),
+      omzet: Math.round(d.omzet || 0), retur: Math.round(d.retur || 0), penjualan: penjualan, potongan: potongan, omzetBersih: penjualan - potongan,
+      hpp: Math.round(d.hpp || 0), belanja: Math.round(d.belanja || 0), ongkir: Math.round(d.ongkir || 0),
+      bersih: Math.round(d.bersih || 0), bagianToko: Math.round(d.medan || 0), bagianMoscow: Math.round(d.moscowBagian || 0),
+      setoran: Math.round(d.moscow || 0), tercatat: tercatat, titipan: d.titipan || null,
+      items: items, biaya: d.biaya || [], tanpa: d.tanpa || [],
+      akun: (SAL_pasar_(toko).length && D.akunpen) ? teks(D.akunpen, 60) : 'Rekening PT',
+      dibuat: jamSekarang()
+    };
+    // file 78: toko laporan bulan (Renon)
+    if (RN_TOKO_.indexOf(toko) !== -1) {
+      var lap = rnBaca(D, toko, bulan);
+      v.dana = [
+        { manual: true, pf: 'Uang tunai (dipegang admin toko)', ket: 'diisi staf toko', cair: lap && lap.tunai !== null ? lap.tunai : 0, belumIsi: !(lap && lap.tunai !== null) },
+        { manual: true, pf: 'Transfer / QRIS (rekening consignment)', ket: 'diisi staf toko', cair: lap && lap.transfer !== null ? lap.transfer : 0, belumIsi: !(lap && lap.transfer !== null) }
+      ];
+      v.akun = 'Rekening PT';
+      v.biayaToko = true;
+    }
+    return v;
+  }
+
   // hppTokoSaya: harga dasar barang terjual (kartu di tab Report penjualan, sekarang hanya Medan).
   function hppSaya(toko, bulan, D) {
     if (toko !== 'Consignment Medan') return { ok: false, pesan: 'Akses ditolak.' };
@@ -396,5 +441,5 @@
     };
   }
 
-  window.BagiHasil = { hitung: hitung, hppSaya: hppSaya };
+  window.BagiHasil = { hitung: hitung, hppSaya: hppSaya, invoice: invoice };
 })();
