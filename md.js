@@ -548,5 +548,264 @@
     return { ok: true, t: t, pcs: pcs, minus: minus, online: online, diperbarui: fmt(new Date(), 'dd/MM/yyyy HH:mm') };
   }
 
-  window.MdLama = { gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar };
+  // ======================= MARKETPLACE (file 38): mpRingkasOfficial, mpData (consignment) =======================
+  var MP_TOKO_ = { 'Consignment Medan': ['Shopee', 'Tokopedia'], 'Consignment Sidoarjo': ['Shopee'], 'Official': ['Shopee', 'Tokopedia', 'Lazada'] };
+  var MP_TOKO_POTONG_ = 'Official';
+  function MP_t_(v, n) { return s(v).replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n || 200); }
+  function MP_n_(v) { var x = Number(v); return isFinite(x) ? x : 0; }
+  function MP_tgl_(v) { v = MP_t_(v, 20); return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : ''; }
+  // Waktu marketplace tersimpan sebagai teks "yyyy-MM-dd HH:mm" di sheet (dibaca ulang dengan zona sheet).
+  function MP_jamTeks_(v) { if (v instanceof Date) return fmt(v, 'yyyy-MM-dd HH:mm'); var t = MP_t_(v, 20); return /^\d{4}-\d{2}-\d{2}/.test(t) ? t.slice(0, 16) : ''; }
+  function MP_pkunci_(nm, vr) { return (MP_t_(nm, 250) + '|' + MP_t_(vr, 120)).toUpperCase(); }
+  function MP_up_(x) { return String(x || '').toUpperCase(); }
+  function MP_kata_(x) {
+    var t = MP_up_(x).replace(/[^A-Z0-9]+/g, ' ').replace(/(\d)([A-Z])/g, '$1 $2').replace(/([A-Z])(\d)/g, '$1 $2').replace(/\s+/g, ' ').trim();
+    var sin = [['CLEANER', 'KLIN'], ['SABUN', 'KLIN'], ['SPATULA', 'SEPATULA'], ['LEATHER', 'LETHER'], ['DEMPUL', 'FILLER']];
+    var ada = ' ' + t + ' ';
+    sin.forEach(function (y) { if (ada.indexOf(' ' + y[0] + ' ') !== -1 && ada.indexOf(' ' + y[1] + ' ') === -1) t += ' ' + y[1]; });
+    return t;
+  }
+  function MP_ukuran_(x) {
+    var t = MP_up_(x).replace(/\s+/g, '');
+    if (/(^|[^0-9])1(L|LT|LTR|LITER|LITRE)([^A-Z]|$)/.test(t)) return 1000;
+    var m = t.match(/(\d{2,4})ML/);
+    return m ? Number(m[1]) : 0;
+  }
+  function MP_warna_(teks, daftar) {
+    var t = ' ' + MP_kata_(teks) + ' ', best = '';
+    daftar.forEach(function (w) { var ww = ' ' + MP_kata_(w) + ' '; if (t.indexOf(ww) !== -1 && w.length > best.length) best = w; });
+    return best;
+  }
+  function MP_aturan_(nm, vr) {
+    var t = ' ' + MP_kata_(nm + ' ' + vr) + ' ', ml = MP_ukuran_(nm + ' ' + vr);
+    var ada = function (x) { return t.indexOf(' ' + x + ' ') !== -1; };
+    if (ada('WATERBASED') || ada('WATER BASED')) return ml === 1000 ? 'M06' : 'M05';
+    if (ada('SUEDE DYE') || ada('PEWARNA SUEDE')) return ml >= 250 ? 'M07C' : (ml >= 100 ? 'M07B' : 'M07');
+    if (ada('FINISHER') || ada('VARNISH')) {
+      var g = ada('GLOSS'), d = ada('DOFF') || ada('MATTE');
+      if (g === d) return null;
+      return ml === 60 ? (g ? 'M11' : 'M09') : (g ? 'M10' : 'M08');
+    }
+    if (ada('CAT') && (ada('LEATHER') || ada('PAINT') || ada('MOSCOW'))) {
+      if (ada('NEON')) return ml === 60 ? 'M03N60' : 'M02N30';
+      if (ada('PASTEL')) return ml === 60 ? 'M03P60' : 'M02P30';
+      if (ml === 1000) return 'M01';
+      if (ml === 100) return 'M04';
+      if (ml === 60) return 'M03';
+      if (ml === 30) return 'M02';
+    }
+    return null;
+  }
+  function MP_skor_(nm, vr, ha, b) {
+    var teks = MP_kata_(nm + ' ' + vr), set = {};
+    teks.split(' ').forEach(function (x) { if (x.length >= 2) set[x] = 1; });
+    var bt = MP_kata_(b.nama).split(' ').filter(function (x) { return x.length >= 2; });
+    if (!bt.length) return 0;
+    var hit = 0;
+    bt.forEach(function (x) { if (set[x]) hit++; });
+    var sk = hit / bt.length * 0.7;
+    var ca = teks.replace(/ /g, ''), cb = MP_kata_(b.nama).replace(/ /g, '');
+    if (cb.length >= 5 && ca.indexOf(cb) !== -1) sk += 0.25;
+    if (ha > 0 && b.harga > 0) {
+      var sel = Math.abs(ha - b.harga) / b.harga;
+      if (Math.abs(ha - b.harga) <= 1) sk += 0.35; else if (sel <= 0.15) sk += 0.08; else if (sel > 0.4) sk -= 0.3;
+    }
+    var u1 = MP_ukuran_(nm + ' ' + vr), u2 = MP_ukuran_(b.nama);
+    if (u1 && u2 && u1 !== u2) sk -= 0.3;
+    return sk;
+  }
+  function MP_usul_(nm, vr, ha, B) {
+    var r = MP_aturan_(nm, vr), b, w;
+    if (r && B.idx[r]) {
+      b = B.idx[r];
+      if (!b.warna.length) return { k: r, w: '', y: 0.9 };
+      w = MP_warna_(vr, b.warna) || MP_warna_(nm, b.warna);
+      return { k: r, w: w, y: w ? 0.9 : 0.5 };
+    }
+    var best = null, s1 = 0, s2 = 0;
+    B.list.forEach(function (x) {
+      var sk = MP_skor_(nm, vr, ha, x);
+      if (sk > s1) { s2 = s1; s1 = sk; best = x; } else if (sk > s2) s2 = sk;
+    });
+    if (!best || s1 < 0.35) return { k: '', w: '', y: 0 };
+    w = best.warna.length ? (MP_warna_(vr, best.warna) || MP_warna_(nm, best.warna)) : '';
+    var y = Math.min(1, s1);
+    if (s1 - s2 < 0.05) y = Math.min(y, 0.4);
+    if (best.warna.length && !w) y = Math.min(y, 0.4);
+    return { k: best.kode, w: w, y: Math.round(y * 100) / 100 };
+  }
+  // MP_barang_: bacaBarangOrder_(true).
+  function MP_barang_(L) {
+    var list = [], dilihat = {}, idx = {};
+    window.Lembar.baca(L, 'barang_order', 5).forEach(function (r) {
+      var kode = String(r[0]).trim().toUpperCase();
+      if (!kode || kode.indexOf('-') !== -1 || dilihat[kode]) return;
+      dilihat[kode] = true;
+      var h = Number(r[2]), harga = (r[2] === '' || !isFinite(h) || h < 0) ? 0 : h, warna = [], ada = {};
+      String(r[4] || '').split(',').forEach(function (w) {
+        w = w.replace(/-/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+        if (w && w !== 'LAINNYA' && !ada[w]) { ada[w] = true; warna.push(w); }
+      });
+      list.push({ kode: kode, nama: String(r[1]).trim(), harga: harga, kat: String(r[3]).trim() || 'Lainnya', warna: warna });
+    });
+    list.forEach(function (b) { if (!idx[b.kode]) idx[b.kode] = b; });
+    return { list: list, idx: idx, nama: function (k) { return idx[k] ? idx[k].nama : k; } };
+  }
+  function MP_padananFn_(L, B) {
+    var tetap = {}, memo = {};
+    window.Lembar.baca(L, 'mp_padanan', 7).forEach(function (r) {
+      var nm = MP_t_(r[0], 250);
+      if (!nm) return;
+      tetap[MP_pkunci_(nm, r[1])] = { k: MP_t_(r[2], 30).toUpperCase(), w: rapiWarna_(r[3]), st: MP_t_(r[4], 20) || 'Dikonfirmasi' };
+    });
+    return function (nm, vr, ha) {
+      var key = MP_pkunci_(nm, vr), t = tetap[key];
+      if (t) return { k: t.st === 'Diabaikan' ? '-' : t.k, w: t.w, st: t.st, y: 1 };
+      if (!memo[key]) { var u = MP_usul_(nm, vr, ha, B); memo[key] = { k: u.k, w: u.w, st: u.k ? 'Usulan' : '', y: u.y }; }
+      return memo[key];
+    };
+  }
+  function MP_bacaPsn_(L) {
+    var out = [];
+    window.Lembar.baca(L, 'mp_pesanan', 17).forEach(function (r) {
+      var no = MP_t_(r[3], 40);
+      if (!no) return;
+      var st = MP_t_(r[4], 160);
+      out.push({ toko: MP_t_(r[1], 40), pf: MP_t_(r[2], 20), no: no, st: st,
+        dibuat: MP_jamTeks_(r[5]), kirim: MP_jamTeks_(r[6]), selesai: MP_jamTeks_(r[7]),
+        nm: MP_t_(r[8], 250), vr: MP_t_(r[9], 120), q: MP_n_(r[10]), ret: MP_n_(r[11]),
+        ha: MP_n_(r[12]), hd: MP_n_(r[13]), sub: MP_n_(r[14]), wu: MP_jamTeks_(r[16]),
+        batal: /batal|cancel/i.test(st), belum: /belum bayar|unpaid/i.test(st) });
+    });
+    return out;
+  }
+  var TABEL_MP = ['barang_order', 'mp_pesanan', 'mp_padanan'];
+
+  async function mpRingkasOfficial(sb, p) {
+    var h = await Promise.all([window.Lembar.muat(sb, TABEL_MP), bahanHpp(sb)]), L = h[0], H = h[1];
+    var kini = fmt(new Date(), 'yyyy-MM-dd'), dari = MP_tgl_(p && p.dari), sampai = MP_tgl_(p && p.sampai), tt;
+    if (!sampai) sampai = kini;
+    if (!dari) dari = sampai.slice(0, 8) + '01';
+    if (dari > sampai) { tt = dari; dari = sampai; sampai = tt; }
+    var B = MP_barang_(L), P = MP_padananFn_(L, B), psn = MP_bacaPsn_(L), hpp = H.peta();
+    var hppK = function (k, t) { return Number(H.pada(k, t, hpp[k] || 0) || 0) || 0; };
+    var PF = MP_TOKO_[MP_TOKO_POTONG_], per = {}, brg = {};
+    PF.forEach(function (pf) { per[pf] = { psn: {}, batal: {}, pcs: 0, ret: 0, nret: 0, omzet: 0, hpp: 0, tanpaHpp: 0, belumKenal: 0, terakhir: '' }; });
+    psn.forEach(function (x) {
+      if (x.toko !== MP_TOKO_POTONG_) return;
+      var st = per[x.pf];
+      if (!st) return;
+      if (x.wu > st.terakhir) st.terakhir = x.wu;
+      var t = x.dibuat.slice(0, 10);
+      if (t < dari || t > sampai || x.belum) return;
+      if (x.batal) { st.batal[x.no] = 1; return; }
+      st.psn[x.no] = 1;
+      var harga = x.hd || x.ha, q = x.q - x.ret;
+      st.ret += x.ret; st.nret += harga * x.ret;
+      if (!(q > 0)) return;
+      var om = harga * q;
+      st.pcs += q; st.omzet += om;
+      var m = P(x.nm, x.vr, x.ha);
+      if (!m.k || m.k === '-') { if (m.k !== '-') st.belumKenal += q; return; }
+      var hh = hppK(m.k, t);
+      if (!(hh > 0)) st.tanpaHpp += q;
+      st.hpp += hh * q;
+      var b = brg[m.k] || (brg[m.k] = { k: m.k, n: B.nama(m.k), q: {}, pcs: 0, omzet: 0, hpp: 0 });
+      b.q[x.pf] = (b.q[x.pf] || 0) + q; b.pcs += q; b.omzet += om; b.hpp += hh * q;
+    });
+    var list = PF.map(function (pf) {
+      var st = per[pf];
+      return { pf: pf, psn: Object.keys(st.psn).length, batal: Object.keys(st.batal).filter(function (n) { return !st.psn[n]; }).length,
+        pcs: st.pcs, ret: st.ret, nret: Math.round(st.nret), omzet: Math.round(st.omzet), hpp: Math.round(st.hpp), laba: Math.round(st.omzet - st.hpp),
+        tanpaHpp: st.tanpaHpp, belumKenal: st.belumKenal, terakhir: st.terakhir };
+    });
+    var top = Object.keys(brg).map(function (k) { var b = brg[k]; b.omzet = Math.round(b.omzet); b.hpp = Math.round(b.hpp); return b; })
+      .sort(function (a, b) { return b.omzet - a.omzet; }).slice(0, 50);
+    return { ok: true, dari: dari, sampai: sampai, pf: PF, list: list, top: top };
+  }
+
+  // mpData: hanya toko consignment (Medan / Sidoarjo). Official memakai potongan stok Kantor Packing: tetap lewat Apps Script.
+  async function mpData(sb, p) {
+    p = p || {};
+    var toko = MP_TOKO_[MP_t_(p.toko, 40)] ? MP_t_(p.toko, 40) : 'Consignment Medan';
+    if (toko === MP_TOKO_POTONG_) return null;
+    var pf = MP_TOKO_[toko].indexOf(MP_t_(p.platform, 20)) !== -1 ? MP_t_(p.platform, 20) : MP_TOKO_[toko][0];
+    var h = await Promise.all([window.Lembar.muat(sb, TABEL_MP),
+      semua(sb, 'toko_jual_log', 'tanggal,toko,kode,qty_terjual,warna,saluran')]), L = h[0];
+    var kini = fmt(new Date(), 'yyyy-MM-dd'), dari = MP_tgl_(p.dari), sampai = MP_tgl_(p.sampai), tt;
+    if (!sampai) sampai = kini;
+    if (!dari) dari = sampai.slice(0, 8) + '01';
+    if (dari > sampai) { tt = dari; dari = sampai; sampai = tt; }
+    var B = MP_barang_(L), P = MP_padananFn_(L, B), psn = MP_bacaPsn_(L);
+    var combo = {};
+    psn.forEach(function (x) {
+      var k = MP_pkunci_(x.nm, x.vr);
+      if (!combo[k]) combo[k] = { n: x.nm, v: x.vr, q: 0, h: x.ha, toko: {} };
+      if (!x.batal && !x.belum) combo[k].q += x.q - x.ret;
+      combo[k].toko[x.toko] = 1;
+    });
+    var padanan = Object.keys(combo).map(function (k) {
+      var c = combo[k], m = P(c.n, c.v, c.h);
+      return { n: c.n, v: c.v, q: c.q, h: c.h, k: m.k, w: m.w, st: m.st, y: m.y, toko: Object.keys(c.toko) };
+    }).sort(function (a, b) { return b.q - a.q; });
+    var hari = {}, brg = {}, noP = {}, noB = {}, tot = { psn: 0, batal: 0, pcs: 0, omzet: 0, kenal: 0, belumKenal: 0, ragu: 0 }, terakhir = '';
+    var hr = function (t) { return hari[t] || (hari[t] = { t: t, psn: {}, batal: {}, pcs: 0, omzet: 0, staf: 0, potong: 0 }); };
+    psn.forEach(function (x) {
+      if (x.toko !== toko || x.pf !== pf) return;
+      if (x.wu > terakhir) terakhir = x.wu;
+      var t = x.dibuat.slice(0, 10);
+      if (t < dari || t > sampai || x.belum) return;
+      var d = hr(t);
+      if (x.batal) { d.batal[x.no] = 1; noB[x.no] = 1; return; }
+      d.psn[x.no] = 1; noP[x.no] = 1;
+      var q = x.q - x.ret;
+      if (!(q > 0)) return;
+      d.pcs += q; tot.pcs += q;
+      var om = (x.hd || x.ha) * q;
+      d.omzet += om; tot.omzet += om;
+      var m = P(x.nm, x.vr, x.ha);
+      if (m.k === '-') return;
+      if (!m.k) { tot.belumKenal += q; return; }
+      var kk = m.k + '|' + (m.w || '');
+      var b = brg[kk] || (brg[kk] = { k: m.k, w: m.w || '', n: B.nama(m.k), mkt: 0, staf: 0, ragu: 0 });
+      b.mkt += q; tot.kenal += q;
+      if (m.st !== 'Dikonfirmasi') { b.ragu += q; tot.ragu += q; }
+    });
+    tot.psn = Object.keys(noP).length;
+    tot.batal = Object.keys(noB).filter(function (n) { return !noP[n]; }).length;
+    // MP_staf_: laporan penjualan staf toko (toko_jual_log) pada periode, per saluran.
+    var ikut = p.ikut !== false, sf = { brg: {}, hari: {}, tanpa: 0, pcs: 0 };
+    h[1].forEach(function (r) {
+      var d = tglLokal(r.tanggal);
+      if (!d || MP_t_(r.toko, 80) !== toko) return;
+      var t = fmt(d, 'yyyy-MM-dd');
+      if (t < dari || t > sampai) return;
+      var q = Number(r.qty_terjual) || 0;
+      if (!q) return;
+      var sl = MP_t_(r.saluran, 30);
+      if (!sl) { sf.tanpa += q; if (!ikut) return; }
+      else if (sl !== pf) return;
+      var kk = MP_t_(r.kode, 30).toUpperCase() + '|' + rapiWarna_(r.warna);
+      sf.brg[kk] = (sf.brg[kk] || 0) + q;
+      sf.hari[t] = (sf.hari[t] || 0) + q;
+      sf.pcs += q;
+    });
+    Object.keys(sf.brg).forEach(function (kk) {
+      var bag = kk.split('|');
+      var b = brg[kk] || (brg[kk] = { k: bag[0], w: bag[1] || '', n: B.nama(bag[0]), mkt: 0, staf: 0, ragu: 0 });
+      b.staf += sf.brg[kk];
+    });
+    Object.keys(sf.hari).forEach(function (t) { hr(t).staf += sf.hari[t]; });
+    var staf = { pcs: sf.pcs, tanpa: sf.tanpa, ikut: ikut };
+    var hariList = Object.keys(hari).sort().map(function (t) {
+      var d = hari[t];
+      return { t: t, psn: Object.keys(d.psn).length, batal: Object.keys(d.batal).filter(function (n) { return !d.psn[n]; }).length, pcs: d.pcs, omzet: d.omzet, staf: d.staf, potong: d.potong };
+    });
+    var brgList = Object.keys(brg).map(function (k) { return brg[k]; })
+      .sort(function (a, b) { return Math.abs(b.mkt - b.staf) - Math.abs(a.mkt - a.staf) || b.mkt - a.mkt; });
+    var barang = B.list.map(function (b) { return { k: b.kode, n: b.nama, w: b.warna }; });
+    return { ok: true, toko: toko, pf: pf, dari: dari, sampai: sampai, tot: tot, hari: hariList, brg: brgList, staf: staf, stok: null, terakhir: terakhir, padanan: padanan, barang: barang };
+  }
+
+  window.MdLama = { mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar };
 })();

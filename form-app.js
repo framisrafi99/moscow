@@ -256,7 +256,9 @@
     hargaBahanBakuMaster: function () { return window.MdLama.hargaBahanBakuMaster(sb); },
     hrgNaikData: function () { return window.MdLama.hrgNaikData(sb); },
     mdRingkasan: function () { return window.MdLama.mdRingkasan(sb); },
-    gdRingkas: function () { return window.MdLama.gdRingkas(sb); }
+    gdRingkas: function () { return window.MdLama.gdRingkas(sb); },
+    mpRingkasOfficial: function (a) { return window.MdLama.mpRingkasOfficial(sb, a[0] || {}); },
+    mpData: function (a) { return window.MdLama.mpData(sb, a[0] || {}); }
   };
   // Payroll (tahap 5f): data gaji langsung dari Supabase.
   BACA_SUPABASE.payroll = {
