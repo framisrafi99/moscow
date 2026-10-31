@@ -116,6 +116,8 @@
     'md:acc:lalu': function () { return window.Akunting.akuntingLaporan(sb, { bulan: bulanMundur(1) }); },
     'md:hrgnaik': function () { return window.MdLama.hrgNaikData(sb); },
     'md:hbb': function () { return window.MdLama.hargaBahanBakuMaster(sb); },
+    'md:gudang': function () { return window.MdLama.gdPemilikData(sb); },
+    'md:beli:lalu': function () { return window.MdLama.beliLalu(sb, bulanMundur(1)); },
     'md:bh': function () { return window.BagiHasilMd.hitung(sb, bulanMundur(0)); },
     'md:bh:lalu': function () { return window.BagiHasilMd.hitung(sb, bulanMundur(1)); }
   };
