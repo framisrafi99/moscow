@@ -545,6 +545,37 @@
     }
   };
   // Halaman Mike: ACC / tolak pengajuan impor sama dengan halaman Mike lama (pengadaan_aksi di Supabase).
+  // Master Data lama (31 Okt): titipan staf dan Edit Barang (harga, HPP, info, barang baru) langsung di Supabase, sama dengan Master Data baru.
+  // Qty stok tetap lewat Apps Script.
+  TULIS_SUPABASE.mdlama.ttpPutus = function (p) {
+    return ['ttp_putus', { p_jenis: teks(p.jenis), p_id: teks(p.id), p_aksi: teks(p.aksi), p_hpp: teks(p.hpp), p_harga: teks(p.harga), p_qty: teks(p.qty) }];
+  };
+  TULIS_SUPABASE.mdlama.ttpBarangUbah = function (p) {
+    return ['ttp_barang_ubah', { p_kode: teks(p.kode), p_hpp: teks(p.hpp), p_harga: teks(p.harga), p_aktif: p.aktif !== false }];
+  };
+  TULIS_SUPABASE.mdlama.mdeSimpan = async function (p) {
+    var j = teks(p.jenis), r;
+    if (j === 'harga' || j === 'hpp') {
+      r = await sb.rpc('mde_simpan', { p_jenis: j, p_k: teks(p.k), p_nilai: teks(p.nilai), p_alasan: teks(p.alasan), p_token: teks(p.token) });
+    } else if (j === 'info' || j === 'baru') {
+      // File 74: HPP wajib untuk barang baru.
+      if (j === 'baru' && !(Number(teks(p.hpp).replace(/[.\s]/g, '').replace(',', '.')) > 0)) {
+        return { ok: false, pesan: 'HPP (harga beli / modal per pcs) wajib diisi untuk barang baru, supaya nilai stok dan laba bisa dihitung.' };
+      }
+      r = await sb.rpc('mde_info_baru', { p_jenis: j, p_k: teks(p.k), p_nama: teks(p.nama), p_kat: teks(p.kat), p_warna: teks(p.warna),
+        p_hj: teks(p.hj), p_hpp: teks(p.hpp), p_katalog: p.katalog === true, p_kat_katalog: teks(p.katKatalog), p_online: p.online === true,
+        p_alasan: teks(p.alasan), p_yakin: p.yakin === true, p_token: teks(p.token) });
+    } else return null;
+    if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Tekan simpan sekali lagi; aman, tidak akan tercatat dua kali.');
+    var h = r.data;
+    if (h && h.lewat) return null;
+    // Seperti Apps Script: sesudah berhasil, daftar barang & riwayat ikut dikirim (dibaca sesudah barisnya tersalin ke sheet).
+    if (h && h.ok) {
+      await salinKeSheet();
+      try { var d = await kirim('mdeData', [{ key: p.key }]); if (d && d.r && d.r.ok) { h.barang = d.r.barang; h.log = d.r.log; h.kategori = d.r.kategori; } } catch (e) { }
+    }
+    return h;
+  };
   TULIS_SUPABASE.mike.pgdAksi = TULIS_SUPABASE.mikelama.pgdAksi;
   var BALIK = SERVER + 'balik';
   // Sesudah simpan, catatan baru disalin ke sheet di belakang (31 Okt): layar tidak menunggu. Hanya panggilan berikutnya yang masih
