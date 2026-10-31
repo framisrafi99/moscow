@@ -722,6 +722,8 @@
   // tanggal bawaan diganti hari ini dan stok dimuat ulang. Simpanan yang berumur > 30 menit diperbarui di belakang.
   function hariIni() { return window.Lembar ? window.Lembar.format(new Date(), 'yyyy-MM-dd') : new Date().toISOString().slice(0, 10); }
   function segarkan(html) {
+    // Halaman Mike (Kendali Bisnis): bulan bawaan = bulan ini (tampilan simpanan bisa dibuat bulan lalu).
+    html = html.replace(/("bulanIni":")\d{4}-\d{2}(")/, function (x, a, b) { return a + hariIni().slice(0, 7) + b; });
     var i = html.indexOf('var D = ');
     if (i < 0) return html;
     var j = html.indexOf(';\n', i);
