@@ -403,7 +403,16 @@
       });
       return { ok: true, stok: tot, stokW: w };
     }
-    return { kemasanHargaData: kemasanHargaData, stokBahan: stokBahan, ambilBahan: ambilBahan, ambilOrderProduksi: ambilOrderProduksi, prodSesuaiDaftar: prodSesuaiDaftar, ambilRiwayatProduksi: ambilRiwayatProduksi, ambilStok: ambilStok };
+    // Bagian kemasan dari hargaBahanBakuMaster (file 4) untuk Master Data lama.
+    function hargaMaster() {
+      var m = masuk(barang());
+      return {
+        harga: daftarHarga(m),
+        ubah: m.filter(function (x) { return x.pc !== null && x.pc !== undefined; })
+          .map(function (x) { return { n: x.n, s: x.s, t: x.t, b: x.baris, sup: x.sup, hs: x.hs, hp: x.hp, tp: x.tp, pc: x.pc, kel: x.kel }; })
+      };
+    }
+    return { hargaMaster: hargaMaster, kemasanHargaData: kemasanHargaData, stokBahan: stokBahan, ambilBahan: ambilBahan, ambilOrderProduksi: ambilOrderProduksi, prodSesuaiDaftar: prodSesuaiDaftar, ambilRiwayatProduksi: ambilRiwayatProduksi, ambilStok: ambilStok };
   }
 
   // Stok awal gudang produksi dari Supabase: { urut: [[kode, qty], ...] } (urutan baris REPORT_STOK).
@@ -414,6 +423,7 @@
     return d.urut === undefined ? d : null;
   }
   window.Produksi = {
+    hargaMaster: async function (sb) { return buat(await window.Lembar.muat(sb, TABEL)).hargaMaster(); },
     kemasanHargaData: async function (sb) { return buat(await window.Lembar.muat(sb, TABEL)).kemasanHargaData(); },
     stokBahan: async function (sb) { return buat(await window.Lembar.muat(sb, TABEL_STOK)).stokBahan(); },
     ambilBahan: async function (sb) { return buat(await window.Lembar.muat(sb, ['bahan', 'bahan_log'])).ambilBahan(); },
