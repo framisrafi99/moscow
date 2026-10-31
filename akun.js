@@ -232,5 +232,47 @@
     };
   }
 
-  window.Akunting = { akuntingData: akuntingData, akuntingLaporan: akuntingLaporan, mbDaftar: mbDaftar };
+  // tbBeranda (Apps Script file 68): saldo akun hari ini, uang keluar/masuk bulan berjalan, grafik harian, nota offline tanpa metode.
+  async function berandaData(sb) {
+    var d = await baca(sb); if (!d) return null;
+    var cfg = siap(d), log = logManual(d), g0 = gerak(d, cfg, log);
+    var hari = cfg.hariIni, bulan = hari.slice(0, 7), awal = bulan + '-01';
+    var saldo = function (sampai) { var s = {}; cfg.akun.forEach(function (a) { s[a.n] = a.awal; }); g0.forEach(function (g) { if (g.t <= sampai && (g.a in s)) s[g.a] += g.d; }); return s; };
+    var s0 = saldo(geser(awal, -1)), sNow = saldo(hari), ada = {}, total0 = 0;
+    cfg.akun.forEach(function (a) { ada[a.n] = true; total0 += s0[a.n] || 0; });
+    var perHari = {}, kat = {}, keluar = 0, masukJual = 0, masukLain = 0;
+    g0.forEach(function (g) {
+      if (!ada[g.a] || g.t < awal || g.t > hari) return;
+      var h = perHari[g.t] || (perHari[g.t] = { d: 0, k: 0, m: 0 });
+      h.d += g.d;
+      if (g.arah === 'Keluar') { h.k += -g.d; keluar += -g.d; kat[g.k] = (kat[g.k] || 0) + (-g.d); }
+      else if (g.arah === 'Masuk') { if (g.kel === 'Pendapatan') masukJual += g.d; else { masukLain += g.d; h.m += g.d; } }
+    });
+    var harian = [], s = total0, t = awal, jaga = 0;
+    while (t <= hari && jaga < 40) {
+      var h = perHari[t] || { d: 0, k: 0, m: 0 };
+      s += h.d;
+      harian.push({ t: t, k: Math.round(h.k), m: Math.round(h.m), s: Math.round(s) });
+      t = geser(t, 1); jaga++;
+    }
+    var kategori = Object.keys(kat).map(function (n) { return { n: n, v: Math.round(kat[n]) }; }).sort(function (a, b) { return b.v - a.v; });
+    var jmlKeluar = 0;
+    log.forEach(function (x) { if (!x.batal && x.j === 'Keluar' && x.t >= awal && x.t <= hari) jmlKeluar++; });
+    var nota = null;
+    var off = Object.keys(cfg.sumber).filter(function (n) { return offline(n) && cfg.sumber[n].aktif; });
+    if (off.length) {
+      var mt = metode(d); nota = { n: 0, v: 0 };
+      notaOffline(d).forEach(function (x) { if (mt[x.no] && mt[x.no].m) return; nota.n++; nota.v += x.total + x.ongkir; });
+    }
+    var w = new Date(Date.now() + 8 * 3600e3), z = function (x) { return ('0' + x).slice(-2); };
+    return {
+      ok: true, hari: hari, bulan: bulan,
+      akun: cfg.akun.map(function (a) { return { n: a.n, j: a.j, v: Math.round(sNow[a.n] || 0) }; }),
+      total0: Math.round(total0), keluar: Math.round(keluar), masukJual: Math.round(masukJual), masukLain: Math.round(masukLain),
+      jmlKeluar: jmlKeluar, harian: harian, kategori: kategori, nota: nota,
+      diperbarui: z(w.getUTCHours()) + '.' + z(w.getUTCMinutes())
+    };
+  }
+
+  window.Akunting = { akuntingData: akuntingData, akuntingLaporan: akuntingLaporan, mbDaftar: mbDaftar, berandaData: berandaData };
 })();
