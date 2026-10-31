@@ -173,7 +173,9 @@
     if (!t) throw new Error('Sesi masuk habis. Muat ulang halaman lalu masuk lagi.');
     return t;
   }
+  var salinJalan = null;
   async function kirim(f, a) {
+    if (salinJalan) { try { await salinJalan; } catch (e) { } }
     var badan = JSON.stringify({ t: await token(), f: f, a: a || [] });
     var r;
     try { r = await fetch(SERVER + APP, { method: 'POST', body: badan, redirect: 'follow' }); }
@@ -523,11 +525,14 @@
     }
   };
   var BALIK = SERVER + 'balik';
-  // Master Data lama & halaman Mike: tunggu salinan ke sheet selesai (Accounting tidak lagi menunggu: semua tampilannya dari Supabase, 31 Okt) (paling lama 10 detik) supaya riwayat & saldo yang dimuat ulang sudah memuat catatan baru.
+  // Sesudah simpan, catatan baru disalin ke sheet di belakang (31 Okt): layar tidak menunggu. Hanya panggilan berikutnya yang masih
+  // lewat Apps Script (yang membaca sheet) menunggu salinan itu selesai (paling lama 10 detik), supaya isinya tetap terbaru.
   async function salinKeSheet() {
     try {
       var t = await token(), kirim = fetch(BALIK, { method: 'POST', body: JSON.stringify({ t: t }), keepalive: true }).catch(function () { });
-      if (APP === 'mdlama' || APP === 'mike' || APP === 'mikelama') await Promise.race([kirim, new Promise(function (r) { setTimeout(r, 10000); })]);
+      var tunggu = Promise.race([kirim, new Promise(function (r) { setTimeout(r, 10000); })]);
+      salinJalan = tunggu;
+      tunggu.then(function () { if (salinJalan === tunggu) salinJalan = null; });
     } catch (e) { }
   }
   // Simpan lewat Supabase, lalu (kalau berhasil) muat ulang tabel HPP & Harga dari Apps Script sesudah barisnya tersalin.
