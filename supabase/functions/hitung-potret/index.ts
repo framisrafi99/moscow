@@ -134,8 +134,8 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
   },
 };
 
-// laporan:<bulan> sama dengan potret Apps Script (KB_laporan_ + ok: true).
-async function laporan(b: string) { const d = await W.Dasbor.laporanBulan(sb, b); return d && d.ok === undefined ? Object.assign({ ok: true }, d) : d; }
+// laporan:<bulan> sama dengan potret Apps Script (KB_laporan_).
+async function laporan(b: string) { return await W.Dasbor.laporanBulan(sb, b); }
 
 // Bandingkan dua isi (abaikan jam "diperbarui"/"dibuat"/"hariIni"); hasil: daftar jalur yang berbeda (paling banyak 6).
 const ABAIKAN = new Set(['diperbarui', 'dibuat', 'hariIni']);
@@ -178,7 +178,8 @@ Deno.serve(async (req) => {
   (Array.isArray(body.kunci) ? body.kunci : []).forEach((k) => {
     if (/^laporan:\d{4}-\d{2}$/.test(k) && !R[k]) R[k] = async () => ({ [k]: await laporan(k.slice(8)) });
   });
-  const minta = (Array.isArray(body.kunci) && body.kunci.length ? body.kunci : Object.keys(RUMUS)).filter((k) => R[k]);
+  // 'laporan' (berat) dijalankan terpisah oleh jadwal sendiri, supaya robot tidak kehabisan tenaga.
+  const minta = (Array.isArray(body.kunci) && body.kunci.length ? body.kunci : Object.keys(RUMUS).filter((k) => k !== 'laporan')).filter((k) => R[k]);
   const hasil: Record<string, unknown> = {}, isi: Isi = {};
   SIMPANAN = {};
   // Paling banyak 4 rumus bersamaan supaya memori robot cukup.
