@@ -583,6 +583,10 @@
   TULIS_SUPABASE.mdlama.danaTunaiSimpan = function (p) {
     return ['toko_dana_simpan', { p_toko: teks(p.toko), p_jenis: 'tunai', p_saluran: '', p_bulan: teks(p.bulan), p_nilai: teks(p.nominal), p_nama: '' }];
   };
+  // Laporan bulan consignment offline (Renon, file 79): simpan / tutup / buka kembali oleh manajemen.
+  TULIS_SUPABASE.mdlama.rnLaporanSimpan = function (p) {
+    return ['rn_laporan_simpan', { p_toko: teks(p.toko), p_bulan: teks(p.bulan), p_aksi: teks(p.aksi), p_tunai: teks(p.tunai), p_transfer: teks(p.transfer) }];
+  };
   TULIS_SUPABASE.mdlama.mdeSimpan = async function (p) {
     var j = teks(p.jenis), r;
     if (j === 'harga' || j === 'hpp') {
