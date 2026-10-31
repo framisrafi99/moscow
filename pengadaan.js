@@ -148,7 +148,7 @@
       });
       return { ok: true, list: list };
     }
-    return { ptrData: ptrData, pgsTerbuka: pgsTerbuka, pgsData: pgsData, gdxPengajuan: gdxPengajuan };
+    return { ptrData: ptrData, pgsTerbuka: pgsTerbuka, pgsData: pgsData, gdxPengajuan: gdxPengajuan, ajuan: ajuan };
   }
 
   async function muat(sb) { return buat(await window.Lembar.muat(sb, TABEL)); }
@@ -158,6 +158,7 @@
     return r.data;
   }
   window.Pengadaan = {
+    buat: buat,
     pgsData: async function (sb, app) {
       var h = await Promise.all([muat(sb), robot(sb)]);
       return h[1] ? h[0].pgsData(app, h[1]) : null;
