@@ -409,7 +409,8 @@
       list.sort(function (a, b) { return (b.kurangAcc - a.kurangAcc) || (b.kurang - a.kurang) || (a.n < b.n ? -1 : 1); });
       return { ok: true, list: list, nOrder: nOrder, diperbarui: fmt(new Date(), 'dd/MM/yyyy HH:mm') };
     }
-    return { gdData: gdData, gdxOrderMasuk: gdxOrderMasuk, prodKebutuhan: prodKebutuhan, po: GD_po_, barang: GD_barang_, log: GD_log_, isiTerima: GD_isiTerima_ };
+    return { gdData: gdData, gdxOrderMasuk: gdxOrderMasuk, prodKebutuhan: prodKebutuhan, po: GD_po_, barang: GD_barang_, log: GD_log_, isiTerima: GD_isiTerima_,
+      om: { kumpul: kumpulOrder_, kirimMap: OM_kirimMap_, rinci: OM_rinci_, jenis: OM_jenis_, t: OM_t_, geser: GD_geser_ } };
   }
 
   // Data lembar dipakai bersama beberapa panggilan yang datang hampir bersamaan (gdData + gdxOrderMasuk saat halaman dibuka).
