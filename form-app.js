@@ -238,6 +238,13 @@
     plData: function () { return window.Purchasing.plData(sb); },
     plxData: function () { return window.Purchasing.plxData(sb); }
   };
+  // Halaman Mike / Kendali Bisnis (31 Okt): impor, laporan, HPP & harga, harga naik dari Supabase (kb.js).
+  BACA_SUPABASE.mike = {
+    kbData: function () { return window.KendaliBisnis.kbData(sb); },
+    kbLaporan: function (a) { return window.KendaliBisnis.kbLaporan(sb, a[0] || {}); },
+    kbHarga: function () { return window.KendaliBisnis.kbHarga(sb); },
+    kbNaik: function () { return window.KendaliBisnis.kbNaik(sb); }
+  };
   // Payroll (tahap 5f): data gaji langsung dari Supabase.
   BACA_SUPABASE.payroll = {
     gjData: async function (a) {
@@ -531,6 +538,7 @@
       if (hasil === null) return kirimLama(f, a);
     }
     if (hasil && hasil.ok) { if (APP === 'mdlama' || APP === 'mike' || APP === 'mikelama') await salinKeSheet(); else salinKeSheet(); if (window.Gudang) window.Gudang.lupakan(); }
+    if (APP === 'mike' && window.KendaliBisnis) window.KendaliBisnis.catatTulis();
     return JSON.stringify(hasil);
   }
 
@@ -545,6 +553,7 @@
     return kirim(f, a).then(function (d) {
       // Sesudah simpan: data lembar dimuat ulang; kalau salinan ke Supabase belum jadi, baca lewat Apps Script dulu.
       if (window.Gudang) window.Gudang.lupakan();
+      if (APP === 'mike' && window.KendaliBisnis && !/^kb(Data|Laporan|Harga|Naik)$/.test(f)) window.KendaliBisnis.catatTulis();
       if (d.cermin === false || (TULIS_RE.test(f) && d.cermin !== true)) basiSampai = Date.now() + 35 * 60 * 1000;
       return JSON.stringify(d.r === undefined ? null : d.r);
     });
