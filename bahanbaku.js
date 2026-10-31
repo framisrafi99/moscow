@@ -881,7 +881,16 @@
           .map(function (x) { return { n: x.n, s: x.s, t: x.t, b: x.baris, sup: x.sup, hs: x.hs, hp: x.hp, tp: x.tp, pc: x.pc, kel: kel[x.k] || '' }; })
       };
     }
-    return { bahanBakuData: bahanBakuData, bahanBakuLaporan: bahanBakuLaporan, pantauProduksi: pantauProduksi, rencanaBahan: rencanaBahan,
+    // Ringkasan Master Data (mdRingkasan file 9, bagian 6): bahan yang perlu dibeli (stok <= minimum) dan yang minus.
+    function ringkasStok() {
+      const tz = 'Asia/Makassar', bulan = Utilities.formatDate(new Date(), tz, 'yyyy-MM'), out = { beli: [], minus: 0 };
+      BBK_stok_(ss, tz, bulan, BBK_beli_(ss, tz), BBK_log_(ss, tz)).forEach(function (b) {
+        if (b.ss < 0) { out.minus++; return; }
+        if (b.min !== null && b.min !== undefined && b.min !== '' && b.ss <= b.min) out.beli.push({ n: b.n, ss: b.ss, s: b.s });
+      });
+      return out;
+    }
+    return { ringkasStok: ringkasStok, bahanBakuData: bahanBakuData, bahanBakuLaporan: bahanBakuLaporan, pantauProduksi: pantauProduksi, rencanaBahan: rencanaBahan,
       siapProduksi: siapProduksi, siapWarna: siapWarna, hargaMaster: hargaMaster };
   }
 
@@ -898,6 +907,7 @@
     return r.data;
   }
   window.BahanBaku = {
+    ringkasStok: async function (sb) { return (await muat(sb, TABEL_BAHAN)).ringkasStok(); },
     hargaMaster: async function (sb) { return (await muat(sb, ['bahan_baku', 'bahan_baku_beli'])).hargaMaster(); },
     simpanProduksi: function (sb, p) { return simpanBaris(sb, p, 'produksi'); },
     simpanWarna: function (sb, p) { return simpanBaris(sb, p, 'warna'); },
