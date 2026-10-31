@@ -519,11 +519,11 @@
     }
   };
   var BALIK = SERVER + 'balik';
-  // Accounting: tunggu salinan ke sheet selesai (paling lama 10 detik) supaya riwayat & saldo yang dimuat ulang sudah memuat catatan baru.
+  // Master Data lama & halaman Mike: tunggu salinan ke sheet selesai (Accounting tidak lagi menunggu: semua tampilannya dari Supabase, 31 Okt) (paling lama 10 detik) supaya riwayat & saldo yang dimuat ulang sudah memuat catatan baru.
   async function salinKeSheet() {
     try {
       var t = await token(), kirim = fetch(BALIK, { method: 'POST', body: JSON.stringify({ t: t }), keepalive: true }).catch(function () { });
-      if (APP === 'akunting' || APP === 'mdlama' || APP === 'mike' || APP === 'mikelama') await Promise.race([kirim, new Promise(function (r) { setTimeout(r, 10000); })]);
+      if (APP === 'mdlama' || APP === 'mike' || APP === 'mikelama') await Promise.race([kirim, new Promise(function (r) { setTimeout(r, 10000); })]);
     } catch (e) { }
   }
   // Simpan lewat Supabase, lalu (kalau berhasil) muat ulang tabel HPP & Harga dari Apps Script sesudah barisnya tersalin.
