@@ -128,10 +128,14 @@
     var bulan = KB_t_(p && p.bulan, 7);
     if (!KB_bulanOk_(bulan)) return null;
     var h = await Promise.all([sb.from('hasil_hitung').select('data, dibuat').eq('kunci', 'laporan:' + bulan).maybeSingle(),
-      window.Akunting.akuntingLaporan(sb, { bulan: bulan }).catch(function () { return null; })]);
-    var pot = h[0] && h[0].data ? h[0].data.data : null, lap = h[1];
+      window.Akunting.akuntingLaporan(sb, { bulan: bulan }).catch(function () { return null; }),
+      // HPP terjual & status tutup buku dihitung langsung (dasbor.js) bila bisa; kalau tidak, dari potret.
+      window.Dasbor ? window.Dasbor.hppBulan(sb, bulan).catch(function () { return null; }) : null]);
+    var pot = h[0] && h[0].data ? h[0].data.data : null, lap = h[1], langsung = h[2];
     if (typeof pot === 'string') { try { pot = JSON.parse(pot); } catch (e) { pot = null; } }
-    if (!pot || pot.bulan !== bulan) return null;
+    if (pot && pot.bulan !== bulan) pot = null;
+    if (lap && lap.ok && langsung) pot = { bulan: bulan, hpp: langsung.hpp, hppInfo: langsung.hppInfo, final: langsung.final };
+    if (!pot) return null;
     // Mike / Junior tidak membaca catatan accounting mentah: potret laporan apa adanya (dihitung Apps Script tiap sinkron).
     if (!lap || !lap.ok) {
       var dib = Date.parse(h[0].data.dibuat || '');

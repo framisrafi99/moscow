@@ -308,5 +308,16 @@
     };
   }
 
-  window.Dasbor = { dsData: dsData, laporanBulan: laporanBulan };
+  // Untuk Kendali Bisnis (kb.js): HPP terjual, keterangan HPP, dan status tutup buku satu bulan.
+  async function hppBulan(sb, bulan) {
+    var h = await Promise.all([dsData(sb, { dari: bulan + '-01', sampai: akhir(bulan) }), sb.from('tutup_buku').select('bulan,status').eq('bulan', bulan)]);
+    if (h[1].error) throw new Error(h[1].error.message);
+    var u = h[0]; if (!u || !u.ok || !u.uang) throw new Error('dasbor gagal');
+    var hpp = hppTercatat(u), info = '';
+    if (hpp === null) info = 'HPP belum bisa dihitung.';
+    else if (u.terjual && u.terjual.tanpaHpp && u.terjual.tanpaHpp.length) info = u.terjual.tanpaHpp.length + ' barang terjual belum punya HPP.';
+    return { hpp: hpp, hppInfo: info, final: (h[1].data || []).some(function (r) { return rapi(r.status, 20) === 'Ditutup'; }) };
+  }
+
+  window.Dasbor = { dsData: dsData, laporanBulan: laporanBulan, hppBulan: hppBulan };
 })();
