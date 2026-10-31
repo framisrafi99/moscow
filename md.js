@@ -807,5 +807,70 @@
     return { ok: true, toko: toko, pf: pf, dari: dari, sampai: sampai, tot: tot, hari: hariList, brg: brgList, staf: staf, stok: null, terakhir: terakhir, padanan: padanan, barang: barang };
   }
 
-  window.MdLama = { mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar };
+  // ---- mdSetujuData (file 9) + pembungkus file 13 (grup Staf gudang utama) dan file 15 (grup Staf Kantor Packing) ----
+  function MD_jamUrut_(t) {
+    var m = /^(\d{2})\/(\d{2})\/(\d{4})(?: (\d{2}):(\d{2}))?/.exec(s(t));
+    return m ? m[3] + m[2] + m[1] + (m[4] || '00') + (m[5] || '00') : '';
+  }
+  async function mdSetujuData(sb) {
+    var grup = [], idx = {}, riwayat = [], gagal = [];
+    var masuk = function (id, nama, jenis, item) {
+      if (!(id in idx)) { idx[id] = grup.length; grup.push({ id: id, n: nama, jenis: jenis, items: [] }); }
+      grup[idx[id]].items.push(item);
+    };
+    var h = await Promise.all([sesuaiPemilik(sb).catch(function () { return null; }), window.Produksi.prodSesuaiDaftar(sb, true).catch(function () { return null; })]);
+    var r = h[0];
+    if (!r || !r.ok) gagal.push('ajuan toko');
+    else {
+      (r.tunggu || []).forEach(function (x) {
+        masuk('toko|' + x.toko, x.toko, 'toko', { no: x.no, t: x.waktu, k: x.k, n: x.n, w: x.w, sis: x.sistem, hit: x.fisik, sel: x.selisih, al: x.alasan, pg: x.pengaju });
+      });
+      (r.putus || []).forEach(function (x) {
+        riwayat.push({ dari: x.toko, n: x.n, w: x.w, sel: x.selisih, st: x.status, tk: x.putus, pg: x.pengaju, cat: x.catatan, u: MD_jamUrut_(x.putus) });
+      });
+    }
+    r = h[1];
+    if (!r || !r.ok) gagal.push('ajuan staf produksi');
+    else {
+      (r.list || []).forEach(function (x) {
+        var bbk = /bahan baku/i.test(s(x.bg)), nama = bbk ? 'Staf produksi bahan baku' : 'Staf produksi';
+        if (x.st === 'Menunggu') {
+          masuk(bbk ? 'bbk' : 'prod', nama, 'prod', { no: x.no, t: x.t, k: x.k, n: x.n, w: x.w, sis: x.sis, hit: x.hit, sel: x.sel, al: x.al, pg: x.pg, bg: x.bg });
+        } else if (riwayat.length < 200) {
+          riwayat.push({ dari: nama, n: x.n, w: x.w, sel: x.sel, st: x.st, tk: x.tk, pg: x.pg, cat: x.cat, u: MD_jamUrut_(x.tk) });
+        }
+      });
+    }
+    riwayat.sort(function (a, b) { return a.u < b.u ? 1 : a.u > b.u ? -1 : 0; });
+    var n = 0;
+    grup.forEach(function (g) { n += g.items.length; });
+    var out = { ok: true, grup: grup, menunggu: n, riwayat: riwayat.slice(0, 25), gagal: gagal, diperbarui: fmt(new Date(), 'dd/MM/yyyy HH:mm') };
+    // file 13 lalu file 15: ajuan bagian Gudang, lalu Kantor Packing, dipisah ke grup sendiri di belakang.
+    [['Gudang', { id: 'gudang', n: 'Staf gudang utama', jenis: 'prod', items: [] }],
+     ['Kantor Packing', { id: 'kantorpacking', n: 'Staf Kantor Packing (hitung stok online)', jenis: 'prod', items: [] }]].forEach(function (z) {
+      var g2 = z[1];
+      out.grup.forEach(function (g) {
+        if (g.jenis !== 'prod') return;
+        g.items = g.items.filter(function (it) { if (it.bg === z[0]) { g2.items.push(it); return false; } return true; });
+      });
+      out.grup = out.grup.filter(function (g) { return g.items.length; });
+      if (g2.items.length) out.grup.push(g2);
+    });
+    return out;
+  }
+
+  // ---- pgsTanpaData (file 43): pembelian tanpa pengajuan, terbaru di atas ----
+  async function pgsTanpaData(sb) {
+    var rows = await semua(sb, 'pembelian_tanpa_ajuan', 'no,waktu,bagian,form,kode,nama_barang,qty,satuan,harga,alasan,pengisi,ref,status,dicek_oleh,waktu_cek');
+    var t = function (v, n) { return s(v).replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n); };
+    var jam = function (v) { var d = waktu(v); return d ? fmt(d, 'dd/MM/yyyy HH:mm') : ''; };
+    var list = rows.map(function (r, i) {
+      return { baris: i + 2, no: t(r.no, 30), wk: jam(r.waktu), bg: t(r.bagian, 40), form: t(r.form, 80), k: t(r.kode, 40), n: t(r.nama_barang, 120),
+        q: Number(r.qty) || 0, s: t(r.satuan, 15), h: Number(r.harga) || 0, al: t(r.alasan, 200), pg: t(r.pengisi, 60), ref: t(r.ref, 60),
+        st: t(r.status, 20) || 'Belum dicek', oleh: t(r.dicek_oleh, 60), wc: jam(r.waktu_cek) };
+    }).filter(function (x) { return x.no; }).reverse();
+    return { ok: true, baru: list.filter(function (x) { return x.st !== 'Sudah dicek'; }).length, list: list.slice(0, 60) };
+  }
+
+  window.MdLama = { mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar };
 })();
