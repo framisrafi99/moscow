@@ -1070,5 +1070,5 @@
     return { ok: true, barang: barang, kategori: kat, lokasi: lokasi, log: log, hariIni: fmt(new Date(), 'yyyy-MM-dd') };
   }
 
-  window.MdLama = { mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu, mdeData: mdeData };
+  window.MdLama = { mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu, mdeData: mdeData, mpPsn: async function (sb) { return MP_bacaPsn_(await window.Lembar.muat(sb, TABEL_MP)); } };
 })();
