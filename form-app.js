@@ -115,8 +115,8 @@
     payroll: {
       judul: 'PAYROLL', masuk: 'Payroll gaji staf', peran: ['manajemen'],
       sembunyi: '.tidak-ada',
-      menu: [{ k: 'gaji', nm: 'Gaji staf', ik: 'uang', l: [] }, { k: 'absensi', nm: 'Absensi staf', ik: 'riwayat', pendek: 'Absensi' }, { k: 'absen', nm: 'Hitung absensi', ik: 'dok', pendek: 'Hitung' }],
-      bawah: ['gaji', 'absensi', 'absen']
+      menu: [{ k: 'gaji', nm: 'Gaji staf', ik: 'uang', l: [] }, { k: 'absensi', nm: 'Absensi staf', ik: 'riwayat', pendek: 'Absensi' }, { k: 'absen', nm: 'Hitung absensi', ik: 'dok', pendek: 'Hitung' }, { k: 'staf', nm: 'Data staf', ik: 'pelanggan', pendek: 'Staf' }],
+      bawah: ['gaji', 'absensi', 'absen', 'staf']
     }
   };
 
@@ -656,10 +656,11 @@
   }
   // Payroll › Hitung absensi (absen.js) dan Absensi staf (absen-kelola.js): tampilan sendiri, bukan form lama di bingkai.
   function panelAbsen(k) {
-    var el = $('absen'), el2 = $('absenKelola'), sec = document.querySelector('#mIsi > section[data-bagian="isi"]'); if (!el || !sec || APP !== 'payroll') return;
-    var ada = k === 'absen', ada2 = k === 'absensi' && !!el2;
-    el.hidden = !ada; if (el2) el2.hidden = !ada2; sec.classList.toggle('pk-mode', ada || ada2);
-    if (ada || ada2) document.documentElement.classList.remove('berbingkai');
+    var el = $('absen'), el2 = $('absenKelola'), el3 = $('stafKelola'), sec = document.querySelector('#mIsi > section[data-bagian="isi"]'); if (!el || !sec || APP !== 'payroll') return;
+    var ada = k === 'absen', ada2 = k === 'absensi' && !!el2, ada3 = k === 'staf' && !!el3;
+    el.hidden = !ada; if (el2) el2.hidden = !ada2; if (el3) el3.hidden = !ada3; sec.classList.toggle('pk-mode', ada || ada2 || ada3);
+    if (ada || ada2 || ada3) document.documentElement.classList.remove('berbingkai');
+    if (ada3 && window.StafKelola) StafKelola.gambar(el3, M.sb);
     if (ada && window.Absensi) Absensi.gambar(el, M.sb, { tersimpan: function () { salinKeSheet(); muat(); } });
     if (ada2 && window.AbsenKelola) AbsenKelola.gambar(el2, M.sb);
   }
