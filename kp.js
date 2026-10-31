@@ -271,7 +271,7 @@
   }
 
   window.KantorPacking = {
-    gdxKp: gdxKp, gdxKpW: function (sb, p) { return gdxKpW(sb, p); }, lupakan: lupakan, hitung: hitung,
+    gdxKp: gdxKp, gdxKpW: function (sb, p) { return gdxKpW(sb, p); }, lupakan: lupakan, hitung: hitung, siap: siap,
     gdxKpHitung: function (sb, p) { return ajukan(sb, 'hitung', p); },
     gdxKpHitungW: function (sb, p) { return ajukan(sb, 'hitungW', p); },
     gdxKpSesuaiW: function (sb, p) { return ajukan(sb, 'sesuaiW', p); }
