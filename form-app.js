@@ -307,6 +307,11 @@
   var TULIS_SUPABASE = {
     produksi: {
       hppUsul: hppUsulRpc('produksi'),
+      // Harga kemasan (31 Okt): langsung di Supabase; kenaikan harga dicatat Apps Script (efek_antre 'kemasan_harga').
+      kemasanHargaSimpan: function (p) {
+        return ['kemasan_harga_simpan', { p_baris: Math.round(Number(p.baris)) || 0, p_tanggal: teks(p.tanggal), p_nama: teks(p.nama), p_harga: teks(p.harga),
+          p_pengisi: teks(p.pengisi), p_supplier: teks(p.supplier) }];
+      },
       // Pengajuan pembelian (pgdAjukan + pembungkus): robot dari potret; Telegram, pesan Mike & Viory oleh Apps Script (efek_antre).
       pgsAjukan: function (p) {
         return ['pengadaan_ajukan', { p_app: 'produksi', p_nama: teks(p.nama), p_yakin: p.yakin === true, p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
@@ -472,6 +477,8 @@
     },
     // Accounting manajemen (tahap 5l): uang masuk / keluar / pindah akun dan pembatalan langsung di Supabase.
     akunting: {
+      // Metode bayar nota Toko Offline (31 Okt): langsung di Supabase.
+      simpanMetodeBayar: function (p) { return ['simpan_metode_bayar', { p_ubah: Array.isArray(p.ubah) ? p.ubah : [] }]; },
       akuntingSimpan: function (p) {
         return ['akunting_simpan', { p_tanggal: teks(p.tanggal), p_jenis: teks(p.jenis), p_akun: teks(p.akun), p_tujuan: teks(p.tujuan),
           p_kategori: teks(p.kategori), p_nominal: teks(p.nominal), p_ket: teks(p.ket), p_token: teks(p.token) }];
