@@ -255,7 +255,8 @@
     rpDaftar: function () { return window.MdLama.rpDaftar(sb); },
     hargaBahanBakuMaster: function () { return window.MdLama.hargaBahanBakuMaster(sb); },
     hrgNaikData: function () { return window.MdLama.hrgNaikData(sb); },
-    mdRingkasan: function () { return window.MdLama.mdRingkasan(sb); }
+    mdRingkasan: function () { return window.MdLama.mdRingkasan(sb); },
+    gdRingkas: function () { return window.MdLama.gdRingkas(sb); }
   };
   // Payroll (tahap 5f): data gaji langsung dari Supabase.
   BACA_SUPABASE.payroll = {
