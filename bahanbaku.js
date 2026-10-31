@@ -870,8 +870,19 @@
       return { ok: true, awalan: 'bbkwarna', jadi: [], pakai: pakai, warna: tulis,
         pesan: (w.target ? 'Pigment ' + w.n + ' dibuat ' + BBK_teksAngka_(g) + ' g, stoknya bertambah. ' : 'Campur warna tersimpan: ' + w.n + ' (' + w.kel + ') ' + BBK_teksAngka_(g) + ' g. ') + rinci + ' terpakai.' };
     }
+    // Bagian bahan baku dari hargaBahanBakuMaster (file 4) untuk Master Data lama.
+    function hargaMaster() {
+      const beli = BBK_beli_(ss, 'Asia/Makassar');
+      const kel = {};
+      BBK_bahan_(ss).forEach(function (b) { kel[b.k] = b.kel; });
+      return {
+        harga: BBK_daftarHarga_(ss, beli),
+        ubah: beli.filter(function (x) { return x.pc !== null && x.pc !== undefined; })
+          .map(function (x) { return { n: x.n, s: x.s, t: x.t, b: x.baris, sup: x.sup, hs: x.hs, hp: x.hp, tp: x.tp, pc: x.pc, kel: kel[x.k] || '' }; })
+      };
+    }
     return { bahanBakuData: bahanBakuData, bahanBakuLaporan: bahanBakuLaporan, pantauProduksi: pantauProduksi, rencanaBahan: rencanaBahan,
-      siapProduksi: siapProduksi, siapWarna: siapWarna };
+      siapProduksi: siapProduksi, siapWarna: siapWarna, hargaMaster: hargaMaster };
   }
 
   async function muat(sb, tabel) { return buat(await window.Lembar.muat(sb, tabel)); }
@@ -887,6 +898,7 @@
     return r.data;
   }
   window.BahanBaku = {
+    hargaMaster: async function (sb) { return (await muat(sb, ['bahan_baku', 'bahan_baku_beli'])).hargaMaster(); },
     simpanProduksi: function (sb, p) { return simpanBaris(sb, p, 'produksi'); },
     simpanWarna: function (sb, p) { return simpanBaris(sb, p, 'warna'); },
     bahanBakuData: async function (sb, p) { return (await muat(sb, TABEL_BAHAN)).bahanBakuData(p || {}); },
