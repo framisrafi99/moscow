@@ -495,7 +495,7 @@
       Object.keys(RW).forEach(function (k) { var h = kini(k); if (h) hpp[k] = h; });
       return hpp;
     }
-    return { L: L, G: G, log: log, kini: kini, pada: pada, akhirPo: akhirPo, peta: peta };
+    return { L: L, G: G, log: log, kini: kini, pada: pada, akhirPo: akhirPo, peta: peta, RW: RW };
   }
   var TABEL_HPP = ['barang_order', 'gudang_log', 'gudang_stok_awal', 'online_stok_awal', 'po_log', 'po_item', 'po_biaya', 'salur_log', 'produksi_sesuai_log'];
   async function bahanHpp(sb) {
@@ -1035,5 +1035,40 @@
     return { ok: true, bulan: bulan, laporan: gdLaporan(po, bulan) };
   }
 
-  window.MdLama = { mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu };
+
+  // ======================= DAFTAR BARANG (file 15 mdeData) =======================
+  async function mdeData(sb) {
+    var h = await Promise.all([bahanHpp(sb), window.Lembar.muat(sb, ['katalog']),
+      semua(sb, 'md_ubah_log', 'no,waktu,jenis,kode,nama_barang,lokasi,warna,lama,baru,berlaku_mulai,alasan,oleh'),
+      sb.from('pelanggan').select('nama_pelanggan,tipe,baris_sheet,id').order('baris_sheet', { ascending: true, nullsFirst: false }).order('id')]);
+    var H = h[0], brg = H.G.barang(), hpp = {};
+    try { hpp = H.peta(); } catch (e) { }
+    var katalog = {}, online = {};
+    window.Lembar.baca(h[1], 'katalog', 2).forEach(function (r) { var k = String(r[0]).trim().toUpperCase(); if (k) katalog[k] = true; });
+    window.Lembar.baca(H.L, 'online_stok_awal', 1).forEach(function (r) { var k = rlTeks_(r[0]).slice(0, 30).toUpperCase(); if (k) online[k] = true; });
+    var kat = [], adaKat = {};
+    var barang = brg.list.map(function (b) {
+      if (!adaKat[b.kat]) { adaKat[b.kat] = true; kat.push(b.kat); }
+      return { k: b.k, n: b.n, kat: b.kat, w: b.w, hj: b.h, hpp: hpp[b.k] || 0, ed: H.RW[b.k] ? 1 : 0, kt: katalog[b.k] ? 1 : 0, on: online[b.k] ? 1 : 0 };
+    });
+    var R = function (v, n) { return String(v === null || v === undefined ? '' : v).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n); };
+    var angka = function (v) { if (v === null || v === undefined || v === '') return ''; var x = Number(v); return isFinite(x) && String(v).trim() !== '' && !isNaN(x) ? x : v; };
+    var log = [];
+    h[2].forEach(function (r) {
+      var no = R(r.no, 30); if (!no) return;
+      var w = waktu(r.waktu);
+      log.push({ no: no, wk: w ? fmt(w, 'dd/MM/yyyy HH:mm') : '', j: R(r.jenis, 30), k: R(r.kode, 30).toUpperCase(), n: R(r.nama_barang, 120), lok: R(r.lokasi, 60), w: R(r.warna, 60),
+        lama: angka(r.lama), baru: angka(r.baru), b: tglIso(r.berlaku_mulai) || R(r.berlaku_mulai, 10), al: R(r.alasan, 300), oleh: R(r.oleh, 60) });
+    });
+    log = log.reverse().slice(0, 400);
+    var lokasi = [{ id: 'prod', n: 'Gudang produksi', warna: true }, { id: 'gudang', n: 'Gudang utama', warna: true }, { id: 'kp', n: 'Kantor Packing (stok online)', warna: false }], ada = {}, i = 0;
+    ((h[3] && h[3].data) || []).forEach(function (r) {
+      var n = String(r.nama_pelanggan || '').trim();
+      if (!n || String(r.tipe || '').trim() !== 'Consignment' || ada[n]) return;
+      ada[n] = true; lokasi.push({ id: 't' + (i++), n: n, warna: true, toko: true });
+    });
+    return { ok: true, barang: barang, kategori: kat, lokasi: lokasi, log: log, hariIni: fmt(new Date(), 'yyyy-MM-dd') };
+  }
+
+  window.MdLama = { mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu, mdeData: mdeData };
 })();
