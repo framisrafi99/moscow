@@ -80,6 +80,41 @@
     gambarDasbor(); gambarBeranda(false); gambarSetuju(); gambarGudang(); gambarPurch(); gambarProduksi(); gambarUang();
     if (J.mulai) { gambarJual(); gambarJualIsi(); }
     if (AT.mulai) gambarAtur();
+    // Sesudah tampil, bagian yang bisa dihitung langsung diperbarui ke angka terbaru.
+    await hitungLangsung();
+    M.badge('setuju', jumlahTunggu());
+    gambarDasbor(); gambarBeranda(false); gambarSetuju(); gambarGudang(); gambarPurch(); gambarProduksi(); gambarUang();
+    if (J.mulai) { gambarJual(); gambarJualIsi(); }
+    if (AT.mulai) gambarAtur();
+  }
+
+  // Tahap akhir (31 Okt): bagian yang rumusnya sudah ada di aplikasi dihitung langsung dari Supabase saat halaman dibuka
+  // (hasilnya sudah dicocokkan sama persis dengan hitungan Apps Script). Kalau gagal, tetap memakai hitungan Apps Script terakhir.
+  function bulanMundur(m) { var d = new Date(Date.now() + 8 * 3600e3); d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - m, 15)); return d.toISOString().slice(0, 7); }
+  function akhirBulan(b) { return ('0' + new Date(Number(b.slice(0, 4)), Number(b.slice(5, 7)), 0).getDate()).slice(-2); }
+  var LANGSUNG = {
+    'md:ringkasan': function () { return window.MdLama.mdRingkasan(sb); },
+    'md:request': function () { return window.MdLama.rpDaftar(sb); },
+    'md:pantau': function () { return window.MdLama.rpPantau(sb); },
+    'md:mkt': function () { return window.MdLama.mpRingkasOfficial(sb, {}); },
+    'md:mkt:lalu': function () { var b = bulanMundur(1); return window.MdLama.mpRingkasOfficial(sb, { dari: b + '-01', sampai: b + '-' + akhirBulan(b) }); },
+    'md:botol': function () { return window.Produksi.stokBahan(sb); },
+    'md:rbb': function () { return window.BahanBaku.rencanaBahan(sb, {}); },
+    'md:pp:prod': function () { return window.BahanBaku.pantauProduksi(sb, { jenis: 'produksi' }, 'produksi'); },
+    'md:pp:bahan': function () { return window.BahanBaku.pantauProduksi(sb, { jenis: 'bahan' }, 'bahan'); },
+    'md:acc': function () { return window.Akunting.akuntingLaporan(sb, { bulan: bulanMundur(0) }); },
+    'md:acc:lalu': function () { return window.Akunting.akuntingLaporan(sb, { bulan: bulanMundur(1) }); },
+    'md:hrgnaik': function () { return window.MdLama.hrgNaikData(sb); },
+    'md:hbb': function () { return window.MdLama.hargaBahanBakuMaster(sb); }
+  };
+  async function hitungLangsung() {
+    if (!window.MdLama) return;
+    var kunci = Object.keys(LANGSUNG);
+    var h = await Promise.all(kunci.map(function (k) {
+      return Promise.race([Promise.resolve().then(LANGSUNG[k]), new Promise(function (r) { setTimeout(function () { r(null); }, 15000); })]).catch(function () { return null; });
+    }));
+    var kini = new Date().toISOString();
+    kunci.forEach(function (k, i) { var v = h[i]; if (v && v.ok !== false) { D[KUNCI[k]] = JSON.parse(JSON.stringify(v)); D.waktu[KUNCI[k]] = kini; } });
   }
 
   // ======================= BERANDA (sama dengan Beranda Master Data lama) =======================
