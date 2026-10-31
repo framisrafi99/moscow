@@ -268,6 +268,13 @@
       }).forEach(function (x) { out[x] = k[x]; });
       return out;
     }
+    // CONFIG.TUJUAN (Kode.gs) dengan 'Gudang Utama' di depan (file 12).
+    var TUJUAN = ['Gudang Utama', 'Kantor Packing', 'Toko Offline', 'Consignment Medan', 'Consignment Sidoarjo', 'Consignment Renon'];
+    function bacaHarga_() {
+      var hasil = {};
+      baca('katalog', 3).forEach(function (r) { var kode = String(r[0]).trim().toUpperCase(), v = Number(r[2]); if (kode) hasil[kode] = (r[2] === '' || !isFinite(v) || v < 0) ? 0 : v; });
+      return hasil;
+    }
     function bacaKategori_() {
       var hasil = {};
       baca('katalog', 4).forEach(function (r) { var kode = String(r[0]).trim().toUpperCase(); if (kode) hasil[kode] = String(r[3]).trim() || 'Lainnya'; });
@@ -301,7 +308,7 @@
       return a;
     }
     function dataProduksi_(dari, sampai, awal) {
-      var katalog = bacaKatalog_(), kategori = bacaKategori_(), warnaAda = warnaBarang_();
+      var katalog = bacaKatalog_(), kategori = bacaKategori_(), warnaAda = warnaBarang_(), harga = bacaHarga_();
       var baru = function () { return { pr: 0, sa: 0, kj: {}, semuaPr: 0, semuaSa: 0, w: {} }; };
       var baruW = function () { return { pr: 0, sa: 0, sisa: 0 }; };
       var agg = {};
@@ -345,9 +352,12 @@
             if (o && (o.pr || o.sa || o.sisa)) w.push({ w: x, pr: o.pr, sa: o.sa, sisa: o.sisa });
           });
         }
-        return { k: k, n: katalog[k] || k, kat: kategori[k] || 'Lainnya', pr: a.pr, sa: a.sa,
+        return { k: k, n: katalog[k] || k, kat: kategori[k] || 'Lainnya', h: harga[k] || 0, pr: a.pr, sa: a.sa,
+          kj: TUJUAN.map(function (t) { return a.kj[t] || 0; }),
           sisa: (awal[k] || 0) + a.semuaPr - a.semuaSa, bw: !!warnaAda[k], w: w };
       });
+      // File 4: daftar lengkap warna tiap cat (wl).
+      produk.forEach(function (p) { if (warnaAda[p.k]) p.wl = warnaAda[p.k]; });
       var adj = PSS_adjProduksi_();
       produk.forEach(function (p) {
         var x = adj[p.k];
@@ -360,7 +370,7 @@
           else if (x.w[w]) p.w.push({ w: w, pr: 0, sa: 0, sisa: x.w[w] });
         });
       });
-      return { produk: produk, terpotong: log.length > BATAS, diperbarui: fmt(new Date(), 'dd/MM/yyyy HH:mm'),
+      return { produk: produk, tujuan: TUJUAN.slice(), terpotong: log.length > BATAS, diperbarui: fmt(new Date(), 'dd/MM/yyyy HH:mm'),
         log: log.slice(0, BATAS).map(function (x) { return { t: x.t, w: x.w, j: x.j, k: x.k, n: x.n, q: x.q, p: x.p, tj: x.tj, wr: x.wr }; }) };
     }
     function ambilRiwayatProduksi(p, awal) {
@@ -372,6 +382,15 @@
         ok: true, dari: dari, sampai: sampai, log: d.log, terpotong: d.terpotong, diperbarui: d.diperbarui,
         produk: d.produk.map(function (x) { return { k: x.k, n: x.n, kat: x.kat, pr: x.pr, sa: x.sa, sisa: x.sisa, bw: x.bw, w: x.w }; })
       };
+    }
+
+    // ---- ambilPantau (file 1): halaman pantau produksi manajemen ----
+    function ambilPantau(p, awal) {
+      var dari = String((p && p.dari) || ''), sampai = String((p && p.sampai) || '');
+      var salah = salahPeriode_(dari, sampai);
+      if (salah) return { ok: false, pesan: salah };
+      var d = dataProduksi_(dari, sampai, awal || {});
+      return { ok: true, dari: dari, sampai: sampai, produk: d.produk, log: d.log, terpotong: d.terpotong, tujuan: d.tujuan, diperbarui: d.diperbarui };
     }
 
     // ---- ambilStok (file 1 hitungStokRinci_ + file 7 penyesuaian) ----
@@ -412,7 +431,7 @@
           .map(function (x) { return { n: x.n, s: x.s, t: x.t, b: x.baris, sup: x.sup, hs: x.hs, hp: x.hp, tp: x.tp, pc: x.pc, kel: x.kel }; })
       };
     }
-    return { hargaMaster: hargaMaster, kemasanHargaData: kemasanHargaData, stokBahan: stokBahan, ambilBahan: ambilBahan, ambilOrderProduksi: ambilOrderProduksi, prodSesuaiDaftar: prodSesuaiDaftar, ambilRiwayatProduksi: ambilRiwayatProduksi, ambilStok: ambilStok, catatan: STM_bacaCatatan_, kunci: STM_kunci_ };
+    return { hargaMaster: hargaMaster, kemasanHargaData: kemasanHargaData, stokBahan: stokBahan, ambilBahan: ambilBahan, ambilOrderProduksi: ambilOrderProduksi, prodSesuaiDaftar: prodSesuaiDaftar, ambilRiwayatProduksi: ambilRiwayatProduksi, ambilStok: ambilStok, ambilPantau: ambilPantau, katalog: bacaKatalog_, kategori: bacaKategori_, warna: warnaBarang_, catatan: STM_bacaCatatan_, kunci: STM_kunci_ };
   }
 
   // Stok awal gudang produksi dari Supabase: { urut: [[kode, qty], ...] } (urutan baris REPORT_STOK).
@@ -432,6 +451,11 @@
       var h = await Promise.all([window.Lembar.muat(sb, ['katalog', 'barang_order', 'produksi_log', 'salur_log', 'produksi_sesuai_log']), sb.rpc('produksi_awal')]);
       var awal = petaAwal(h[1]);
       return awal ? buat(h[0]).ambilRiwayatProduksi(p, awal) : null;
+    },
+    ambilPantau: async function (sb, p) {
+      var h = await Promise.all([window.Lembar.muat(sb, ['katalog', 'barang_order', 'produksi_log', 'salur_log', 'produksi_sesuai_log']), sb.rpc('produksi_awal')]);
+      var awal = petaAwal(h[1]);
+      return awal ? buat(h[0]).ambilPantau(p, awal) : null;
     },
     ambilStok: async function (sb) {
       var h = await Promise.all([window.Lembar.muat(sb, ['katalog', 'barang_order', 'produksi_log', 'salur_log', 'produksi_sesuai_log']), sb.rpc('produksi_awal')]);
