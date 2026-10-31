@@ -260,7 +260,10 @@
     mdRingkasan: function () { return window.MdLama.mdRingkasan(sb); },
     gdRingkas: function () { return window.MdLama.gdRingkas(sb); },
     mpRingkasOfficial: function (a) { return window.MdLama.mpRingkasOfficial(sb, a[0] || {}); },
-    mpData: function (a) { return window.MdLama.mpData(sb, a[0] || {}); }
+    mpData: function (a) { return window.MdLama.mpData(sb, a[0] || {}); },
+    pantauProduksi: function (a) { var j = a[0] && a[0].jenis; return j === 'produksi' || j === 'bahan' ? window.BahanBaku.pantauProduksi(sb, a[0], j) : null; },
+    rencanaProduksi: function () { return window.BahanBaku.rencanaProduksi(sb); },
+    rencanaBahan: function (a) { return window.BahanBaku.rencanaBahan(sb, a[0] || {}); }
   };
   // Payroll (tahap 5f): data gaji langsung dari Supabase.
   BACA_SUPABASE.payroll = {
