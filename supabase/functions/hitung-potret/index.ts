@@ -101,11 +101,8 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
   // Halaman Mike (KBS file 85): barang baru menunggu harga jual, kenaikan harga beli 61 hari, laporan bulanan (KB_laporan_).
   'kb:bbr': async () => ({ 'kb:bbr': await W.MdLama.bbrData(sb) }),
   'kb:hrgnaik': async () => ({ 'kb:hrgnaik': await W.MdLama.kbNaik(sb) }),
-  'laporan': async () => {
-    const out: Isi = {};
-    for (const b of [bulanMundur(0), bulanMundur(1)]) out['laporan:' + b] = await laporan(b);
-    return out;
-  },
+  'laporan': async () => { const b = bulanMundur(0); return { ['laporan:' + b]: await laporan(b) }; },
+  'laporan:lalu': async () => { const b = bulanMundur(1); return { ['laporan:' + b]: await laporan(b) }; },
   // HPP (SBH_hitung_ + KBS file 85): 'hpp' dibulatkan, 'hpp:asli' tanpa pembulatan.
   'hpp': async () => {
     const H = await W.MdLama.bahanHpp(sb), peta = H.peta(), bulat: Record<string, number> = {}, asli: Record<string, number> = {};
@@ -179,7 +176,7 @@ Deno.serve(async (req) => {
     if (/^laporan:\d{4}-\d{2}$/.test(k) && !R[k]) R[k] = async () => ({ [k]: await laporan(k.slice(8)) });
   });
   // 'laporan' (berat) dijalankan terpisah oleh jadwal sendiri, supaya robot tidak kehabisan tenaga.
-  const minta = (Array.isArray(body.kunci) && body.kunci.length ? body.kunci : Object.keys(RUMUS).filter((k) => k !== 'laporan')).filter((k) => R[k]);
+  const minta = (Array.isArray(body.kunci) && body.kunci.length ? body.kunci : Object.keys(RUMUS).filter((k) => !/^laporan/.test(k))).filter((k) => R[k]);
   const hasil: Record<string, unknown> = {}, isi: Isi = {};
   SIMPANAN = {};
   // Paling banyak 4 rumus bersamaan supaya memori robot cukup.
