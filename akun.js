@@ -405,5 +405,7 @@
     return { ok: true, oto: outO, ditutup: ditutup, tz: 'Asia/Makassar', mb: { aktif: mbAktif ? 1 : 0, off: off, qris: akunQris(cfg) }, dibuat: sekarang() };
   }
 
-  window.Akunting = { akuntingData: akuntingData, akuntingLaporan: akuntingLaporan, mbDaftar: mbDaftar, berandaData: berandaData, accOto: accOto };
+  window.Akunting = { akuntingData: akuntingData, akuntingLaporan: akuntingLaporan, mbDaftar: mbDaftar, berandaData: berandaData, accOto: accOto,
+    // Bahan hitungan dasbor (file 13): pengaturan, catatan manual, dan semua gerak uang.
+    inti: async function (sb) { var d = await baca(sb); if (!d) return null; var cfg = siap(d), log = logManual(d); return { cfg: cfg, log: log, gerak: gerak(d, cfg, log) }; } };
 })();

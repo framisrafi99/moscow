@@ -1070,5 +1070,17 @@
     return { ok: true, barang: barang, kategori: kat, lokasi: lokasi, log: log, hariIni: fmt(new Date(), 'yyyy-MM-dd') };
   }
 
-  window.MdLama = { mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu, mdeData: mdeData, mpPsn: async function (sb) { return MP_bacaPsn_(await window.Lembar.muat(sb, TABEL_MP)); } };
+  window.MdLama = { mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu, mdeData: mdeData, mpPsn: async function (sb) { return MP_bacaPsn_(await window.Lembar.muat(sb, TABEL_MP)); },
+    // MP_dasborJual_ (file 36): penjualan marketplace Official per barang untuk dasbor.
+    mpJual: async function (sb) {
+      var L = await window.Lembar.muat(sb, TABEL_MP), B = MP_barang_(L), P = MP_padananFn_(L, B), out = [];
+      var label = { Shopee: 'Official Shopee', Tokopedia: 'Official Tokopedia/TikTok', Lazada: 'Official Lazada' };
+      MP_bacaPsn_(L).forEach(function (x) {
+        if (x.toko !== MP_TOKO_POTONG_ || x.batal || x.belum) return;
+        var q = x.q - x.ret; if (!(q > 0)) return;
+        var m = P(x.nm, x.vr, x.ha); if (!m.k || m.k === '-') return;
+        out.push([x.dibuat.slice(0, 10), m.k, q, (x.hd || x.ha) * q, label[x.pf] || ('Official ' + x.pf)]);
+      });
+      return out;
+    } };
 })();
