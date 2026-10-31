@@ -239,7 +239,7 @@
     muat(false);
     if (!$('mApp')) bangun(ctx);
     $('mApp').hidden = false;
-    if (abs && (!abs.masuk || !abs.pulang)) pengingatAbsen(abs);
+    if (abs && !abs.libur && (!abs.masuk || !abs.pulang)) pengingatAbsen(abs);   // libur = hari ini bukan hari kerja staf (mis. Sabtu WFH)
     var awal = (location.hash || '').slice(1);
     if (location.search) try { history.replaceState(null, '', location.pathname + location.hash); } catch (x) { }
     var pertama = O.menu.filter(function (x) { return !x.grup && !x.href; })[0].k;

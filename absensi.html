@@ -104,7 +104,7 @@
 <input type="file" id="kmCadangan" accept="image/*" capture="user" hidden>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="moscow.js?v=15"></script>
+<script src="moscow.js?v=16"></script>
 <script>
 (function () {
   'use strict';
@@ -177,6 +177,7 @@
     var l = d.lokasi, mm = menit(d.masuk), telat = mm != null && mm > JAM.masuk + JAM.toleransi ? mm - JAM.masuk : 0;
     var jenis = !d.masuk ? 'masuk' : !d.pulang ? 'pulang' : '';
     var h = (d.uji ? '<div class="msg w"><b>' + esc(d.uji) + '.</b> Absen hari ini tercatat sebagai uji coba dan tidak dihitung ke gaji.</div>' : '') +
+      (d.libur ? '<div class="msg ok">Hari ini bukan hari kerja kantormu (libur / WFH), jadi tidak perlu absen dan tidak dihitung telat atau alpa.</div>' : '') +
       '<div class="kpl"><div><div class="ab-tgl">' + esc(tglPanjang(d.tanggal)) + '</div><div class="ab-jam" id="abJam">--.--</div></div></div>' +
       '<div class="ab-lok">' + Moscow.svg('toko', 18) + '<span>' + (l ? esc(l.nama) : 'Lokasi belum diatur') + ' <small id="abJarak"></small></span></div>' +
       (d.jam_masuk ? '<p class="ab-catat" style="margin:0">Jam kerjamu: <b>' + esc(d.jam_masuk) + '–' + esc(d.jam_pulang) + '</b> (toleransi telat 15 menit)</p>' : '') +

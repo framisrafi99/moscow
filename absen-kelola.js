@@ -108,7 +108,9 @@
       if (x.masuk) hadir++;
       if (m != null && m > jm + JAM.toleransi) { telat++; ket.push('<span class="label no">Telat ' + (m - jm) + ' mnt</span>'); }
       if (p != null && p > jl) ket.push('<span class="label biru">Lembur ' + (p - jl) + ' mnt</span>');
+      var hk = Array.isArray(s.hari_kerja) ? s.hari_kerja : [1, 2, 3, 4, 5, 6], dowT = new Date(String(d.tanggal) + 'T12:00:00').getDay(), bukanKerja = hk.indexOf(dowT) === -1;
       if (!x.masuk && izin[s.id]) { nIzin++; ket.push('<span class="label ok">' + NAMA_IZIN[izin[s.id]] + '</span>'); }
+      else if (!x.masuk && bukanKerja) ket.push('<span class="label biru">Libur / WFH</span>');
       else if (!x.masuk) { belum++; ket.push('<span class="label abu">Belum absen</span>'); }
       if (x.masuk && !x.pulang && d.tanggal !== d.hari_ini) ket.push('<span class="label w">Tidak absen pulang</span>');
       if (x.koreksi) ket.push('<span class="label abu" title="' + esc(x.catatan) + '">Dikoreksi</span>');
@@ -211,7 +213,7 @@
     nama.sort(function (a, b) { return a.localeCompare(b, 'id'); });
     h += '<div class="ak-kotak"><b>Staf yang absen</b><p class="sb" style="margin:4px 0 10px">Isi email Google yang dipakai staf untuk masuk aplikasi, pilih lokasinya, lalu simpan. Nama mengikuti Payroll supaya gaji terhitung otomatis. Staf consignment tidak perlu didaftarkan.</p>';
     if (!nama.length) h += '<div class="ksg">' + (A.payroll ? 'Belum ada staf di Payroll.' : 'Memuat daftar staf Payroll…') + '</div>';
-    else h += '<div class="ak-gl" style="border:0"><table class="ak-t"><thead><tr><th>Nama (Payroll)</th><th>Email Google</th><th>Lokasi</th><th>Jam masuk</th><th>Jam pulang</th><th>Absen</th></tr></thead><tbody>' +
+    else h += '<div class="ak-gl" style="border:0"><table class="ak-t"><thead><tr><th>Nama (Payroll)</th><th>Email Google</th><th>Lokasi</th><th>Jam masuk</th><th>Jam pulang</th><th>Hari kerja</th><th>Absen</th></tr></thead><tbody>' +
       nama.map(function (n, i) {
         var s = ada[n] || {};
         return '<tr><td><b>' + esc(n) + '</b>' + (A.payroll && A.payroll.indexOf(n) < 0 ? '<small style="color:var(--merah)">Tidak ada di Payroll bulan ini</small>' : '') + '</td>' +
@@ -219,10 +221,15 @@
           '<td><select data-lok="' + i + '"><option value="">— pilih —</option>' + lok.map(function (l) { return '<option value="' + l.id + '"' + (s.lokasi_id === l.id ? ' selected' : '') + '>' + esc(l.nama) + '</option>'; }).join('') + '</select></td>' +
           '<td><input type="time" data-jm="' + i + '" value="' + esc(s.jam_masuk || '10:00') + '" aria-label="Jam masuk ' + esc(n) + '"></td>' +
           '<td><input type="time" data-jp="' + i + '" value="' + esc(s.jam_pulang || '17:00') + '" aria-label="Jam pulang ' + esc(n) + '"></td>' +
+          '<td><select data-hk="' + i + '" aria-label="Hari kerja ' + esc(n) + '">' + (function () {
+            var v = (Array.isArray(s.hari_kerja) ? s.hari_kerja : [1, 2, 3, 4, 5, 6]).join(','), op = [['1,2,3,4,5,6', 'Senin–Sabtu'], ['1,2,3,4,5', 'Senin–Jumat (Sabtu WFH / libur)']];
+            if (!op.some(function (o) { return o[0] === v; })) op.push([v, v.split(',').map(function (x) { return HARI[+x].slice(0, 3); }).join(', ')]);
+            return op.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === v ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('');
+          })() + '</select></td>' +
           '<td><input type="checkbox" data-aktif="' + i + '"' + (s.id ? (s.aktif ? ' checked' : '') : '') + ' style="width:22px;height:22px" aria-label="' + esc(n) + ' ikut absen"></td></tr>';
       }).join('') + '</tbody></table></div>' +
       '<div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button type="button" class="tbl pri" id="stSimpan"' + (A.sibuk ? ' disabled' : '') + '>Simpan daftar staf</button>' +
-      '<span class="sb" style="margin:0">Centang "Absen" untuk staf yang wajib absen. Telat dihitung lewat 15 menit dari jam masuk, lembur mulai 20 menit sesudah jam pulang.</span></div>';
+      '<span class="sb" style="margin:0">Centang "Absen" untuk staf yang wajib absen. Telat dihitung lewat 15 menit dari jam masuk, lembur mulai 20 menit sesudah jam pulang. Di luar hari kerja staf (mis. Sabtu WFH) tidak perlu absen dan tidak dihitung alpa.</span></div>';
     h += '</div>';
     A._nama = nama;
     return h;
@@ -308,7 +315,8 @@
         var email = el.querySelector('[data-email="' + i + '"]').value.trim(), lok = el.querySelector('[data-lok="' + i + '"]').value, aktif = el.querySelector('[data-aktif="' + i + '"]').checked;
         var lama = ((A.data.staf || []).filter(function (s) { return s.nama === n; })[0]);
         if (!lama && !email && !aktif) return;
-        items.push({ nama: n, email: email, lokasi_id: lok, aktif: aktif, jam_masuk: el.querySelector('[data-jm="' + i + '"]').value, jam_pulang: el.querySelector('[data-jp="' + i + '"]').value });
+        items.push({ nama: n, email: email, lokasi_id: lok, aktif: aktif, jam_masuk: el.querySelector('[data-jm="' + i + '"]').value, jam_pulang: el.querySelector('[data-jp="' + i + '"]').value,
+          hari_kerja: el.querySelector('[data-hk="' + i + '"]').value.split(',').map(Number) });
       });
       var kurang = items.filter(function (x) { return x.aktif && (!x.email || !x.lokasi_id); }).map(function (x) { return x.nama; });
       if (kurang.length) { A.pesan = 'Lengkapi email dan lokasi untuk: ' + esc(kurang.join(', ')) + '.'; A.kelas = 'bad'; gambar(); return; }

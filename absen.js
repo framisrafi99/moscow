@@ -160,7 +160,8 @@
     var js = A.jamStaf[namaMesin] || {}, jMasuk = js.masuk != null ? Number(js.masuk) : ATUR.masuk, jLembur = js.pulang != null ? Number(js.pulang) + 20 : ATUR.batasLembur;
     var r = { hadir: 0, kerja: 0, alpaOtomatis: 0, telatHari: 0, telatMenit: 0, lemburHari: 0, lemburMenit: 0, lemburRp: 0, kurang: 0, libur: 0, hari: [] };
     for (var d = 1; d <= jml; d++) {
-      var tg = ymd(y, b, d), dow = new Date(y, b - 1, d).getDay(), libur = A.libur.indexOf(dow) > -1 || !!merah[d];
+      var tg = ymd(y, b, d), dow = new Date(y, b - 1, d).getDay(), libur = A.libur.indexOf(dow) > -1 || !!merah[d] ||
+        (Array.isArray(js.hari) && js.hari.indexOf(dow) === -1);   // hari kerja per staf (mis. tim kreatif Senin–Jumat, Sabtu WFH)
       if (A.uji[tg]) continue; // hari uji coba aplikasi Absensi: tidak dihitung (bukan hari kerja, bukan alpa)
       var t = (data[tg] || []).slice().sort(function (p, q) { return p - q; });
       if (!libur) r.kerja++;
