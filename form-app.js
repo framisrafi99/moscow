@@ -555,6 +555,8 @@
   }
 
   window.__formPanggil = function (f, a) {
+    // Tiket akses perangkat (file 48) hanya berlaku dengan tanda perangkat link lama; di aplikasi selalu { ok: false } (sama dengan Apps Script).
+    if (APP === 'mdlama' && f === 'aksesTiket' && !(a && a[0] && a[0].dev)) return Promise.resolve(JSON.stringify({ ok: false }));
     if (TULIS_SUPABASE[APP] && TULIS_SUPABASE[APP][f]) return tulisSupabase(f, a);
     return bacaSupabase(f, a).then(function (r) {
       if (r) return JSON.stringify(r);
