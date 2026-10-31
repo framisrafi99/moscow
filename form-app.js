@@ -562,6 +562,20 @@
     var d = await kirim('pgsTanpaData', [p]);
     return d.r;
   };
+  // Persetujuan penyesuaian stok satu per satu (toko: file 6, produksi/gudang/KP: file 7 + Telegram file 23) langsung di Supabase.
+  TULIS_SUPABASE.mdlama.putusSesuai = async function (p) {
+    var r = await sb.rpc('toko_sesuai_putus', { p_no: teks(p.no), p_semua: p.semua === true, p_setuju: p.setuju === true, p_catatan: teks(p.catatan) });
+    if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Coba lagi.');
+    var h = r.data || { ok: false, pesan: 'Gagal menyimpan.' };
+    if (h.pesan === 'Akses ditolak.' || h.pesan === 'Nomor ajuan tidak ada.') return h;
+    // Seperti Apps Script: daftar ajuan terbaru ikut dikirim (dibaca dari Supabase yang sudah berubah).
+    var d = await window.MdLama.sesuaiPemilik(sb);
+    d.ok = h.ok; d.pesan = h.pesan;
+    return d;
+  };
+  TULIS_SUPABASE.mdlama.prodSesuaiPutus = function (p) {
+    return ['prod_sesuai_putus', { p_no: teks(p.no), p_setuju: p.setuju === true, p_catatan: teks(p.catatan) }];
+  };
   TULIS_SUPABASE.mdlama.mdeSimpan = async function (p) {
     var j = teks(p.jenis), r;
     if (j === 'harga' || j === 'hpp') {
