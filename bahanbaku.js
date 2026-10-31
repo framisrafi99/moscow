@@ -891,7 +891,10 @@
       return out;
     }
     return { ringkasStok: ringkasStok, bahanBakuData: bahanBakuData, bahanBakuLaporan: bahanBakuLaporan, pantauProduksi: pantauProduksi, rencanaBahan: rencanaBahan,
-      siapProduksi: siapProduksi, siapWarna: siapWarna, hargaMaster: hargaMaster };
+      siapProduksi: siapProduksi, siapWarna: siapWarna, hargaMaster: hargaMaster,
+      // Untuk robot purchasing (file 17 PGD_analisa_ bagian B).
+      bbk: { beli: function () { return BBK_beli_(ss, 'Asia/Makassar'); }, log: function () { return BBK_log_(ss, 'Asia/Makassar'); },
+        stok: function (bulan, beli, log) { return BBK_stok_(ss, 'Asia/Makassar', bulan, beli, log); }, katalog: function () { return bacaKatalog_(); } } };
   }
 
   async function muat(sb, tabel) { return buat(await window.Lembar.muat(sb, tabel)); }

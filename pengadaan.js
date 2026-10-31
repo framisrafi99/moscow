@@ -148,7 +148,7 @@
       });
       return { ok: true, list: list };
     }
-    return { ptrData: ptrData, pgsTerbuka: pgsTerbuka, pgsData: pgsData, gdxPengajuan: gdxPengajuan, ajuan: ajuan };
+    return { ptrData: ptrData, pgsTerbuka: pgsTerbuka, pgsData: pgsData, gdxPengajuan: gdxPengajuan, ajuan: ajuan, pgdAjuan: pgdAjuan };
   }
 
   async function muat(sb) { return buat(await window.Lembar.muat(sb, TABEL)); }

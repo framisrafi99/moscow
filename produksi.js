@@ -412,7 +412,7 @@
           .map(function (x) { return { n: x.n, s: x.s, t: x.t, b: x.baris, sup: x.sup, hs: x.hs, hp: x.hp, tp: x.tp, pc: x.pc, kel: x.kel }; })
       };
     }
-    return { hargaMaster: hargaMaster, kemasanHargaData: kemasanHargaData, stokBahan: stokBahan, ambilBahan: ambilBahan, ambilOrderProduksi: ambilOrderProduksi, prodSesuaiDaftar: prodSesuaiDaftar, ambilRiwayatProduksi: ambilRiwayatProduksi, ambilStok: ambilStok };
+    return { hargaMaster: hargaMaster, kemasanHargaData: kemasanHargaData, stokBahan: stokBahan, ambilBahan: ambilBahan, ambilOrderProduksi: ambilOrderProduksi, prodSesuaiDaftar: prodSesuaiDaftar, ambilRiwayatProduksi: ambilRiwayatProduksi, ambilStok: ambilStok, catatan: STM_bacaCatatan_, kunci: STM_kunci_ };
   }
 
   // Stok awal gudang produksi dari Supabase: { urut: [[kode, qty], ...] } (urutan baris REPORT_STOK).
