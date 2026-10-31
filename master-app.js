@@ -99,6 +99,7 @@
   function bulanMundur(m) { var d = new Date(Date.now() + 8 * 3600e3); d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - m, 15)); return d.toISOString().slice(0, 7); }
   function akhirBulan(b) { return ('0' + new Date(Number(b.slice(0, 4)), Number(b.slice(5, 7)), 0).getDate()).slice(-2); }
   var LANGSUNG = {
+    'md:beranda': function () { return window.Akunting.berandaData(sb); },
     'md:ringkasan': function () { return window.MdLama.mdRingkasan(sb); },
     'md:setuju': function () { return window.MdLama.mdSetujuData(sb); },
     'md:tanpa': function () { return window.MdLama.pgsTanpaData(sb); },
