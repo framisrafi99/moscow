@@ -119,6 +119,7 @@
     'md:prod': function () { var b = bulanMundur(0), kini = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10); return window.Produksi.ambilPantau(sb, { dari: b + '-01', sampai: kini }); },
     'md:bbk': function () { return window.BahanBaku.bahanBakuData(sb, {}); },
     'md:rpd': function () { return window.RencanaProduksi.hitung(sb); },
+    'md:barang': function () { return window.MdLama.mdeData(sb); },
     'md:pengadaan': function () { return window.RobotBeli.pgdData(sb); },
     'md:gudang': function () { return window.MdLama.gdPemilikData(sb); },
     'md:beli:lalu': function () { return window.MdLama.beliLalu(sb, bulanMundur(1)); },
