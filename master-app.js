@@ -1158,6 +1158,8 @@
     AT.data = h[0].error ? { galat: h[0].error.message } : h[0].data || [];
     AT.stok = (!h[1].error && h[1].data && h[1].data[0]) ? h[1].data[0].data : null;
     gambarAtur();
+    // Stok semua lokasi dihitung langsung (stoksemua.js); potret Apps Script dipakai dulu supaya cepat tampil.
+    if (window.StokSemua) window.StokSemua.hitung(sb).then(function (d) { if (d && d.ok && !d.gagal.length) { AT.stok = d; gambarAtur(); } }, function () { });
   }
   function gambarAtur() {
     var el = $('bAtur'); if (!el) return;

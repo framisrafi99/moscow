@@ -41,6 +41,12 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="moscow.js?v=16"></script>
+<script src="lembar.js?v=2"></script>
+<script src="gudang.js?v=6"></script>
+<script src="kp.js?v=2"></script>
+<script src="produksi.js?v=3"></script>
+<script src="md.js?v=6"></script>
+<script src="stoksemua.js?v=1"></script>
 <script>
 (function () {
   var M = Moscow, sb = M.sb, esc = M.esc;
@@ -49,13 +55,14 @@
   function $(id) { return document.getElementById(id); }
   function rp(n) { return 'Rp ' + Math.round(Number(n) || 0).toLocaleString('id-ID'); }
   function jml(n) { return (Number(n) || 0).toLocaleString('id-ID'); }
-  var data = null, pilih = 'semua', cari = '', kat = '';
+  var data = null, pilih = 'semua', cari = '', kat = '', peran = '';
 
   M.mulai({
     aplikasi: 'STOK BARANG', masukJudul: 'Stok barang', masukTeks: 'Sisa stok tiap gudang, toko, dan consignment Moscow Supplies. Masuk memakai akun Google yang sudah didaftarkan.',
     izin: function (ctx) { return BOLEH.indexOf(ctx.peran) > -1 ? true : (ctx.peran ? 'Akun ' + ctx.email + ' tidak punya akses ke halaman stok.' : false); },
     menu: [{ k: 'stok', nm: 'Stok per lokasi', ik: 'stok', judul: 'Stok barang' }],
     siap: function (ctx) {
+      peran = ctx.peran;
       M.aksi([{ nm: 'Muat ulang', ik: 'muat', klik: function () { muat(LENGKAP.indexOf(ctx.peran) > -1); } }]);
       if (ctx.peran === 'manajemen') {
         var nav = document.querySelector('#mSide nav');
@@ -66,6 +73,19 @@
   });
 
   async function muat(lengkap) {
+    // Manajemen: dihitung langsung dari Supabase saat dibuka (sama persis dengan hitungan Apps Script),
+    // kalau gagal memakai potret terakhir dari Apps Script.
+    if (lengkap && peran === 'manajemen' && window.StokSemua) {
+      $('isi').innerHTML = '<div class="ksg">Menghitung stok terbaru…</div>';
+      try {
+        var L = await window.StokSemua.hitung(sb);
+        if (L && L.ok && !L.gagal.length) {
+          data = { lokasi: L.lokasi, barang: L.barang, lengkap: true, diperbarui: L.diperbarui + ' (langsung)', gagal: [] };
+          if (data.lokasi.length === 1) pilih = data.lokasi[0].id;
+          gambarRak(); gambar(); return;
+        }
+      } catch (e) { }
+    }
     var r = lengkap ? await sb.from('hasil_hitung').select('kunci,data').eq('kunci', 'stok:semua')
       : await sb.from('hasil_hitung').select('kunci,data').like('kunci', 'stok:lokasi:%');
     if (r.error) { $('isi').innerHTML = '<div class="msg bad">Stok gagal dimuat: ' + esc(r.error.message) + '</div>'; return; }
@@ -115,6 +135,13 @@
         '<div class="kt"><span class="l">Nilai HPP</span><span class="v angka">' + M.jt(nh) + '</span><span class="k' + (tanpa ? ' w' : '') + '">' + (tanpa ? tanpa + ' barang tanpa HPP' : rp(nh)) + '</span></div>' +
         '<div class="kt"><span class="l">Nilai jual</span><span class="v angka">' + M.jt(nj) + '</span><span class="k">' + rp(nj) + '</span></div>' +
         '<div class="kt"><span class="l">Stok minus</span><span class="v angka' + (minus ? ' mn' : '') + '">' + minus + '</span><span class="k' + (minus ? ' w' : '') + '">' + (minus ? 'Perlu dicek' : 'Tidak ada') + '</span></div></div>';
+      if (pilih === 'semua' && window.StokSemua) {
+        var NA = window.StokSemua.nilai(data);
+        h += '<div class="cd"><h3>Nilai aset per lokasi</h3><div style="overflow-x:auto"><table class="tabel"><thead><tr><th>Lokasi</th><th class="r">Stok</th><th class="r">Nilai HPP</th><th class="r">Nilai jual</th></tr></thead><tbody>' +
+          NA.map(function (x) { return '<tr><td><b>' + esc(x.n) + '</b>' + (x.tanpaHpp || x.minus ? '<small>' + [x.tanpaHpp ? x.tanpaHpp + ' barang tanpa HPP' : '', x.minus ? x.minus + ' stok minus' : ''].filter(Boolean).join(' · ') + '</small>' : '') + '</td><td class="r">' + jml(x.pcs) + ' pcs</td><td class="r">' + rp(x.hpp) + '</td><td class="r">' + rp(x.jual) + '</td></tr>'; }).join('') +
+          '</tbody></table></div>' +
+          '<p class="sb" style="margin:0">Nilai dihitung dari stok positif × HPP (atau harga jual). Stok minus tidak ikut dihitung.</p></div>';
+      }
     }
     h += '<div class="cd"><div class="baris"><label>Cari barang<input class="isian" id="cari" type="search" placeholder="Nama atau kode barang" autocomplete="off" value="' + esc(cari) + '"></label>' +
       '<label>Kategori<select class="isian" id="kat"><option value="">Semua kategori</option>' + kats.map(function (k) { return '<option' + (k === kat ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select></label></div>';
