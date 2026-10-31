@@ -10,7 +10,7 @@
     'md:gudang': 'gudang', 'md:beli:lalu': 'beliLalu', 'md:pengadaan': 'pengadaan', 'md:tanpa': 'tanpa',
     'md:prod': 'prod', 'md:botol': 'botol', 'md:bbk': 'bbk', 'md:rpd': 'rpd', 'md:rbb': 'rbb', 'md:pp:prod': 'ppProd', 'md:pp:bahan': 'ppBahan',
     'md:barang': 'barang', 'md:akses': 'akses', 'md:acc': 'acc', 'md:acc:lalu': 'accLalu', 'md:hrgnaik': 'hrgnaik', 'md:hbb': 'hbb', 'md:tpb': 'tpb' };
-  function jumlahTunggu() { return (D.setuju && D.setuju.menunggu || 0) + (D.request && D.request.n || 0); }
+  function jumlahTunggu() { return (D.setuju && D.setuju.menunggu || 0) + (D.request && D.request.n || 0) + (window.KoreksiJual ? window.KoreksiJual.menunggu() : 0); }
 
   M.mulai({
     aplikasi: 'MASTER DATA', masukJudul: 'Master Data', masukTeks: 'Pusat kendali manajemen Moscow Supplies. Masuk memakai akun Google yang sudah didaftarkan.',
@@ -71,6 +71,12 @@
     if (h[0].error) { $('bBeranda').innerHTML = '<div class="msg bad">Data gagal dimuat: ' + esc(h[0].error.message) + '</div>'; return; }
     (h[0].data || []).forEach(function (x) { D[KUNCI[x.kunci]] = x.data; D.waktu[KUNCI[x.kunci]] = x.dibuat; });
     D.aksi = h[1].data || [];
+    // Koreksi laporan penjualan toko (koreksi.js): langsung dari Supabase.
+    if (window.KoreksiJual) {
+      window.KoreksiJual.pasang({ badge: function () { M.badge('setuju', jumlahTunggu()); var c = document.querySelector('[data-bg="koreksi"] b'); if (c) c.textContent = window.KoreksiJual.menunggu() + ' menunggu'; },
+        setelah: function (k) { sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah koreksi penjualan ' + k.no }).then(function () { }, function () { }); } });
+      try { await window.KoreksiJual.muatSetuju(); } catch (e) { }
+    }
     M.badge('setuju', jumlahTunggu());
     gambarBeranda(BR.janji ? false : undefined);
     var sisa = Object.keys(KUNCI).filter(function (k) { return INTI.indexOf(k) < 0; });
@@ -1883,15 +1889,16 @@
   function gambarSetuju() {
     var el = $('bSetuju');
     var nR = D.request ? D.request.n || 0 : 0, nP = D.pantau ? (D.pantau.aktif || []).length : 0, nS = D.setuju ? D.setuju.menunggu || 0 : 0;
-    M.badge('setuju', nR + nS);
+    var nK = window.KoreksiJual ? window.KoreksiJual.menunggu() : 0;
+    M.badge('setuju', nR + nS + nK);
     var antre = D.aksi.filter(function (a) { return a.status === 'menunggu'; });
     var h = '<div id="msgUtama"></div>';
     if (antre.length) h += '<div class="msg tunggu">' + antre.length + ' keputusan sedang diterapkan ke Google Sheets (paling lambat 10 menit): ' + antre.slice(0, 3).map(function (a) { return esc(a.ringkas); }).join(' · ') + '</div>';
     h += '<div class="chip" role="group" aria-label="Bagian persetujuan">' +
-      [['request', 'Request barang', nR + ' menunggu'], ['pantau', 'Pantau pengiriman', nP + ' berjalan'], ['sesuai', 'Penyesuaian stok', nS + ' menunggu']].map(function (b) {
+      [['request', 'Request barang', nR + ' menunggu'], ['pantau', 'Pantau pengiriman', nP + ' berjalan'], ['sesuai', 'Penyesuaian stok', nS + ' menunggu'], ['koreksi', 'Koreksi penjualan', nK + ' menunggu']].map(function (b) {
         return '<button type="button" data-bg="' + b[0] + '" aria-pressed="' + (BAGIAN === b[0]) + '"><span>' + b[1] + '</span><b>' + b[2] + '</b></button>';
       }).join('') + '</div>';
-    h += '<div id="bgRequest"' + (BAGIAN === 'request' ? '' : ' hidden') + '></div><div id="bgPantau"' + (BAGIAN === 'pantau' ? '' : ' hidden') + '></div><div id="bgSesuai"' + (BAGIAN === 'sesuai' ? '' : ' hidden') + '></div>';
+    h += '<div id="bgRequest"' + (BAGIAN === 'request' ? '' : ' hidden') + '></div><div id="bgPantau"' + (BAGIAN === 'pantau' ? '' : ' hidden') + '></div><div id="bgSesuai"' + (BAGIAN === 'sesuai' ? '' : ' hidden') + '></div><div id="bgKoreksi"' + (BAGIAN === 'koreksi' ? '' : ' hidden') + '></div>';
     var log = D.aksi.filter(function (a) { return a.fungsi !== 'segarkan'; });
     if (log.length) {
       h += '<div class="cd"><h3>Keputusan dari aplikasi baru</h3><table class="tabel"><tbody>' + log.slice(0, 10).map(function (a) {
@@ -1902,6 +1909,7 @@
     el.innerHTML = h;
     el.querySelectorAll('[data-bg]').forEach(function (b) { b.onclick = function () { BAGIAN = b.getAttribute('data-bg'); gambarSetuju(); }; });
     gambarRequest(); gambarPantau(); gambarSesuai();
+    if (window.KoreksiJual) window.KoreksiJual.gambarSetuju($('bgKoreksi'));
   }
 
   // ---------- Request barang toko & consignment (rpDaftar / rpPutus) ----------

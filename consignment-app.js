@@ -213,7 +213,7 @@
   };
 
   function ukur() {
-    var fr = C.frame; if (!fr || fr.hidden) return;
+    var fr = C.frame; if (!fr || fr.hidden || C.aktif === 'koreksi') return;
     document.documentElement.classList.add('berbingkai'); window.scrollTo(0, 0);
     var atas = fr.getBoundingClientRect().top;
     var bawah = document.documentElement.classList.contains('m-m') && $('mBawah') ? $('mBawah').offsetHeight : 0;
@@ -307,6 +307,7 @@
       // Nama pengisi otomatis dari akun yang masuk.
       var nm = dok && dok.getElementById('nama');
       if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
+      if (C.aktif === 'koreksi') { window.KoreksiJual.bukaToko($('kjIsi'), C.toko, C.nama); return; }
       ukur(); tekan(C.aktif === 'riwayat' ? 'jual' : C.aktif);
       if (C.aktif === 'riwayat') tekan('riwayat');
     };
@@ -344,11 +345,17 @@
       { k: 'pinjam', nm: 'Stok dipinjam', ik: 'toko', bagian: 'isi', pendek: 'Pinjaman' },
       { k: 'sesuai', nm: 'Penyesuaian stok', ik: 'atur', bagian: 'isi', pendek: 'Penyesuaian' },
       { k: 'bh', nm: 'Penjualan & Bagi Hasil', ik: 'laporan', bagian: 'isi', pendek: 'Bagi hasil' },
+      { k: 'koreksi', nm: 'Koreksi penjualan', ik: 'atur', bagian: 'koreksi', pendek: 'Koreksi' },
       { k: 'riwayat', nm: 'Riwayat isi laporan', ik: 'riwayat', bagian: 'isi', pendek: 'Riwayat' },
       { k: 'kasir', nm: 'Kasir', ik: 'kasir', href: 'kasir.html' }
     ],
     bawah: ['jual', 'terima', 'biaya', 'dasbor', 'lain'],
-    pindah: function (k) { C.aktif = k; tekan(k); setTimeout(ukur, 0); },
+    pindah: function (k) {
+      C.aktif = k;
+      // Koreksi penjualan tampil langsung di aplikasi (bukan di form lama dalam bingkai).
+      if (k === 'koreksi') { document.documentElement.classList.remove('berbingkai'); if (C.toko) window.KoreksiJual.bukaToko($('kjIsi'), C.toko, C.nama); return; }
+      tekan(k); setTimeout(ukur, 0);
+    },
     siap: function (ctx) {
       C.peran = ctx.peran; C.nama = '';
       if (ctx.peran === 'manajemen') {
