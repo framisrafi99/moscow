@@ -183,5 +183,31 @@
     return { ok: true, harga: harga, ubah: ubah.slice(0, 200), diperbarui: fmt(new Date(), 'dd/MM/yyyy HH:mm') };
   }
 
-  window.MdLama = { hargaBahanBakuMaster: hargaBahanBakuMaster, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar };
+  // ---- hrgNaikData (file 26): isi sheet HARGA_NAIK_LOG (tabel harga_naik_log), terbaru di atas ----
+  async function hrgNaikData(sb) {
+    var rows = await semua(sb, 'harga_naik_log', 'baris_sheet,waktu,sumber,no,kelompok,kode,nama_barang,warna,harga_lama,tanggal_harga_lama,harga_baru,selisih,naik_persen,supplier,pengisi');
+    // Tabel baru: tunggu sampai sinkron pertama selesai (ada baris), kecuali sheet memang kosong menurut potret lama.
+    if (!rows.length) {
+      var p = await sb.from('hasil_hitung').select('data').eq('kunci', 'md:hrgnaik').maybeSingle();
+      var d = p && p.data ? p.data.data : null;
+      if (!d || !Array.isArray(d.list) || d.list.length) return null;
+    }
+    var list = [];
+    rows.forEach(function (r) {
+      if (r.baris_sheet === null) return;
+      var w = waktu(r.waktu);
+      if (!w) return;
+      var lama = Number(r.harga_lama) || 0, baru = Number(r.harga_baru) || 0;
+      list.push({
+        t: fmt(w, 'yyyy-MM-dd'), j: fmt(w, 'HH:mm'), sb: s(r.sumber), no: s(r.no), kel: s(r.kelompok), k: s(r.kode), n: s(r.nama_barang), w: s(r.warna), lama: lama,
+        tl: tglIso(r.tanggal_harga_lama), baru: baru, sel: Number(r.selisih) || (baru - lama),
+        pc: (r.naik_persen === null || r.naik_persen === '') ? (lama ? Math.round((baru - lama) / lama * 1000) / 10 : 0) : Number(r.naik_persen) || 0,
+        sup: s(r.supplier), pg: s(r.pengisi)
+      });
+    });
+    list.reverse();
+    return { ok: true, list: list.slice(0, 2000), diperbarui: fmt(new Date(), 'dd/MM/yyyy HH:mm') };
+  }
+
+  window.MdLama = { hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar };
 })();
