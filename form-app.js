@@ -576,6 +576,13 @@
   TULIS_SUPABASE.mdlama.prodSesuaiPutus = function (p) {
     return ['prod_sesuai_putus', { p_no: teks(p.no), p_setuju: p.setuju === true, p_catatan: teks(p.catatan) }];
   };
+  // Bagi hasil consignment: dana diterima marketplace (file 36) dan uang tunai offline (file 76) diisi manajemen, sama dengan form toko.
+  TULIS_SUPABASE.mdlama.salDanaSimpan = function (p) {
+    return ['toko_dana_simpan', { p_toko: teks(p.toko), p_jenis: 'dana', p_saluran: teks(p.saluran), p_bulan: teks(p.bulan), p_nilai: teks(p.dana), p_nama: teks(p.nama) }];
+  };
+  TULIS_SUPABASE.mdlama.danaTunaiSimpan = function (p) {
+    return ['toko_dana_simpan', { p_toko: teks(p.toko), p_jenis: 'tunai', p_saluran: '', p_bulan: teks(p.bulan), p_nilai: teks(p.nominal), p_nama: '' }];
+  };
   TULIS_SUPABASE.mdlama.mdeSimpan = async function (p) {
     var j = teks(p.jenis), r;
     if (j === 'harga' || j === 'hpp') {
@@ -626,6 +633,11 @@
     }
     return h;
   }
+  var SEGARKAN_MD = {
+    mdSetujuPutus: ['md:setuju'], putusSesuai: ['md:setuju'], prodSesuaiPutus: ['md:setuju'], rpPutus: ['md:request', 'md:pantau'], rpTandai: ['md:pantau'],
+    ubahStatusOrder: ['md:request', 'md:pantau'], ttpPutus: ['md:titip'], ttpBarangUbah: ['md:titip'], gdPoPutus: ['md:gudang'], gdPoBayar: ['md:gudang'],
+    gdBiayaBayar: ['md:gudang'], gdPoBatalMgmt: ['md:gudang'], pgdAksi: ['md:pengadaan'], pgsTanpaCek: ['md:tanpa'], mdeSimpan: ['md:barang']
+  };
   async function tulisSupabase(f, a) {
     var q = TULIS_SUPABASE[APP][f]((a && a[0]) || {}), hasil;
     if (Array.isArray(q)) {
@@ -638,6 +650,8 @@
       if (hasil === null) return kirimLama(f, a);
     }
     if (hasil && hasil.ok) { if (APP === 'mdlama' || APP === 'mike' || APP === 'mikelama') await salinKeSheet(); else salinKeSheet(); if (window.Gudang) window.Gudang.lupakan(); }
+    // Master Data lama: ringkasan Master Data baru yang terkait ikut dihitung ulang (sama seperti simpan dari Master Data baru).
+    if (hasil && hasil.ok && APP === 'mdlama' && SEGARKAN_MD[f]) { try { sb.from('md_aksi').insert({ fungsi: 'segarkan', param: { kunci: SEGARKAN_MD[f] }, ringkas: 'Hitung ulang sesudah ' + f + ' (Master Data lama)' }).then(function () { }, function () { }); } catch (e) { } }
     if (APP === 'mike' && window.KendaliBisnis) window.KendaliBisnis.catatTulis();
     return JSON.stringify(hasil);
   }
