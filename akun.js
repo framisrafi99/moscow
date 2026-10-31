@@ -23,12 +23,22 @@
   function rapiMetode(v) { var s = String(v || '').trim().toLowerCase(); return s === 'tunai' || s === 'cash' ? 'Tunai' : (s === 'qris' ? 'QRIS' : ''); }
   function offline(n) { return /offline/i.test(String(n || '')); }
 
-  async function baca(sb) {
-    var r = await sb.rpc('akunting_baca');
-    if (r.error) throw new Error(r.error.message);
-    var d = r.data;
-    if (!d || !d.ok || !d.oto || !d.oto.ok) return null;
-    return d;
+  // Penjualan otomatis dihitung langsung (accOto); kalau gagal (mis. belum punya izin baca), pakai potret 'acc:oto'.
+  var memo = null, memoWaktu = 0;
+  function baca(sb) {
+    if (memo && Date.now() - memoWaktu < 5000) return memo;
+    memoWaktu = Date.now();
+    memo = (async function () {
+      var r = await sb.rpc('akunting_baca');
+      if (r.error) throw new Error(r.error.message);
+      var d = r.data;
+      if (!d || !d.ok) return null;
+      try { var o = await accOto(sb, d); if (o && o.ok) { d.oto = o; d.otoLangsung = true; } } catch (e) { }
+      if (!d.oto || !d.oto.ok) return null;
+      return d;
+    })();
+    memo.catch(function () { memo = null; });
+    return memo;
   }
   // ACC_siap_ (bagian membaca pengaturan).
   function siap(d) {
@@ -297,9 +307,9 @@
   }
   function bulanBerikut(x) { var a = x.split('-'), y = Number(a[0]), m = Number(a[1]) + 1; if (m > 12) { m = 1; y++; } return y + '-' + (m < 10 ? '0' : '') + m; }
   function akhirBulan(b) { var a = b.split('-'), d = new Date(Date.UTC(Number(a[0]), Number(a[1]), 0)).getUTCDate(); return b + '-' + (d < 10 ? '0' : '') + d; }
-  async function accOto(sb) {
+  async function accOto(sb, dSiap) {
     var h = await Promise.all([
-      sb.rpc('akunting_baca'),
+      dSiap ? { data: dSiap } : sb.rpc('akunting_baca'),
       sb.from('pelanggan').select('nama_pelanggan,tipe,baris_sheet,id').order('baris_sheet', { ascending: true, nullsFirst: false }).order('id'),
       semuaBaris(sb, 'toko_jual_log', 'id,baris_sheet,tanggal,toko,total,no_nota,ongkir'),
       semuaBaris(sb, 'toko_retur_log', 'id,baris_sheet,tanggal,toko,nilai'),
