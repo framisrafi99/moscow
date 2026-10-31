@@ -74,12 +74,28 @@
     return out;
   }
 
+  // Stok toko dihitung langsung dari Supabase (1 Nov; sama persis dengan hitungan Apps Script stok:lokasi):
+  // per barang = toko_stok_hitung (stokToko_), per warna = toko_hitung_warna (TO_stok_).
+  async function stokLangsung() {
+    try {
+      var r = await Promise.all([sb.rpc('toko_stok_hitung', { p_toko: D.toko }), sb.rpc('toko_hitung_warna', { p_toko: D.toko })]);
+      if (r[0].error || r[1].error || !Array.isArray(r[0].data)) return null;
+      var kini = new Date(), barang = [], stokW = {}, w = r[1].data || {};
+      r[0].data.forEach(function (x) { var q = Number(x.qty) || 0; if (x.kode && q) barang.push({ k: x.kode, q: q }); });
+      Object.keys(w).forEach(function (k) { stokW[k] = (w[k] && w[k].w) || {}; });
+      var j = new Date(kini.getTime() + 8 * 3600e3), d2 = function (n) { return ('0' + n).slice(-2); };
+      var teks = d2(j.getUTCDate()) + '/' + d2(j.getUTCMonth() + 1) + '/' + j.getUTCFullYear() + ' ' + d2(j.getUTCHours()) + ':' + d2(j.getUTCMinutes());
+      return { data: { dibuat: kini.toISOString(), data: { barang: barang, stokW: stokW, diperbarui: teks } } };
+    } catch (e) { return null; }
+  }
   // ----- stok: hitungan terakhir dikurangi nota baru yang belum masuk hitungan -----
   async function muatStok() {
     var h = await Promise.all([
-      sb.from('hasil_hitung').select('data,dibuat').eq('kunci', 'stok:lokasi:' + D.toko).maybeSingle(),
+      stokLangsung(),
       sb.from('kasir_nota').select('items,status,diproses').eq('toko', D.toko).gte('tanggal', geserHari(hariIni(), -3))
     ]);
+    // Cadangan: hitungan Apps Script terakhir (potret) kalau hitung langsung gagal.
+    if (!h[0]) h[0] = await sb.from('hasil_hitung').select('data,dibuat').eq('kunci', 'stok:lokasi:' + D.toko).maybeSingle();
     if (h[0].error || !h[0].data) { $('infoStok').textContent = 'stok belum tersedia'; return; }
     var dibuat = new Date(h[0].data.dibuat).getTime(), stok = {}, stokW = {};
     (h[0].data.data.barang || []).forEach(function (b) { stok[b.k] = b.q; });
