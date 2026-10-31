@@ -577,6 +577,10 @@
     return h;
   };
   TULIS_SUPABASE.mike.pgdAksi = TULIS_SUPABASE.mikelama.pgdAksi;
+  // Halaman Mike › harga jual barang baru (file 73) langsung di Supabase (bbr_simpan); Telegram lewat efek.
+  TULIS_SUPABASE.mike.bbrSimpan = function (p) {
+    return ['bbr_simpan', { p_k: teks(p.k), p_harga: teks(p.harga), p_kat: teks(p.kat), p_token: teks(p.token) }];
+  };
   var BALIK = SERVER + 'balik';
   // Sesudah simpan, catatan baru disalin ke sheet di belakang (31 Okt): layar tidak menunggu. Hanya panggilan berikutnya yang masih
   // lewat Apps Script (yang membaca sheet) menunggu salinan itu selesai (paling lama 10 detik), supaya isinya tetap terbaru.
