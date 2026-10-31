@@ -553,6 +553,15 @@
   TULIS_SUPABASE.mdlama.ttpBarangUbah = function (p) {
     return ['ttp_barang_ubah', { p_kode: teks(p.kode), p_hpp: teks(p.hpp), p_harga: teks(p.harga), p_aktif: p.aktif !== false }];
   };
+  // Purchasing › pembelian tanpa pengajuan: tandai sudah dicek di Supabase, lalu (seperti Apps Script) kirim daftar terbaru.
+  TULIS_SUPABASE.mdlama.pgsTanpaCek = async function (p) {
+    var r = await sb.rpc('pgs_tanpa_cek', { p_no: teks(p.no) });
+    if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Coba lagi.');
+    if (!r.data || !r.data.ok) return r.data;
+    await salinKeSheet();
+    var d = await kirim('pgsTanpaData', [p]);
+    return d.r;
+  };
   TULIS_SUPABASE.mdlama.mdeSimpan = async function (p) {
     var j = teks(p.jenis), r;
     if (j === 'harga' || j === 'hpp') {

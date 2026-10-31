@@ -2,7 +2,7 @@
 // Halaman (HTML): selalu versi terbaru dari server, cadangan bila offline.
 // File berversi (?v=…): langsung dari simpanan HP/laptop (versi baru = alamat baru), jadi tidak perlu menunggu server.
 // Gambar & ikon: tampil dari simpanan, diperbarui diam-diam di belakang.
-var CACHE = 'moscow-v69';
+var CACHE = 'moscow-v70';
 var FILES = ['./', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', function (e) {
