@@ -50,7 +50,8 @@ async function muatRumus() {
     const perlu = tabel.filter((t) => !(t in SIMPANAN));
     if (perlu.length) {
       const janji = sb.rpc('lembar_baca', { p_tabel: perlu }).then((r) => { if (r.error) throw new Error(r.error.message); return r.data || {}; });
-      perlu.forEach((t) => { SIMPANAN[t] = janji.then((d: Record<string, unknown>) => d[t] || []); });
+      janji.catch(() => { /* galat dilaporkan lewat rumus yang menunggu */ });
+      perlu.forEach((t) => { const p = janji.then((d: Record<string, unknown>) => d[t] || []); p.catch(() => {}); SIMPANAN[t] = p; });
     }
     const isi: Record<string, unknown> = {};
     for (const t of tabel) isi[t] = await SIMPANAN[t];
