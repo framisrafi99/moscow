@@ -227,6 +227,12 @@
       pgsData: function (a) { return a[0] && a[0].mm ? null : window.Pengadaan.pgsData(sb, 'bahanbaku'); }
     }
   };
+  // Form accounting manajemen (31 Okt): saldo, riwayat, laporan bulanan, dan metode bayar nota dari Supabase (akun.js).
+  BACA_SUPABASE.akunting = {
+    akuntingData: function () { return window.Akunting.akuntingData(sb); },
+    akuntingLaporan: function (a) { return window.Akunting.akuntingLaporan(sb, a[0]); },
+    mbDaftar: function () { return window.Akunting.mbDaftar(sb); }
+  };
   // Payroll (tahap 5f): data gaji langsung dari Supabase.
   BACA_SUPABASE.payroll = {
     gjData: async function (a) {
@@ -519,7 +525,7 @@
       hasil = await q;
       if (hasil === null) return kirimLama(f, a);
     }
-    if (hasil && hasil.ok) { if (APP === 'akunting' || APP === 'mdlama' || APP === 'mike' || APP === 'mikelama') await salinKeSheet(); else salinKeSheet(); if (window.Gudang) window.Gudang.lupakan(); }
+    if (hasil && hasil.ok) { if (APP === 'mdlama' || APP === 'mike' || APP === 'mikelama') await salinKeSheet(); else salinKeSheet(); if (window.Gudang) window.Gudang.lupakan(); }
     return JSON.stringify(hasil);
   }
 
