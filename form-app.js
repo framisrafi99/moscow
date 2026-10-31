@@ -544,6 +544,8 @@
       gjPutus: function (p) { return ['gaji_putus', { p_per: teks(p.per), p_aksi: teks(p.aksi), p_catatan: teks(p.catatan) }]; }
     }
   };
+  // Halaman Mike: ACC / tolak pengajuan impor sama dengan halaman Mike lama (pengadaan_aksi di Supabase).
+  TULIS_SUPABASE.mike.pgdAksi = TULIS_SUPABASE.mikelama.pgdAksi;
   var BALIK = SERVER + 'balik';
   // Sesudah simpan, catatan baru disalin ke sheet di belakang (31 Okt): layar tidak menunggu. Hanya panggilan berikutnya yang masih
   // lewat Apps Script (yang membaca sheet) menunggu salinan itu selesai (paling lama 10 detik), supaya isinya tetap terbaru.
