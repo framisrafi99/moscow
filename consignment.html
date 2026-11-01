@@ -19,6 +19,12 @@
   #mIsi { padding:0 !important; }
   #mIsi > section[data-bagian="isi"] { padding:0 !important; margin:0 !important; }
   html.berbingkai, html.berbingkai body { overflow:hidden; }
+  #cetakWadah { display:none; }
+  @media print {
+    html.cetakBingkai, html.cetakBingkai body { overflow:visible !important; height:auto !important; background:#fff !important; padding:0 !important; }
+    html.cetakBingkai body > *:not(#cetakWadah) { display:none !important; }
+    html.cetakBingkai #cetakWadah { display:block !important; }
+  }
   #wadah { position:relative; }
   #bingkai { display:block; width:100%; border:0; background:var(--latar); }
   #muatan { padding:28px 20px; color:var(--abu); }
@@ -42,6 +48,6 @@
 <script src="moscow.js?v=16"></script>
 <script src="bagihasil.js?v=3"></script>
 <script src="koreksi.js?v=1"></script>
-<script src="consignment-app.js?v=5"></script>
+<script src="consignment-app.js?v=6"></script>
 </body>
 </html>

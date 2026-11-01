@@ -214,34 +214,53 @@
     });
   };
 
-  // Isi bingkai (mis. invoice bagi hasil) dicetak di jendela baru sebagai halaman biasa supaya terbagi ke halaman A4 dengan benar.
-  window.__cetakBingkai = function (dok) {
-    var salin = dok.documentElement.cloneNode(true);
-    salin.querySelectorAll('script').forEach(function (x) { x.remove(); });
-    salin.querySelectorAll('details').forEach(function (x) { x.setAttribute('open', ''); });
-    // Isian (pilihan bulan dll.) ikut tampil seperti di layar.
-    var asli = dok.querySelectorAll('input,select,textarea'), baru = salin.querySelectorAll('input,select,textarea');
-    for (var i = 0; i < asli.length && i < baru.length; i++) {
-      var a = asli[i], c = baru[i];
-      if (a.tagName === 'SELECT') { [].forEach.call(c.options, function (o, j) { if (j === a.selectedIndex) o.setAttribute('selected', ''); else o.removeAttribute('selected'); }); }
+  // Cetak / PDF isi bingkai (mis. invoice bagi hasil). Bingkai tidak bisa terbagi ke beberapa halaman saat dicetak
+  // (di HP hasilnya halaman kosong), jadi isinya disalin ke halaman utama (#cetakWadah, gaya diisolasi dengan shadow DOM)
+  // dan hanya salinan itu yang tercetak. Berlaku untuk tombol cetak di form maupun Bagikan › Cetak dari browser.
+  function siapkanCetak(dok) {
+    hapusCetak();
+    if (!dok || !dok.body) return false;
+    var badan = dok.body.cloneNode(true);
+    badan.querySelectorAll('script').forEach(function (x) { x.remove(); });
+    badan.querySelectorAll('details').forEach(function (x) { x.setAttribute('open', ''); });
+    var asli = dok.body.querySelectorAll('input,select,textarea'), salin = badan.querySelectorAll('input,select,textarea');
+    for (var i = 0; i < asli.length && i < salin.length; i++) {
+      var a = asli[i], c = salin[i];
+      if (a.tagName === 'SELECT') [].forEach.call(c.options, function (o, j) { if (j === a.selectedIndex) o.setAttribute('selected', ''); else o.removeAttribute('selected'); });
       else if (a.type === 'checkbox' || a.type === 'radio') { if (a.checked) c.setAttribute('checked', ''); else c.removeAttribute('checked'); }
       else if (a.tagName === 'TEXTAREA') c.textContent = a.value;
       else c.setAttribute('value', a.value);
     }
-    var gaya = '<style>html,body{overflow:visible!important;height:auto!important}.cetak-bantu{font:14px system-ui,sans-serif;background:#FFF6DB;color:#5A4300;padding:10px 14px;border-bottom:1px solid #E8D9A8}' +
-      '.cetak-bantu button{margin-left:8px;font:inherit;padding:6px 12px;border-radius:8px;border:1px solid #C9B67A;background:#fff}@media print{.cetak-bantu{display:none!important}}</style>';
-    var bantu = '<div class="cetak-bantu">Kalau jendela cetak tidak muncul, tekan <b>Bagikan › Cetak</b> lalu simpan sebagai PDF.' +
-      '<button type="button" onclick="window.print()">Cetak / PDF</button><button type="button" onclick="window.close()">Tutup</button></div>';
-    var html = '<!doctype html>' + salin.outerHTML.replace(/<\/head>/i, gaya + '</head>').replace(/<body([^>]*)>/i, '<body$1>' + bantu) ;
-    var judul = (dok.title || document.title || 'Moscow Supplies');
-    var w = null;
-    try { w = window.open('', '_blank'); } catch (e) { w = null; }
-    if (!w) { alert('Jendela cetak diblokir browser. Izinkan pop-up untuk app.moscowsupplies.com lalu tekan Cetak lagi.'); return; }
-    w.document.open(); w.document.write(html); w.document.close();
-    try { w.document.title = judul; } catch (e) { }
-    var cetak = function () { try { w.focus(); w.print(); } catch (e) { } };
-    if (w.document.readyState === 'complete') setTimeout(cetak, 400); else w.addEventListener('load', function () { setTimeout(cetak, 400); });
+    // Bagian yang tersembunyi di layar (display:none lewat skrip) tetap tersembunyi karena gaya inline ikut tersalin.
+    var css = '';
+    dok.querySelectorAll('style').forEach(function (x) { css += x.textContent + '\n'; });
+    // html/body di gaya form -> pembungkus di dalam shadow DOM.
+    css = css.replace(/(^|[\s,{}>+~(])html(?=[\s,{.:#\[>+~)])/g, '$1:host').replace(/(^|[\s,{}>+~(])body(?=[\s,{.:#\[>+~)])/g, '$1.sbody');
+    var links = '';
+    dok.querySelectorAll('link[rel="stylesheet"]').forEach(function (x) { links += '<link rel="stylesheet" href="' + x.href + '">'; });
+    var w = document.createElement('div'); w.id = 'cetakWadah';
+    var akar = w.attachShadow ? w.attachShadow({ mode: 'open' }) : w;
+    akar.innerHTML = links + '<style>' + css + ':host{display:block}.sbody{margin:0;background:#fff}</style>';
+    var b = document.createElement('div'); b.className = 'sbody ' + (dok.body.className || '');
+    while (badan.firstChild) b.appendChild(badan.firstChild);
+    akar.appendChild(b);
+    document.body.appendChild(w);
+    document.documentElement.classList.add('cetakBingkai');
+    return true;
+  }
+  function hapusCetak() {
+    var w = document.getElementById('cetakWadah'); if (w) w.remove();
+    document.documentElement.classList.remove('cetakBingkai');
+  }
+  function bingkaiAktif() { return C.frame && !C.frame.hidden && C.aktif !== 'koreksi' && C.frame.contentDocument; }
+  window.__cetakBingkai = function (dok) {
+    if (!siapkanCetak(dok)) return;
+    setTimeout(function () { window.print(); }, 150);
   };
+  window.addEventListener('beforeprint', function () {
+    if (!document.getElementById('cetakWadah') && bingkaiAktif()) siapkanCetak(C.frame.contentDocument);
+  });
+  window.addEventListener('afterprint', function () { setTimeout(hapusCetak, 500); });
 
   function ukur() {
     var fr = C.frame; if (!fr || fr.hidden || C.aktif === 'koreksi') return;
