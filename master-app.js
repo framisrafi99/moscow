@@ -834,7 +834,7 @@
     if (rek) { doc.setTextColor.apply(doc, tinta); doc.setFontSize(9.5); doc.text('Pembayaran ke: ' + rek, L, y); y += 8; }
     y = Math.max(y + 6, 230);
     doc.setFontSize(9); doc.setTextColor.apply(doc, tinta);
-    doc.text('Disetujui,', L + 20, y, { align: 'center' }); doc.text('Penerima,', L + W - 30, y, { align: 'center' });
+    doc.text('Disetujui,', L + 30, y, { align: 'center' }); doc.text('Penerima,', L + W - 30, y, { align: 'center' });
     doc.setDrawColor(150, 160, 170); doc.setLineWidth(0.3);
     doc.line(L, y + 24, L + 60, y + 24); doc.line(L + W - 60, y + 24, L + W, y + 24);
     doc.setFont('helvetica', 'bold'); doc.text('Francois Junior Bogaard', L + 30, y + 29, { align: 'center' }); doc.text(nama || KOMISI_NAMA, L + W - 30, y + 29, { align: 'center' });
