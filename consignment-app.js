@@ -41,6 +41,8 @@
     'return function(){var a=[].slice.call(arguments);window.parent.__tokoPanggil(p,a).then(function(r){if(s)s(r,u);},function(e){if(f)f(e,u);else console.error(e);});};' +
     '}});}' +
     'window.google={script:{run:buat(null,null,undefined),host:{close:function(){}},url:{getLocation:function(cb){cb({parameter:{},hash:""});}}}};' +
+    // Cetak / PDF dari form dalam bingkai: dicetak di jendela sendiri (di HP, mencetak bingkai menghasilkan halaman kosong).
+    'window.print=function(){if(window.parent.__cetakBingkai)window.parent.__cetakBingkai(document);};' +
     '})();<\/script>';
 
   async function token() {
@@ -210,6 +212,35 @@
       if (d.cermin === false) C.basiSampai = Date.now() + 35 * 60 * 1000;
       return setelah(f, d.r);
     });
+  };
+
+  // Isi bingkai (mis. invoice bagi hasil) dicetak di jendela baru sebagai halaman biasa supaya terbagi ke halaman A4 dengan benar.
+  window.__cetakBingkai = function (dok) {
+    var salin = dok.documentElement.cloneNode(true);
+    salin.querySelectorAll('script').forEach(function (x) { x.remove(); });
+    salin.querySelectorAll('details').forEach(function (x) { x.setAttribute('open', ''); });
+    // Isian (pilihan bulan dll.) ikut tampil seperti di layar.
+    var asli = dok.querySelectorAll('input,select,textarea'), baru = salin.querySelectorAll('input,select,textarea');
+    for (var i = 0; i < asli.length && i < baru.length; i++) {
+      var a = asli[i], c = baru[i];
+      if (a.tagName === 'SELECT') { [].forEach.call(c.options, function (o, j) { if (j === a.selectedIndex) o.setAttribute('selected', ''); else o.removeAttribute('selected'); }); }
+      else if (a.type === 'checkbox' || a.type === 'radio') { if (a.checked) c.setAttribute('checked', ''); else c.removeAttribute('checked'); }
+      else if (a.tagName === 'TEXTAREA') c.textContent = a.value;
+      else c.setAttribute('value', a.value);
+    }
+    var gaya = '<style>html,body{overflow:visible!important;height:auto!important}.cetak-bantu{font:14px system-ui,sans-serif;background:#FFF6DB;color:#5A4300;padding:10px 14px;border-bottom:1px solid #E8D9A8}' +
+      '.cetak-bantu button{margin-left:8px;font:inherit;padding:6px 12px;border-radius:8px;border:1px solid #C9B67A;background:#fff}@media print{.cetak-bantu{display:none!important}}</style>';
+    var bantu = '<div class="cetak-bantu">Kalau jendela cetak tidak muncul, tekan <b>Bagikan › Cetak</b> lalu simpan sebagai PDF.' +
+      '<button type="button" onclick="window.print()">Cetak / PDF</button><button type="button" onclick="window.close()">Tutup</button></div>';
+    var html = '<!doctype html>' + salin.outerHTML.replace(/<\/head>/i, gaya + '</head>').replace(/<body([^>]*)>/i, '<body$1>' + bantu) ;
+    var judul = (dok.title || document.title || 'Moscow Supplies');
+    var w = null;
+    try { w = window.open('', '_blank'); } catch (e) { w = null; }
+    if (!w) { alert('Jendela cetak diblokir browser. Izinkan pop-up untuk app.moscowsupplies.com lalu tekan Cetak lagi.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+    try { w.document.title = judul; } catch (e) { }
+    var cetak = function () { try { w.focus(); w.print(); } catch (e) { } };
+    if (w.document.readyState === 'complete') setTimeout(cetak, 400); else w.addEventListener('load', function () { setTimeout(cetak, 400); });
   };
 
   function ukur() {
