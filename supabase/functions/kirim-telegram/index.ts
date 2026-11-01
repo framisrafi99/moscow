@@ -7,6 +7,7 @@
 //   pl_viory      : pesan pribadi ke Viory.
 //   tg_kirim      : barang keluar dari Gudang Utama.
 //   terima_selisih: toko menerima barang kurang dari surat jalan.
+//   produksi_masuk: laporan produksi otomatis masuk Gudang Utama.
 // Jenis lain tetap dikerjakan Apps Script seperti sebelumnya.
 // Rahasia (diisi manajemen di Supabase › Edge Functions › Secrets, tidak pernah tertulis di kode):
 //   TG_TOKEN, TG_CHAT (grup), TG_VIORY (chat pribadi Viory, boleh kosong).
@@ -27,7 +28,7 @@ const TOKEN = (Deno.env.get('TG_TOKEN') || '').trim();
 const CHAT = (Deno.env.get('TG_CHAT') || '').trim();
 const VIORY = (Deno.env.get('TG_VIORY') || '').trim();
 const MAKS_BARIS = 12;
-const JENIS = ['tg', 'pl_viory', 'tg_kirim', 'terima_selisih'];
+const JENIS = ['tg', 'pl_viory', 'tg_kirim', 'terima_selisih', 'produksi_masuk'];
 
 function json(isi: unknown, status = 200) { return new Response(JSON.stringify(isi), { status, headers: { 'Content-Type': 'application/json' } }); }
 function esc(s: unknown) { return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -119,6 +120,18 @@ async function kerjakan(jenis: string, d: any): Promise<string> {
     return await kirim(CHAT, denganAsal('⚠️ <b>SELISIH PENERIMAAN BARANG</b>\nToko: <b>' + esc(d.pl) + '</b> · No: ' + esc(d.no) + '\nDikonfirmasi: ' + esc(d.oleh) + '\n\n' +
       daftar(baris) + '\n\nKurang ' + fmt(selisih) + ' pcs dari surat jalan.' + (d.catatan ? '\nCatatan: ' + esc(d.catatan) : '') +
       '\nCek di Master Data > Persetujuan > Pantau pengiriman.\n\n<i>' + jam() + '</i>', a), true);
+  }
+  if (jenis === 'produksi_masuk') {
+    // PLG_tg_ (file 30): laporan produksi otomatis masuk Gudang Utama.
+    const items = Array.isArray(d.items) ? d.items : [];
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d.tanggal || ''));
+    // deno-lint-ignore no-explicit-any
+    const baris = items.map((it: any) => esc(it.n + (it.w ? ' ' + it.w : '')) + ' — ' + fmt(it.q) + ' pcs');
+    return await kirim(CHAT, denganAsal('🏭 <b>PRODUKSI MASUK GUDANG UTAMA</b>\n' +
+      '<b>' + esc(d.nama || 'Staf produksi') + '</b> menyalurkan stok produksi ke stok sistem Gudang Utama.\n' +
+      'Tanggal: ' + (m ? m[3] + '/' + m[2] + '/' + m[1] : '') + ' · Bukti: ' + d.no + '\n\n' +
+      daftar(baris) + '\n\nTotal <b>' + fmt(Number(d.total) || 0) + ' pcs</b> bertambah otomatis di stok sistem Gudang Utama.' +
+      '\n\n<i>' + jam() + '</i>', a), true);
   }
   return 'jenis tidak dikenal';
 }
