@@ -837,7 +837,8 @@
     doc.text('Disetujui,', L + 20, y, { align: 'center' }); doc.text('Penerima,', L + W - 30, y, { align: 'center' });
     doc.setDrawColor(150, 160, 170); doc.setLineWidth(0.3);
     doc.line(L, y + 24, L + 60, y + 24); doc.line(L + W - 60, y + 24, L + W, y + 24);
-    doc.text('Manajemen Moscow Supplies', L + 30, y + 29, { align: 'center' }); doc.text(nama || KOMISI_NAMA, L + W - 30, y + 29, { align: 'center' });
+    doc.setFont('helvetica', 'bold'); doc.text('Francois Junior Bogaard', L + 30, y + 29, { align: 'center' }); doc.text(nama || KOMISI_NAMA, L + W - 30, y + 29, { align: 'center' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor.apply(doc, abu); doc.text('Direktur Utama', L + 30, y + 33.5, { align: 'center' }); doc.text('Pengelola Consignment', L + W - 30, y + 33.5, { align: 'center' });
     doc.setFontSize(7.5); doc.setTextColor.apply(doc, abu);
     doc.text('Moscow Supplies · ' + noKomisi(k.bulan) + ' · dibuat dari Master Data ' + tgl, L, 289);
     return doc;
