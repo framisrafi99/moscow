@@ -273,6 +273,23 @@
     if (!window.jspdf.jsPDF.API.autoTable) await muatSkrip('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
     return window.jspdf.jsPDF;
   }
+  // Logo berwarna (logo-warna.png) diubah ke PNG lewat kanvas supaya bisa ditempel jsPDF.
+  var LOGO = null;
+  function logoPdf() {
+    if (LOGO) return Promise.resolve(LOGO);
+    return new Promise(function (ok) {
+      var im = new Image();
+      im.onload = function () {
+        try {
+          var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+          c.getContext('2d').drawImage(im, 0, 0);
+          LOGO = { data: c.toDataURL('image/png'), w: im.naturalWidth, h: im.naturalHeight }; ok(LOGO);
+        } catch (e) { ok(null); }
+      };
+      im.onerror = function () { ok(null); };
+      im.src = 'logo-warna.png';
+    });
+  }
   var BLN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   function rpP(n) { n = Math.round(Number(n) || 0); return (n < 0 ? '-Rp ' : 'Rp ') + Math.abs(n).toLocaleString('id-ID'); }
   function angkaP(n) { return Math.round(Number(n) || 0).toLocaleString('id-ID'); }
@@ -280,13 +297,29 @@
   function tglP(t) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(t || '')); return m ? Number(m[3]) + ' ' + BLN[Number(m[2]) - 1].slice(0, 3) + ' ' + m[1] : String(t || ''); }
   async function buatPdf(v) {
     var JsPDF = await siapPdf();
-    var doc = new JsPDF({ unit: 'mm', format: 'a4' }), L = 14, W = 182, y = 16;
-    var biru = [11, 35, 64], abu = [100, 110, 125];
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor.apply(doc, biru); doc.text('INVOICE BAGI HASIL', L, y);
-    doc.setFontSize(11); doc.text('Moscow Supplies', L + W, y, { align: 'right' });
-    y += 7; doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(30, 36, 48);
-    doc.text('No: ' + (v.no || '-'), L, y); doc.text('Periode: ' + bulanP(v.bulan), L + W, y, { align: 'right' });
-    y += 5.5; doc.text('Toko: ' + (v.nama || v.toko || ''), L, y); doc.text('Bagi hasil toko: ' + (Number(v.persen) || 0) + '%', L + W, y, { align: 'right' });
+    var doc = new JsPDF({ unit: 'mm', format: 'a4' }), L = 14, W = 182, y;
+    var biru = [11, 35, 64], abu = [100, 110, 125], tosca = [18, 190, 230];
+    // Kepala: logo Moscow Supplies + identitas perusahaan di kiri, judul dan nomor invoice di kanan.
+    var logo = await logoPdf();
+    if (logo) doc.addImage(logo.data, 'PNG', L, 10, 46, 46 * logo.h / logo.w);
+    else { doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(22); doc.setTextColor.apply(doc, tosca); doc.text('Moscow', L, 22); }
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor.apply(doc, abu);
+    doc.text('PT. Toentoenan Langkah Elohim', L, 32.5);
+    doc.text('Jl. Raya Kerobokan No. 8, Kuta Utara, Badung, Bali', L, 36);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor.apply(doc, biru);
+    doc.text('INVOICE BAGI HASIL', L + W, 17, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(30, 36, 48);
+    doc.text('No. ' + (v.no || '-'), L + W, 23.5, { align: 'right' });
+    doc.text('Periode ' + bulanP(v.bulan), L + W, 28.5, { align: 'right' });
+    doc.setTextColor.apply(doc, abu); doc.setFontSize(8);
+    doc.text('Dibuat ' + (v.dibuat || ''), L + W, 33, { align: 'right' });
+    doc.setDrawColor.apply(doc, tosca); doc.setLineWidth(0.8); doc.line(L, 40, L + W, 40);
+    // Pihak toko.
+    y = 47; doc.setFontSize(8); doc.setTextColor.apply(doc, abu); doc.text('KEPADA', L, y); doc.text('BAGI HASIL', L + W, y, { align: 'right' });
+    y += 5.5; doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(30, 36, 48);
+    doc.text(String(v.nama || v.toko || ''), L, y);
+    doc.text('Toko ' + (Number(v.persen) || 0) + '% · Moscow Supplies ' + (100 - (Number(v.persen) || 0)) + '%', L + W, y, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     if (!v.terbit) {
       y += 7; doc.setFillColor(255, 243, 214); doc.rect(L, y - 4.5, W, 7 + (v.kurang && v.kurang.length ? 5 : 0), 'F');
       doc.setTextColor(120, 70, 0); doc.setFont('helvetica', 'bold'); doc.text('DRAF - invoice belum terbit', L + 2, y);
