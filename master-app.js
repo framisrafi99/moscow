@@ -2095,6 +2095,13 @@
     await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + ringkas.slice(0, 150) });
     $('bgSesuai').querySelectorAll('input[data-no]:checked').forEach(function (k) { k.checked = false; k.disabled = true; });
     await muatAksi();
-    $('msgSetuju').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ((r.data.gagal && r.data.gagal.length) ? ' ' + esc(r.data.gagal.join('; ')) : '') + ' Daftar diperbarui paling lambat 10 menit lagi.</div>';
+    // Daftar ajuan dihitung ulang langsung dari Supabase, jadi ajuan yang baru diputus langsung hilang dari daftar.
+    var pesanOk = '<div class="msg ok">' + esc(r.data.pesan) + ((r.data.gagal && r.data.gagal.length) ? ' ' + esc(r.data.gagal.join('; ')) : '') + '</div>';
+    $('msgSetuju').innerHTML = pesanOk + '<div class="msg">Memperbarui daftar…</div>';
+    try {
+      var baru = await window.MdLama.mdSetujuData(sb);
+      if (baru && baru.ok !== false) { D.setuju = JSON.parse(JSON.stringify(baru)); D.waktu.setuju = new Date().toISOString(); gambarSetuju(); M.badge('setuju', jumlahTunggu()); }
+    } catch (e) { }
+    if ($('msgSetuju')) $('msgSetuju').innerHTML = pesanOk;
   }
 })();
