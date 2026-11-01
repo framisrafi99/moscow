@@ -242,11 +242,11 @@
         '<button type="button" class="tbl" id="upBatal"' + (S.sibuk ? ' disabled' : '') + '>Batal</button></div></div>';
     }
     h += '<p class="sb" style="margin:0">Padanan nama produk ke kode barang dan rekap per barang tetap di <a class="up-lk" href="form.html?f=mdlama&buka=g:mkt">Laporan Marketplace (Master Data lama)</a>.</p></div>';
-    h += '<div class="cd"><div class="kpl"><h3>Upload dana cair</h3><span class="sb">Laporan penghasilan consignment Medan & Sidoarjo</span></div>' +
-      '<p class="sb" style="margin:0">Laporan Penghasilan Shopee dan laporan penyelesaian Tokopedia / TikTok Shop diupload di layar Bagi hasil consignment. Data dana cair langsung tersimpan ke sistem baru.</p>' +
-      '<div class="up-tb"><a class="tbl" href="form.html?f=mdlama&buka=g:toko,%23bhBtn,~dcKartu">Buka upload dana cair</a></div></div>';
+    // Upload dana cair (danacair.js): langsung di aplikasi baru (2 Nov 2026), tidak lewat Master Data lama.
+    h += '<div id="upDana"></div>';
     el.innerHTML = h;
     var q = function (i) { return el.querySelector('#' + i); };
+    if (window.DanaCair && opsi.sb) window.DanaCair.gambar(q('upDana'), opsi);
     q('upToko').onchange = function () { S.toko = this.value; if (TOKO[S.toko].indexOf(S.pf) < 0) S.pf = TOKO[S.toko][0]; S.prev = null; S.pesan = ''; simpanLs(); gambar(el, opsi); };
     q('upPf').onchange = function () { S.pf = this.value; S.prev = null; S.pesan = ''; simpanLs(); gambar(el, opsi); };
     q('upFile').onchange = function () { pilihFile(this.files && this.files[0], el, opsi); };

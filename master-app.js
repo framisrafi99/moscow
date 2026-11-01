@@ -221,9 +221,9 @@
       buka: function (b) { M.buka(b); },
       ekor: ekor, kpi: (BR.kpi || {})[k], pengguna: { nama: D.namaTim || D.nama, email: D.email },
       menuAkun: [{ nm: 'Muat ulang data', klik: function () { muat(); } }, { nm: 'Hitung ulang sekarang', klik: function () { var b = document.querySelector('#mAksi .pri'); if (b) b.click(); } },
-        { nm: 'Upload penjualan harian', k: 'upload' }, { nm: 'Upload dana cair', href: 'form.html?f=mdlama&buka=g:toko,%23bhBtn,~dcKartu' }, { nm: 'Laporan bulanan', k: 'laporan' },
+        { nm: 'Upload penjualan harian', k: 'upload' }, { nm: 'Upload dana cair', k: 'upload' }, { nm: 'Laporan bulanan', k: 'laporan' },
         { nm: 'Keluar / ganti akun', klik: function () { sb.auth.signOut({ scope: 'local' }).then(function () { location.href = 'index.html'; }); } }],
-      aksi: [{ nm: 'Upload penjualan harian', k: 'upload' }, { nm: 'Upload dana cair', href: 'form.html?f=mdlama&buka=g:toko,%23bhBtn,~dcKartu' }]
+      aksi: [{ nm: 'Upload penjualan harian', k: 'upload' }, { nm: 'Upload dana cair', k: 'upload' }]
     });
   }
   function isiAlur() {
@@ -679,7 +679,7 @@
     var top = d.top || [], pf = d.pf || [];
     h += '<div class="cd"><div class="kpl"><h3>Barang terlaris</h3><span class="sb">' + top.length + ' teratas menurut omzet</span></div>' + (top.length ? '<div class="gulir"><table class="tabel"><thead><tr><th>Barang</th>' + pf.map(function (p) { return '<th class="r">' + esc(p) + '</th>'; }).join('') + '<th class="r">Omzet</th></tr></thead><tbody>' + top.map(function (b) {
       return '<tr><td>' + esc(b.n) + '<small>' + esc(b.k) + ' · ' + fmt(b.pcs) + ' pcs · laba ' + rp(b.omzet - b.hpp) + '</small></td>' + pf.map(function (p) { return '<td class="r angka">' + (b.q[p] ? fmt(b.q[p]) : '–') + '</td>'; }).join('') + '<td class="r angka">' + rp(b.omzet) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="ksg">Belum ada penjualan.</div>') + '</div>';
-    return h + '<p class="sb">Angka mengikuti laporan pesanan yang terakhir diunggah. Unggah file pesanan lewat menu Upload laporan, dana cair consignment lewat <a href="form.html?f=mdlama&buka=g:toko,%23bhBtn,~dcKartu">Upload dana cair</a>. Omzet di sini belum dipotong biaya admin marketplace.</p>';
+    return h + '<p class="sb">Angka mengikuti laporan pesanan yang terakhir diunggah. Unggah file pesanan lewat menu Upload laporan, dana cair lewat menu Upload laporan. Omzet di sini belum dipotong biaya admin marketplace.</p>';
   }
 
   // Bonus pengelola consignment: rangkuman invoice bagi hasil Medan, Sidoarjo, Renon per bulan, dan bonus 10% dari
@@ -2067,7 +2067,7 @@
   function gambarUpload() {
     var el = $('bUpload'); if (!el || !window.UploadMP) return;
     // Upload penjualan marketplace langsung di Supabase (SQL 129); Apps Script menyalinnya ke sheet MP_PESANAN.
-    UploadMP.gambar(el, { kirim: kirimUpload, selesai: function () { BR.cache = {}; gambarBeranda(); } });
+    UploadMP.gambar(el, { kirim: kirimUpload, sb: sb, selesai: function () { BR.cache = {}; gambarBeranda(); } });
   }
   async function kirimAksi(fungsi, param, ringkas, tempatPesan, teksOk) {
     var r = await sb.from('md_aksi').insert({ fungsi: fungsi, param: param, ringkas: String(ringkas).slice(0, 200) });
