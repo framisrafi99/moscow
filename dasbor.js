@@ -132,9 +132,11 @@
         bb.q += q; bb.v += total; bb.hpp += q * hh;
       };
       if (h[2].e) throw h[2].e;
-      h[2].v.forEach(function (r) { var t = tglDb(r.tanggal); if (t) catat(t, r.kode === null ? '' : r.kode, num(r.qty_terjual), num(r.total), rapi(r.toko, 60)); });
+      // Laporan toko yang diarsipkan / dibatalkan (nama toko berlabel "(BATAL …)" / "(ARSIP …)") tidak dihitung.
+      var arsip = function (r) { return /\((batal|arsip)/i.test(String(r.toko || '')); };
+      h[2].v.forEach(function (r) { var t = tglDb(r.tanggal); if (t && !arsip(r)) catat(t, r.kode === null ? '' : r.kode, num(r.qty_terjual), num(r.total), rapi(r.toko, 60)); });
       if (h[3].e) throw h[3].e;
-      h[3].v.forEach(function (r) { var t = tglDb(r.tanggal); if (t) catat(t, r.kode === null ? '' : r.kode, -num(r.qty), -num(r.nilai), rapi(r.toko, 60)); });
+      h[3].v.forEach(function (r) { var t = tglDb(r.tanggal); if (t && !arsip(r)) catat(t, r.kode === null ? '' : r.kode, -num(r.qty), -num(r.nilai), rapi(r.toko, 60)); });
       window.Lembar.baca(L, 'order_log', 13).forEach(function (r) {
         var t = r[1] instanceof Date ? fmt(r[1], 'yyyy-MM-dd') : tglOk(rapi(r[1], 10));
         if (!t || rapi(r[3], 20) !== 'Reseller' || !/^(dikirim|selesai)$/i.test(rapi(r[12], 20))) return;
