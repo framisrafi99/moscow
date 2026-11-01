@@ -734,11 +734,135 @@
       '<tr class="tot"><td><b>Total</b></td><td class="r angka"><b>' + rp(tot.penjualan) + '</b></td><td class="r angka"><b>' + rp(tot.bersih) + '</b></td><td class="r angka"><b>' + rp(tot.toko) + '</b></td><td class="r angka"><b>' + rp(tot.moscowBagian) + '</b></td><td class="r angka"><b>' + rp(tot.moscow) + '</b></td><td class="r angka"><b>' + rp(tot.tercatat) + '</b></td><td class="r angka"><b>' + rp(bonus) + '</b></td></tr>' +
       '</tbody></table></div></div>';
     if (gagal.length) h += '<div class="msg w">' + gagal.map(function (x) { return esc(x.toko) + ': ' + esc(x.pesan); }).join('<br>') + '</div>';
+    var simpan = komisiIsian();
+    h += '<div class="cd"><div class="kpl"><h3>Invoice komisi</h3><span class="sb">No. ' + esc(noKomisi(bln)) + '</span></div>' +
+      '<div class="dua"><label class="sb">Nama penerima komisi<input class="isian" id="bnNama" value="' + esc(simpan.nama) + '" placeholder="Nama sesuai rekening" maxlength="80"></label>' +
+      '<label class="sb">Rekening tujuan (boleh kosong)<input class="isian" id="bnRek" value="' + esc(simpan.rek) + '" placeholder="Bank · no. rekening · atas nama" maxlength="120"></label></div>' +
+      '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="tbl pri" id="bnPdf">Buat PDF invoice komisi</button></div>' +
+      (semuaTerbit ? '' : '<div class="sb" style="margin-top:6px">Belum semua invoice bagi hasil terbit, jadi PDF diberi tanda DRAF.</div>') + '</div>';
+    BN.pdf = { bulan: bln, T: T, tot: tot, bonus: bonus, terbit: semuaTerbit };
     h += '<p class="sb">Bonus pengelola = ' + BONUS_PERSEN + '% dari total uang yang diterima Moscow Supplies dari ketiga consignment (HPP barang terjual + belanja toko & ongkir yang diganti + bagian Moscow dari profit bersih), sesuai perjanjian dengan manajemen Moscow Supplies. Angka sama dengan "Total untuk Moscow" di menu Bagi hasil consignment dan invoice toko.</p>';
     el.innerHTML = h;
     pasangBonus(el);
   }
+  function noKomisi(b) { return 'KOM-CSG-' + String(b || '').replace('-', ''); }
+  function komisiIsian() { try { return JSON.parse(localStorage.getItem('komisiIsian') || '{}') || {}; } catch (e) { return {}; } }
+  function terbilang(n) {
+    var s = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'];
+    n = Math.floor(Math.abs(n));
+    if (n < 12) return s[n];
+    if (n < 20) return terbilang(n - 10) + ' belas';
+    if (n < 100) return terbilang(Math.floor(n / 10)) + ' puluh' + (n % 10 ? ' ' + terbilang(n % 10) : '');
+    if (n < 200) return 'seratus' + (n - 100 ? ' ' + terbilang(n - 100) : '');
+    if (n < 1000) return terbilang(Math.floor(n / 100)) + ' ratus' + (n % 100 ? ' ' + terbilang(n % 100) : '');
+    if (n < 2000) return 'seribu' + (n - 1000 ? ' ' + terbilang(n - 1000) : '');
+    if (n < 1e6) return terbilang(Math.floor(n / 1000)) + ' ribu' + (n % 1000 ? ' ' + terbilang(n % 1000) : '');
+    if (n < 1e9) return terbilang(Math.floor(n / 1e6)) + ' juta' + (n % 1e6 ? ' ' + terbilang(n % 1e6) : '');
+    if (n < 1e12) return terbilang(Math.floor(n / 1e9)) + ' miliar' + (n % 1e9 ? ' ' + terbilang(n % 1e9) : '');
+    return terbilang(Math.floor(n / 1e12)) + ' triliun' + (n % 1e12 ? ' ' + terbilang(n % 1e12) : '');
+  }
+  function muatSkripPdf(src) {
+    return new Promise(function (ok, gagal) { var x = document.createElement('script'); x.src = src; x.onload = ok; x.onerror = function () { gagal(new Error('Gagal memuat pembuat PDF. Periksa internet.')); }; document.head.appendChild(x); });
+  }
+  async function siapPdfMd() {
+    if (!(window.jspdf && window.jspdf.jsPDF)) await muatSkripPdf('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    if (!window.jspdf.jsPDF.API.autoTable) await muatSkripPdf('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+    return window.jspdf.jsPDF;
+  }
+  function logoPdfMd() {
+    return new Promise(function (ok) {
+      var im = new Image();
+      im.onload = function () { try { var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d').drawImage(im, 0, 0); ok({ data: c.toDataURL('image/png'), w: im.naturalWidth, h: im.naturalHeight }); } catch (e) { ok(null); } };
+      im.onerror = function () { ok(null); };
+      im.src = 'logo-warna.png';
+    });
+  }
+  function rpPdf(n) { n = Math.round(Number(n) || 0); return (n < 0 ? '-Rp ' : 'Rp ') + Math.abs(n).toLocaleString('id-ID'); }
+  async function pdfKomisi(k, nama, rek) {
+    var JsPDF = await siapPdfMd(), logo = await logoPdfMd();
+    var doc = new JsPDF({ unit: 'mm', format: 'a4' }), L = 14, W = 182, y;
+    var biru = [11, 35, 64], abu = [100, 110, 125], tosca = [18, 190, 230], tinta = [30, 36, 48];
+    var kini = new Date(Date.now() + 8 * 3600e3), tgl = kini.getUTCDate() + ' ' + BLN[kini.getUTCMonth()] + ' ' + kini.getUTCFullYear();
+    if (logo) doc.addImage(logo.data, 'PNG', L, 10, 46, 46 * logo.h / logo.w);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor.apply(doc, abu);
+    doc.text('PT. Toentoenan Langkah Elohim', L, 32.5); doc.text('Jl. Raya Kerobokan No. 8, Kuta Utara, Badung, Bali', L, 36);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor.apply(doc, biru);
+    doc.text('INVOICE KOMISI', L + W, 16, { align: 'right' });
+    doc.setFontSize(9.5); doc.text('PENGELOLA CONSIGNMENT', L + W, 21.5, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setTextColor.apply(doc, tinta);
+    doc.text('No. ' + noKomisi(k.bulan), L + W, 27, { align: 'right' });
+    doc.text('Periode ' + bulanTeks(k.bulan), L + W, 31.5, { align: 'right' });
+    doc.setFontSize(8); doc.setTextColor.apply(doc, abu); doc.text('Tanggal ' + tgl, L + W, 36, { align: 'right' });
+    doc.setDrawColor.apply(doc, tosca); doc.setLineWidth(0.8); doc.line(L, 40, L + W, 40);
+    y = 47; doc.setFontSize(8); doc.text('KEPADA', L, y); doc.text('DARI', L + W / 2 + 6, y);
+    y += 5.5; doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor.apply(doc, tinta);
+    doc.text('Manajemen Moscow Supplies', L, y); doc.text(nama || 'Pengelola consignment', L + W / 2 + 6, y);
+    y += 5; doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor.apply(doc, abu);
+    doc.text('PT. Toentoenan Langkah Elohim', L, y); doc.text('Pengelola Consignment Medan, Sidoarjo, Renon', L + W / 2 + 6, y);
+    if (!k.terbit) {
+      y += 8; doc.setFillColor(255, 243, 214); doc.rect(L, y - 4.5, W, 7, 'F');
+      doc.setTextColor(120, 70, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+      doc.text('DRAF - belum semua invoice bagi hasil periode ini terbit; angka bisa berubah.', L + 2, y);
+      doc.setFont('helvetica', 'normal');
+    }
+    y += 8;
+    var body = k.T.map(function (x) {
+      var inv = x.bhi || {};
+      return [x.toko, (inv.no || '-') + (inv.terbit ? '' : ' (belum terbit)'), rpPdf(x.moscow), rpPdf(Math.round((x.moscow || 0) * BONUS_PERSEN / 100))];
+    });
+    doc.autoTable({ startY: y, head: [['Consignment', 'Invoice bagi hasil', 'Uang diterima Moscow', 'Komisi ' + BONUS_PERSEN + '%']], body: body,
+      foot: [['Total', '', rpPdf(k.tot.moscow), rpPdf(k.bonus)]], theme: 'grid', margin: { left: L, right: L },
+      styles: { fontSize: 9.5, cellPadding: 2.2, textColor: tinta }, headStyles: { fillColor: biru, textColor: 255 }, footStyles: { fillColor: [232, 247, 252], textColor: tinta, fontStyle: 'bold' },
+      columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } },
+      didParseCell: function (h) { if ((h.section === 'head' || h.section === 'foot') && h.column.index >= 2) h.cell.styles.halign = 'right'; } });
+    y = doc.lastAutoTable.finalY + 8;
+    doc.setFillColor(11, 35, 64); doc.rect(L, y, W, 13, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.text('TOTAL KOMISI DITAGIHKAN', L + 4, y + 8.3);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.text(rpPdf(k.bonus), L + W - 4, y + 8.8, { align: 'right' });
+    y += 19; doc.setTextColor.apply(doc, tinta); doc.setFont('helvetica', 'italic'); doc.setFontSize(9);
+    var tb = terbilang(k.bonus); tb = tb ? tb.charAt(0).toUpperCase() + tb.slice(1) + ' rupiah' : 'Nol rupiah';
+    doc.text(doc.splitTextToSize('Terbilang: ' + tb, W), L, y);
+    y += 10; doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor.apply(doc, abu);
+    var ket = 'Dasar perhitungan: komisi ' + BONUS_PERSEN + '% dari total uang yang diterima Moscow Supplies dari ketiga consignment pada periode ' + bulanTeks(k.bulan) +
+      ' (HPP barang terjual, belanja toko dan ongkir yang diganti, serta bagian Moscow dari profit bersih), sesuai perjanjian pengelolaan consignment dengan manajemen Moscow Supplies.';
+    var bk = doc.splitTextToSize(ket, W); doc.text(bk, L, y); y += bk.length * 4 + 4;
+    if (rek) { doc.setTextColor.apply(doc, tinta); doc.setFontSize(9.5); doc.text('Pembayaran ke: ' + rek, L, y); y += 8; }
+    y = Math.max(y + 6, 230);
+    doc.setFontSize(9); doc.setTextColor.apply(doc, tinta);
+    doc.text('Disetujui,', L + 20, y, { align: 'center' }); doc.text('Penerima,', L + W - 30, y, { align: 'center' });
+    doc.setDrawColor(150, 160, 170); doc.setLineWidth(0.3);
+    doc.line(L, y + 24, L + 60, y + 24); doc.line(L + W - 60, y + 24, L + W, y + 24);
+    doc.text('Manajemen Moscow Supplies', L + 30, y + 29, { align: 'center' }); doc.text(nama || 'Pengelola consignment', L + W - 30, y + 29, { align: 'center' });
+    doc.setFontSize(7.5); doc.setTextColor.apply(doc, abu);
+    doc.text('Moscow Supplies · ' + noKomisi(k.bulan) + ' · dibuat dari Master Data ' + tgl, L, 289);
+    return doc;
+  }
+  async function buatPdfKomisi(tombol) {
+    var k = BN.pdf; if (!k) return;
+    var nama = ($('bnNama') && $('bnNama').value || '').trim(), rek = ($('bnRek') && $('bnRek').value || '').trim();
+    try { localStorage.setItem('komisiIsian', JSON.stringify({ nama: nama, rek: rek })); } catch (e) { }
+    var lama = tombol.textContent; tombol.disabled = true; tombol.textContent = 'Menyiapkan PDF…';
+    try {
+      var doc = await pdfKomisi(k, nama, rek), blob = doc.output('blob'), berkas = 'Invoice komisi ' + noKomisi(k.bulan) + '.pdf';
+      var file = null; try { file = new File([blob], berkas, { type: 'application/pdf' }); } catch (e) { file = null; }
+      var url = URL.createObjectURL(blob);
+      var w = document.createElement('div'); w.id = 'lembarPdfMd';
+      w.setAttribute('style', 'position:fixed;inset:0;background:rgba(11,35,64,.45);z-index:80;display:flex;align-items:center;justify-content:center;padding:16px');
+      w.innerHTML = '<div style="background:#fff;border-radius:16px;padding:18px 16px;width:100%;max-width:420px"><b>' + esc(berkas) + '</b><div class="aksi" style="display:flex;flex-direction:column;gap:8px;margin-top:14px"></div></div>';
+      var aksi = w.querySelector('.aksi');
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        var bg = document.createElement('button'); bg.type = 'button'; bg.className = 'tbl pri'; bg.textContent = 'Simpan / bagikan PDF';
+        bg.onclick = function () { navigator.share({ files: [file], title: berkas }).catch(function () { }); }; aksi.appendChild(bg);
+      }
+      var a = document.createElement('a'); a.className = 'tbl'; a.href = url; a.download = berkas; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Buka / unduh PDF'; aksi.appendChild(a);
+      var t = document.createElement('button'); t.type = 'button'; t.className = 'tbl'; t.textContent = 'Tutup'; t.onclick = function () { w.remove(); }; aksi.appendChild(t);
+      w.onclick = function (e) { if (e.target === w) w.remove(); };
+      document.body.appendChild(w);
+    } catch (e) { alertMsg('PDF gagal dibuat: ' + (e.message || e), false); }
+    tombol.disabled = false; tombol.textContent = lama;
+  }
   function pasangBonus(el) {
+    var p = el.querySelector('#bnPdf'); if (p) p.onclick = function () { buatPdfKomisi(p); };
     var b = el.querySelector('#bnBulan'); if (b) b.onchange = function () { if (/^\d{4}-\d{2}$/.test(this.value)) { BN.bulan = this.value; gambarBonus(el); } };
     var u = el.querySelector('#bnUlang'); if (u) u.onclick = function () { delete BN.data[BN.bulan]; gambarBonus(el); };
   }
