@@ -8,6 +8,8 @@
 //   tg_kirim      : barang keluar dari Gudang Utama.
 //   terima_selisih: toko menerima barang kurang dari surat jalan.
 //   produksi_masuk: laporan produksi otomatis masuk Gudang Utama.
+//   order_status  : request pindah stok disetujui / dikirim / dibatalkan (RP_tgStatus_ file 33).
+//   sa_ajuan      : ajuan stok opname / penyesuaian Gudang Utama & Kantor Packing (SA_teksAjuan_ file 23).
 // Jenis lain tetap dikerjakan Apps Script seperti sebelumnya.
 // Rahasia (diisi manajemen di Supabase › Edge Functions › Secrets, tidak pernah tertulis di kode):
 //   TG_TOKEN, TG_CHAT (grup), TG_VIORY (chat pribadi Viory, boleh kosong).
@@ -28,7 +30,7 @@ const TOKEN = (Deno.env.get('TG_TOKEN') || '').trim();
 const CHAT = (Deno.env.get('TG_CHAT') || '').trim();
 const VIORY = (Deno.env.get('TG_VIORY') || '').trim();
 const MAKS_BARIS = 12;
-const JENIS = ['tg', 'pl_viory', 'tg_kirim', 'terima_selisih', 'produksi_masuk'];
+const JENIS = ['tg', 'pl_viory', 'tg_kirim', 'terima_selisih', 'produksi_masuk', 'order_status', 'sa_ajuan'];
 
 function json(isi: unknown, status = 200) { return new Response(JSON.stringify(isi), { status, headers: { 'Content-Type': 'application/json' } }); }
 function esc(s: unknown) { return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -90,8 +92,54 @@ async function nama() {
   return m;
 }
 
+// Data pendukung yang harus sudah ada di Supabase. Kalau belum ada, antrean tidak diambil (dikerjakan nanti / oleh Apps Script).
 // deno-lint-ignore no-explicit-any
-async function kerjakan(jenis: string, d: any): Promise<string> {
+async function siapkan(jenis: string, d: any): Promise<any | null | undefined> {
+  if (jenis === 'order_status') {
+    // RP_cariOrder_ / kumpulOrder_ (file 1 & 33): semua baris ORDER_LOG dengan nomor itu dan tanggal terisi.
+    const no = String(d.no || '').trim();
+    if (!no) return null;
+    const r = await sb.from('order_log').select('pelanggan,kode,nama,qty,tanggal,baris_sheet,id').eq('no_order', no).not('tanggal', 'is', null)
+      .order('baris_sheet', { ascending: true, nullsFirst: false }).order('id');
+    if (r.error || !r.data || !r.data.length) return null;
+    return { no, pl: String(r.data[0].pelanggan ?? ''), items: r.data.map((x) => ({ k: String(x.kode ?? ''), n: String(x.nama ?? ''), q: Number(x.qty) || 0 })) };
+  }
+  if (jenis === 'sa_ajuan') {
+    // PSS_baca_ (file 7): baris PRODUKSI_SESUAI_LOG untuk nomor-nomor ajuan itu.
+    const nos: string[] = Array.isArray(d.no) ? d.no.map(String) : [];
+    if (!nos.length) return [];
+    const r = await sb.from('produksi_sesuai_log').select('no,bagian,kode,nama_barang,warna,stok_sistem,hasil_hitung,selisih,alasan,pengaju,status,baris_sheet,id')
+      .in('no', nos).order('baris_sheet', { ascending: true, nullsFirst: false }).order('id');
+    if (r.error || !r.data || r.data.length < nos.length) return null;
+    return r.data.map((x) => {
+      const sel = Number(x.selisih);
+      return { no: String(x.no ?? '').trim(), bg: String(x.bagian ?? '').trim(), n: String(x.nama_barang ?? '').replace(/\s+/g, ' ').trim(), w: rapiWarna(x.warna),
+        sis: Number(x.stok_sistem) || 0, hit: Number(x.hasil_hitung) || 0, sel: isFinite(sel) ? sel : 0,
+        al: String(x.alasan ?? ''), pg: String(x.pengaju ?? ''), st: String(x.status ?? '').trim() };
+    });
+  }
+  return undefined;
+}
+
+// deno-lint-ignore no-explicit-any
+function teksAjuan(list: any[]) {
+  if (!list.length) return '';
+  const x0 = list[0], jenis = /^S[GO]-/.test(x0.no) ? 'penyesuaian' : 'opname';
+  const lokasi = x0.bg === 'Kantor Packing' ? 'STOK ONLINE (KANTOR PACKING)' : 'GUDANG UTAMA';
+  const baris = list.map((x) =>
+    esc(x.n + (x.w ? ' ' + x.w : '')) + ' — sistem ' + fmt(x.sis) + ' → ' + fmt(x.hit) +
+    ' (<b>' + (x.sel > 0 ? '+' : '') + fmt(x.sel) + '</b>)' +
+    (jenis === 'penyesuaian' ? ' <i>' + esc(String(x.al).replace(/^Penyesuaian - /, '').split(':')[0]) + '</i>' : ''));
+  const al0 = String(x0.al);
+  const ket = jenis === 'penyesuaian' ? (al0.indexOf(':') !== -1 ? al0.slice(al0.indexOf(':') + 1).trim() : '') : x0.al;
+  return (jenis === 'penyesuaian' ? '🔧 <b>PENYESUAIAN STOK ' : '📋 <b>STOK OPNAME ') + lokasi + '</b>\n' +
+    'Menunggu persetujuan\nDiajukan: <b>' + esc(x0.pg) + '</b>\n\n' + daftar(baris) +
+    (ket ? '\n\nKeterangan: ' + esc(ket) : '') +
+    '\n\nSetujui / tolak di Master Data &gt; Persetujuan.';
+}
+
+// deno-lint-ignore no-explicit-any
+async function kerjakan(jenis: string, d: any, bahan?: any): Promise<string> {
   const a: Asal = d && d.asal ? d.asal : null;
   if (jenis === 'tg') return await kirim(CHAT, denganAsal(String(d.teks || ''), a), true);
   if (jenis === 'pl_viory') return await kirim(VIORY, String(d.teks || ''), false);
@@ -133,6 +181,29 @@ async function kerjakan(jenis: string, d: any): Promise<string> {
       daftar(baris) + '\n\nTotal <b>' + fmt(Number(d.total) || 0) + ' pcs</b> bertambah otomatis di stok sistem Gudang Utama.' +
       '\n\n<i>' + jam() + '</i>', a), true);
   }
+  if (jenis === 'order_status') {
+    const o = bahan, st = String(d.st || '');
+    const judul = st === 'Disetujui' ? '✅ <b>REQUEST PINDAH STOK DISETUJUI</b>' : (st === 'Dikirim' ? '🚚 <b>REQUEST PINDAH STOK DIKIRIM</b>' : '❌ <b>REQUEST PINDAH STOK DITOLAK / DIBATALKAN</b>');
+    const alasan = String(d.alasan || '');
+    const ekor = st === 'Disetujui' ? 'Staf gudang: siapkan dan kirim lewat form Gudang Utama.' :
+      (st === 'Dikirim' ? 'Toko: cek barang saat tiba. Stok toko bertambah setelah order berstatus Selesai.' : (alasan ? 'Alasan: ' + esc(alasan) : ''));
+    // deno-lint-ignore no-explicit-any
+    const baris = o.items.map((it: any) => {
+      const s = String(it.k || '').trim().toUpperCase(), i = s.indexOf('-'), w = i === -1 ? '' : s.slice(i + 1);
+      // Nama di ORDER_LOG biasanya sudah memuat warna ("... - BLACK"); jangan ditulis dua kali.
+      const n = String(it.n), sudah = w && n.toUpperCase().endsWith(w);
+      return esc(n + (w && !sudah ? ' ' + w : '')) + ' — ' + fmt(Number(it.q) || 0) + ' pcs';
+    });
+    // deno-lint-ignore no-explicit-any
+    const total = o.items.reduce((t: number, it: any) => t + (Number(it.q) || 0), 0);
+    return await kirim(CHAT, denganAsal(judul + '\nToko: <b>' + esc(o.pl) + '</b> · No: ' + esc(o.no) + '\n\n' +
+      daftar(baris) + '\n\nTotal ' + fmt(total) + ' pcs.' + (ekor ? '\n' + ekor : '') + '\n\n<i>' + jam() + '</i>', a), true);
+  }
+  if (jenis === 'sa_ajuan') {
+    // deno-lint-ignore no-explicit-any
+    const t = teksAjuan((bahan || []).filter((x: any) => x.st === 'Menunggu' && (x.bg === 'Gudang' || x.bg === 'Kantor Packing')));
+    return t ? await kirim(CHAT, denganAsal(t + '\n\n<i>' + jam() + '</i>', a), true) : 'ok';
+  }
   return 'jenis tidak dikenal';
 }
 
@@ -149,11 +220,13 @@ Deno.serve(async (req) => {
   const hasil: string[] = [];
   for (const x of r.data || []) {
     if (x.jenis === 'tg' && bertombol(String((x.data && x.data.teks) || ''))) continue;   // tetap untuk Apps Script (tombol ACC)
+    const bahan = await siapkan(x.jenis, x.data || {});
+    if (bahan === null) { hasil.push(x.jenis + ' #' + x.id + ': belum, data belum ada'); continue; }
     // Diambil dulu (selesai diisi) supaya tidak dikerjakan dua kali oleh Apps Script / panggilan lain.
     const a = await sb.from('efek_antre').update({ selesai: new Date().toISOString(), hasil: 'proses' }).eq('id', x.id).is('selesai', null).select('id');
     if (a.error || !a.data || !a.data.length) continue;
     let ket = 'ok';
-    try { ket = await kerjakan(x.jenis, x.data || {}); } catch (e) { ket = 'gagal: ' + String((e as Error)?.message || e).slice(0, 200); }
+    try { ket = await kerjakan(x.jenis, x.data || {}, bahan); } catch (e) { ket = 'gagal: ' + String((e as Error)?.message || e).slice(0, 200); }
     if (ket === 'ok' || /^lewat: pesan sama/.test(ket)) ket = ket === 'ok' ? 'ok (Supabase)' : ket;
     await sb.from('efek_antre').update({ hasil: ket }).eq('id', x.id);
     hasil.push(x.jenis + ' #' + x.id + ': ' + ket);
