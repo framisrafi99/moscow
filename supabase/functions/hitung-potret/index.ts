@@ -29,7 +29,7 @@ function kunciPublik(): string {
 const sb = createClient(URL_SB, kunciServer(), { auth: { persistSession: false }, global: { headers: { 'x-moscow-robot': 'potret' } } });
 
 const FILES = ['lembar.js', 'gudang.js', 'kp.js', 'produksi.js', 'bahanbaku.js', 'akun.js', 'md.js', 'pengadaan.js', 'robot.js', 'rpd.js',
-  'dasbor.js', 'stoksemua.js', 'bagihasil.js', 'bhmd.js'];
+  'dasbor.js', 'stoksemua.js', 'bagihasil.js', 'bhmd.js', 'tpb.js'];
 // deno-lint-ignore no-explicit-any
 const W: any = globalThis;
 let versiDimuat = '';
@@ -99,6 +99,7 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
   'md:bh:lalu': async () => ({ 'md:bh:lalu': await W.BagiHasilMd.hitung(sb, bulanMundur(1)) }),
   'acc:oto': async () => ({ 'acc:oto': await W.Akunting.accOto(sb) }),
   // Halaman Mike (KBS file 85): barang baru menunggu harga jual, kenaikan harga beli 61 hari, laporan bulanan (KB_laporan_).
+  'md:tpb': async () => ({ 'md:tpb': await W.TutupBuku.tpbData(sb, { bulan: W.TutupBuku.bulanPotret() }) }),
   'kb:bbr': async () => ({ 'kb:bbr': await W.MdLama.bbrData(sb) }),
   'kb:hrgnaik': async () => ({ 'kb:hrgnaik': await W.MdLama.kbNaik(sb) }),
   'laporan': async () => { const b = bulanMundur(0); return { ['laporan:' + b]: await laporan(b) }; },
