@@ -392,7 +392,7 @@
     $('bJual').innerHTML = '<div id="msgJual"></div>' +
       '<div class="chip" role="group" aria-label="Bagian penjualan">' +
       [['toko', 'Toko & consignment', ''], ['omzet', 'Omzet semua', ''], ['order', 'Order reseller', nOrder ? nOrder + ' berjalan' : ''], ['pinjam', 'Pinjaman barang', nPinjam ? nPinjam + ' belum kembali' : ''],
-        ['titip', 'Titipan staf', nAjuanTitip() ? nAjuanTitip() + ' ajuan' : ''], ['mkt', 'Marketplace', ''], ['cocok', 'Cocokkan upload consignment', ''], ['bh', 'Bagi hasil consignment', '']].map(function (b) {
+        ['titip', 'Titipan staf', nAjuanTitip() ? nAjuanTitip() + ' ajuan' : ''], ['mkt', 'Marketplace', ''], ['cocok', 'Cocokkan upload consignment', ''], ['bh', 'Bagi hasil consignment', ''], ['bonus', 'Bonus pengelola consignment', '']].map(function (b) {
         return '<button type="button" data-jb="' + b[0] + '" aria-pressed="' + (J.bagian === b[0]) + '"><span>' + b[1] + '</span><b>' + (b[2] || '&nbsp;') + '</b></button>';
       }).join('') + '</div>' +
       '<div class="periode" id="jPeriode"' + (J.bagian === 'toko' || J.bagian === 'omzet' || J.bagian === 'order' ? '' : ' hidden') + '><label>Dari<input class="isian" type="date" id="jDari" value="' + J.dari + '"></label><label>Sampai<input class="isian" type="date" id="jSampai" value="' + J.sampai + '"></label>' +
@@ -415,6 +415,7 @@
   function gambarJualIsi() {
     var el = $('jIsi'); if (!el) return;
     if (J.bagian === 'cocok') { if (window.CocokConsignment) CocokConsignment.gambar(el, sb); return; }
+    if (J.bagian === 'bonus') { gambarBonus(el); return; }
     if (J.bagian === 'titip' || J.bagian === 'mkt' || J.bagian === 'bh') { gambarPotretJual(el); return; }
     if (!J.data) return;
     if (J.bagian === 'toko') el.innerHTML = isiToko();
@@ -679,6 +680,67 @@
     h += '<div class="cd"><div class="kpl"><h3>Barang terlaris</h3><span class="sb">' + top.length + ' teratas menurut omzet</span></div>' + (top.length ? '<div class="gulir"><table class="tabel"><thead><tr><th>Barang</th>' + pf.map(function (p) { return '<th class="r">' + esc(p) + '</th>'; }).join('') + '<th class="r">Omzet</th></tr></thead><tbody>' + top.map(function (b) {
       return '<tr><td>' + esc(b.n) + '<small>' + esc(b.k) + ' · ' + fmt(b.pcs) + ' pcs · laba ' + rp(b.omzet - b.hpp) + '</small></td>' + pf.map(function (p) { return '<td class="r angka">' + (b.q[p] ? fmt(b.q[p]) : '–') + '</td>'; }).join('') + '<td class="r angka">' + rp(b.omzet) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="ksg">Belum ada penjualan.</div>') + '</div>';
     return h + '<p class="sb">Angka mengikuti laporan pesanan yang terakhir diunggah. Unggah file pesanan lewat menu Upload laporan, dana cair consignment lewat <a href="form.html?f=mdlama&buka=g:toko,%23bhBtn,~dcKartu">Upload dana cair</a>. Omzet di sini belum dipotong biaya admin marketplace.</p>';
+  }
+
+  // Bonus pengelola consignment: rangkuman invoice bagi hasil Medan, Sidoarjo, Renon per bulan, dan bonus 10% dari
+  // laba bersih yang diterima Moscow Supplies (bagian Moscow dari profit bersih ketiga toko). Dihitung langsung dari Supabase.
+  var BONUS_PERSEN = 10;
+  var BN = { bulan: '', data: {}, muat: {} };
+  function bulanTeks(b) { return namaBulan(b) + ' ' + String(b || '').slice(0, 4); }
+  async function gambarBonus(el) {
+    if (!BN.bulan) BN.bulan = bulanMundur(1);
+    var bln = BN.bulan, d = BN.data[bln];
+    var h = '<div class="periode"><label>Bulan<input class="isian" type="month" id="bnBulan" value="' + bln + '" max="' + bulanMundur(0) + '"></label>' +
+      '<button type="button" class="tbl" id="bnUlang">Hitung ulang</button></div>';
+    if (!d) {
+      el.innerHTML = h + '<div class="ksg">Menghitung invoice ketiga consignment ' + esc(bulanTeks(bln)) + '…</div>';
+      pasangBonus(el);
+      if (!BN.muat[bln]) {
+        BN.muat[bln] = true;
+        try { BN.data[bln] = await window.BagiHasilMd.hitung(sb, bln); }
+        catch (e) { BN.data[bln] = { ok: false, pesan: e.message || String(e) }; }
+        BN.muat[bln] = false;
+        if (J.bagian === 'bonus' && BN.bulan === bln && $('jIsi')) gambarBonus($('jIsi'));
+      }
+      return;
+    }
+    if (d.ok === false) { el.innerHTML = h + '<div class="msg bad">Gagal menghitung: ' + esc(d.pesan) + '</div>'; pasangBonus(el); return; }
+    var T = (d.toko || []).filter(function (x) { return x.ok !== false; }), gagal = (d.toko || []).filter(function (x) { return x.ok === false; });
+    var tot = { penjualan: 0, bersih: 0, toko: 0, moscowBagian: 0, moscow: 0, tercatat: 0 }, semuaTerbit = T.length === 3;
+    T.forEach(function (x) {
+      var st = (x.dc && x.dc.setoran) || (x.rn && x.rn.setoran) || null;
+      x._tercatat = st ? st.tercatat : 0;
+      tot.penjualan += x.penjualan || 0; tot.bersih += x.bersih || 0; tot.toko += x.medan || 0; tot.moscowBagian += x.moscowBagian || 0;
+      tot.moscow += x.moscow || 0; tot.tercatat += x._tercatat;
+      if (!(x.bhi && x.bhi.terbit)) semuaTerbit = false;
+    });
+    var bonus = Math.round(tot.moscowBagian * BONUS_PERSEN / 100);
+    var sejak = bln === bulanMundur(0);
+    h += '<p class="tl">' + esc(bulanTeks(bln)) + (sejak ? ' sampai hari ini (belum final)' : '') + (semuaTerbit ? ' · ketiga invoice sudah terbit' : ' · belum semua invoice terbit, angka bisa berubah') + '</p>';
+    h += '<div class="kp">' +
+      '<div class="kt"><span class="l">Penjualan bersih 3 consignment</span><span class="v angka">' + jt(tot.penjualan) + '</span><span class="k">profit bersih ' + jt(tot.bersih) + '</span></div>' +
+      '<div class="kt"><span class="l">Laba bersih diterima Moscow</span><span class="v angka">' + jt(tot.moscowBagian) + '</span><span class="k">bagian Moscow dari profit bersih</span></div>' +
+      '<div class="kt"><span class="l">Total uang untuk Moscow</span><span class="v angka">' + jt(tot.moscow) + '</span><span class="k">termasuk HPP, biaya & ongkir diganti</span></div>' +
+      '<div class="kt"><span class="l">Bonus pengelola (' + BONUS_PERSEN + '%)</span><span class="v angka">' + rp(bonus) + '</span><span class="k">' + BONUS_PERSEN + '% × laba bersih diterima Moscow</span></div>' +
+      '</div>';
+    h += '<div class="cd"><div class="kpl"><h3>Rangkuman invoice</h3><span class="sb">' + esc(bulanTeks(bln)) + '</span></div><div class="gulir"><table class="tabel"><thead><tr><th>Toko</th><th class="r">Penjualan bersih</th><th class="r">Profit bersih</th><th class="r">Bagian toko</th><th class="r">Laba bersih Moscow</th><th class="r">Total untuk Moscow</th><th class="r">Sudah disetor</th><th class="r">Bonus ' + BONUS_PERSEN + '%</th></tr></thead><tbody>' +
+      T.map(function (x) {
+        var inv = x.bhi;
+        return '<tr><td>' + esc(x.toko) + '<small>' + (inv ? esc(inv.no) + ' · ' + (inv.terbit ? '<span class="label ok">terbit</span>' : '<span class="label abu">belum terbit</span>') : '') + ' · bagi hasil toko ' + fmt(x.persen) + '%</small></td>' +
+          '<td class="r angka">' + rp(x.penjualan) + '</td><td class="r angka">' + rp(x.bersih) + '</td><td class="r angka">' + rp(x.medan) + '</td>' +
+          '<td class="r angka"><b>' + rp(x.moscowBagian) + '</b></td><td class="r angka">' + rp(x.moscow) + '</td><td class="r angka">' + rp(x._tercatat) + '</td>' +
+          '<td class="r angka">' + rp(Math.round((x.moscowBagian || 0) * BONUS_PERSEN / 100)) + '</td></tr>';
+      }).join('') +
+      '<tr class="tot"><td><b>Total</b></td><td class="r angka"><b>' + rp(tot.penjualan) + '</b></td><td class="r angka"><b>' + rp(tot.bersih) + '</b></td><td class="r angka"><b>' + rp(tot.toko) + '</b></td><td class="r angka"><b>' + rp(tot.moscowBagian) + '</b></td><td class="r angka"><b>' + rp(tot.moscow) + '</b></td><td class="r angka"><b>' + rp(tot.tercatat) + '</b></td><td class="r angka"><b>' + rp(bonus) + '</b></td></tr>' +
+      '</tbody></table></div></div>';
+    if (gagal.length) h += '<div class="msg w">' + gagal.map(function (x) { return esc(x.toko) + ': ' + esc(x.pesan); }).join('<br>') + '</div>';
+    h += '<p class="sb">Bonus pengelola = ' + BONUS_PERSEN + '% dari laba bersih yang diterima Moscow Supplies (bagian Moscow dari profit bersih) ketiga consignment, sesuai perjanjian dengan manajemen Moscow Supplies. Bonus dihitung sebelum dikurangi apa pun; kalau bagian Moscow suatu toko minus, bonus ikut berkurang. Angka sama dengan menu Bagi hasil consignment dan invoice toko.</p>';
+    el.innerHTML = h;
+    pasangBonus(el);
+  }
+  function pasangBonus(el) {
+    var b = el.querySelector('#bnBulan'); if (b) b.onchange = function () { if (/^\d{4}-\d{2}$/.test(this.value)) { BN.bulan = this.value; gambarBonus(el); } };
+    var u = el.querySelector('#bnUlang'); if (u) u.onclick = function () { delete BN.data[BN.bulan]; gambarBonus(el); };
   }
 
   // Bagi hasil consignment (bagiHasilDataX lama, semua toko)
