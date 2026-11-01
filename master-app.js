@@ -803,7 +803,7 @@
     y += 5.5; doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor.apply(doc, tinta);
     doc.text('Manajemen Moscow Supplies', L, y); doc.text(nama || KOMISI_NAMA, L + W / 2 + 6, y);
     y += 5; doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor.apply(doc, abu);
-    doc.text('PT. Toentoenan Langkah Elohim', L, y); doc.text('General Manager · Pengelola Consignment', L + W / 2 + 6, y);
+    doc.text('PT. Toentoenan Langkah Elohim', L, y); doc.text('Pengelola Consignment', L + W / 2 + 6, y);
     if (!k.terbit) {
       y += 8; doc.setFillColor(255, 243, 214); doc.rect(L, y - 4.5, W, 7, 'F');
       doc.setTextColor(120, 70, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
