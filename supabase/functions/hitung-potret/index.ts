@@ -176,13 +176,16 @@ Deno.serve(async (req) => {
   (Array.isArray(body.kunci) ? body.kunci : []).forEach((k) => {
     if (/^laporan:\d{4}-\d{2}$/.test(k) && !R[k]) R[k] = async () => ({ [k]: await laporan(k.slice(8)) });
   });
-  // 'laporan' (berat) dijalankan terpisah oleh jadwal sendiri, supaya robot tidak kehabisan tenaga.
-  const minta = (Array.isArray(body.kunci) && body.kunci.length ? body.kunci : Object.keys(RUMUS).filter((k) => !/^laporan/.test(k))).filter((k) => R[k]);
+  // Rumus berat (laporan bulanan, tutup buku) tidak ikut jadwal 10 menit; tutup buku ikut jadwal laporan bulan lalu (tiap 30 menit).
+  const BERAT = ['laporan', 'laporan:lalu', 'md:tpb'];
+  let mintaAwal = Array.isArray(body.kunci) && body.kunci.length ? body.kunci.slice() : Object.keys(RUMUS).filter((k) => BERAT.indexOf(k) === -1);
+  if (jadwal && mintaAwal.indexOf('laporan:lalu') !== -1 && mintaAwal.indexOf('md:tpb') === -1) mintaAwal.push('md:tpb');
+  const minta = mintaAwal.filter((k) => R[k]);
   const hasil: Record<string, unknown> = {}, isi: Isi = {};
   SIMPANAN = {};
-  // Paling banyak 4 rumus bersamaan supaya memori robot cukup.
+  // Paling banyak 3 rumus bersamaan supaya memori robot cukup.
   const antre = minta.slice();
-  await Promise.all([0, 1, 2, 3].map(async () => { for (let k = antre.shift(); k; k = antre.shift()) await jalankan(k); }));
+  await Promise.all([0, 1, 2].map(async () => { for (let k = antre.shift(); k; k = antre.shift()) await jalankan(k); }));
   async function jalankan(k: string) {
     const t = Date.now();
     try {
