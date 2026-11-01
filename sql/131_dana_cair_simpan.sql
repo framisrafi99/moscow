@@ -82,7 +82,8 @@ begin
             nullif(public._mp_t(p_file, 120), ''), 'manajemen', kini);
   end if;
 
-  -- Dana diterima untuk hitungan bagi hasil (SALURAN_DANA) = dana cair bulan itu.
+  -- Dana diterima untuk hitungan bagi hasil (SALURAN_DANA) = dana cair bulan itu (khusus consignment; Official tidak berbagi hasil).
+  if v_toko <> 'Official' then
   select id, baris_sheet bs into s from saluran_dana
    where public._bulan_teks(bulan) = v_bulan and public._mp_t(toko, 80) = v_toko and public._mp_t(saluran, 30) = v_pf
    order by baris_sheet desc nulls first, id desc limit 1;
@@ -91,6 +92,7 @@ begin
     update saluran_dana set dana_diterima = v_cair, diisi_oleh = 'upload laporan dana', waktu = kini where id = s.id;
   else
     insert into saluran_dana (bulan, toko, saluran, dana_diterima, diisi_oleh, waktu) values (v_bulan, v_toko, v_pf, v_cair, 'upload laporan dana', kini);
+  end if;
   end if;
 
   -- Rincian per pesanan ditulis Apps Script ke sheet DANA_CAIR_PESANAN (ganti baris lama toko/platform/bulan yang sama).
