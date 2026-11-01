@@ -746,7 +746,12 @@
     pasangBonus(el);
   }
   function noKomisi(b) { return 'KOM-CSG-' + String(b || '').replace('-', ''); }
-  function komisiIsian() { try { return JSON.parse(localStorage.getItem('komisiIsian') || '{}') || {}; } catch (e) { return {}; } }
+  var KOMISI_NAMA = 'Framis Iqbal';
+  function komisiIsian() {
+    var x = {}; try { x = JSON.parse(localStorage.getItem('komisiIsian') || '{}') || {}; } catch (e) { x = {}; }
+    if (!x.nama) x.nama = KOMISI_NAMA; if (!x.rek) x.rek = '';
+    return x;
+  }
   function terbilang(n) {
     var s = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'];
     n = Math.floor(Math.abs(n));
@@ -796,9 +801,9 @@
     doc.setDrawColor.apply(doc, tosca); doc.setLineWidth(0.8); doc.line(L, 40, L + W, 40);
     y = 47; doc.setFontSize(8); doc.text('KEPADA', L, y); doc.text('DARI', L + W / 2 + 6, y);
     y += 5.5; doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor.apply(doc, tinta);
-    doc.text('Manajemen Moscow Supplies', L, y); doc.text(nama || 'Pengelola consignment', L + W / 2 + 6, y);
+    doc.text('Manajemen Moscow Supplies', L, y); doc.text(nama || KOMISI_NAMA, L + W / 2 + 6, y);
     y += 5; doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor.apply(doc, abu);
-    doc.text('PT. Toentoenan Langkah Elohim', L, y); doc.text('Pengelola Consignment Medan, Sidoarjo, Renon', L + W / 2 + 6, y);
+    doc.text('PT. Toentoenan Langkah Elohim', L, y); doc.text('General Manager · Pengelola Consignment', L + W / 2 + 6, y);
     if (!k.terbit) {
       y += 8; doc.setFillColor(255, 243, 214); doc.rect(L, y - 4.5, W, 7, 'F');
       doc.setTextColor(120, 70, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
@@ -832,14 +837,14 @@
     doc.text('Disetujui,', L + 20, y, { align: 'center' }); doc.text('Penerima,', L + W - 30, y, { align: 'center' });
     doc.setDrawColor(150, 160, 170); doc.setLineWidth(0.3);
     doc.line(L, y + 24, L + 60, y + 24); doc.line(L + W - 60, y + 24, L + W, y + 24);
-    doc.text('Manajemen Moscow Supplies', L + 30, y + 29, { align: 'center' }); doc.text(nama || 'Pengelola consignment', L + W - 30, y + 29, { align: 'center' });
+    doc.text('Manajemen Moscow Supplies', L + 30, y + 29, { align: 'center' }); doc.text(nama || KOMISI_NAMA, L + W - 30, y + 29, { align: 'center' });
     doc.setFontSize(7.5); doc.setTextColor.apply(doc, abu);
     doc.text('Moscow Supplies · ' + noKomisi(k.bulan) + ' · dibuat dari Master Data ' + tgl, L, 289);
     return doc;
   }
   async function buatPdfKomisi(tombol) {
     var k = BN.pdf; if (!k) return;
-    var nama = ($('bnNama') && $('bnNama').value || '').trim(), rek = ($('bnRek') && $('bnRek').value || '').trim();
+    var nama = ($('bnNama') && $('bnNama').value || '').trim() || KOMISI_NAMA, rek = ($('bnRek') && $('bnRek').value || '').trim();
     try { localStorage.setItem('komisiIsian', JSON.stringify({ nama: nama, rek: rek })); } catch (e) { }
     var lama = tombol.textContent; tombol.disabled = true; tombol.textContent = 'Menyiapkan PDF…';
     try {
