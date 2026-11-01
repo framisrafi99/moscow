@@ -191,10 +191,15 @@ Deno.serve(async (req) => {
     await Promise.all([0, 1, 2, 3].map(async () => {
       for (let g = antreG.shift(); g; g = antreG.shift()) {
         try {
-          const r = await fetch(URL_SB + '/functions/v1/hitung-potret', { method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-moscow-robot-kunci': tanda }, body: JSON.stringify({ simpan, kunci: g, sub: true }) });
-          const j = await r.json().catch(() => ({}));
-          status[g.join(',')] = r.status === 200 ? ((j.gagal && j.gagal.length) ? 'gagal: ' + j.gagal.join(',') : 'ok') : 'http ' + r.status + ' ' + String(j.code || j.pesan || '');
+          // Kalau kehabisan tenaga (biasanya saat robot baru menyala), coba sekali lagi.
+          let r: Response, j: { gagal?: string[]; code?: string; pesan?: string } = {};
+          for (let coba = 0; coba < 2; coba++) {
+            r = await fetch(URL_SB + '/functions/v1/hitung-potret', { method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-moscow-robot-kunci': tanda }, body: JSON.stringify({ simpan, kunci: g, sub: true }) });
+            j = await r.json().catch(() => ({}));
+            if (r.status !== 546) break;
+          }
+          status[g.join(',')] = r!.status === 200 ? ((j.gagal && j.gagal.length) ? 'gagal: ' + j.gagal.join(',') : 'ok') : 'http ' + r!.status + ' ' + String(j.code || j.pesan || '');
         } catch (e) { status[g.join(',')] = 'galat: ' + String((e as Error)?.message || e).slice(0, 100); }
       }
     }));
