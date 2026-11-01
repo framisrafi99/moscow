@@ -193,6 +193,7 @@
   }
 
   function setelah(f, r) {
+    if (f === 'bhInvoice' && r && r.ok) { C.inv = r; tombolPdf(); }
     // Jumlah kiriman gudang yang menunggu diterima -> tanda angka di menu.
     if (f === 'tokoKiriman' && r && r.ok) {
       var n = (r.terima || []).length; M.badge('terima', n);
@@ -254,6 +255,7 @@
   }
   function bingkaiAktif() { return C.frame && !C.frame.hidden && C.aktif !== 'koreksi' && C.frame.contentDocument; }
   window.__cetakBingkai = function (dok) {
+    if (C.inv && C.aktif === 'bh') { pdfInvoice(); return; }
     if (!siapkanCetak(dok)) return;
     setTimeout(function () { window.print(); }, 150);
   };
@@ -261,6 +263,125 @@
     if (!document.getElementById('cetakWadah') && bingkaiAktif()) siapkanCetak(C.frame.contentDocument);
   });
   window.addEventListener('afterprint', function () { setTimeout(hapusCetak, 500); });
+
+  // ---------- Invoice bagi hasil sebagai file PDF (dibuat langsung dari angka invoice, tidak lewat cetak browser) ----------
+  function muatSkrip(src) {
+    return new Promise(function (ok, gagal) { var x = document.createElement('script'); x.src = src; x.onload = ok; x.onerror = function () { gagal(new Error('Gagal memuat pembuat PDF. Periksa internet.')); }; document.head.appendChild(x); });
+  }
+  async function siapPdf() {
+    if (!(window.jspdf && window.jspdf.jsPDF)) await muatSkrip('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    if (!window.jspdf.jsPDF.API.autoTable) await muatSkrip('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+    return window.jspdf.jsPDF;
+  }
+  var BLN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  function rpP(n) { n = Math.round(Number(n) || 0); return (n < 0 ? '-Rp ' : 'Rp ') + Math.abs(n).toLocaleString('id-ID'); }
+  function angkaP(n) { return Math.round(Number(n) || 0).toLocaleString('id-ID'); }
+  function bulanP(b) { var a = String(b || '').split('-'); return a.length === 2 ? BLN[Number(a[1]) - 1] + ' ' + a[0] : String(b || ''); }
+  function tglP(t) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(t || '')); return m ? Number(m[3]) + ' ' + BLN[Number(m[2]) - 1].slice(0, 3) + ' ' + m[1] : String(t || ''); }
+  async function buatPdf(v) {
+    var JsPDF = await siapPdf();
+    var doc = new JsPDF({ unit: 'mm', format: 'a4' }), L = 14, W = 182, y = 16;
+    var biru = [11, 35, 64], abu = [100, 110, 125];
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor.apply(doc, biru); doc.text('INVOICE BAGI HASIL', L, y);
+    doc.setFontSize(11); doc.text('Moscow Supplies', L + W, y, { align: 'right' });
+    y += 7; doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(30, 36, 48);
+    doc.text('No: ' + (v.no || '-'), L, y); doc.text('Periode: ' + bulanP(v.bulan), L + W, y, { align: 'right' });
+    y += 5.5; doc.text('Toko: ' + (v.nama || v.toko || ''), L, y); doc.text('Bagi hasil toko: ' + (Number(v.persen) || 0) + '%', L + W, y, { align: 'right' });
+    if (!v.terbit) {
+      y += 7; doc.setFillColor(255, 243, 214); doc.rect(L, y - 4.5, W, 7 + (v.kurang && v.kurang.length ? 5 : 0), 'F');
+      doc.setTextColor(120, 70, 0); doc.setFont('helvetica', 'bold'); doc.text('DRAF - invoice belum terbit', L + 2, y);
+      if (v.kurang && v.kurang.length) { y += 5; doc.setFont('helvetica', 'normal'); doc.text(doc.splitTextToSize('Belum lengkap: ' + v.kurang.join(', '), W - 4)[0], L + 2, y); }
+      doc.setTextColor(30, 36, 48);
+    }
+    y += 6;
+    var ring = [
+      ['Omzet (harga jual)', rpP(v.omzet)], ['Retur', rpP(-v.retur)], ['Penjualan bersih', rpP(v.penjualan)],
+      ['Potongan marketplace', rpP(-v.potongan)], ['HPP (harga dasar barang terjual)', rpP(-v.hpp)]
+    ];
+    if (!v.biayaToko) { ring.push(['Biaya / belanja toko', rpP(-v.belanja)]); ring.push(['Ongkir', rpP(-v.ongkir)]); }
+    ring.push(['Laba bersih', rpP(v.bersih)]);
+    ring.push(['Bagian toko (' + (Number(v.persen) || 0) + '%)', rpP(v.bagianToko)]);
+    ring.push(['Bagian Moscow Supplies (' + (100 - (Number(v.persen) || 0)) + '%)', rpP(v.bagianMoscow)]);
+    ring.push([v.biayaToko ? 'Disetor ke Moscow Supplies (HPP + bagian Moscow Supplies)' : 'Disetor ke Moscow Supplies (HPP + biaya + ongkir + bagian Moscow Supplies)', rpP(v.setoran)]);
+    ring.push(['Sudah tercatat disetor', rpP(v.tercatat)]);
+    ring.push(['Sisa yang harus disetor', rpP((v.setoran || 0) - (v.tercatat || 0))]);
+    var tebal = { 'Penjualan bersih': 1, 'Laba bersih': 1, 'Sisa yang harus disetor': 1 };
+    doc.autoTable({ startY: y, head: [['Ringkasan', 'Nilai']], body: ring, theme: 'grid', margin: { left: L, right: L },
+      styles: { fontSize: 9.5, cellPadding: 1.8 }, headStyles: { fillColor: biru }, columnStyles: { 1: { halign: 'right', cellWidth: 45 } },
+      didParseCell: function (h) { if (h.section === 'body' && (tebal[h.row.raw[0]] || /^Disetor/.test(h.row.raw[0]))) h.cell.styles.fontStyle = 'bold'; } });
+    y = doc.lastAutoTable.finalY + 3; doc.setFontSize(9); doc.setTextColor.apply(doc, abu);
+    doc.text('Setor ke: ' + (v.akun || 'Rekening PT'), L, y + 2); y += 7; doc.setTextColor(30, 36, 48);
+    if (v.dana && v.dana.length) {
+      var dana = v.dana.map(function (f) {
+        if (f.manual) return [f.pf, f.ket || '', '', '', f.belumIsi ? 'belum diisi' : rpP(f.cair), ''];
+        if (f.belum) return [f.pf, 'belum diupload', '', '', '', ''];
+        return [f.pf, tglP(f.dari) + ' - ' + tglP(f.sampai), rpP(f.harga), rpP(f.biaya), rpP(f.cair), angkaP(f.jml)];
+      });
+      doc.autoTable({ startY: y, head: [['Dana diterima', 'Periode', 'Harga jual', 'Biaya', 'Dana cair', 'Pesanan']], body: dana, theme: 'striped', margin: { left: L, right: L },
+        styles: { fontSize: 8.5, cellPadding: 1.5 }, headStyles: { fillColor: biru }, columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } } });
+      y = doc.lastAutoTable.finalY + 6;
+    }
+    var it = (v.items || []).map(function (x) { return [x.k, x.n, angkaP(x.q), rpP(x.omzet), x.rq ? angkaP(x.rq) : '', rpP(x.hpp), rpP(x.hppTot)]; });
+    if (it.length) {
+      doc.autoTable({ startY: y, head: [['Kode', 'Barang', 'Terjual', 'Omzet', 'Retur', 'HPP/pcs', 'Total HPP']], body: it, theme: 'striped', margin: { left: L, right: L },
+        styles: { fontSize: 8, cellPadding: 1.3 }, headStyles: { fillColor: biru }, columnStyles: { 0: { cellWidth: 22 }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } } });
+      y = doc.lastAutoTable.finalY + 6;
+    }
+    var by = (v.biaya || []).map(function (b) { return [tglP(b.t), b.ket || '', rpP(b.nom)]; });
+    if (by.length && !v.biayaToko) {
+      doc.autoTable({ startY: y, head: [['Tanggal', 'Biaya / belanja toko', 'Nominal']], body: by, theme: 'striped', margin: { left: L, right: L },
+        styles: { fontSize: 8.5, cellPadding: 1.5 }, headStyles: { fillColor: biru }, columnStyles: { 0: { cellWidth: 26 }, 2: { halign: 'right', cellWidth: 35 } } });
+    }
+    var n = doc.getNumberOfPages();
+    for (var i = 1; i <= n; i++) {
+      doc.setPage(i); doc.setFontSize(8); doc.setTextColor.apply(doc, abu);
+      doc.text('Moscow Supplies · ' + (v.no || '') + ' · dibuat ' + (v.dibuat || ''), L, 289);
+      doc.text('Halaman ' + i + ' dari ' + n, L + W, 289, { align: 'right' });
+    }
+    return doc;
+  }
+  function namaPdf(v) { return 'Invoice ' + (v.no || 'bagi hasil') + ' ' + (v.nama || v.toko || '') + '.pdf'; }
+  // PDF dibuat, lalu ditawarkan lewat lembar kecil: Bagikan / simpan (lembar Bagikan iPhone: Simpan ke File, WhatsApp, dll.) atau Buka.
+  async function pdfInvoice() {
+    var v = C.inv; if (!v) return;
+    var lb = lembarPdf('Menyiapkan PDF invoice…');
+    try {
+      var doc = await buatPdf(v), blob = doc.output('blob'), nama = namaPdf(v);
+      var file = null; try { file = new File([blob], nama, { type: 'application/pdf' }); } catch (e) { file = null; }
+      var url = URL.createObjectURL(blob);
+      lb.isi.innerHTML = '<b>' + esc(nama) + '</b><div class="pdfAksi"></div>';
+      var aksi = lb.isi.querySelector('.pdfAksi');
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        var bg = document.createElement('button'); bg.type = 'button'; bg.className = 'tbl pri'; bg.textContent = 'Simpan / bagikan PDF';
+        bg.onclick = function () { navigator.share({ files: [file], title: nama }).catch(function () { }); };
+        aksi.appendChild(bg);
+      }
+      var a = document.createElement('a'); a.className = 'tbl'; a.href = url; a.download = nama; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Buka / unduh PDF';
+      aksi.appendChild(a);
+    } catch (e) { lb.isi.innerHTML = '<div class="msg bad">' + esc(e.message || e) + '</div>'; }
+  }
+  function lembarPdf(teks) {
+    var lama = document.getElementById('lembarPdf'); if (lama) lama.remove();
+    var w = document.createElement('div'); w.id = 'lembarPdf';
+    w.innerHTML = '<div class="kotak" role="dialog" aria-label="PDF invoice"><div class="isi">' + esc(teks) + '</div><button type="button" class="tbl tutup">Tutup</button></div>';
+    w.querySelector('.tutup').onclick = function () { w.remove(); };
+    w.onclick = function (e) { if (e.target === w) w.remove(); };
+    document.body.appendChild(w);
+    return { isi: w.querySelector('.isi') };
+  }
+  // Tombol tetap di aplikasi (di luar form lama), muncul di menu Penjualan & Bagi hasil setelah invoice tampil.
+  function tombolPdf() {
+    var b = document.getElementById('tPdfInv');
+    var tampil = !!(C.inv && C.aktif === 'bh');
+    if (!tampil) { if (b) b.hidden = true; return; }
+    if (!b) {
+      b = document.createElement('button'); b.type = 'button'; b.id = 'tPdfInv'; b.className = 'tbl pri';
+      b.onclick = function () { pdfInvoice(); };
+      document.body.appendChild(b);
+    }
+    b.textContent = 'PDF invoice ' + bulanP(C.inv.bulan);
+    b.hidden = false;
+  }
 
   function ukur() {
     var fr = C.frame; if (!fr || fr.hidden || C.aktif === 'koreksi') return;
@@ -401,7 +522,7 @@
     ],
     bawah: ['jual', 'terima', 'biaya', 'dasbor', 'lain'],
     pindah: function (k) {
-      C.aktif = k;
+      C.aktif = k; tombolPdf();
       // Koreksi penjualan tampil langsung di aplikasi (bukan di form lama dalam bingkai).
       if (k === 'koreksi') { document.documentElement.classList.remove('berbingkai'); if (C.toko) window.KoreksiJual.bukaToko($('kjIsi'), C.toko, C.nama); return; }
       tekan(k); setTimeout(ukur, 0);

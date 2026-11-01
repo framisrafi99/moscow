@@ -20,6 +20,14 @@
   #mIsi > section[data-bagian="isi"] { padding:0 !important; margin:0 !important; }
   html.berbingkai, html.berbingkai body { overflow:hidden; }
   #cetakWadah { display:none; }
+  #tPdfInv { position:fixed; right:16px; bottom:calc(84px + env(safe-area-inset-bottom)); z-index:40; box-shadow:0 6px 18px rgba(11,35,64,.25); }
+  html.m-d #tPdfInv { bottom:24px; }
+  #lembarPdf { position:fixed; inset:0; background:rgba(11,35,64,.45); z-index:60; display:flex; align-items:flex-end; justify-content:center; }
+  #lembarPdf .kotak { background:#fff; width:100%; max-width:440px; border-radius:16px 16px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); }
+  #lembarPdf .isi { margin-bottom:12px; color:var(--tinta); word-break:break-word; }
+  #lembarPdf .pdfAksi { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+  #lembarPdf .pdfAksi .tbl, #lembarPdf .tutup { width:100%; text-align:center; justify-content:center; }
+  @media (min-width:700px) { #lembarPdf { align-items:center; } #lembarPdf .kotak { border-radius:16px; } }
   @media print {
     html.cetakBingkai, html.cetakBingkai body { overflow:visible !important; height:auto !important; background:#fff !important; padding:0 !important; }
     html.cetakBingkai body > *:not(#cetakWadah) { display:none !important; }
@@ -48,6 +56,6 @@
 <script src="moscow.js?v=16"></script>
 <script src="bagihasil.js?v=3"></script>
 <script src="koreksi.js?v=1"></script>
-<script src="consignment-app.js?v=6"></script>
+<script src="consignment-app.js?v=7"></script>
 </body>
 </html>
