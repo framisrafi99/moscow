@@ -1865,9 +1865,17 @@
     if (!d || d.ok !== true) throw new Error((d && d.pesan) || 'Server menolak permintaan.');
     return d;
   }
+  async function kirimUpload(f, a) {
+    if (f !== 'mpUpload') return kirimAS(f, a);
+    var p = (a && a[0]) || {};
+    var r = await sb.rpc('mp_upload', { p_toko: String(p.toko || ''), p_platform: String(p.platform || ''), p_up: String(p.up || ''), p_rows: Array.isArray(p.rows) ? p.rows : [] });
+    if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message);
+    return { ok: true, r: r.data, cermin: true };
+  }
   function gambarUpload() {
     var el = $('bUpload'); if (!el || !window.UploadMP) return;
-    UploadMP.gambar(el, { kirim: kirimAS, selesai: function () { BR.cache = {}; gambarBeranda(); } });
+    // Upload penjualan marketplace langsung di Supabase (SQL 129); Apps Script menyalinnya ke sheet MP_PESANAN.
+    UploadMP.gambar(el, { kirim: kirimUpload, selesai: function () { BR.cache = {}; gambarBeranda(); } });
   }
   async function kirimAksi(fungsi, param, ringkas, tempatPesan, teksOk) {
     var r = await sb.from('md_aksi').insert({ fungsi: fungsi, param: param, ringkas: String(ringkas).slice(0, 200) });
