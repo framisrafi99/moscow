@@ -683,7 +683,7 @@
   }
 
   // Bonus pengelola consignment: rangkuman invoice bagi hasil Medan, Sidoarjo, Renon per bulan, dan bonus 10% dari
-  // laba bersih yang diterima Moscow Supplies (bagian Moscow dari profit bersih ketiga toko). Dihitung langsung dari Supabase.
+  // total uang yang diterima Moscow Supplies dari ketiga toko (HPP + biaya & ongkir diganti + bagian Moscow). Dihitung langsung dari Supabase.
   var BONUS_PERSEN = 10;
   var BN = { bulan: '', data: {}, muat: {} };
   function bulanTeks(b) { return namaBulan(b) + ' ' + String(b || '').slice(0, 4); }
@@ -714,14 +714,14 @@
       tot.moscow += x.moscow || 0; tot.tercatat += x._tercatat;
       if (!(x.bhi && x.bhi.terbit)) semuaTerbit = false;
     });
-    var bonus = Math.round(tot.moscowBagian * BONUS_PERSEN / 100);
+    var bonus = Math.round(tot.moscow * BONUS_PERSEN / 100);
     var sejak = bln === bulanMundur(0);
     h += '<p class="tl">' + esc(bulanTeks(bln)) + (sejak ? ' sampai hari ini (belum final)' : '') + (semuaTerbit ? ' · ketiga invoice sudah terbit' : ' · belum semua invoice terbit, angka bisa berubah') + '</p>';
     h += '<div class="kp">' +
       '<div class="kt"><span class="l">Penjualan bersih 3 consignment</span><span class="v angka">' + jt(tot.penjualan) + '</span><span class="k">profit bersih ' + jt(tot.bersih) + '</span></div>' +
       '<div class="kt"><span class="l">Laba bersih diterima Moscow</span><span class="v angka">' + jt(tot.moscowBagian) + '</span><span class="k">bagian Moscow dari profit bersih</span></div>' +
       '<div class="kt"><span class="l">Total uang untuk Moscow</span><span class="v angka">' + jt(tot.moscow) + '</span><span class="k">termasuk HPP, biaya & ongkir diganti</span></div>' +
-      '<div class="kt"><span class="l">Bonus pengelola (' + BONUS_PERSEN + '%)</span><span class="v angka">' + rp(bonus) + '</span><span class="k">' + BONUS_PERSEN + '% × laba bersih diterima Moscow</span></div>' +
+      '<div class="kt"><span class="l">Bonus pengelola (' + BONUS_PERSEN + '%)</span><span class="v angka">' + rp(bonus) + '</span><span class="k">' + BONUS_PERSEN + '% × total uang untuk Moscow</span></div>' +
       '</div>';
     h += '<div class="cd"><div class="kpl"><h3>Rangkuman invoice</h3><span class="sb">' + esc(bulanTeks(bln)) + '</span></div><div class="gulir"><table class="tabel"><thead><tr><th>Toko</th><th class="r">Penjualan bersih</th><th class="r">Profit bersih</th><th class="r">Bagian toko</th><th class="r">Laba bersih Moscow</th><th class="r">Total untuk Moscow</th><th class="r">Sudah disetor</th><th class="r">Bonus ' + BONUS_PERSEN + '%</th></tr></thead><tbody>' +
       T.map(function (x) {
@@ -729,12 +729,12 @@
         return '<tr><td>' + esc(x.toko) + '<small>' + (inv ? esc(inv.no) + ' · ' + (inv.terbit ? '<span class="label ok">terbit</span>' : '<span class="label abu">belum terbit</span>') : '') + ' · bagi hasil toko ' + fmt(x.persen) + '%</small></td>' +
           '<td class="r angka">' + rp(x.penjualan) + '</td><td class="r angka">' + rp(x.bersih) + '</td><td class="r angka">' + rp(x.medan) + '</td>' +
           '<td class="r angka"><b>' + rp(x.moscowBagian) + '</b></td><td class="r angka">' + rp(x.moscow) + '</td><td class="r angka">' + rp(x._tercatat) + '</td>' +
-          '<td class="r angka">' + rp(Math.round((x.moscowBagian || 0) * BONUS_PERSEN / 100)) + '</td></tr>';
+          '<td class="r angka">' + rp(Math.round((x.moscow || 0) * BONUS_PERSEN / 100)) + '</td></tr>';
       }).join('') +
       '<tr class="tot"><td><b>Total</b></td><td class="r angka"><b>' + rp(tot.penjualan) + '</b></td><td class="r angka"><b>' + rp(tot.bersih) + '</b></td><td class="r angka"><b>' + rp(tot.toko) + '</b></td><td class="r angka"><b>' + rp(tot.moscowBagian) + '</b></td><td class="r angka"><b>' + rp(tot.moscow) + '</b></td><td class="r angka"><b>' + rp(tot.tercatat) + '</b></td><td class="r angka"><b>' + rp(bonus) + '</b></td></tr>' +
       '</tbody></table></div></div>';
     if (gagal.length) h += '<div class="msg w">' + gagal.map(function (x) { return esc(x.toko) + ': ' + esc(x.pesan); }).join('<br>') + '</div>';
-    h += '<p class="sb">Bonus pengelola = ' + BONUS_PERSEN + '% dari laba bersih yang diterima Moscow Supplies (bagian Moscow dari profit bersih) ketiga consignment, sesuai perjanjian dengan manajemen Moscow Supplies. Bonus dihitung sebelum dikurangi apa pun; kalau bagian Moscow suatu toko minus, bonus ikut berkurang. Angka sama dengan menu Bagi hasil consignment dan invoice toko.</p>';
+    h += '<p class="sb">Bonus pengelola = ' + BONUS_PERSEN + '% dari total uang yang diterima Moscow Supplies dari ketiga consignment (HPP barang terjual + belanja toko & ongkir yang diganti + bagian Moscow dari profit bersih), sesuai perjanjian dengan manajemen Moscow Supplies. Angka sama dengan "Total untuk Moscow" di menu Bagi hasil consignment dan invoice toko.</p>';
     el.innerHTML = h;
     pasangBonus(el);
   }
