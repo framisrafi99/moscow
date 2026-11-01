@@ -135,6 +135,14 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
 // laporan:<bulan> sama dengan potret Apps Script (KB_laporan_).
 async function laporan(b: string) { return await W.Dasbor.laporanBulan(sb, b); }
 
+// Kelompok jadwal 10 menit (rumus yang memakai data yang sama dijadikan satu, supaya tiap panggilan tetap ringan).
+const GRUP: string[][] = [
+  ['md:beranda', 'acc:oto'], ['md:acc', 'md:acc:lalu'], ['md:ringkasan'],
+  ['md:setuju', 'md:tanpa', 'md:titip', 'md:request', 'md:pantau'], ['md:hrgnaik', 'md:hbb', 'kb:bbr', 'kb:hrgnaik'],
+  ['md:mkt'], ['md:mkt:lalu'], ['md:botol', 'md:pp:prod', 'md:pp:bahan', 'md:prod'], ['md:bbk', 'md:rbb'], ['md:rpd'],
+  ['md:barang'], ['hpp'], ['md:pengadaan'], ['md:gudang'], ['md:beli:lalu'], ['md:bh'], ['md:bh:lalu'], ['stok:semua'],
+];
+
 // Bandingkan dua isi (abaikan jam "diperbarui"/"dibuat"/"hariIni"); hasil: daftar jalur yang berbeda (paling banyak 6).
 const ABAIKAN = new Set(['diperbarui', 'dibuat', 'hariIni']);
 // deno-lint-ignore no-explicit-any
@@ -166,10 +174,35 @@ Deno.serve(async (req) => {
     jadwal = !!(k.data && k.data.kunci && k.data.kunci === tanda);
   }
   if (!jadwal && !(await bolehManajemen(req))) return json({ ok: false, pesan: 'Tidak diizinkan.' }, 403);
-  let body: { simpan?: boolean; kunci?: string[]; isi?: boolean } = {};
+  let body: { simpan?: boolean; kunci?: string[]; isi?: boolean; sub?: boolean } = {};
   try { body = await req.json(); } catch (_) { /* kosong */ }
   const simpan = body.simpan === true;
   const mulai = Date.now();
+  // Jadwal: pekerjaan dibagi ke beberapa panggilan kecil (tiap panggilan robot dibatasi ±2 detik kerja prosesor),
+  // masing-masing menghitung satu kelompok lalu menyimpan sendiri. Panggilan induk hanya membagi dan mencatat.
+  if (jadwal && !body.sub) {
+    let grup: string[][];
+    if (Array.isArray(body.kunci) && body.kunci.length) {
+      grup = body.kunci.map((k) => [k]);
+      if (body.kunci.indexOf('laporan:lalu') !== -1 && body.kunci.indexOf('md:tpb') === -1) grup.push(['md:tpb']);
+    } else grup = GRUP;
+    const status: Record<string, string> = {};
+    const antreG = grup.slice();
+    await Promise.all([0, 1, 2, 3].map(async () => {
+      for (let g = antreG.shift(); g; g = antreG.shift()) {
+        try {
+          const r = await fetch(URL_SB + '/functions/v1/hitung-potret', { method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-moscow-robot-kunci': tanda }, body: JSON.stringify({ simpan, kunci: g, sub: true }) });
+          const j = await r.json().catch(() => ({}));
+          status[g.join(',')] = r.status === 200 ? ((j.gagal && j.gagal.length) ? 'gagal: ' + j.gagal.join(',') : 'ok') : 'http ' + r.status + ' ' + String(j.code || j.pesan || '');
+        } catch (e) { status[g.join(',')] = 'galat: ' + String((e as Error)?.message || e).slice(0, 100); }
+      }
+    }));
+    const gagalG = Object.keys(status).filter((k) => status[k] !== 'ok');
+    const detikG = (Date.now() - mulai) / 1000;
+    await sb.from('robot_log').insert({ jenis: 'jadwal', detik: detikG, hasil: { gagal: gagalG, grup: status } });
+    return json({ ok: true, detik: detikG, gagal: gagalG, grup: status });
+  }
   const versi = await muatRumus();
   // Kunci laporan:<yyyy-MM> boleh diminta untuk bulan mana pun (mis. untuk mencocokkan bulan yang sudah lewat).
   const R: Record<string, () => Promise<Isi>> = Object.assign({}, RUMUS);
@@ -211,7 +244,7 @@ Deno.serve(async (req) => {
   }
   const detik = (Date.now() - mulai) / 1000;
   const gagal = Object.keys(hasil).filter((k) => !(hasil[k] as { ok: boolean }).ok);
-  await sb.from('robot_log').insert({ jenis: simpan ? (jadwal ? 'jadwal' : 'simpan') : 'banding', detik, hasil: { versi, gagal, hasil, banding } });
+  await sb.from('robot_log').insert({ jenis: simpan ? (jadwal ? 'jadwal:bagian' : 'simpan') : 'banding', detik, hasil: { versi, gagal, hasil, banding } });
   // isi: true (hanya manajemen, bukan jadwal) = kirim juga hasil hitungan, untuk dicocokkan dengan hitungan di aplikasi.
   return json({ ok: true, simpan, detik, versi, gagal, hasil, banding, isi: body.isi === true && !jadwal ? isi : undefined });
 });
