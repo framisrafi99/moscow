@@ -73,7 +73,28 @@
     }
 
     // ---------- Shopee ----------
-    var sum = cari('Summary'), ph = cari('Penghasilan');
+    // File besar dipecah Shopee jadi "Penghasilan - 1", "Penghasilan - 2", ...: gabungkan (kolom disamakan dengan sheet pertama).
+    function gabungPh() {
+      var nama = Object.keys(S).filter(function (k) { return /^penghasilan\s*-\s*\d+$/i.test(t(k)); })
+        .sort(function (a, b) { return Number(t(a).replace(/\D/g, '')) - Number(t(b).replace(/\D/g, '')); });
+      if (!nama.length) return null;
+      function kepala(rows) { for (var i = 0; i < Math.min(rows.length, 10); i++) { var r = rows[i] || []; for (var j = 0; j < r.length; j++) if (t(r[j]) === 'No. Pesanan') return i; } return -1; }
+      var dasar = S[nama[0]], hd = kepala(dasar);
+      if (hd < 0) return dasar;
+      var out = dasar.slice(), kol = {}, j;
+      for (j = 0; j < dasar[hd].length; j++) { var nm = t(dasar[hd][j]); if (nm && kol[nm] === undefined) kol[nm] = j; }
+      for (var s = 1; s < nama.length; s++) {
+        var rows = S[nama[s]], h2 = kepala(rows); if (h2 < 0) continue;
+        var peta = []; for (j = 0; j < rows[h2].length; j++) { var n2 = t(rows[h2][j]); peta[j] = kol[n2] === undefined ? -1 : kol[n2]; if (peta.indexOf(peta[j]) < j) peta[j] = -1; }
+        for (var i = h2 + 1; i < rows.length; i++) {
+          var r = rows[i] || [], b = []; for (j = 0; j < dasar[hd].length; j++) b.push('');
+          for (j = 0; j < r.length; j++) if (peta[j] >= 0) b[peta[j]] = r[j];
+          out.push(b);
+        }
+      }
+      return out;
+    }
+    var sum = cari('Summary'), ph = cari('Penghasilan') || gabungPh();
     if (sum && ph) {
       var L = berlabel(sum);
       var akun = nilai(L, 'Username (Penjual)'), dari = nilai(L, 'Dari'), ke = nilai(L, 'ke');
