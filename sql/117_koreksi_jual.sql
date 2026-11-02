@@ -118,11 +118,11 @@ begin
     if o < 0 or o > 100000000 then return json_build_object('ok', false, 'pesan', 'Ongkir tidak valid.'); end if;
     baru := jsonb_build_object('kode', kode, 'nama', b.nama, 'warna', w, 'qty', q, 'harga', h, 'diskon', d, 'ongkir', o,
       'total', round(q * h * (1 - d / 100)));
-    if kode <> lama ->> 'kode' or w <> lama ->> 'warna' then beda := beda || 'barang'; end if;
-    if q <> (lama ->> 'qty')::numeric then beda := beda || 'qty'; end if;
-    if h <> (lama ->> 'harga')::numeric then beda := beda || 'harga'; end if;
-    if d <> (lama ->> 'diskon')::numeric then beda := beda || 'diskon'; end if;
-    if o <> (lama ->> 'ongkir')::numeric then beda := beda || 'ongkir'; end if;
+    if kode <> lama ->> 'kode' or w <> lama ->> 'warna' then beda := array_append(beda, 'barang'::text); end if;
+    if q <> (lama ->> 'qty')::numeric then beda := array_append(beda, 'qty'::text); end if;
+    if h <> (lama ->> 'harga')::numeric then beda := array_append(beda, 'harga'::text); end if;
+    if d <> (lama ->> 'diskon')::numeric then beda := array_append(beda, 'diskon'::text); end if;
+    if o <> (lama ->> 'ongkir')::numeric then beda := array_append(beda, 'ongkir'::text); end if;
     if cardinality(beda) = 0 then return json_build_object('ok', false, 'pesan', 'Tidak ada yang berubah dari isi laporan sekarang.'); end if;
   end if;
 
