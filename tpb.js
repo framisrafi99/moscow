@@ -63,6 +63,7 @@
       tambah(!bc, 'Dana marketplace belum cair', bc ? 'Rp ' + GD_fmt_(bc) + ' masih tercatat belum cair. Upload laporan dana dari Shopee, Tokopedia/TikTok, dan Lazada supaya biaya marketplace masuk.' : 'Sudah cair semua.', false);
       var luar = ((d.terjual && d.terjual.saluran) || []).filter(function (s) {
         var nm = s.n === 'Reseller' ? 'Penjualan reseller' : 'Penjualan ' + s.n;
+        if (/\((batal|arsip)/i.test(s.n)) return false; // toko yang dibatalkan / diarsipkan (mis. rekap Renon diganti PDF)
         return s.omzet && !((d.uang && d.uang.saluran) || []).some(function (x) { return x.n.toLowerCase() === nm.toLowerCase(); });
       });
       tambah(!luar.length, 'Penjualan yang belum dicatat di accounting', luar.length ? luar.map(function (s) { return s.n + ' (omzet Rp ' + GD_fmt_(s.omzet) + ')'; }).join(', ') : 'Semua saluran sudah tercatat.', false);
