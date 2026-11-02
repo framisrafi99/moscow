@@ -59,6 +59,19 @@
   .daftar .harga b { color:var(--tinta); font-size:14px; }
   .daftar .mg { text-align:right; font-size:13px; font-weight:700; }
   .mg.bagus { color:var(--hijau); } .mg.tipis { color:var(--kuning); } .mg.rugi { color:var(--merah); } .mg.tanpa { color:var(--abu); font-weight:500; }
+  /* ACC pengajuan impor */
+  .aj { border:1px solid var(--garis); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+  .aj + .aj { margin-top:12px; }
+  .aj .atas { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+  .aj .nm { font-weight:800; font-size:15px; }
+  .aj .ket { font-size:13px; color:var(--abu); }
+  .aj .qty { text-align:right; white-space:nowrap; }
+  .aj .qty b { font-size:17px; }
+  .aj .robot { font-size:13px; background:var(--latar); border-radius:10px; padding:9px 11px; color:var(--teks2); }
+  .aj .alasan { font-size:13.5px; }
+  .aj .tombol { display:flex; gap:8px; flex-wrap:wrap; }
+  .aj .tombol .tbl { flex:1 1 140px; justify-content:center; }
+  .aj label { font-size:13px; font-weight:600; color:var(--abu); }
   @media (max-width:520px) { .anak { grid-template-columns:92px 1fr; } .margin-laba { margin-left:104px; } }
 </style>
 </head>
@@ -75,6 +88,18 @@
     <p class="tl" id="dibuat"></p>
     <div id="isiLaporan"><div class="ksg">Memuat laporan…</div></div>
     <div class="msg tunggu">Halaman ini hanya untuk melihat. Pembayaran impor, ubah harga, dan setujui kenaikan harga masih lewat Kendali Bisnis yang lama.</div>
+  </section>
+  <section data-bagian="acc">
+    <div id="accPesan" class="msg ok" hidden></div>
+    <div class="cd">
+      <div class="kpl"><h3>Pengajuan barang impor</h3><span class="sb" id="accJumlah"></span></div>
+      <p class="sb" style="margin:0">Pengajuan barang impor dari Gudang Utama menunggu ACC Mike. Qty boleh diubah sebelum disetujui. Setelah disetujui, lanjutkan pembayaran di menu Persetujuan &amp; pembayaran.</p>
+      <div id="accDaftar"><div class="ksg">Memuat pengajuan…</div></div>
+    </div>
+    <div class="cd">
+      <h3>Riwayat keputusan (30 hari)</h3>
+      <div id="accRiwayat"><div class="ksg">Memuat…</div></div>
+    </div>
   </section>
   <section data-bagian="hpp">
     <div class="cd">
@@ -104,8 +129,8 @@
   M.mulai({
     aplikasi: 'KENDALI BISNIS', masukJudul: 'Kendali Bisnis', masukTeks: 'Ringkasan usaha, laporan bulanan, dan HPP Moscow Supplies. Masuk memakai akun Google yang sudah didaftarkan.',
     izin: function (ctx) { return ['manajemen', 'kendali_bisnis', 'accounting'].indexOf(ctx.peran) > -1 ? true : (ctx.peran ? 'Akun ' + ctx.email + ' tidak punya akses ke Kendali Bisnis.' : false); },
-    menu: [{ k: 'beranda', nm: 'Beranda' }, { k: 'laporan', nm: 'Laporan', judul: 'Laporan bulanan' }, { k: 'hpp', nm: 'HPP & Harga', ik: 'harga' }],
-    pindah: function (k) { document.documentElement.classList.toggle('m-bx', k === 'beranda'); if (k === 'hpp' && !barang) muatHpp(); },
+    menu: [{ k: 'beranda', nm: 'Beranda' }, { k: 'acc', nm: 'ACC Pengajuan', ik: 'setuju', pendek: 'ACC' }, { k: 'laporan', nm: 'Laporan', judul: 'Laporan bulanan' }, { k: 'hpp', nm: 'HPP & Harga', ik: 'harga' }],
+    pindah: function (k) { document.documentElement.classList.toggle('m-bx', k === 'beranda'); if (k === 'hpp' && !barang) muatHpp(); if (k === 'acc') muatAcc(); },
     siap: function (ctx) {
       KB.email = String(ctx.email || '').toLowerCase(); KB.peran = ctx.peran === 'manajemen' ? 'Manajemen' : 'Kendali Bisnis'; var um = (ctx.sesi && ctx.sesi.user && ctx.sesi.user.user_metadata) || {}; KB.nama = um.full_name || um.name || '';
       M.aksi([{ nm: 'Muat ulang', ik: 'muat', klik: function () { muatSemua(); } }]);
@@ -118,13 +143,14 @@
         if (nav2) nav2.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="form.html?f=mike">' + M.svg('setuju') + '<span class="nm">Persetujuan &amp; pembayaran</span></a>' +
           '<a class="it" href="stok.html">' + M.svg('stok') + '<span class="nm">Stok semua lokasi</span></a>');
       }
-      muatLaporan(); gambarBeranda();
+      KB.bisaAcc = ctx.peran === 'manajemen' || ctx.peran === 'kendali_bisnis';
+      muatLaporan(); gambarBeranda(); muatAcc();
     }
   });
 
   // ======================= BERANDA (tampilan sama dengan Beranda Master Data, hanya melihat) =======================
   var KB = { bulan: '', cache: {}, md: null, email: '', nama: '', namaTim: undefined };
-  function muatSemua() { KB.cache = {}; KB.md = null; gambarBeranda(); muatLaporan(); barang = null; if (M.aktif() === 'hpp') muatHpp(); }
+  function muatSemua() { KB.cache = {}; KB.md = null; gambarBeranda(); muatLaporan(); muatAcc(); barang = null; if (M.aktif() === 'hpp') muatHpp(); }
   function namaBln(b) { var p = String(b || '').split('-'); return (NAMA_BULAN[Number(p[1]) - 1] || '') + ' ' + p[0]; }
   function tindakanKB() {
     var md = KB.md || {}, d = md.beranda || {}, r = md.ringkasan || {}, L = [];
@@ -132,13 +158,14 @@
     (d.akun || []).forEach(function (a) { if (a.v < 0) L.push({ teks: (/^saldo /i.test(a.n) ? a.n : 'Saldo ' + a.n) + ' minus ' + rp(-a.v), w: true }); });
     if (md.pantau && md.pantau.nTahan) L.push({ teks: md.pantau.nTahan + ' pengiriman tertahan', w: true });
     var t = ((md.setuju && md.setuju.menunggu) || 0) + ((md.request && md.request.n) || 0); if (t) L.push({ teks: t + ' persetujuan menunggu', w: true });
+    if (KB.accN) L.push({ teks: KB.accN + ' pengajuan impor menunggu ACC', w: true, buka: 'acc' });
     if (r.pinjam && r.pinjam.lewat) L.push({ teks: r.pinjam.lewat + ' pinjaman barang lewat tanggal kembali', w: true });
     (r.akhir || []).forEach(function (a) { if (a.lalu !== null && a.lalu > (r.batas || 3)) L.push({ teks: a.n + ' belum lapor ' + a.lalu + ' hari', w: true }); });
     if (d.hari) {
       var tg = Number(String(d.hari).slice(8)), akhir = new Date(Number(d.hari.slice(0, 4)), Number(d.hari.slice(5, 7)), 0).getDate();
       if (tg >= akhir - 7) L.push({ teks: 'Hitung fisik akhir bulan · ' + akhir + ' ' + namaBln(d.bulan), w: false });
     }
-    return L.map(function (x) { x.buka = ''; return x; });
+    return L.map(function (x) { x.buka = x.buka || ''; return x; });
   }
   async function gambarBeranda() {
     var el = $('bBeranda'); if (!el || !window.BerandaBaru) return;
@@ -156,7 +183,7 @@
     var C = KB.cache[k];
     BerandaBaru.gambar(el, C.B, (KB.md || {}).beranda || {}, tindakanKB(), {
       gantiBulan: function (m) { KB.bulan = m; gambarBeranda(); },
-      buka: function (b) { if (b === 'laporan' || b === 'hpp') M.buka(b); else { var t = $(b === 'purch' ? 'bxPo' : 'bxRinci'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
+      buka: function (b) { if (b === 'laporan' || b === 'hpp' || b === 'acc') M.buka(b); else { var t = $(b === 'purch' ? 'bxPo' : 'bxRinci'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
       kpi: C.K, pengguna: { nama: KB.namaTim || KB.nama, email: KB.email }, peran: KB.peran,
       menuAkun: [{ nm: 'Muat ulang data', klik: muatSemua }, { nm: 'Laporan bulanan', k: 'laporan' }, { nm: 'HPP & Harga', k: 'hpp' },
         { nm: 'Keluar / ganti akun', klik: function () { sb.auth.signOut({ scope: 'local' }).then(function () { location.href = 'index.html'; }); } }]
@@ -253,6 +280,80 @@
         '<span></span><span class="mg angka ' + kelas + '">' + teksM + '</span></li>';
     }).join('');
   }
+  // ======================= ACC PENGAJUAN IMPOR (pengadaan_aksi di Supabase, sama dengan ACC Mike di halaman lama) =======================
+  var ACC = { daftar: [], riwayat: [], kirim: false };
+  function impor(a) {
+    var asal = String(a.asal_barang || '').trim();
+    if (asal === 'Impor') return true;
+    if (asal === 'Lokal') return false;
+    var kel = String(a.kelompok || '').trim(), kode = String(a.kode || '').trim().toUpperCase();
+    return kel === 'Barang jualan' || (kel === 'Botol & stiker' && /^(BT2|BT3)$/.test(kode));
+  }
+  function angka(v) { var s = String(v == null ? '' : v).replace(/[^\d]/g, ''); return s ? Number(s) : 0; }
+  function titik(n) { return Math.round(Number(n) || 0).toLocaleString('id-ID'); }
+  function waktuTeks(t) { var d = new Date(t); if (isNaN(d)) return ''; return d.toLocaleString('id-ID', { timeZone: 'Asia/Makassar', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+  function namaBrg(a) { var n = String(a.nama || a.kode || ''), w = String(a.warna || '').trim(); return n + (w && n.toUpperCase().indexOf(w.toUpperCase()) === -1 ? ' – ' + w : ''); }
+  function pesanAcc(t, j) { var p = $('accPesan'); p.className = 'msg ' + (j || 'ok'); p.textContent = t; p.hidden = !t; if (t) p.scrollIntoView({ block: 'nearest' }); }
+  async function muatAcc() {
+    var batas = new Date(Date.now() - 30 * 86400e3).toISOString();
+    var r = await sb.from('pengadaan_ajuan').select('no,waktu,bagian,kelompok,kode,nama,warna,satuan,qty,perkiraan_harga_satuan,alasan,pengaju,status_robot,analisa_robot,status,asal_barang,qty_disetujui,diputus_oleh,waktu_putus,catatan_putus')
+      .or('status.eq.Menunggu,status.is.null,waktu_putus.gte.' + batas).order('waktu', { ascending: false }).limit(300);
+    if (r.error) { $('accDaftar').innerHTML = '<div class="msg bad">Pengajuan gagal dimuat: ' + esc(r.error.message) + '</div>'; return; }
+    var semua = (r.data || []).filter(impor);
+    ACC.daftar = semua.filter(function (a) { return !a.status || a.status === 'Menunggu'; });
+    ACC.riwayat = semua.filter(function (a) { return a.status && a.status !== 'Menunggu' && a.diputus_oleh; });
+    var lama = KB.accN; KB.accN = ACC.daftar.length;
+    M.badge('acc', ACC.daftar.length);
+    if (lama !== KB.accN && KB.cache[KB.bulan || '']) gambarBeranda();
+    gambarAcc();
+  }
+  function labelRobot(st) {
+    var k = /kritis|saatnya/i.test(st) ? 'no' : /berlebih/i.test(st) ? 'w' : /aman|cukup/i.test(st) ? 'ok' : 'abu';
+    return st ? '<span class="label ' + k + '">Robot: ' + esc(st) + '</span>' : '';
+  }
+  function gambarAcc() {
+    $('accJumlah').textContent = ACC.daftar.length ? ACC.daftar.length + ' menunggu' : '';
+    if (!ACC.daftar.length) $('accDaftar').innerHTML = '<div class="ksg">Tidak ada pengajuan impor yang menunggu ACC.</div>';
+    else $('accDaftar').innerHTML = ACC.daftar.map(function (a, i) {
+      var h = Number(a.perkiraan_harga_satuan) || 0, q = Number(a.qty) || 0, sat = esc(a.satuan || 'pcs');
+      return '<div class="aj" data-i="' + i + '"><div class="atas"><div><div class="nm">' + esc(namaBrg(a)) + '</div>' +
+        '<div class="ket">' + esc(a.no) + ' · ' + esc(a.kode || '') + ' · ' + esc(a.bagian || '') + ' · ' + esc(a.pengaju || '-') + ' · ' + esc(waktuTeks(a.waktu)) + '</div></div>' +
+        '<div class="qty"><b class="angka">' + titik(q) + '</b> ' + sat + (h ? '<div class="ket">± ' + rp(h) + '/' + sat + '<br>total ± ' + rp(h * q) + '</div>' : '') + '</div></div>' +
+        (a.alasan ? '<div class="alasan"><b>Alasan:</b> ' + esc(a.alasan) + '</div>' : '') +
+        (a.status_robot || a.analisa_robot ? '<div class="robot">' + labelRobot(a.status_robot) + (a.analisa_robot ? '<div style="margin-top:6px">' + esc(a.analisa_robot) + '</div>' : '') + '</div>' : '') +
+        (KB.bisaAcc ? '<div class="baris"><label style="flex:1 1 140px">Qty disetujui (' + sat + ')<input class="isian" inputmode="numeric" data-q value="' + titik(q) + '"></label>' +
+          '<label style="flex:2 1 220px">Catatan (wajib bila ditolak)<input class="isian" data-c maxlength="250" placeholder="mis. kurangi jadi 1.000 pcs dulu"></label></div>' +
+          '<div class="tombol"><button type="button" class="tbl pri" data-a="setuju">Setujui</button><button type="button" class="tbl" data-a="tolak">Tolak</button></div>'
+          : '<div class="ket">Hanya Mike atau manajemen Moscow Supplies yang bisa ACC.</div>') + '</div>';
+    }).join('');
+    $('accDaftar').querySelectorAll('.aj').forEach(function (el) {
+      var q = el.querySelector('[data-q]'); if (q) q.oninput = function () { var n = angka(q.value); q.value = n ? titik(n) : ''; };
+      el.querySelectorAll('[data-a]').forEach(function (b) { b.onclick = function () { putuskan(ACC.daftar[+el.getAttribute('data-i')], b.getAttribute('data-a'), el); }; });
+    });
+    $('accRiwayat').innerHTML = ACC.riwayat.length ? '<table class="tabel"><tbody>' + ACC.riwayat.map(function (a) {
+      var st = a.status === 'Ditolak' ? 'no' : a.status === 'Batal' ? 'abu' : 'ok';
+      var q = a.qty_disetujui != null && a.status !== 'Ditolak' ? a.qty_disetujui : a.qty;
+      return '<tr><td><b>' + esc(namaBrg(a)) + '</b><small>' + esc(a.no) + ' · ' + titik(q) + ' ' + esc(a.satuan || 'pcs') + ' · ' + esc(a.diputus_oleh || '') + ' · ' + esc(waktuTeks(a.waktu_putus)) + '</small>' +
+        (a.catatan_putus ? '<small>' + esc(a.catatan_putus) + '</small>' : '') + '</td><td class="r"><span class="label ' + st + '">' + esc(a.status) + '</span></td></tr>';
+    }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada keputusan dalam 30 hari terakhir.</div>';
+  }
+  async function putuskan(a, aksi, el) {
+    if (ACC.kirim || !a) return;
+    var q = angka(el.querySelector('[data-q]').value), cat = el.querySelector('[data-c]').value.trim();
+    if (aksi === 'setuju' && !(q > 0)) { pesanAcc('Isi qty disetujui (minimal 1).', 'bad'); return; }
+    if (aksi === 'tolak' && cat.length < 3) { pesanAcc('Tulis alasan ditolak di kolom catatan.', 'bad'); el.querySelector('[data-c]').focus(); return; }
+    var tanya = aksi === 'setuju' ? 'Setujui ' + a.no + ' ' + namaBrg(a) + ' sebanyak ' + titik(q) + ' ' + (a.satuan || 'pcs') + '?' : 'Tolak ' + a.no + ' ' + namaBrg(a) + '?';
+    if (!confirm(tanya)) return;
+    ACC.kirim = true; el.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+    var qty = {}; qty[a.no] = q;
+    var r = await sb.rpc('pengadaan_aksi', { p_aksi: aksi, p_nos: [a.no], p_qty: aksi === 'setuju' ? qty : null, p_catatan: cat, p_ref: '', p_eta: '', p_nama: '' });
+    ACC.kirim = false;
+    var d = r.error ? { ok: false, pesan: r.error.message } : (r.data || { ok: false, pesan: 'Tidak ada jawaban dari server.' });
+    if (!d.ok) { el.querySelectorAll('button').forEach(function (b) { b.disabled = false; }); pesanAcc(d.pesan || 'Gagal menyimpan.', 'bad'); return; }
+    await muatAcc();
+    pesanAcc(d.pesan + (aksi === 'setuju' ? ' Lanjutkan pembayaran impor di menu Persetujuan & pembayaran.' : ''), 'ok');
+  }
+
   $('cari').oninput = function () { if (barang) gambarHpp(); };
   $('kategori').onchange = function () { if (barang) gambarHpp(); };
 })();
