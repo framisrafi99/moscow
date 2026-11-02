@@ -320,6 +320,14 @@
       var g = await opsi.sb.rpc('laporan_gaji', { p_bulan: r.data.bulan });
       r.data.gaji = g.error ? [] : g.data || [];
     }
+    // Bagi hasil consignment bulan yang sudah lewat tanpa arsip: dihitung langsung dari Supabase (bhmd.js), sama dengan menu Bagi hasil.
+    if (!r.error && r.data && !r.data.bh && !(r.data.arsip && r.data.arsip.bh) && window.BagiHasilMd) {
+      try {
+        var bhx = await window.BagiHasilMd.hitung(opsi.sb, r.data.bulan);
+        var tk = ((bhx && bhx.toko) || []).filter(function (t) { return t && t.ok !== false; });
+        if (tk.length) { r.data.bh = tk; r.data.bhLangsung = true; }
+      } catch (e) { }
+    }
     S.memuat = false; el.style.opacity = '';
     if (r.error) { el.innerHTML = '<div class="msg bad">Laporan gagal dimuat: ' + esc(r.error.message) + '</div>'; return; }
     S.data = r.data; gambar(el, opsi);
