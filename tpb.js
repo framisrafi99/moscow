@@ -26,9 +26,10 @@
 
   // TPB_baca_: baris terakhir per bulan di TUTUP_BUKU.
   async function bacaTutup(sb) {
-    var r = await sb.from('tutup_buku').select('bulan,status,waktu,oleh,ring,catatan,baris_sheet,id')
-      .order('baris_sheet', { ascending: true, nullsFirst: false }).order('id');
+    // Tabel tutup_buku tidak dibaca langsung dari aplikasi: lewat rpc tutup_buku_daftar (SQL 134, khusus manajemen).
+    var r = await sb.rpc('tutup_buku_daftar');
     if (r.error) throw new Error(r.error.message);
+    r.data = Array.isArray(r.data) ? r.data : [];
     var out = {};
     (r.data || []).forEach(function (x) {
       var b = t(x.bulan, 7);
@@ -142,6 +143,42 @@
     return out;
   }
 
+  // tpbTutup (file 74) langsung di Supabase (rpc tutup_buku_tutup, SQL 134): simpan saldo akun akhir bulan, ringkasan,
+  // penjualan otomatis bulan itu (dibekukan), dan stok per lokasi. paksa=true bila pemeriksaan wajib belum beres.
+  async function tutup(sb, bulan, opsi) {
+    opsi = opsi || {};
+    if (!bulanOk(bulan)) return { ok: false, pesan: 'Bulan tidak valid.' };
+    var r = await periksa(sb, bulan);
+    var berat = r.cek.filter(function (c) { return !c.ok && c.berat; });
+    if (berat.length && opsi.paksa !== true) return { ok: false, tanya: true, pesan: 'Masih ada yang perlu dibereskan: ' + berat.map(function (c) { return c.j + ' (' + c.ket + ')'; }).join('; ') + ' Tetap tutup buku?' };
+    var dari = bulan + '-01', sampai = akhirBulan(bulan);
+    var inti = await window.Akunting.inti(sb);
+    if (!inti) return { ok: false, pesan: 'Data accounting gagal dimuat.' };
+    var saldo = {};
+    inti.cfg.akun.forEach(function (a) { saldo[a.n] = a.awal; });
+    inti.gerak.forEach(function (g) { if (g.t <= sampai && (g.a in saldo)) saldo[g.a] += g.d; });
+    Object.keys(saldo).forEach(function (k) { saldo[k] = Math.round(saldo[k] * 100) / 100; });
+    var oto = inti.gerak.filter(function (g) { return g.auto && g.t >= dari && g.t <= sampai; })
+      .map(function (g) { var x = g.auto; return { t: x.t, a: x.a, k: x.k, kel: x.kel, v: x.v, s: x.s || '' }; });
+    var d = r.d && r.d.ok ? r.d : null, ring = null, stok = null;
+    if (d) {
+      var u = (d.uang && d.uang.ini) || {};
+      ring = { pend: u.pend || 0, ops: u.ops || 0, beli: u.beli || 0, masuk: u.masuk || 0, keluar: u.keluar || 0,
+        omzet: ((d.terjual && d.terjual.saluran) || []).reduce(function (a, s) { return a + (s.omzet || 0); }, 0), hpp: d.terjual ? d.terjual.hpp : 0, pcs: d.terjual ? d.terjual.q : 0,
+        saluran: ((d.terjual && d.terjual.saluran) || []).map(function (s) { return { n: s.n, omzet: s.omzet, hpp: s.hpp, q: s.q }; }) };
+      stok = (d.stok || []).map(function (x) { return { n: x.n, q: x.q, hpp: x.hpp, jual: x.jual, minus: x.minus }; });
+    }
+    var catatan = r.cek.filter(function (c) { return !c.ok; }).map(function (c) { return c.j + ': ' + c.ket; }).join(' | ').slice(0, 1000);
+    var x = await sb.rpc('tutup_buku_tutup', { p_bulan: bulan, p_saldo: saldo, p_ring: ring, p_oto: oto, p_stok: stok, p_catatan: catatan });
+    if (x.error) return { ok: false, pesan: x.error.message };
+    return x.data || { ok: false, pesan: 'Gagal menutup buku.' };
+  }
+  async function buka(sb, bulan, alasan) {
+    var x = await sb.rpc('tutup_buku_buka', { p_bulan: bulan, p_alasan: String(alasan || '') });
+    if (x.error) return { ok: false, pesan: x.error.message };
+    return x.data || { ok: false, pesan: 'Gagal membuka buku.' };
+  }
+
   // Bulan yang diperiksa potret md:tpb: tanggal 1-10 bulan lalu, sesudahnya bulan ini (SBM_POTRET_).
   function bulanPotret() {
     var d = new Date(Date.now() + 8 * 3600e3), mundur = d.getUTCDate() <= 10 ? 1 : 0;
@@ -149,5 +186,5 @@
     return x.toISOString().slice(0, 7);
   }
 
-  window.TutupBuku = { tpbData: tpbData, bulanPotret: bulanPotret };
+  window.TutupBuku = { tpbData: tpbData, bulanPotret: bulanPotret, periksa: periksa, tutup: tutup, buka: buka };
 })();

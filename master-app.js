@@ -1311,6 +1311,7 @@
     var pasang = function (attr, fn) { el.querySelectorAll('[data-' + attr + ']').forEach(function (b) { b.onclick = function () { fn(b.getAttribute('data-' + attr)); gambarUang(); }; }); };
     pasang('ub', function (v) { U.bagian = v; }); pasang('ubl', function (v) { U.b = v; }); pasang('uar', function (v) { U.arah = v; }); pasang('gjp', function (v) { U.gp = v; }); pasang('gjr', function (v) { U.gr = U.gr === v ? null : v; });
     el.querySelectorAll('[data-gja]').forEach(function (b) { b.onclick = function () { putusGaji(b); }; });
+    el.querySelectorAll('[data-tpbx]').forEach(function (b) { b.onclick = function () { aksiTpb(b.getAttribute('data-tpbx'), b); }; });
     ['uQ', 'uQh', 'uQn'].forEach(function (id) { var c = $(id); if (c) c.oninput = function () { var pos = c.selectionStart; U[{ uQ: 'q', uQh: 'qh', uQn: 'qn' }[id]] = c.value; gambarUang(); var c2 = $(id); c2.focus(); try { c2.setSelectionRange(pos, pos); } catch (e) { } }; });
     var on = el.querySelector('[data-ub][aria-pressed="true"]');
     if (on && on.parentNode.scrollWidth > on.parentNode.clientWidth) on.parentNode.scrollLeft = Math.max(0, on.offsetLeft - on.parentNode.offsetLeft - 16);
@@ -1447,6 +1448,37 @@
       return '<tr><td>' + esc(x.n) + (x.w ? ' – ' + esc(x.w) : '') + '<small>' + esc(tglId(x.t)) + ' · ' + esc(x.kel) + ' · ' + esc(x.sb) + (x.no ? ' ' + esc(x.no) : '') + (x.sup ? ' · ' + esc(x.sup) : '') + (x.pg ? ' · ' + esc(x.pg) : '') + '</small></td><td class="r angka">' + rp(x.lama) + ' → <b>' + rp(x.baru) + '</b><small style="color:var(--merah)">+' + rp(x.sel) + ' · +' + dec(x.pc, 1) + '%</small></td></tr>'; }).join('') + '</tbody></table></div></div>';
     return h;
   }
+  // Tutup buku langsung di Supabase (tpb.js -> rpc tutup_buku_tutup / tutup_buku_buka, SQL 134).
+  async function aksiTpb(jenis, tombol) {
+    var d = D.tpb || {}, bulan = d.bulan || window.TutupBuku.bulanPotret();
+    var lama = tombol.textContent; tombol.disabled = true;
+    try {
+      if (jenis === 'periksa') {
+        tombol.textContent = 'Memeriksa…';
+        var x = await window.TutupBuku.tpbData(sb, { bulan: bulan });
+        if (x && x.ok) { D.tpb = x; U.tpbLangsung = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); }
+        gambarUang(); return;
+      }
+      if (jenis === 'tutup') {
+        if (!confirm('Tutup buku ' + (d.nb || bulan) + '?\n\nCatatan accounting bertanggal di bulan itu akan terkunci dan penjualan otomatisnya dibekukan. Bisa dibuka kembali oleh manajemen kalau perlu koreksi.')) return;
+        tombol.textContent = 'Menutup buku…';
+        var r = await window.TutupBuku.tutup(sb, bulan, {});
+        if (r && r.tanya) { if (!confirm(r.pesan)) return; r = await window.TutupBuku.tutup(sb, bulan, { paksa: true }); }
+        alertMsg((r && r.pesan) || 'Gagal menutup buku.', !!(r && r.ok));
+      } else if (jenis === 'buka') {
+        var al = prompt('Alasan membuka kembali buku ' + (d.nb || bulan) + ':', '');
+        if (al === null) return;
+        tombol.textContent = 'Membuka…';
+        var b = await window.TutupBuku.buka(sb, bulan, al);
+        alertMsg((b && b.pesan) || 'Gagal membuka buku.', !!(b && b.ok));
+      }
+      var y = await window.TutupBuku.tpbData(sb, { bulan: bulan });
+      if (y && y.ok) { D.tpb = y; U.tpbLangsung = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); }
+      gambarUang();
+    } catch (e) { alertMsg('Gagal: ' + (e.message || e), false); }
+    finally { tombol.disabled = false; tombol.textContent = lama; }
+  }
+
   function isiTpb() {
     var d = D.tpb; if (!d) return '<div class="msg w">Data tutup buku belum tersedia.</div>';
     var cek = d.cek || [], belum = cek.filter(function (c) { return !c.ok; });
@@ -1455,7 +1487,11 @@
       (d.ring ? '<div class="kp" style="margin:8px 0"><div class="kt"><span class="l">Omzet</span><span class="v angka">' + jt(d.ring.omzet) + '</span></div><div class="kt"><span class="l">Pendapatan accounting</span><span class="v angka">' + jt(d.ring.pend) + '</span></div><div class="kt"><span class="l">Pembelian</span><span class="v angka">' + jt(d.ring.beli) + '</span></div><div class="kt"><span class="l">Biaya operasional</span><span class="v angka">' + jt(d.ring.ops) + '</span></div></div>' : '') +
       '<table class="tabel"><tbody>' + cek.map(function (c) {
         return '<tr><td><b>' + esc(c.j) + '</b>' + (c.berat && !c.ok ? ' <span class="label no">wajib</span>' : '') + '<small>' + esc(c.ket) + '</small></td><td class="r"><span class="label ' + (c.ok ? 'ok' : c.berat ? 'no' : 'w') + '">' + (c.ok ? 'Beres' : 'Belum') + '</span></td></tr>'; }).join('') + '</tbody></table>' +
-      '<p class="sb">' + (belum.length ? belum.length + ' hal belum beres. ' : 'Semua sudah beres. ') + 'Penyeimbang stok dan tombol tutup buku tetap di menu Tutup Buku Master Data lama, karena mengubah banyak catatan sekaligus.</p></div>';
+      '<p class="sb">' + (belum.length ? belum.length + ' hal belum beres. ' : 'Semua sudah beres. ') + (U.tpbLangsung ? 'Diperiksa langsung ' + esc(U.tpbLangsung) + '.' : 'Daftar ini dari hitungan terakhir; tekan "Periksa sekarang" untuk memeriksa ulang dengan data terbaru.') + ' Penyeimbang stok (dari hitung fisik) masih di Master Data lama.</p>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="tbl" data-tpbx="periksa">Periksa sekarang</button>' +
+      (d.tutup ? '<button type="button" class="tbl" data-tpbx="buka">Buka kembali ' + esc(d.nb || '') + '</button>'
+        : d.boleh ? '<button type="button" class="tbl pri" data-tpbx="tutup">Tutup buku ' + esc(d.nb || '') + '</button>' : '') + '</div>' +
+      '<p class="sb" style="margin-top:6px">Setelah ditutup: catatan accounting bertanggal di bulan itu tidak bisa ditambah atau dibatalkan, dan penjualan otomatis (toko, reseller, marketplace) bulan itu dibekukan. Stok akhir otomatis menjadi stok awal bulan berikutnya.</p></div>';
     var df = d.daftar || [];
     h += '<div class="cd"><h3>Riwayat tutup buku</h3>' + (df.length ? '<table class="tabel"><tbody>' + df.map(function (x) { return baris2('<b>' + esc(x.nb) + '</b><small>' + esc(x.oleh || '') + ' · ' + esc(x.w || '') + (x.c ? ' · ' + esc(x.c) : '') + '</small>', '<span class="label ' + (x.st === 'Tutup' || x.st === 'Ditutup' ? 'ok' : 'abu') + '">' + esc(x.st) + '</span>'); }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada bulan yang ditutup.</div>') + '</div>';
     return h;
