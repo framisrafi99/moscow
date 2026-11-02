@@ -168,6 +168,31 @@
     return { galat: 'Format file tidak dikenali. Pakai "Laporan Penghasilan" dari Shopee (Keuangan > Penghasilan Saya > Laporan) atau laporan penyelesaian dari Tokopedia/TikTok Shop (Keuangan > Laporan).' };
   }
 
+  // ---------- Tokopedia / TikTok Shop berbahasa Inggris (sheet Reports, Order details, Withdrawal records) ----------
+  // Susunannya sama dengan laporan berbahasa Indonesia; label diterjemahkan dulu lalu dibaca DC_baca seperti biasa.
+  function terjemahTiktok(D) {
+    var rep = cariLembar(D, 'Reports'), det = cariLembar(D, 'Order details');
+    if (!rep || !det || cariLembar(D, 'Laporan')) return D;
+    var LAP = { 'Time period': 'Periode', 'Total settlement amount': 'Jumlah penyelesaian pembayaran', 'Total Revenue': 'Total Pendapatan',
+      'Total Fees': 'Total Biaya', 'Adjustments': 'Penyesuaian', 'Subtotal before discount': 'Subtotal sebelum diskon',
+      'Refund amount after discount': 'Total pengembalian dana setelah diskon' };
+    var KOL = { 'Order/Adjustment ID': 'ID Pesanan/Penyesuaian', 'Transaction type': 'Jenis transaksi', 'Order created time': 'Waktu pemesanan',
+      'Order settled time': 'Waktu pembayaran pesanan', 'Subtotal after seller discounts': 'Subtotal setelah diskon penjual',
+      'Refund amount after discount': 'Total pengembalian dana setelah diskon', 'Total settlement amount': 'Jumlah penyelesaian pembayaran' };
+    var TARIK = { 'Transaction type': 'Jenis transaksi', 'Request time': 'Waktu permintaan', 'Amount': 'Total', 'Status': 'Status', 'Bank account': 'Rekening bank' };
+    function ganti(v, peta) { var k = String(v == null ? '' : v).replace(/\s+/g, ' ').trim(); return Object.prototype.hasOwnProperty.call(peta, k) ? peta[k] : v; }
+    var out = {};
+    out['Laporan'] = rep.map(function (r) { return (r || []).map(function (v) { return ganti(v, LAP); }); });
+    var jk = -1;
+    out['Detail pesanan'] = det.map(function (r, i) {
+      if (i === 0) return (r || []).map(function (v, k) { var g = ganti(v, KOL); if (g === 'Jenis transaksi') jk = k; return g; });
+      return (r || []).map(function (v, k) { return k === jk && /^order$/i.test(String(v).trim()) ? 'Pesanan' : v; });
+    });
+    var wr = cariLembar(D, 'Withdrawal records');
+    if (wr) out['Riwayat penarikan'] = wr.map(function (r, i) { return i === 0 ? (r || []).map(function (v) { return ganti(v, TARIK); }) : r; });
+    return out;
+  }
+
   // ---------- Lazada: "Balance Transactions" (Transaction Number, Transaction Time, Type, Sub Type, Amount, Remarks) ----------
   // Semua baris selain penarikan (Withdrawal) = uang yang masuk / dipotong di saldo Lazada bulan itu:
   //   nilai positif = pendapatan, nilai negatif = biaya (dirinci per jenis), dana cair = jumlah semuanya.
@@ -308,6 +333,7 @@
       var buf = await f.arrayBuffer();
       var wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true }), D = {};
       wb.SheetNames.forEach(function (n) { var ws = wb.Sheets[n]; perbaikiRef(ws); D[n] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' }); });
+      D = terjemahTiktok(D);
       var r = DC_baca(D);
       if (r.galat && cariLembar(D, 'Balance Transactions')) r = bacaLazada(D);
       if (r.galat) { pesan(el, opsi, esc(r.galat), 'bad'); return; }
