@@ -113,6 +113,18 @@
         var t = fmt(x.wa, WIB, 'yyyy-MM-dd HH:mm');
         if (!batas[x.k] || t > batas[x.k]) batas[x.k] = t;
       });
+      // Hitung stok Kantor Packing sesudah potongan aktif (2 Nov 2026): hasil hitung = stok sebenarnya saat itu.
+      // Stok = hasil hitung + kiriman gudang sesudah jam hitung - penjualan yang dikirim sesudah jam hitung.
+      // (Sebelumnya pesanan yang sudah dikirim sebelum jam hitung tapi filenya diupload sesudahnya terpotong dua kali.)
+      var jamHitung = {};
+      pss.forEach(function (x) {
+        if (x.bg !== KP || x.st !== 'Disetujui' || !x.wk || !x.wa || !x.k) return;
+        if (x.wk.getTime() < aktif) return;
+        var t = x.wa.getTime();
+        if (!jamHitung[x.k] || t > jamHitung[x.k]) jamHitung[x.k] = t;
+      });
+      var msWita = function (s) { var m = s.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) - WITA * 3600000 : NaN; };
+      var jualSesudah = {};
       baca('mp_pesanan', 17).forEach(function (r) {
         if (rapi(r[1], 40) !== 'Official' || !rapi(r[3], 40)) return;
         var st = rapi(r[4], 160);
@@ -126,11 +138,25 @@
         var pk = PAKET[m.k], kk = pk ? pk.k : m.k;
         var c = batas[kk] || umum;
         if (c && kirim < c) return;
+        if (jamHitung[kk] && msWita(kirim) >= jamHitung[kk]) jualSesudah[kk] = (jualSesudah[kk] || 0) + (pk ? q * pk.w.length : q);
         mp.per[kk] = (mp.per[kk] || 0) + (pk ? q * pk.w.length : q);
         if (pk) pk.w.forEach(function (w) { mp.perW.push([pk.k, w, -q]); });
         else if (warna(m.w)) mp.perW.push([m.k, warna(m.w), -q]);
       });
       Object.keys(mp.per).forEach(function (k) { var x = ambil(k); x.jualMp = (x.jualMp || 0) + mp.per[k]; x.q -= mp.per[k]; });
+      var kirimSesudah = {};
+      baca('gudang_log', 12).forEach(function (r) {
+        if (!(r[0] instanceof Date) || !/^keluar/i.test(rapi(r[1], 30)) || rapi(r[6], 100).toLowerCase() !== tujuan) return;
+        var k = rapi(r[2], 30).toUpperCase(), q = Number(r[5]);
+        if (k && jamHitung[k] && r[0].getTime() >= jamHitung[k] && isFinite(q)) kirimSesudah[k] = (kirimSesudah[k] || 0) + q;
+      });
+      Object.keys(jamHitung).forEach(function (k) {
+        var hit = 0, ada = false;
+        pss.forEach(function (x) { if (x.bg === KP && x.st === 'Disetujui' && x.wk && x.wa && x.k === k && x.wa.getTime() === jamHitung[k]) { hit += x.hit; ada = true; } });
+        if (!ada) return;
+        var x = ambil(k), q = hit + (kirimSesudah[k] || 0) - (jualSesudah[k] || 0);
+        x.koreksiHitung = q - x.q; x.q = q;
+      });
     }
     var on = { list: list, mulai: mulai };
     // KPW_rinci_: rincian per warna
