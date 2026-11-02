@@ -286,10 +286,10 @@
 
   async function muatAda(opsi) {
     var k = S.toko + '|' + S.bulan; if (S.adaKunci === k && S.ada) return;
-    var r = await opsi.sb.from('dana_cair').select('bulan,platform,akun_toko,dari,sampai,total_pendapatan,total_biaya,penyesuaian,dana_cair,jumlah_pesanan,nama_file,diupload_oleh,waktu_upload')
-      .eq('toko', S.toko).eq('bulan', S.bulan);
-    S.ada = {}; S.adaKunci = k;
-    (r.data || []).forEach(function (x) { S.ada[x.platform] = x; });
+    // Tabel dana_cair tidak bisa dibaca langsung dari aplikasi: lewat rpc dana_cair_ada (SQL 132).
+    var r = await opsi.sb.rpc('dana_cair_ada', { p_toko: S.toko, p_bulan: S.bulan });
+    S.ada = {}; S.adaKunci = r.error ? '' : k;
+    (Array.isArray(r.data) ? r.data : []).forEach(function (x) { S.ada[x.platform] = x; });
   }
 
   function isiPrev(p) {
