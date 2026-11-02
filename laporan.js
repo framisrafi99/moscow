@@ -260,6 +260,19 @@
       '<p class="lp-cat" style="font-weight:800;color:var(--teks2);font-size:14px;margin-top:14px">Laporan dana cair marketplace (Official & consignment)</p>' + dn + '</div>';
   }
 
+  // 8. Bagi hasil produk Kenka (Mike / Junior) - dibayar dari Rekening PT, kategori "Bagi hasil Kenka (dividen)" (di luar laba rugi).
+  function bagianKenka(D) {
+    var h = '<div class="cd lp-sec" id="lp8"><h3><span class="no">8</span>Bagi hasil produk Kenka</h3>';
+    var T = D.kenka && D.kenka.terbit;
+    if (!T) return h + '<div class="ksg">Invoice bagi hasil produk Kenka ' + esc(namaBulan(D.bulan)) + ' belum terbit (menu Penjualan › Bagi hasil Kenka).</div></div>';
+    var X = T.data || {}, S = X.saluran || [], tot = X.tot || {};
+    var b = S.map(function (x) { return tr([esc(x.n), fmt(x.q), rp(x.v), rp(x.h), rp((x.pot || 0) + (x.bt || 0)), rp(x.m), rp(x.mk), rp(x.jn)], [1, 2, 3, 4, 5, 6, 7]); });
+    b.push(tr(['TOTAL', fmt(tot.q), rp(tot.v), rp(tot.h), rp((tot.pot || 0) + (tot.bt || 0)), rp(tot.m), rp(T.total_mike), rp(T.total_junior)], [1, 2, 3, 4, 5, 6, 7], 'tot'));
+    return h + '<p class="lp-cat">Invoice ' + esc(T.no) + ' · dibayar dari Rekening PT tanggal ' + esc(tgl(T.tanggal)) + ' (' + esc([T.tr_mike, T.tr_junior].filter(Boolean).join(', ')) + '), kategori "Bagi hasil Kenka (dividen)", di luar laba rugi.</p>' +
+      tabel(['Saluran', 'Pcs', 'Penjualan', 'HPP', 'Potongan & bagian toko', 'Margin', 'Mike', 'Junior'], b, [1, 2, 3, 4, 5, 6, 7]) +
+      '<p class="lp-cat">Margin = penjualan − HPP − potongan platform masing-masing saluran − bagian toko consignment. Skema: produk Kenka Mike 30% / Junior 70%, Kenka Sole Sauce 50% / 50%.</p></div>';
+  }
+
   function bagian6(D, H) {
     var st = H.P.stok, h = '<div class="cd lp-sec" id="lp7"><h3><span class="no">7</span>Aset barang per lokasi</h3>';
     if (!st) return h + '<div class="lp-w">Posisi stok per lokasi tidak tersedia untuk ' + esc(namaBulan(D.bulan)) + ' (arsip akhir bulan belum dibuat).</div></div>';
@@ -295,7 +308,7 @@
       '<div><span>Uang keluar (3 sumber dana)</span><b>' + rp(H.keluar) + '</b><small>Rekening Belanja, ShopeePay, Kas Tunai</small></div>' +
       '<div><span>Total penerimaan</span><b>' + rp(H.terima) + '</b><small>setelah potongan platform & bagian toko</small></div>' +
       '<div><span>Penerimaan bersih</span><b>' + rp(H.bersihOp) + '</b><small>setelah biaya operasional &amp; gaji</small></div></div>';
-    h += bagian1(D, H) + bagian2(D, H) + bagianGaji(D, H) + bagian3(D) + bagian4(D, H) + bagian5(D, H) + bagian6(D, H);
+    h += bagian1(D, H) + bagian2(D, H) + bagianGaji(D, H) + bagian3(D) + bagian4(D, H) + bagian5(D, H) + bagian6(D, H) + bagianKenka(D);
     h += '<p class="lp-cat lp-print-only">Dicetak dari Master Data Moscow Supplies, ' + tgl(D.hari) + '.</p>';
     el.innerHTML = h;
     var q = function (i) { return el.querySelector('#' + i); };
@@ -327,6 +340,10 @@
         var tk = ((bhx && bhx.toko) || []).filter(function (t) { return t && t.ok !== false; });
         if (tk.length) { r.data.bh = tk; r.data.bhLangsung = true; }
       } catch (e) { }
+    }
+    // Bagi hasil produk Kenka (SQL 133): invoice yang sudah terbit untuk bulan itu.
+    if (!r.error && r.data) {
+      try { var kh = await opsi.sb.rpc('kenka_bh_data', { p_bulan: r.data.bulan }); r.data.kenka = kh.error || !kh.data || kh.data.ok === false ? null : { terbit: kh.data.terbit || null }; } catch (e) { r.data.kenka = null; }
     }
     S.memuat = false; el.style.opacity = '';
     if (r.error) { el.innerHTML = '<div class="msg bad">Laporan gagal dimuat: ' + esc(r.error.message) + '</div>'; return; }

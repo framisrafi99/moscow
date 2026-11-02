@@ -392,7 +392,7 @@
     $('bJual').innerHTML = '<div id="msgJual"></div>' +
       '<div class="chip" role="group" aria-label="Bagian penjualan">' +
       [['toko', 'Toko & consignment', ''], ['omzet', 'Omzet semua', ''], ['order', 'Order reseller', nOrder ? nOrder + ' berjalan' : ''], ['pinjam', 'Pinjaman barang', nPinjam ? nPinjam + ' belum kembali' : ''],
-        ['titip', 'Titipan staf', nAjuanTitip() ? nAjuanTitip() + ' ajuan' : ''], ['mkt', 'Marketplace', ''], ['cocok', 'Cocokkan upload consignment', ''], ['bh', 'Bagi hasil consignment', ''], ['bonus', 'Bonus pengelola consignment', '']].map(function (b) {
+        ['titip', 'Titipan staf', nAjuanTitip() ? nAjuanTitip() + ' ajuan' : ''], ['mkt', 'Marketplace', ''], ['cocok', 'Cocokkan upload consignment', ''], ['bh', 'Bagi hasil consignment', ''], ['bonus', 'Bonus pengelola consignment', ''], ['kenka', 'Bagi hasil Kenka', '']].map(function (b) {
         return '<button type="button" data-jb="' + b[0] + '" aria-pressed="' + (J.bagian === b[0]) + '"><span>' + b[1] + '</span><b>' + (b[2] || '&nbsp;') + '</b></button>';
       }).join('') + '</div>' +
       '<div class="periode" id="jPeriode"' + (J.bagian === 'toko' || J.bagian === 'omzet' || J.bagian === 'order' ? '' : ' hidden') + '><label>Dari<input class="isian" type="date" id="jDari" value="' + J.dari + '"></label><label>Sampai<input class="isian" type="date" id="jSampai" value="' + J.sampai + '"></label>' +
@@ -416,6 +416,7 @@
     var el = $('jIsi'); if (!el) return;
     if (J.bagian === 'cocok') { if (window.CocokConsignment) CocokConsignment.gambar(el, sb); return; }
     if (J.bagian === 'bonus') { gambarBonus(el); return; }
+    if (J.bagian === 'kenka') { gambarKenka(el); return; }
     if (J.bagian === 'titip' || J.bagian === 'mkt' || J.bagian === 'bh') { gambarPotretJual(el); return; }
     if (!J.data) return;
     if (J.bagian === 'toko') el.innerHTML = isiToko();
@@ -871,6 +872,202 @@
     var p = el.querySelector('#bnPdf'); if (p) p.onclick = function () { buatPdfKomisi(p); };
     var b = el.querySelector('#bnBulan'); if (b) b.onchange = function () { if (/^\d{4}-\d{2}$/.test(this.value)) { BN.bulan = this.value; gambarBonus(el); } };
     var u = el.querySelector('#bnUlang'); if (u) u.onclick = function () { delete BN.data[BN.bulan]; gambarBonus(el); };
+  }
+
+  // ======================= BAGI HASIL PRODUK KENKA (Mike / Junior) - SQL 133 =======================
+  // Margin = penjualan (setelah diskon, dikurangi retur) - HPP - potongan platform masing-masing saluran - bagian toko consignment.
+  // Skema: Sole Sauce (K017, K018) Mike 50% / Junior 50%; produk Kenka lain Mike 30% / Junior 70%.
+  var KENKA = [['K002', 'Kenka Deo Fresh Linen 100ml'], ['K004', 'Kenka Deo Lavender 100ml'], ['K003', 'Kenka Deo Fresh Linen 1 L'], ['K005', 'Kenka Deo Lavender 1 L'],
+    ['K010', 'Kenka Klin 100ml'], ['K011', 'Kenka Klin 1 L'], ['K012', 'Kenka Klin 5 L'], ['K013', 'Kenka Leather Balm 30ml'], ['K014', 'Kenka Leather Balm 50ml'],
+    ['K017', 'Kenka Sole Sauce 100ml'], ['K018', 'Kenka Sole Sauce 1 L']];
+  var KENKA_MIKE50 = { K017: 1, K018: 1 };
+  var KENKA_SAL = { Shopee: 'Shopee Official', Tokopedia: 'TikTok Shop Official', Lazada: 'Lazada Official' };
+  var KH = { bulan: '', data: {}, muat: {}, pdf: null };
+  function noKenka(b) { return 'BHK-' + String(b || '').slice(2, 4) + String(b || '').slice(5, 7) + '-001'; }
+  function hitungKenka(d, bh) {
+    var nama = {}, urut = {}; KENKA.forEach(function (x, i) { nama[x[0]] = x[1]; urut[x[0]] = i; });
+    var rate = {}, bagi = {}, ket = {};
+    (d.dana || []).forEach(function (x) { var p = Math.abs(Number(x.pend) || 0), b = Math.abs(Number(x.biaya) || 0); rate[x.pf] = p ? b / p : 0; });
+    ((bh && bh.toko) || []).forEach(function (t) {
+      if (!t || t.ok === false) return;
+      rate[t.toko] = t.penjualan ? Math.max(0, Number(t.potongan) || 0) / t.penjualan : 0;
+      bagi[t.toko] = Math.max(0, Math.min(100, 100 - (Number(t.persen) || 0))) / 100;
+      ket[t.toko] = 'bagian toko ' + fmt(t.persen) + '%';
+    });
+    var hpp = d.hpp || {}, sal = {}, prod = {}, kurang = [];
+    (d.jual || []).forEach(function (r) {
+      var s = r[0], k = r[1], q = Number(r[2]) || 0, v = Number(r[3]) || 0;
+      var namaS = KENKA_SAL[s] || s, rt = rate[s] !== undefined ? rate[s] : 0, bg = bagi[s] !== undefined ? bagi[s] : 1;
+      if (/^Consignment/.test(s) && bagi[s] === undefined) kurang.push(s);
+      var h = (Number(hpp[k]) || 0) * q, pot = v * rt, sisa = v - h - pot, bt = sisa * (1 - bg), m = sisa - bt;
+      var pm = KENKA_MIKE50[k] ? 0.5 : 0.3, mk = m * pm, jn = m - mk;
+      var a = sal[namaS] || (sal[namaS] = { n: namaS, rate: rt, ket: ket[s] || '', q: 0, v: 0, h: 0, pot: 0, bt: 0, m: 0, mk: 0, jn: 0 });
+      var b = prod[k] || (prod[k] = { k: k, n: nama[k] || k, mk50: !!KENKA_MIKE50[k], q: 0, v: 0, h: 0, pot: 0, m: 0, mk: 0, jn: 0 });
+      [a, b].forEach(function (o) { o.q += q; o.v += v; o.h += h; o.m += m; o.mk += mk; o.jn += jn; });
+      a.pot += pot; a.bt += bt; b.pot += pot + bt;
+    });
+    var S = Object.keys(sal).map(function (x) { return sal[x]; }), P = Object.keys(prod).map(function (x) { return prod[x]; }).sort(function (a, b) { return urut[a.k] - urut[b.k]; });
+    var bul = function (o) { ['v', 'h', 'pot', 'bt', 'm', 'mk', 'jn'].forEach(function (f) { if (o[f] !== undefined) o[f] = Math.round(o[f]); }); return o; };
+    S.forEach(bul); P.forEach(bul);
+    var urutS = ['Shopee Official', 'TikTok Shop Official', 'Lazada Official', 'Toko Offline', 'Consignment Medan', 'Consignment Sidoarjo', 'Consignment Renon'];
+    S.sort(function (a, b) { var i = urutS.indexOf(a.n), j = urutS.indexOf(b.n); return (i < 0 ? 99 : i) - (j < 0 ? 99 : j); });
+    var tot = { q: 0, v: 0, h: 0, pot: 0, bt: 0, m: 0, mk: 0, jn: 0 };
+    S.forEach(function (x) { Object.keys(tot).forEach(function (f) { tot[f] += x[f] || 0; }); });
+    return { bulan: d.bulan, saluran: S, produk: P, tot: tot, mike: tot.mk, junior: tot.jn, kurang: kurang };
+  }
+  async function gambarKenka(el) {
+    if (!KH.bulan) KH.bulan = bulanMundur(1);
+    var bln = KH.bulan, d = KH.data[bln];
+    var h = '<div class="periode"><label>Bulan<input class="isian" type="month" id="khBulan" value="' + bln + '" max="' + bulanMundur(0) + '"></label>' +
+      '<button type="button" class="tbl" id="khUlang">Hitung ulang</button></div>';
+    if (!d) {
+      el.innerHTML = h + '<div class="ksg">Menghitung bagi hasil produk Kenka ' + esc(bulanTeks(bln)) + '…</div>'; pasangKenka(el);
+      if (!KH.muat[bln]) {
+        KH.muat[bln] = true;
+        try {
+          var r = await sb.rpc('kenka_bh_data', { p_bulan: bln });
+          if (r.error) throw new Error(r.error.message);
+          if (!r.data || r.data.ok === false) throw new Error((r.data && r.data.pesan) || 'Data tidak tersedia.');
+          var bh = r.data.terbit ? null : await window.BagiHasilMd.hitung(sb, bln);
+          KH.data[bln] = { ok: true, raw: r.data, H: r.data.terbit ? r.data.terbit.data : hitungKenka(r.data, bh), terbit: r.data.terbit };
+        } catch (e) { KH.data[bln] = { ok: false, pesan: e.message || String(e) }; }
+        KH.muat[bln] = false;
+        if (J.bagian === 'kenka' && KH.bulan === bln && $('jIsi')) gambarKenka($('jIsi'));
+      }
+      return;
+    }
+    if (d.ok === false) { el.innerHTML = h + '<div class="msg bad">Gagal menghitung: ' + esc(d.pesan) + '</div>'; pasangKenka(el); return; }
+    var H = d.H, T = d.terbit, sejak = bln === bulanMundur(0);
+    h += '<p class="tl">' + esc(bulanTeks(bln)) + (T ? ' · invoice ' + esc(T.no) + ' sudah terbit (angka dikunci)' : sejak ? ' sampai hari ini (belum final)' : ' · belum terbit, angka masih bisa berubah') + '</p>';
+    h += '<div class="kp">' +
+      '<div class="kt"><span class="l">Penjualan produk Kenka</span><span class="v angka">' + jt(H.tot.v) + '</span><span class="k">' + fmt(H.tot.q) + ' pcs · HPP ' + jt(H.tot.h) + '</span></div>' +
+      '<div class="kt"><span class="l">Margin dibagi</span><span class="v angka">' + jt(H.tot.m) + '</span><span class="k">setelah potongan platform & bagian toko</span></div>' +
+      '<div class="kt"><span class="l">Bagian Mike</span><span class="v angka">' + rp(H.mike) + '</span><span class="k">30% · Sole Sauce 50%</span></div>' +
+      '<div class="kt"><span class="l">Bagian Junior</span><span class="v angka">' + rp(H.junior) + '</span><span class="k">70% · Sole Sauce 50%</span></div></div>';
+    h += '<div class="cd"><div class="kpl"><h3>Per saluran</h3><span class="sb">' + esc(bulanTeks(bln)) + '</span></div><div class="gulir"><table class="tabel"><thead><tr><th>Saluran</th><th class="r">Pcs</th><th class="r">Penjualan</th><th class="r">HPP</th><th class="r">Potongan platform</th><th class="r">Bagian toko</th><th class="r">Margin</th><th class="r">Mike</th><th class="r">Junior</th></tr></thead><tbody>' +
+      H.saluran.map(function (x) {
+        return '<tr><td>' + esc(x.n) + '<small>potongan ' + String(Math.round((x.rate || 0) * 1000) / 10).replace('.', ',') + '%' + (x.ket ? ' · ' + esc(x.ket) : '') + '</small></td><td class="r angka">' + fmt(x.q) + '</td><td class="r angka">' + rp(x.v) + '</td><td class="r angka">' + rp(x.h) + '</td><td class="r angka">' + rp(x.pot) + '</td><td class="r angka">' + (x.bt ? rp(x.bt) : '-') + '</td><td class="r angka"><b>' + rp(x.m) + '</b></td><td class="r angka">' + rp(x.mk) + '</td><td class="r angka">' + rp(x.jn) + '</td></tr>';
+      }).join('') + '<tr class="tot"><td><b>Total</b></td><td class="r angka"><b>' + fmt(H.tot.q) + '</b></td><td class="r angka"><b>' + rp(H.tot.v) + '</b></td><td class="r angka"><b>' + rp(H.tot.h) + '</b></td><td class="r angka"><b>' + rp(H.tot.pot) + '</b></td><td class="r angka"><b>' + rp(H.tot.bt) + '</b></td><td class="r angka"><b>' + rp(H.tot.m) + '</b></td><td class="r angka"><b>' + rp(H.mike) + '</b></td><td class="r angka"><b>' + rp(H.junior) + '</b></td></tr></tbody></table></div></div>';
+    h += '<div class="cd"><div class="kpl"><h3>Per produk</h3></div><div class="gulir"><table class="tabel"><thead><tr><th>Produk</th><th class="r">Pcs</th><th class="r">Penjualan</th><th class="r">HPP</th><th class="r">Potongan & bagian toko</th><th class="r">Margin</th><th class="r">Mike / Junior</th><th class="r">Mike</th><th class="r">Junior</th></tr></thead><tbody>' +
+      H.produk.map(function (x) {
+        return '<tr><td>' + esc(x.n) + '<small>' + esc(x.k) + '</small></td><td class="r angka">' + fmt(x.q) + '</td><td class="r angka">' + rp(x.v) + '</td><td class="r angka">' + rp(x.h) + '</td><td class="r angka">' + rp(x.pot) + '</td><td class="r angka"><b>' + rp(x.m) + '</b></td><td class="r">' + (x.mk50 ? '50 / 50' : '30 / 70') + '</td><td class="r angka">' + rp(x.mk) + '</td><td class="r angka">' + rp(x.jn) + '</td></tr>';
+      }).join('') + '</tbody></table></div></div>';
+    if (H.kurang && H.kurang.length) h += '<div class="msg w">Hitungan bagi hasil toko belum tersedia untuk ' + esc(H.kurang.join(', ')) + '; bagian toko belum dipotong.</div>';
+    var simpan = {}; try { simpan = JSON.parse(localStorage.getItem('kenkaCatatan') || '{}') || {}; } catch (e) { simpan = {}; }
+    if (T) {
+      h += '<div class="cd"><div class="kpl"><h3>Invoice ' + esc(T.no) + '</h3><span class="label ok">terbit</span></div>' +
+        '<p class="sb">Tercatat di Accounting sebagai uang keluar dari Rekening PT tanggal ' + esc(tglId(String(T.tanggal).slice(0, 10))) + ': ' + esc([T.tr_mike, T.tr_junior].filter(Boolean).join(', ')) + ' (kategori "Bagi hasil Kenka (dividen)", di luar laba rugi).</p>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="tbl pri" id="khPdf">Buat PDF invoice</button></div></div>';
+    } else {
+      h += '<div class="cd"><div class="kpl"><h3>Invoice ' + esc(noKenka(bln)) + '</h3><span class="label abu">draf</span></div>' +
+        '<label class="sb">Catatan di invoice (boleh kosong, mis. bahan baku Kenka yang dibeli Moscow)<textarea class="isian" id="khCat" rows="3" maxlength="600">' + esc(simpan[bln] || '') + '</textarea></label>' +
+        '<div class="dua" style="margin-top:8px"><label class="sb">Tanggal transfer<input class="isian" type="date" id="khTgl" value="' + hariIniMks() + '"></label></div>' +
+        '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="tbl" id="khPdf">Lihat PDF draf</button>' +
+        '<button type="button" class="tbl pri" id="khTerbit"' + (sejak ? ' disabled title="Bulan berjalan belum selesai"' : '') + '>Terbitkan & catat ke Accounting</button></div>' +
+        '<p class="sb" style="margin-top:6px">Terbitkan setelah transfer dilakukan. Angka dikunci, lalu tercatat 2 uang keluar dari Rekening PT (bagian Mike dan bagian Junior) dengan kategori "Bagi hasil Kenka (dividen)" (di luar laba rugi).</p></div>';
+    }
+    h += '<p class="sb">Margin = penjualan (harga setelah diskon, dikurangi retur) − HPP − potongan platform masing-masing saluran (dari laporan dana cair) − bagian toko consignment. Skema: produk Kenka Mike 30% / Junior 70%, Kenka Sole Sauce 50% / 50%. Reseller tidak termasuk.</p>';
+    KH.pdf = { bulan: bln, H: H, T: T };
+    el.innerHTML = h; pasangKenka(el);
+  }
+  function tglId(t) { var a = String(t || '').split('-'); return a.length === 3 ? Number(a[2]) + ' ' + BLN[Number(a[1]) - 1] + ' ' + a[0] : t; }
+  async function pdfKenka(k, catatan) {
+    var JsPDF = await siapPdfMd(), logo = await logoPdfMd();
+    var doc = new JsPDF({ unit: 'mm', format: 'a4' }), L = 14, W = 182, y, H = k.H, T = k.T, no = T ? T.no : noKenka(k.bulan);
+    var biru = [11, 35, 64], abu = [100, 110, 125], tosca = [18, 190, 230], tinta = [30, 36, 48];
+    var tglT = T ? tglId(String(T.tanggal).slice(0, 10)) : tglId(hariIniMks());
+    var kepala = function () {
+      if (logo) doc.addImage(logo.data, 'PNG', L, 10, 46, 46 * logo.h / logo.w);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor.apply(doc, abu);
+      doc.text('PT. Toentoenan Langkah Elohim', L, 32.5); doc.text('Jl. Raya Kerobokan No. 8, Kuta Utara, Badung, Bali', L, 36);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor.apply(doc, biru); doc.text('INVOICE BAGI HASIL', L + W, 16, { align: 'right' });
+      doc.setFontSize(9.5); doc.text('PRODUK KENKA', L + W, 21.5, { align: 'right' });
+      doc.setFont('helvetica', 'normal'); doc.setTextColor.apply(doc, tinta); doc.text('No. ' + no, L + W, 27, { align: 'right' }); doc.text('Periode ' + bulanTeks(k.bulan), L + W, 31.5, { align: 'right' });
+      doc.setFontSize(8); doc.setTextColor.apply(doc, abu); doc.text('Tanggal ' + tglT, L + W, 36, { align: 'right' });
+      doc.setDrawColor.apply(doc, tosca); doc.setLineWidth(0.8); doc.line(L, 40, L + W, 40);
+    };
+    kepala();
+    y = 47; doc.setFontSize(8); doc.setTextColor.apply(doc, abu); doc.text('KEPADA', L, y); doc.text('DARI', L + W / 2 + 6, y);
+    y += 5.5; doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor.apply(doc, tinta);
+    doc.text('Mike & Francois Junior Bogaard', L, y); doc.text('Manajemen Moscow Supplies', L + W / 2 + 6, y);
+    y += 5; doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor.apply(doc, abu);
+    doc.text('Bagi hasil margin penjualan produk Kenka', L, y); doc.text('PT. Toentoenan Langkah Elohim', L + W / 2 + 6, y);
+    if (!T) { y += 8; doc.setFillColor(255, 243, 214); doc.rect(L, y - 4.5, W, 7, 'F'); doc.setTextColor(120, 70, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.text('DRAF - invoice belum terbit; angka bisa berubah.', L + 2, y); doc.setFont('helvetica', 'normal'); }
+    y += 8;
+    var gaya = { theme: 'grid', margin: { left: L, right: L }, styles: { fontSize: 7.6, cellPadding: 1.6, textColor: tinta }, headStyles: { fillColor: biru, textColor: 255, fontSize: 7.4 },
+      footStyles: { fillColor: [232, 247, 252], textColor: tinta, fontStyle: 'bold' } };
+    var kanan = function (mulai) { return function (h) { if (h.column.index >= mulai) h.cell.styles.halign = 'right'; }; };
+    doc.autoTable(Object.assign({ startY: y, head: [['Saluran', 'Pcs', 'Penjualan', 'HPP', 'Pot. platform', 'Bag. toko', 'Margin', 'Mike', 'Junior']],
+      body: H.saluran.map(function (x) { return [x.n + ' (' + String(Math.round((x.rate || 0) * 1000) / 10).replace('.', ',') + '%)', fmt(x.q), fmt(x.v), fmt(x.h), fmt(x.pot), x.bt ? fmt(x.bt) : '-', fmt(x.m), fmt(x.mk), fmt(x.jn)]; }),
+      foot: [['Total', fmt(H.tot.q), fmt(H.tot.v), fmt(H.tot.h), fmt(H.tot.pot), fmt(H.tot.bt), fmt(H.tot.m), fmt(H.mike), fmt(H.junior)]], didParseCell: kanan(1) }, gaya));
+    y = doc.lastAutoTable.finalY + 6;
+    doc.autoTable(Object.assign({ startY: y, head: [['Produk', 'Pcs', 'Penjualan', 'HPP', 'Pot. + bag. toko', 'Margin', 'Mike/Jun', 'Mike', 'Junior']],
+      body: H.produk.map(function (x) { return [x.n, fmt(x.q), fmt(x.v), fmt(x.h), fmt(x.pot), fmt(x.m), x.mk50 ? '50 / 50' : '30 / 70', fmt(x.mk), fmt(x.jn)]; }),
+      foot: [['Total', fmt(H.tot.q), fmt(H.tot.v), fmt(H.tot.h), fmt(H.tot.pot + H.tot.bt), fmt(H.tot.m), '', fmt(H.mike), fmt(H.junior)]], didParseCell: kanan(1) }, gaya));
+    y = doc.lastAutoTable.finalY + 6;
+    if (y > 225) { doc.addPage(); kepala(); y = 48; }
+    doc.setFillColor(11, 35, 64); doc.rect(L, y, W, 18, 'F'); doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text('BAGIAN MIKE', L + 4, y + 6.5); doc.text('BAGIAN FRANCOIS JUNIOR BOGAARD', L + W / 2 + 4, y + 6.5);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.text(rpPdf(H.mike), L + 4, y + 14); doc.text(rpPdf(H.junior), L + W / 2 + 4, y + 14);
+    y += 24; doc.setTextColor.apply(doc, abu); doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+    var ket = 'Margin = penjualan (harga setelah diskon, dikurangi retur) - HPP - potongan platform masing-masing saluran (laporan dana cair) - bagian toko consignment. ' +
+      'Skema: produk Kenka Mike 30% / Junior 70%; Kenka Sole Sauce 50% / 50%. Bahan baku Kenka yang dibeli Moscow sudah diganti melalui HPP yang dipotong dari margin. Dibayar dari Rekening PT.';
+    var bk = doc.splitTextToSize(ket, W); doc.text(bk, L, y); y += bk.length * 3.6 + 2;
+    if (catatan) { doc.setTextColor.apply(doc, tinta); var bc = doc.splitTextToSize('Catatan: ' + catatan, W); doc.text(bc, L, y); y += bc.length * 3.6 + 2; }
+    if (y > 245) { doc.addPage(); kepala(); y = 50; }
+    y = Math.max(y + 8, 240);
+    var sw = W / 3, ttd = [['Dibuat,', 'Framis Iqbal', 'Pengelola Master Data'], ['Disetujui,', 'Mike', 'Komisaris'], ['Disetujui,', 'Francois Junior Bogaard', 'Direktur Utama']];
+    doc.setDrawColor(150, 160, 170); doc.setLineWidth(0.3);
+    ttd.forEach(function (t, i) {
+      var x = L + i * sw + sw / 2; doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor.apply(doc, tinta); doc.text(t[0], x, y, { align: 'center' });
+      doc.line(x - 25, y + 22, x + 25, y + 22); doc.setFont('helvetica', 'bold'); doc.text(t[1], x, y + 27, { align: 'center' });
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor.apply(doc, abu); doc.text(t[2], x, y + 31.5, { align: 'center' });
+    });
+    var n = doc.getNumberOfPages();
+    for (var i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(7.5); doc.setTextColor.apply(doc, abu); doc.text('Moscow Supplies · ' + no + ' · dibuat dari Master Data', L, 289); doc.text('Halaman ' + i + ' dari ' + n, L + W, 289, { align: 'right' }); }
+    return doc;
+  }
+  async function bukaPdfKenka(tombol) {
+    var k = KH.pdf; if (!k) return;
+    var cat = (($('khCat') && $('khCat').value) || (k.T && k.T.data && k.T.data.catatan) || '').trim();
+    var lama = tombol.textContent; tombol.disabled = true; tombol.textContent = 'Menyiapkan PDF…';
+    try {
+      var doc = await pdfKenka(k, cat), blob = doc.output('blob'), berkas = 'Invoice bagi hasil Kenka ' + (k.T ? k.T.no : noKenka(k.bulan) + ' DRAF') + '.pdf';
+      var file = null; try { file = new File([blob], berkas, { type: 'application/pdf' }); } catch (e) { file = null; }
+      var url = URL.createObjectURL(blob);
+      var w = document.createElement('div'); w.id = 'lembarPdfMd';
+      w.setAttribute('style', 'position:fixed;inset:0;background:rgba(11,35,64,.45);z-index:80;display:flex;align-items:center;justify-content:center;padding:16px');
+      w.innerHTML = '<div style="background:#fff;border-radius:16px;padding:18px 16px;width:100%;max-width:420px"><b>' + esc(berkas) + '</b><div class="aksi" style="display:flex;flex-direction:column;gap:8px;margin-top:14px"></div></div>';
+      var aksi = w.querySelector('.aksi');
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        var bg = document.createElement('button'); bg.type = 'button'; bg.className = 'tbl pri'; bg.textContent = 'Simpan / bagikan PDF';
+        bg.onclick = function () { navigator.share({ files: [file], title: berkas }).catch(function () { }); }; aksi.appendChild(bg);
+      }
+      var a = document.createElement('a'); a.className = 'tbl'; a.href = url; a.download = berkas; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Buka / unduh PDF'; aksi.appendChild(a);
+      var t = document.createElement('button'); t.type = 'button'; t.className = 'tbl'; t.textContent = 'Tutup'; t.onclick = function () { w.remove(); }; aksi.appendChild(t);
+      w.onclick = function (e) { if (e.target === w) w.remove(); };
+      document.body.appendChild(w);
+    } catch (e) { alertMsg('PDF gagal dibuat: ' + (e.message || e), false); }
+    tombol.disabled = false; tombol.textContent = lama;
+  }
+  async function terbitKenka(tombol, el) {
+    var k = KH.pdf; if (!k || k.T) return;
+    var tgl = ($('khTgl') && $('khTgl').value) || '', cat = (($('khCat') && $('khCat').value) || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) { alertMsg('Isi tanggal transfer dulu.', false); return; }
+    if (!confirm('Terbitkan invoice ' + noKenka(k.bulan) + '?\n\nBagian Mike ' + rp(k.H.mike) + '\nBagian Junior ' + rp(k.H.junior) + '\n\nAngka dikunci dan tercatat di Accounting sebagai uang keluar dari Rekening PT tanggal ' + tglId(tgl) + '.')) return;
+    tombol.disabled = true;
+    var data = JSON.parse(JSON.stringify(k.H)); data.catatan = cat;
+    var r = await sb.rpc('kenka_bh_terbit', { p_bulan: k.bulan, p_data: data, p_tanggal: tgl });
+    tombol.disabled = false;
+    if (r.error || !r.data || !r.data.ok) { alertMsg((r.data && r.data.pesan) || (r.error && r.error.message) || 'Gagal menerbitkan.', false); return; }
+    alertMsg(r.data.pesan, true); delete KH.data[k.bulan]; gambarKenka(el);
+  }
+  function pasangKenka(el) {
+    var p = el.querySelector('#khPdf'); if (p) p.onclick = function () { bukaPdfKenka(p); };
+    var t = el.querySelector('#khTerbit'); if (t) t.onclick = function () { terbitKenka(t, el); };
+    var c = el.querySelector('#khCat'); if (c) c.oninput = function () { var x = {}; try { x = JSON.parse(localStorage.getItem('kenkaCatatan') || '{}') || {}; } catch (e) { x = {}; } x[KH.bulan] = c.value; try { localStorage.setItem('kenkaCatatan', JSON.stringify(x)); } catch (e) { } };
+    var b = el.querySelector('#khBulan'); if (b) b.onchange = function () { if (/^\d{4}-\d{2}$/.test(this.value)) { KH.bulan = this.value; gambarKenka(el); } };
+    var u = el.querySelector('#khUlang'); if (u) u.onclick = function () { delete KH.data[KH.bulan]; gambarKenka(el); };
   }
 
   // Bagi hasil consignment (bagiHasilDataX lama, semua toko)
