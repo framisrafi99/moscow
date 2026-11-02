@@ -417,7 +417,7 @@
   }
 
   function ukur() {
-    var fr = C.frame; if (!fr || fr.hidden || C.aktif === 'koreksi') return;
+    var fr = C.frame; if (!fr || fr.hidden || C.aktif === 'koreksi' || C.aktif === 'setoran') return;
     document.documentElement.classList.add('berbingkai'); window.scrollTo(0, 0);
     var atas = fr.getBoundingClientRect().top;
     var bawah = document.documentElement.classList.contains('m-m') && $('mBawah') ? $('mBawah').offsetHeight : 0;
@@ -503,15 +503,18 @@
       // Kasir, pinjaman, dan penyesuaian hanya ada di Toko Offline.
       var offline = !!(dok && dok.getElementById('ksNavO'));
       document.querySelectorAll('[data-k="pinjam"],[data-k="sesuai"],a[href="kasir.html"]').forEach(function (x) { x.hidden = !offline; });
+      // Bukti transfer setoran hanya untuk toko consignment (bukan Toko Offline).
+      document.querySelectorAll('[data-k="setoran"]').forEach(function (x) { x.hidden = offline; });
       // Menu yang tidak ada di toko ini juga dibuang dari lembar "Menu" (HP).
       for (var i = MENU.length - 1; i >= 0; i--) {
         var mk = MENU[i].k;
-        if ((mk === 'titip' && !adaTitip) || ((mk === 'pinjam' || mk === 'sesuai' || mk === 'kasir') && !offline)) MENU.splice(i, 1);
+        if ((mk === 'titip' && !adaTitip) || ((mk === 'pinjam' || mk === 'sesuai' || mk === 'kasir') && !offline) || (mk === 'setoran' && offline)) MENU.splice(i, 1);
       }
       // Nama pengisi otomatis dari akun yang masuk.
       var nm = dok && dok.getElementById('nama');
       if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
       if (C.aktif === 'koreksi') { window.KoreksiJual.bukaToko($('kjIsi'), C.toko, C.nama); return; }
+      if (C.aktif === 'setoran') { window.SetoranBukti.buka($('stIsi'), C.toko, C.nama); return; }
       ukur(); tekan(C.aktif === 'riwayat' ? 'jual' : C.aktif);
       if (C.aktif === 'riwayat') tekan('riwayat');
     };
@@ -549,6 +552,7 @@
       { k: 'pinjam', nm: 'Stok dipinjam', ik: 'toko', bagian: 'isi', pendek: 'Pinjaman' },
       { k: 'sesuai', nm: 'Penyesuaian stok', ik: 'atur', bagian: 'isi', pendek: 'Penyesuaian' },
       { k: 'bh', nm: 'Penjualan & Bagi Hasil', ik: 'laporan', bagian: 'isi', pendek: 'Bagi hasil' },
+      { k: 'setoran', nm: 'Bukti transfer setoran', ik: 'uang', bagian: 'setoran', pendek: 'Setoran' },
       { k: 'koreksi', nm: 'Koreksi penjualan', ik: 'atur', bagian: 'koreksi', pendek: 'Koreksi' },
       { k: 'riwayat', nm: 'Riwayat isi laporan', ik: 'riwayat', bagian: 'isi', pendek: 'Riwayat' },
       { k: 'kasir', nm: 'Kasir', ik: 'kasir', href: 'kasir.html' }
@@ -558,6 +562,7 @@
       C.aktif = k; tombolPdf();
       // Koreksi penjualan tampil langsung di aplikasi (bukan di form lama dalam bingkai).
       if (k === 'koreksi') { document.documentElement.classList.remove('berbingkai'); if (C.toko) window.KoreksiJual.bukaToko($('kjIsi'), C.toko, C.nama); return; }
+      if (k === 'setoran') { document.documentElement.classList.remove('berbingkai'); if (C.toko) window.SetoranBukti.buka($('stIsi'), C.toko, C.nama); return; }
       tekan(k); setTimeout(ukur, 0);
     },
     siap: function (ctx) {

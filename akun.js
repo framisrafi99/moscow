@@ -286,7 +286,8 @@
 
   // Potret 'acc:oto' (Apps Script SBM_accOto_) dihitung langsung: ACC_otomatis_ file 7 dengan bungkus file 36 (marketplace
   // Official), 67 (Toko Offline per nota), 75 (bulan ditutup dibekukan), 78 (bagi hasil yang sudah terbit invoice).
-  var BHI_MULAI = '2026-10', BHI_TOKO = ['Consignment Medan', 'Consignment Sidoarjo'];
+  // 2 Nov 2026: Renon ikut (invoice terbit = laporan bulan Renon ditutup). Setoran = Pindah akun setoran -> Rekening PT (bukti transfer).
+  var BHI_MULAI = '2026-10', BHI_TOKO = ['Consignment Medan', 'Consignment Sidoarjo', 'Consignment Renon'];
   var MP_SUMBER = { Shopee: 'Official Shopee', Tokopedia: 'Official Tokopedia/TikTok', Lazada: 'Official Lazada' };
   async function semuaBaris(sb, tabel, kolom) {
     var out = [], dari = 0;

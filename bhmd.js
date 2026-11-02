@@ -23,7 +23,7 @@
 
   async function hitung(sb, bulan) {
     var h = await Promise.all([
-      semua(sb, 'acc_log', 'id,baris_sheet,no,tanggal,jenis,akun,kategori,keterangan,nominal,status'),
+      semua(sb, 'acc_log', 'id,baris_sheet,no,tanggal,jenis,akun,akun_tujuan,kategori,keterangan,nominal,status'),
       semua(sb, 'acc_sumber', 'id,baris_sheet,sumber,akun_penerima'),
       semua(sb, 'acc_akun', 'id,baris_sheet,nama_akun,jenis'),
       Promise.all(TOKO.map(function (toko) { return sb.rpc('toko_bahan_bagi_hasil', { p_toko: toko, p_bulan: bulan }); }))
@@ -34,13 +34,16 @@
     if (!akun.length) daftarAkun = ['Rekening PT'];
     // DC_akunPenerima_: baris terakhir di ACC_SUMBER untuk toko itu.
     function akunPenerima(toko) { var a = 'Rekening PT'; sumber.forEach(function (r) { if (t(r.sumber, 80) === toko && t(r.akun_penerima, 60)) a = t(r.akun_penerima, 60); }); return a; }
-    // DC_setoran_: uang masuk Aktif kategori "Penjualan <toko>" yang keterangannya memuat [BH yyyy-MM].
+    // DC_setoran_: uang masuk Aktif kategori "Penjualan <toko>" yang keterangannya memuat [BH yyyy-MM],
+    // atau (2 Nov 2026) Pindah dari akun "Setoran <toko> (belum disetor)" ke rekening (bukti transfer).
     function setoran(toko) {
-      var kat = 'Penjualan ' + toko, tag = '[BH ' + bulan + ']', rows = [];
+      var kat = 'Penjualan ' + toko, piutang = 'Setoran ' + toko + ' (belum disetor)', tag = '[BH ' + bulan + ']', rows = [];
       acc.forEach(function (r) {
-        if (t(r.status, 20) !== 'Aktif' || t(r.jenis, 10) !== 'Masuk' || t(r.kategori, 80) !== kat) return;
+        if (t(r.status, 20) !== 'Aktif') return;
+        var masuk = t(r.jenis, 10) === 'Masuk' && t(r.kategori, 80) === kat, pindah = t(r.jenis, 10) === 'Pindah' && t(r.akun, 60) === piutang;
+        if (!masuk && !pindah) return;
         if (String(r.keterangan || '').indexOf(tag) === -1) return;
-        rows.push({ no: t(r.no, 20), t: t(r.tanggal, 10), akun: t(r.akun, 60), v: bulat(r.nominal) });
+        rows.push({ no: t(r.no, 20), t: t(r.tanggal, 10), akun: t(pindah ? r.akun_tujuan : r.akun, 60), v: bulat(r.nominal) });
       });
       return rows;
     }
