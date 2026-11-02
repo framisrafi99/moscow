@@ -504,15 +504,16 @@
       var offline = !!(dok && dok.getElementById('ksNavO'));
       document.querySelectorAll('[data-k="pinjam"],[data-k="sesuai"],a[href="kasir.html"]').forEach(function (x) { x.hidden = !offline; });
       // Bukti transfer setoran hanya untuk toko consignment (bukan Toko Offline).
-      document.querySelectorAll('[data-k="setoran"]').forEach(function (x) { x.hidden = offline; });
+      document.querySelectorAll('[data-k="setoran"]').forEach(function (x) { x.hidden = offline || C.adaSetoran === false; });
       // Menu yang tidak ada di toko ini juga dibuang dari lembar "Menu" (HP).
       for (var i = MENU.length - 1; i >= 0; i--) {
         var mk = MENU[i].k;
-        if ((mk === 'titip' && !adaTitip) || ((mk === 'pinjam' || mk === 'sesuai' || mk === 'kasir') && !offline) || (mk === 'setoran' && offline)) MENU.splice(i, 1);
+        if ((mk === 'titip' && !adaTitip) || ((mk === 'pinjam' || mk === 'sesuai' || mk === 'kasir') && !offline) || (mk === 'setoran' && (offline || C.adaSetoran === false))) MENU.splice(i, 1);
       }
       // Nama pengisi otomatis dari akun yang masuk.
       var nm = dok && dok.getElementById('nama');
       if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
+      if (C.aktif === 'koreksi' || C.aktif === 'setoran') document.documentElement.classList.remove('berbingkai');
       if (C.aktif === 'koreksi') { window.KoreksiJual.bukaToko($('kjIsi'), C.toko, C.nama); return; }
       if (C.aktif === 'setoran') { window.SetoranBukti.buka($('stIsi'), C.toko, C.nama); return; }
       ukur(); tekan(C.aktif === 'riwayat' ? 'jual' : C.aktif);
@@ -573,6 +574,11 @@
         if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + M.svg('beranda') + '<span class="nm">Master Data</span></a>');
       }
       C.aktif = M.aktif() || 'jual';
+      // Menu Bukti transfer baru tampil setelah fiturnya terpasang di database.
+      sb.rpc('setoran_bukti_data', { p_toko: '' }).then(function (r) {
+        C.adaSetoran = !(r.error && /does not exist|Could not find the function/i.test(r.error.message));
+        if (!C.adaSetoran) document.querySelectorAll('[data-k="setoran"]').forEach(function (x) { x.hidden = true; });
+      }, function () { });
       muat();
     }
   });

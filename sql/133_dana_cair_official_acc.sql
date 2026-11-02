@@ -87,6 +87,10 @@ begin
       n_lewat := n_lewat + 1; continue;
     end if;
     continue when public._tb_tolak(e.t) <> '';
+    -- Saldo awal Rekening PT per tanggalnya sudah termasuk penarikan pada / sebelum tanggal itu (dikonfirmasi 2 Nov 2026).
+    if e.t::date <= coalesce((select per_tanggal from acc_akun where nama_akun = 'Rekening PT' order by id limit 1), '1900-01-01'::date) then
+      n_lewat := n_lewat + 1; continue;
+    end if;
     nomor := public._acc_no_baru();
     insert into acc_log (no, tanggal, jenis, akun, akun_tujuan, kategori, keterangan, nominal, waktu_input, pengisi, status)
     values (nomor, e.t::date, 'Pindah', v_akun, 'Rekening PT', '',

@@ -18,6 +18,12 @@
 <style>
   #mIsi { padding:0 !important; }
   #mIsi > section[data-bagian="isi"] { padding:0 !important; margin:0 !important; }
+  /* Koreksi penjualan & bukti transfer tampil langsung di aplikasi: beri ruang di bawah supaya tombol kirim tidak tertutup menu bawah. */
+  #mIsi > section[data-bagian="koreksi"], #mIsi > section[data-bagian="setoran"] { padding-bottom:calc(120px + env(safe-area-inset-bottom)) !important; }
+  html.m-d #mIsi > section[data-bagian="koreksi"], html.m-d #mIsi > section[data-bagian="setoran"] { padding-bottom:40px !important; }
+  #kjIsi, #stIsi { overflow-x:hidden; }
+  #kjIsi .baris > label, #stIsi .baris > label { flex:1 1 140px; min-width:0; }
+  #kjIsi .isian, #stIsi .isian { max-width:100%; }
   html.berbingkai, html.berbingkai body { overflow:hidden; }
   #cetakWadah { display:none; }
   #tPdfInv { position:fixed; right:16px; bottom:calc(84px + env(safe-area-inset-bottom)); z-index:40; box-shadow:0 6px 18px rgba(11,35,64,.25); }
