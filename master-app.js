@@ -961,15 +961,16 @@
     } else {
       h += '<div class="cd"><div class="kpl"><h3>Invoice ' + esc(noKenka(bln)) + '</h3><span class="label abu">draf</span></div>' +
         '<label class="sb">Catatan di invoice (boleh kosong, mis. bahan baku Kenka yang dibeli Moscow)<textarea class="isian" id="khCat" rows="3" maxlength="600">' + esc(simpan[bln] || '') + '</textarea></label>' +
-        '<div class="dua" style="margin-top:8px"><label class="sb">Tanggal transfer<input class="isian" type="date" id="khTgl" value="' + hariIniMks() + '"></label></div>' +
+        '<div class="dua" style="margin-top:8px"><label class="sb">Tanggal dicatat<input class="isian" type="date" id="khTgl" value="' + akhirBulanKh(bln) + '"></label></div>' +
         '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="tbl" id="khPdf">Lihat PDF draf</button>' +
         '<button type="button" class="tbl pri" id="khTerbit"' + (sejak ? ' disabled title="Bulan berjalan belum selesai"' : '') + '>Terbitkan & catat ke Accounting</button></div>' +
-        '<p class="sb" style="margin-top:6px">Terbitkan setelah transfer dilakukan. Angka dikunci, lalu tercatat 2 uang keluar dari Rekening PT (bagian Mike dan bagian Junior) dengan kategori "Bagi hasil Kenka (dividen)" (di luar laba rugi).</p></div>';
+        '<p class="sb" style="margin-top:6px">Tanggal bawaan = akhir bulan bagi hasil. Angka dikunci, lalu tercatat 2 uang keluar dari Rekening PT (bagian Mike dan bagian Junior) dengan kategori "Bagi hasil Kenka (dividen)" (di luar laba rugi).</p></div>';
     }
     h += '<p class="sb">Margin = penjualan (harga setelah diskon, dikurangi retur) − HPP − potongan platform masing-masing saluran (dari laporan dana cair) − bagian toko consignment. Skema: produk Kenka Mike 30% / Junior 70%, Kenka Sole Sauce 50% / 50%. Reseller tidak termasuk.</p>';
     KH.pdf = { bulan: bln, H: H, T: T };
     el.innerHTML = h; pasangKenka(el);
   }
+  function akhirBulanKh(b) { var y = +b.slice(0, 4), m = +b.slice(5, 7); return b + '-' + ('0' + new Date(y, m, 0).getDate()).slice(-2); }
   function tglId(t) { var a = String(t || '').split('-'); return a.length === 3 ? Number(a[2]) + ' ' + BLN[Number(a[1]) - 1] + ' ' + a[0] : t; }
   async function pdfKenka(k, catatan) {
     var JsPDF = await siapPdfMd(), logo = await logoPdfMd();
@@ -1053,7 +1054,7 @@
   async function terbitKenka(tombol, el) {
     var k = KH.pdf; if (!k || k.T) return;
     var tgl = ($('khTgl') && $('khTgl').value) || '', cat = (($('khCat') && $('khCat').value) || '').trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) { alertMsg('Isi tanggal transfer dulu.', false); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) { alertMsg('Isi tanggal dicatat dulu.', false); return; }
     if (!confirm('Terbitkan invoice ' + noKenka(k.bulan) + '?\n\nBagian Mike ' + rp(k.H.mike) + '\nBagian Junior ' + rp(k.H.junior) + '\n\nAngka dikunci dan tercatat di Accounting sebagai uang keluar dari Rekening PT tanggal ' + tglId(tgl) + '.')) return;
     tombol.disabled = true;
     var data = JSON.parse(JSON.stringify(k.H)); data.catatan = cat;
