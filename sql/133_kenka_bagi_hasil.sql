@@ -2,7 +2,7 @@
 --  kenka_bh_data(bulan): penjualan Kenka per saluran (Official dari mp_pesanan + padanan, consignment & toko offline dari toko_jual_log),
 --  HPP terbaru (hasil_hitung 'hpp'), potongan platform Official dari dana_cair, dan invoice yang sudah terbit.
 --  kenka_bh_terbit(bulan, data, tanggal): simpan invoice (snapshot hitungan) + catat 2 uang keluar dari Rekening PT
---  kategori "Bagi hasil Kenka (dividen)" (Di luar laba rugi). Hanya manajemen; buku yang sudah ditutup ditolak.
+--  kategori "Bonus bagi hasil Kenka" (Biaya operasional; diubah dari dividen 2 Nov 2026). Hanya manajemen; buku yang sudah ditutup ditolak.
 create table if not exists public.kenka_bh (
   bulan text primary key, no text not null, data jsonb not null, total_mike numeric not null, total_junior numeric not null,
   tanggal date not null, tr_mike text, tr_junior text, oleh text, waktu timestamptz not null default now()
@@ -68,12 +68,12 @@ begin
   if v_m > 0 then
     trm := pre || lpad((n + 1)::text, 3, '0'); n := n + 1;
     insert into acc_log (no, tanggal, jenis, akun, akun_tujuan, kategori, keterangan, nominal, waktu_input, pengisi, status)
-    values (trm, v_tgl, 'Keluar', 'Rekening PT', null, 'Bagi hasil Kenka (dividen)', 'Bagi hasil produk Kenka ' || nb || ' - bagian Mike [' || v_no || ']', v_m, now(), 'pemilik', 'Aktif');
+    values (trm, v_tgl, 'Keluar', 'Rekening PT', null, 'Bonus bagi hasil Kenka', 'Bonus bagi hasil produk Kenka ' || nb || ' - bagian Mike [' || v_no || ']', v_m, now(), 'pemilik', 'Aktif');
   end if;
   if v_j > 0 then
     trj := pre || lpad((n + 1)::text, 3, '0');
     insert into acc_log (no, tanggal, jenis, akun, akun_tujuan, kategori, keterangan, nominal, waktu_input, pengisi, status)
-    values (trj, v_tgl, 'Keluar', 'Rekening PT', null, 'Bagi hasil Kenka (dividen)', 'Bagi hasil produk Kenka ' || nb || ' - bagian Francois Junior Bogaard [' || v_no || ']', v_j, now(), 'pemilik', 'Aktif');
+    values (trj, v_tgl, 'Keluar', 'Rekening PT', null, 'Bonus bagi hasil Kenka', 'Bonus bagi hasil produk Kenka ' || nb || ' - bagian Francois Junior Bogaard [' || v_no || ']', v_j, now(), 'pemilik', 'Aktif');
   end if;
   insert into kenka_bh (bulan, no, data, total_mike, total_junior, tanggal, tr_mike, tr_junior, oleh)
   values (p_bulan, v_no, p_data, v_m, v_j, v_tgl, trm, trj, oleh);

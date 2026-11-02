@@ -260,7 +260,7 @@
       '<p class="lp-cat" style="font-weight:800;color:var(--teks2);font-size:14px;margin-top:14px">Laporan dana cair marketplace (Official & consignment)</p>' + dn + '</div>';
   }
 
-  // 8. Bagi hasil produk Kenka (Mike / Junior) - dibayar dari Rekening PT, kategori "Bagi hasil Kenka (dividen)" (di luar laba rugi).
+  // 8. Bagi hasil produk Kenka (Mike / Junior) - dibayar dari Rekening PT, kategori "Bonus bagi hasil Kenka" (biaya operasional).
   function bagianKenka(D) {
     var h = '<div class="cd lp-sec" id="lp8"><h3><span class="no">8</span>Bagi hasil produk Kenka</h3>';
     var T = D.kenka && D.kenka.terbit;
@@ -268,7 +268,7 @@
     var X = T.data || {}, S = X.saluran || [], tot = X.tot || {};
     var b = S.map(function (x) { return tr([esc(x.n), fmt(x.q), rp(x.v), rp(x.h), rp((x.pot || 0) + (x.bt || 0)), rp(x.m), rp(x.mk), rp(x.jn)], [1, 2, 3, 4, 5, 6, 7]); });
     b.push(tr(['TOTAL', fmt(tot.q), rp(tot.v), rp(tot.h), rp((tot.pot || 0) + (tot.bt || 0)), rp(tot.m), rp(T.total_mike), rp(T.total_junior)], [1, 2, 3, 4, 5, 6, 7], 'tot'));
-    return h + '<p class="lp-cat">Invoice ' + esc(T.no) + ' · dibayar dari Rekening PT tanggal ' + esc(tgl(T.tanggal)) + ' (' + esc([T.tr_mike, T.tr_junior].filter(Boolean).join(', ')) + '), kategori "Bagi hasil Kenka (dividen)", di luar laba rugi.</p>' +
+    return h + '<p class="lp-cat">Invoice ' + esc(T.no) + ' · dibayar dari Rekening PT tanggal ' + esc(tgl(T.tanggal)) + ' (' + esc([T.tr_mike, T.tr_junior].filter(Boolean).join(', ')) + '), kategori "Bonus bagi hasil Kenka", biaya operasional.</p>' +
       tabel(['Saluran', 'Pcs', 'Penjualan', 'HPP', 'Potongan & bagian toko', 'Margin', 'Mike', 'Junior'], b, [1, 2, 3, 4, 5, 6, 7]) +
       '<p class="lp-cat">Margin = penjualan − HPP − potongan platform masing-masing saluran − bagian toko consignment. Skema: produk Kenka Mike 30% / Junior 70%, Kenka Sole Sauce 50% / 50%.</p></div>';
   }

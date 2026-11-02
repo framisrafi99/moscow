@@ -956,7 +956,7 @@
     var simpan = {}; try { simpan = JSON.parse(localStorage.getItem('kenkaCatatan') || '{}') || {}; } catch (e) { simpan = {}; }
     if (T) {
       h += '<div class="cd"><div class="kpl"><h3>Invoice ' + esc(T.no) + '</h3><span class="label ok">terbit</span></div>' +
-        '<p class="sb">Tercatat di Accounting sebagai uang keluar dari Rekening PT tanggal ' + esc(tglId(String(T.tanggal).slice(0, 10))) + ': ' + esc([T.tr_mike, T.tr_junior].filter(Boolean).join(', ')) + ' (kategori "Bagi hasil Kenka (dividen)", di luar laba rugi).</p>' +
+        '<p class="sb">Tercatat di Accounting sebagai uang keluar dari Rekening PT tanggal ' + esc(tglId(String(T.tanggal).slice(0, 10))) + ': ' + esc([T.tr_mike, T.tr_junior].filter(Boolean).join(', ')) + ' (kategori "Bonus bagi hasil Kenka", biaya operasional).</p>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="tbl pri" id="khPdf">Buat PDF invoice</button></div></div>';
     } else {
       h += '<div class="cd"><div class="kpl"><h3>Invoice ' + esc(noKenka(bln)) + '</h3><span class="label abu">draf</span></div>' +
@@ -964,7 +964,7 @@
         '<div class="dua" style="margin-top:8px"><label class="sb">Tanggal dicatat<input class="isian" type="date" id="khTgl" value="' + akhirBulanKh(bln) + '"></label></div>' +
         '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="tbl" id="khPdf">Lihat PDF draf</button>' +
         '<button type="button" class="tbl pri" id="khTerbit"' + (sejak ? ' disabled title="Bulan berjalan belum selesai"' : '') + '>Terbitkan & catat ke Accounting</button></div>' +
-        '<p class="sb" style="margin-top:6px">Tanggal bawaan = akhir bulan bagi hasil. Angka dikunci, lalu tercatat 2 uang keluar dari Rekening PT (bagian Mike dan bagian Junior) dengan kategori "Bagi hasil Kenka (dividen)" (di luar laba rugi).</p></div>';
+        '<p class="sb" style="margin-top:6px">Tanggal bawaan = akhir bulan bagi hasil. Angka dikunci, lalu tercatat 2 uang keluar dari Rekening PT (bagian Mike dan bagian Junior) dengan kategori "Bonus bagi hasil Kenka" (biaya operasional).</p></div>';
     }
     h += '<p class="sb">Margin = penjualan (harga setelah diskon, dikurangi retur) − HPP − potongan platform masing-masing saluran (dari laporan dana cair) − bagian toko consignment. Skema: produk Kenka Mike 30% / Junior 70%, Kenka Sole Sauce 50% / 50%. Reseller tidak termasuk.</p>';
     KH.pdf = { bulan: bln, H: H, T: T };
