@@ -168,6 +168,61 @@
     return { galat: 'Format file tidak dikenali. Pakai "Laporan Penghasilan" dari Shopee (Keuangan > Penghasilan Saya > Laporan) atau laporan penyelesaian dari Tokopedia/TikTok Shop (Keuangan > Laporan).' };
   }
 
+  // ---------- Lazada: "Balance Transactions" (Transaction Number, Transaction Time, Type, Sub Type, Amount, Remarks) ----------
+  // Semua baris selain penarikan (Withdrawal) = uang yang masuk / dipotong di saldo Lazada bulan itu:
+  //   nilai positif = pendapatan, nilai negatif = biaya (dirinci per jenis), dana cair = jumlah semuanya.
+  // Penarikan ke rekening dicatat sebagai riwayat penarikan.
+  function cariLembar(D, nama) { for (var k in D) if (String(k).trim().toLowerCase() === nama.toLowerCase()) return D[k]; return null; }
+  function bacaLazada(D) {
+    var rows = cariLembar(D, 'Balance Transactions'), h = -1, c = {}, i, j;
+    function t(v) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim(); }
+    function n(v) { if (typeof v === 'number') return isFinite(v) ? v : 0; var x = Number(t(v).replace(/[^\d.\-]/g, '')); return isFinite(x) ? x : 0; }
+    function tgl(v) {
+      if (v instanceof Date) { var m = v.getMonth() + 1, d = v.getDate(); return v.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d; }
+      var s = t(v), a = s.match(/(\d{1,2})\s+([A-Za-z]{3})[a-z]*\s+(\d{4})/), B = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, mei: 5, jun: 6, jul: 7, aug: 8, agu: 8, sep: 9, oct: 10, okt: 10, nov: 11, dec: 12, des: 12 };
+      if (a && B[a[2].toLowerCase()]) return a[3] + '-' + ('0' + B[a[2].toLowerCase()]).slice(-2) + '-' + ('0' + a[1]).slice(-2);
+      a = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/); if (a) return a[1] + '-' + ('0' + a[2]).slice(-2) + '-' + ('0' + a[3]).slice(-2);
+      a = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/); if (a) return a[3] + '-' + ('0' + a[2]).slice(-2) + '-' + ('0' + a[1]).slice(-2);
+      return '';
+    }
+    for (i = 0; i < Math.min(rows.length, 10) && h < 0; i++) for (j = 0; j < (rows[i] || []).length; j++) if (t(rows[i][j]) === 'Transaction Number') { h = i; break; }
+    if (h < 0) return { galat: 'Sheet "Balance Transactions" Lazada tidak punya kolom "Transaction Number".' };
+    rows[h].forEach(function (x, k) { var nm = t(x); if (nm && c[nm] === undefined) c[nm] = k; });
+    var wajib = ['Transaction Number', 'Transaction Time', 'Type', 'Amount'];
+    for (j = 0; j < wajib.length; j++) if (c[wajib[j]] === undefined) return { galat: 'Kolom "' + wajib[j] + '" tidak ada di file Lazada.' };
+    var dari = '', sampai = '', pend = 0, biaya = {}, urut = [], tarik = [], psn = [], tot = 0;
+    for (i = h + 1; i < rows.length; i++) {
+      var r = rows[i] || [], no = t(r[c['Transaction Number']]); if (!no) continue;
+      var d = tgl(r[c['Transaction Time']]), jenis = t(r[c['Type']]), sub = c['Sub Type'] === undefined ? '' : t(r[c['Sub Type']]), v = n(r[c['Amount']]);
+      if (!d) continue;
+      if (!dari || d < dari) dari = d; if (!sampai || d > sampai) sampai = d;
+      if (/withdraw|penarikan/i.test(jenis)) {
+        var ref = c['Remarks'] === undefined ? '' : t(r[c['Remarks']]);
+        if (!/fail|gagal|reject/i.test(ref)) tarik.push({ t: d, v: Math.abs(Math.round(v)), rek: '' });
+        continue;
+      }
+      tot += v;
+      if (v >= 0) pend += v;
+      else { var k2 = jenis + (sub && sub !== jenis ? ' - ' + sub : ''); if (biaya[k2] === undefined) { biaya[k2] = 0; urut.push(k2); } biaya[k2] += v; }
+      psn.push({ no: no, j: jenis + (sub ? ' / ' + sub : ''), tp: d, tc: d, h: v > 0 ? v : 0, rf: 0, d: v });
+    }
+    if (!dari) return { galat: 'File Lazada tidak berisi transaksi.' };
+    if (dari.slice(0, 7) !== sampai.slice(0, 7)) return { galat: 'Transaksi di file Lazada ' + dari + ' s/d ' + sampai + ' melewati dua bulan. Download ulang untuk satu bulan saja.' };
+    if (!psn.length) {
+      var jt = 0; tarik.forEach(function (x) { jt += x.v; });
+      return { galat: 'File Lazada ini hanya berisi ' + tarik.length + ' penarikan ke rekening (total Rp ' + fmt(jt) + '), tanpa penghasilan pesanan dan biaya Lazada. ' +
+        'Download ulang Balance Transactions dengan SEMUA jenis transaksi (bukan hanya Withdrawal) untuk ' + namaBulan(dari.slice(0, 7)) + '.' };
+    }
+    var biayaTot = 0, b = urut.map(function (k) { biayaTot += biaya[k]; return { n: k, v: Math.round(biaya[k]) }; });
+    var jmlP = psn.filter(function (x) { return /order|pesanan/i.test(x.j) && x.d > 0; }).length || psn.length;
+    return {
+      platform: 'Lazada', akun: '', dari: dari, sampai: sampai, bulan: dari.slice(0, 7),
+      harga: Math.round(pend), refund: 0, pendapatan: Math.round(pend), biaya: b, biayaTot: Math.round(biayaTot),
+      dilepas: Math.round(tot), penyesuaian: 0, penRinci: [], cair: Math.round(tot), pesanan: psn, jml: jmlP,
+      cekBaris: Math.round(tot), cocok: true, tarik: tarik
+    };
+  }
+
   function muatXlsx() {
     return new Promise(function (ok, gagal) {
       if (window.XLSX) { ok(); return; }
@@ -224,7 +279,7 @@
       '<label>File laporan dana<input type="file" id="dcFile" accept=".xlsx,.xls"' + (S.sibuk ? ' disabled' : '') + '></label></div>';
     h += '<table class="tabel"><thead><tr><th>Platform</th><th class="r">Dana cair</th><th class="r">Potongan platform</th><th>Sumber</th></tr></thead><tbody>' + pasar.map(function (pf) {
       var f = S.ada && S.ada[pf];
-      if (pf === 'Lazada') return '<tr><td><b>Lazada</b></td><td colspan="3"><span class="sb">Format laporan Lazada belum dikenali. Kirim contoh filenya ke pembuat sistem.</span></td></tr>';
+      if (pf === 'Lazada' && !f) return '<tr><td><b>Lazada</b></td><td colspan="3"><span style="color:var(--kuning)">Belum diupload untuk ' + esc(namaBulan(S.bulan)) + '</span><small>Seller Center Lazada › Keuangan › Balance Transactions (semua jenis transaksi, satu bulan)</small></td></tr>';
       if (!f) return '<tr><td><b>' + esc(NAMA_PF[pf]) + '</b></td><td colspan="3"><span style="color:var(--kuning)">Belum diupload untuk ' + esc(namaBulan(S.bulan)) + '</span></td></tr>';
       var pct = f.total_pendapatan ? String(Math.round(Math.abs(f.total_biaya) / f.total_pendapatan * 1000) / 10).replace('.', ',') + '% dari pendapatan' : '';
       return '<tr><td><b>' + esc(NAMA_PF[pf]) + '</b><small>' + fmt(f.jumlah_pesanan) + ' pesanan</small></td><td class="r angka">' + fmt(f.dana_cair) + (f.penyesuaian ? '<small>termasuk penyesuaian ' + fmt(f.penyesuaian) + '</small>' : '') + '</td>' +
@@ -254,6 +309,7 @@
       var wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true }), D = {};
       wb.SheetNames.forEach(function (n) { var ws = wb.Sheets[n]; perbaikiRef(ws); D[n] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' }); });
       var r = DC_baca(D);
+      if (r.galat && cariLembar(D, 'Balance Transactions')) r = bacaLazada(D);
       if (r.galat) { pesan(el, opsi, esc(r.galat), 'bad'); return; }
       if (TOKO[S.toko].indexOf(r.platform) < 0) { pesan(el, opsi, esc(namaToko(S.toko) + ' tidak memakai ' + (NAMA_PF[r.platform] || r.platform) + '. Pilih toko yang benar.'), 'bad'); return; }
       if (r.bulan !== S.bulan) { S.bulan = r.bulan; S.ada = null; S.adaKunci = ''; }
