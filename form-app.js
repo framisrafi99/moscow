@@ -100,11 +100,21 @@
     },
     // Master Data lama di dalam aplikasi baru: menu yang belum pindah (invoice & packing, upload marketplace, bagi hasil,
     // tutup buku, pelanggan & link, koreksi gudang, cetak PO, anggaran pengadaan). Penyimpanan tetap lewat Apps Script.
+    // Link Purchasing (3 Nov): tampilan sendiri di aplikasi (purchasing-app.js), tidak lagi memuat form Apps Script.
+    // PO & pembelian lain (buat PO, terima barang) ada di aplikasi Gudang Utama.
     purchasing: {
-      judul: 'PURCHASING', masuk: 'Purchasing', peran: ['purchasing_shopeepay', 'manajemen'],
+      judul: 'PURCHASING', masuk: 'Purchasing', peran: ['purchasing_shopeepay', 'manajemen'], asli: true,
       sembunyi: '.tidak-ada',
-      menu: [{ k: 'pl', nm: 'Purchasing', ik: 'purch', l: [] }, { grup: 'APLIKASI LAIN' }, { k: 'gd', nm: 'Gudang Utama', ik: 'gudang', href: 'form.html?f=gudang' }],
-      bawah: ['pl']
+      menu: [
+        { k: 'belanja', nm: 'Belanja', ik: 'purch' },
+        { k: 'acc', nm: 'Sudah di-ACC', ik: 'setuju', pendek: 'Di-ACC' },
+        { k: 'report', nm: 'Report PO', ik: 'laporan', pendek: 'Report' },
+        { k: 'bayar', nm: 'Bayar PO', ik: 'uang' },
+        { k: 'mike', nm: 'Dibayar Mike / Junior', ik: 'pelanggan', pendek: 'Mike/Junior' },
+        { k: 'harga', nm: 'Harga naik', ik: 'harga' },
+        { grup: 'APLIKASI LAIN' }, { k: 'gd', nm: 'Gudang Utama (PO & pembelian)', ik: 'gudang', href: 'form.html?f=gudang' }
+      ],
+      bawah: ['belanja', 'acc', 'report', 'bayar', 'lain']
     },
     mdlama: {
       judul: 'MASTER DATA LAMA', masuk: 'Master Data lama', peran: ['manajemen'],
@@ -816,6 +826,13 @@
     C.sub = b.getAttribute('data-sub'); subBotol('botol'); setTimeout(ukur, 0);
   });
 
+  // Tampilan sendiri (tanpa form Apps Script), mis. link Purchasing.
+  function panelAsli(k) {
+    if (!F.asli) return;
+    var el = $('asli'), sec = document.querySelector('#mIsi > section[data-bagian="isi"]'); if (!el || !sec) return;
+    el.hidden = false; sec.classList.add('pk-mode'); $('muatan').hidden = true; document.documentElement.classList.remove('berbingkai');
+    if (APP === 'purchasing' && window.PurchasingApp) PurchasingApp.gambar(el, M.sb, k, { nama: C.nama, salin: salinKeSheet });
+  }
   function ukur() {
     var fr = C.frame; if (!fr || fr.hidden) return;
     if (document.querySelector('#mIsi > section.pk-mode')) return;
@@ -919,7 +936,7 @@
     pindah: function (k) {
       var mm = F.menu.filter(function (x) { return x.k === k; })[0];
       if (mm && mm.modal) { bukaModal(mm); return; }
-      C.aktif = k; tekan(k); subBotol(k); panelAbsen(k); setTimeout(ukur, 0);
+      C.aktif = k; if (F.asli) { panelAsli(k); return; } tekan(k); subBotol(k); panelAbsen(k); setTimeout(ukur, 0);
     },
     siap: function (ctx) {
       if (ctx.peran === 'manajemen') {
@@ -928,6 +945,12 @@
       }
       C.aktif = M.aktif() || F.menu[0].k;
       if (F.menu.some(function (x) { return x.k === C.aktif && x.modal; })) { C.aktif = F.menu[0].k; M.buka(C.aktif, true); }
+      if (F.asli) {
+        if (!F.menu.some(function (x) { return x.k === C.aktif && !x.href && !x.grup; })) { C.aktif = F.menu[0].k; M.buka(C.aktif, true); }
+        var um = ctx.sesi && ctx.sesi.user && ctx.sesi.user.user_metadata || {};
+        C.nama = String(um.full_name || um.name || '').split(' ')[0];
+        panelAsli(C.aktif); return;
+      }
       muat(); panelAbsen(C.aktif);
     }
   });
