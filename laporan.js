@@ -91,7 +91,7 @@
     var terima = offTerima + offl.bersih + res + (moscow == null ? 0 : moscow);
     var op = kel['Biaya operasional'] || 0, beli = kel['Pembelian barang & bahan'] || 0;
     // Gaji: dari payroll (total biaya PT). Gaji yang juga tercatat di Accounting dikeluarkan dari biaya operasional supaya tidak terhitung dua kali.
-    var gajiAcc = 0; (D.keluar || []).forEach(function (a) { (a.kat || []).forEach(function (k) { if (/gaji|payroll/i.test(k.k)) gajiAcc += Number(k.v) || 0; }); });
+    var gajiAcc = 0; (D.keluar || []).forEach(function (a) { (a.kat || []).forEach(function (k) { if (/gaji|payroll|bonus bagi hasil kenka/i.test(k.k)) gajiAcc += Number(k.v) || 0; }); });
     var G = ringkasGaji(D.gaji || []), gaji = G.n ? G.biaya : gajiAcc, opTanpa = op - gajiAcc;
     return { off: off, offTerima: offTerima, cons: cons, consB: consB, offl: offl, res: res, omzet: off + consB + offl.bersih + res, keluar: keluar, kel: kel,
       moscow: moscow, terima: terima, op: opTanpa, gaji: gaji, gajiAcc: gajiAcc, G: G, beli: beli,
