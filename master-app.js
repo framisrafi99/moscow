@@ -2132,6 +2132,10 @@
     el.querySelectorAll('[data-ajf]').forEach(function (b) { b.onclick = function () { if (P.bagian === 'acc') P.accF = b.getAttribute('data-ajf'); else P.ajF = b.getAttribute('data-ajf'); gambarPurch(); }; });
     el.querySelectorAll('[data-aj-a]').forEach(function (b) { b.onclick = function () { aksiAjuan(b); }; });
     el.querySelectorAll('[data-tanpa]').forEach(function (b) { b.onclick = function () { cekTanpa(b); }; });
+    var simpanM = function () { var r = $('mRef'), e = $('mEta'); if (r) P.mRef = r.value; if (e) P.mEta = e.value; };
+    el.querySelectorAll('[data-pilih]').forEach(function (c) { c.onchange = function () { simpanM(); P.pilih[c.getAttribute('data-pilih')] = c.checked; var y = window.scrollY; gambarPurch(); window.scrollTo(0, y); }; });
+    el.querySelectorAll('[data-pilihsemua]').forEach(function (c) { c.onchange = function () { simpanM(); el.querySelectorAll('[data-pilih]').forEach(function (x) { P.pilih[x.getAttribute('data-pilih')] = c.checked; }); gambarPurch(); }; });
+    el.querySelectorAll('[data-massal]').forEach(function (b) { b.onclick = function () { simpanM(); aksiMassal(b); }; });
     var rs = $('rSt'), rk = $('rKel'), rc = $('rCari');
     if (rs) rs.onchange = function () { P.rSt = rs.value; gambarPurch(); };
     if (rk) rk.onchange = function () { P.rKel = rk.value; gambarPurch(); };
@@ -2157,10 +2161,24 @@
     var tot = list.reduce(function (s, a) { return s + (a.qs !== null && a.qs !== undefined ? a.qs : a.q) * (a.h || 0); }, 0);
     h += '<div class="pilih2" role="group" aria-label="Saring pengajuan">' + (acc ? [['aktif', 'Belum diterima'], ['Disetujui', 'Belum dipesan'], ['Dipesan', 'Dipesan'], ['Diterima', 'Diterima'], ['', 'Semua']] : [['Menunggu', 'Menunggu ACC'], ['tutup', 'Ditolak / batal'], ['', 'Semua']]).map(function (b) { return '<button type="button" class="tbl" data-ajf="' + b[0] + '" aria-pressed="' + (F === b[0]) + '">' + b[1] + '</button>'; }).join('') + '</div>';
     h += '<p class="tl">' + list.length + ' pengajuan · perkiraan nilai ' + rp(tot) + '</p>';
+    // Tandai banyak sekaligus (tab Sudah di-ACC): centang pengajuan, lalu satu tombol untuk semua.
+    if (acc) {
+      var antreM = antreAjuan(), bisaM = list.filter(function (a) { return (a.st === 'Disetujui' || a.st === 'Dipesan') && !(antreM[a.no] && antreM[a.no].status === 'menunggu'); });
+      P.pilih = P.pilih || {};
+      Object.keys(P.pilih).forEach(function (no) { if (!bisaM.some(function (a) { return a.no === no; })) delete P.pilih[no]; });
+      var nS = bisaM.filter(function (a) { return a.st === 'Disetujui' && P.pilih[a.no]; }).length, nP = bisaM.filter(function (a) { return a.st === 'Dipesan' && P.pilih[a.no]; }).length;
+      if (bisaM.length) h += '<div class="cd" id="ajMassal" style="position:sticky;top:8px;z-index:5;border-color:var(--biru)"><div class="kpl"><h3>Tandai sekaligus</h3>' +
+        '<label class="sb" style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" data-pilihsemua' + (nS + nP === bisaM.length ? ' checked' : '') + ' style="width:20px;height:20px;accent-color:var(--biru)"> Pilih semua (' + bisaM.length + ')</label></div>' +
+        '<p class="sb" style="margin:0">Centang pengajuan di bawah, lalu tekan satu tombol. Terpilih: ' + nS + ' belum dipesan, ' + nP + ' sudah dipesan.</p>' +
+        (nS ? '<div class="mini"><label>Dipesan ke / ref PO<input class="isian" id="mRef" maxlength="120" value="' + esc(P.mRef || '') + '"></label><label>Perkiraan datang<input class="isian" type="date" id="mEta" min="' + esc(g.hariIni) + '" value="' + esc(P.mEta || '') + '"></label></div>' : '') +
+        '<div class="aksi-baris"><button type="button" class="tbl pri" data-massal="pesan"' + (nS ? '' : ' disabled') + '>Tandai dipesan (' + nS + ')</button>' +
+        '<button type="button" class="tbl pri" data-massal="terima"' + (nP ? '' : ' disabled') + '>Tandai diterima (' + nP + ')</button></div></div>';
+    }
     if (!list.length) return h + '<div class="cd"><div class="aman">' + (acc ? (F === 'aktif' ? 'Semua barang yang di-ACC sudah diterima.' : 'Tidak ada pengajuan.') : F === 'Menunggu' ? 'Tidak ada pengajuan yang menunggu ACC.' : 'Tidak ada pengajuan.') + '</div></div>' + catatanAjuan(acc);
     h += list.map(function (a) {
       var x = itemRobot(g, a.kel, a.k), an = antre[a.no], tunggu = an && an.status === 'menunggu', qv = a.qs !== null && a.qs !== undefined ? a.qs : a.q, hi = g.hariIni;
-      var c = '<div class="cd" data-aj="' + esc(a.no) + '"><div class="rq-kpl"><h3>' + esc(a.n) + '</h3><span class="sb">' + esc(a.no) + ' · ' + esc(a.wk) + '</span></div>' +
+      var cek = acc && !tunggu && (a.st === 'Disetujui' || a.st === 'Dipesan') ? '<input type="checkbox" data-pilih="' + esc(a.no) + '"' + (P.pilih && P.pilih[a.no] ? ' checked' : '') + ' aria-label="Pilih ' + esc(a.n) + '" style="width:22px;height:22px;margin-right:10px;vertical-align:-4px;accent-color:var(--biru)">' : '';
+      var c = '<div class="cd" data-aj="' + esc(a.no) + '"' + (cek && P.pilih[a.no] ? ' style="border-color:var(--biru);background:#F6FAFD"' : '') + '><div class="rq-kpl"><h3>' + cek + esc(a.n) + '</h3><span class="sb">' + esc(a.no) + ' · ' + esc(a.wk) + '</span></div>' +
         '<div class="rq-mt" style="margin-top:6px"><span class="label ' + (WARNA_AJ[a.st] || 'abu') + '">' + esc(a.st) + '</span>' + (a.imp ? '<span class="label biru">Impor</span>' : '<span class="label abu">Lokal</span>') + '<span class="label abu">' + esc(a.kel) + '</span>' + (a.sr ? '<span class="label ' + (WARNA_RB[a.sr] || 'abu') + '">Robot: ' + esc(a.sr) + '</span>' : '') + '</div>' +
         '<div class="sb" style="margin-top:6px">' + esc(a.bg) + ' · diajukan ' + esc(a.pg) + (a.al ? ' · alasan: ' + esc(a.al) : '') + '</div>' +
         '<div style="margin-top:6px">Qty diajukan <b class="angka">' + angkaId(a.q, 2) + ' ' + esc(a.s) + '</b>' + (a.h ? ' × ' + rp(a.h) + ' = <b class="angka">' + rp(a.q * a.h) + '</b>' : '') + (a.qs !== null && a.qs !== undefined && a.qs !== a.q ? ' · disetujui <b class="angka">' + angkaId(a.qs, 2) + '</b>' : '') + '</div>' +
@@ -2269,6 +2287,26 @@
     await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(ringkas).slice(0, 150) });
     await muatAksi(); gambarPurch();
     $('msgPurch').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar di halaman ini diperbarui paling lambat 10 menit lagi.</div>';
+  }
+  async function aksiMassal(b) {
+    var a = b.getAttribute('data-massal'), g = D.pengadaan, st = a === 'pesan' ? 'Disetujui' : 'Dipesan';
+    var L = g.ajuan.filter(function (x) { return x.st === st && P.pilih && P.pilih[x.no]; });
+    var salah = function (t) { $('msgPurch').innerHTML = '<div class="msg bad">' + esc(t) + '</div>'; window.scrollTo(0, 0); };
+    if (!L.length) { salah('Centang pengajuan dulu.'); return; }
+    if (a === 'pesan' && !P.mEta) { salah('Isi perkiraan tanggal barang datang.'); return; }
+    if (!confirm('Tandai ' + L.length + ' pengajuan ' + (a === 'pesan' ? 'sudah dipesan' : 'sudah diterima') + '?\n\n' + L.map(function (x) { return '• ' + x.n; }).join('\n'))) return;
+    b.disabled = true;
+    var nos = L.map(function (x) { return x.no; });
+    var r = await sb.rpc('pengadaan_aksi', { p_aksi: a, p_nos: nos, p_qty: null, p_catatan: '', p_ref: a === 'pesan' ? (P.mRef || '') : '', p_eta: a === 'pesan' ? P.mEta : '', p_nama: '' });
+    if (r.error) { salah('Gagal menyimpan: ' + r.error.message); b.disabled = false; return; }
+    if (!r.data || !r.data.ok) { salah((r.data && r.data.pesan) || 'Gagal menyimpan.'); b.disabled = false; return; }
+    var lewat = String(r.data.pesan || '');
+    L.forEach(function (x) { if (lewat.indexOf(x.no + ' (') === -1) { x.st = a === 'pesan' ? 'Dipesan' : 'Diterima'; if (a === 'pesan') { x.ref = P.mRef || ''; x.eta = P.mEta; } } delete P.pilih[x.no]; });
+    if (a === 'pesan') { P.mRef = ''; P.mEta = ''; }
+    salinKeSheetGaji();
+    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah tandai ' + nos.length + ' pengajuan ' + (a === 'pesan' ? 'dipesan' : 'diterima') });
+    await muatAksi(); gambarPurch();
+    $('msgPurch').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + '</div>';
   }
   async function cekTanpa(b) {
     var no = b.getAttribute('data-tanpa'); b.disabled = true;
