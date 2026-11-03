@@ -57,9 +57,13 @@
     '.lp-pie li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lp-pie li b{font-variant-numeric:tabular-nums;font-weight:700}' +
     '.lp-pie li em{font-style:normal;color:var(--abu);font-weight:400;margin-left:4px}' +
     '.lp-pie .ket{font-size:11px;color:var(--abu);margin:6px 0 0}' +
+    '.lp-ttp{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-top:14px;align-items:end}' +
+    '.lp-rk{width:100%;border-collapse:collapse;font-size:12.5px}.lp-rk td{padding:4px 6px;border-bottom:1px solid var(--garis2)}.lp-rk td:last-child{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}' +
+    '.lp-rk caption{text-align:left;font-weight:800;color:#1F3A5F;font-size:13px;padding:0 0 4px}.lp-rk tr.t td{font-weight:800;border-top:2px solid #1F3A5F;border-bottom:0;background:#F3F5F8}' +
+    '.lp-ttd{text-align:center;font-size:12px;color:#4A5563}.lp-ttd .gs{height:56px}.lp-ttd b{display:block;border-top:1px solid #4A5563;padding-top:4px;color:#1F3A5F}' +
     '.lp-isi{display:grid;grid-template-columns:1fr 1fr;gap:2px 24px;font-size:12px;margin-top:14px;color:#4A5563}' +
     '.lp-isi h4{grid-column:1/-1;margin:0 0 4px;font-size:13px;color:#1F3A5F}' +
-    '@media (max-width:700px){.lp-pie{grid-template-columns:1fr}.lp-kop img{height:34px}.lp-isi{grid-template-columns:1fr}}' +
+    '@media (max-width:700px){.lp-pie,.lp-ttp{grid-template-columns:1fr}.lp-kop img{height:34px}.lp-isi{grid-template-columns:1fr}}' +
     '.lp-gaji .lp-t td:first-child{min-width:170px}.lp-gaji .lp-t td:nth-child(2){min-width:110px}' +
     '@media (max-width:600px){.lp-t{font-size:12px}.lp-t th,.lp-t td{padding:7px 6px 7px 0}.lp-t small{font-size:11px}.lp-kp{grid-template-columns:1fr 1fr;gap:8px}.lp-kp b{font-size:17px}.lp-aksi .tbl{flex:1 1 auto}}' +
     '@media print{' +
@@ -77,7 +81,8 @@
     '  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
     '  .lp-top,.lp-layar{display:none!important}' +
     '  .lp-sampul{border:0;padding:0;margin:0;break-after:page}.lp-sampul .lp-kp{gap:8px}.lp-sampul .lp-kp{grid-template-columns:repeat(4,minmax(0,1fr))!important}.lp-sampul .lp-kp b{font-size:14px}.lp-sampul .lp-kp small{font-size:9.5px}.lp-sampul .lp-kp div{padding:8px 10px}' +
-    '  .lp-pie{gap:10px}.lp-pie svg{flex-basis:118px;width:118px;height:118px}' +
+    '  .lp-pie{gap:10px}.lp-pie svg{flex-basis:112px;width:112px;height:112px}.lp-pie .isi{gap:10px}.lp-pie ul{font-size:9.5px}.lp-pie li span{white-space:normal;line-height:1.2}.lp-pie>div{padding:10px}' +
+    '  .lp-rk{font-size:10.5px}.lp-isi{font-size:10.5px}.lp-ttd{font-size:10.5px}' +
     '  .lp-sec{break-before:auto!important}.lp-sec+.lp-sec{break-before:page!important}' +
     '  .lp-sec h3{font-size:15px;color:#1F3A5F;border-bottom:2px solid #1F3A5F;padding-bottom:6px;margin:0 0 10px}' +
     '  .lp-t th{background:#EEF2F6;color:#1F3A5F;padding-left:4px}.lp-t td:first-child,.lp-t th:first-child{padding-left:4px}' +
@@ -367,6 +372,13 @@
       donat('Total penerimaan per sumber', gTerima, ['Penerimaan', jt(H.terima)]) +
       donat('Penggunaan total penerimaan', gProfit, ['Profit bersih', jt(profit)], profit < 0 ? 'Biaya melebihi penerimaan sebesar ' + rp(-profit) + '.' : 'Profit bersih = total penerimaan − biaya operasional − gaji & payroll − pembelian barang & bahan.') +
       '</div>' +
+      '<div class="lp-ttp"><table class="lp-rk"><caption>Ringkasan arus uang</caption>' +
+      '<tr><td>Total penerimaan</td><td>' + rp(H.terima) + '</td></tr>' +
+      '<tr><td>− Biaya operasional</td><td>' + rp(-H.op) + '</td></tr>' +
+      '<tr><td>− Gaji &amp; payroll</td><td>' + rp(-H.gaji) + '</td></tr>' +
+      '<tr><td>− Pembelian barang &amp; bahan</td><td>' + rp(-H.beli) + '</td></tr>' +
+      '<tr class="t"><td>Profit bersih</td><td>' + rp(profit) + '</td></tr></table>' +
+      '<div class="lp-ttd">Badung, ' + tgl(D.hari) + '<div class="gs"></div><b>manajemen Moscow Supplies</b></div></div>' +
       '<div class="lp-isi"><h4>Isi laporan</h4>' + isi.map(function (t, i) { return '<div>' + (i + 1) + '. ' + esc(t) + '</div>'; }).join('') + '</div>' +
       '</div>';
   }
