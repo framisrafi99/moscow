@@ -1006,11 +1006,11 @@
       doc.setDrawColor.apply(doc, tosca); doc.setLineWidth(0.8); doc.line(L, 40, L + W, 40);
     };
     kepala();
-    y = 47; doc.setFontSize(8); doc.setTextColor.apply(doc, abu); doc.text('KEPADA', L, y); doc.text('DARI', L + W / 2 + 6, y);
+    y = 47; doc.setFontSize(8); doc.setTextColor.apply(doc, abu); doc.text('KEPADA', L, y); doc.text('DARI', L + W, y, { align: 'right' });
     y += 5.5; doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor.apply(doc, tinta);
-    doc.text('Mike & Francois Junior Bogaard', L, y); doc.text('Manajemen Moscow Supplies', L + W / 2 + 6, y);
+    doc.text('Mike & Francois Junior Bogaard', L, y); doc.text('Manajemen Moscow Supplies', L + W, y, { align: 'right' });
     y += 5; doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor.apply(doc, abu);
-    doc.text('Bagi hasil margin penjualan produk Kenka', L, y); doc.text('PT. Toentoenan Langkah Elohim', L + W / 2 + 6, y);
+    doc.text('Bagi hasil margin penjualan produk Kenka', L, y); doc.text('PT. Toentoenan Langkah Elohim', L + W, y, { align: 'right' });
     if (!T) { y += 8; doc.setFillColor(255, 243, 214); doc.rect(L, y - 4.5, W, 7, 'F'); doc.setTextColor(120, 70, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.text('DRAF - invoice belum terbit; angka bisa berubah.', L + 2, y); doc.setFont('helvetica', 'normal'); }
     y += 8;
     var gaya = { theme: 'grid', margin: { left: L, right: L }, styles: { fontSize: 7.6, cellPadding: 1.6, textColor: tinta }, headStyles: { fillColor: biru, textColor: 255, fontSize: 7.4 },
