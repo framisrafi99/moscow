@@ -39,6 +39,26 @@
     '.lp-akun{border:1px solid var(--garis);border-radius:12px;padding:12px 14px;margin-top:10px}' +
     '.lp-akun h4{margin:0 0 6px;font-size:15px;display:flex;justify-content:space-between;gap:8px}' +
     '.lp-print-only{display:none}' +
+    '.lp-sampul{background:#fff;border:1px solid var(--garis);border-radius:16px;padding:22px 24px;margin-bottom:16px}' +
+    '.lp-kop{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:12px;border-bottom:3px double #1F3A5F}' +
+    '.lp-kop img{height:46px;width:auto}.lp-kop .pt{text-align:right;font-size:11.5px;line-height:1.45;color:#4A5563}' +
+    '.lp-kop .pt b{display:block;font-size:14px;color:#1F3A5F;letter-spacing:.02em}' +
+    '.lp-jdl{text-align:center;margin:18px 0 16px}.lp-jdl h1{margin:0;font-size:21px;font-weight:800;color:#1F3A5F}' +
+    '.lp-jdl p{margin:4px 0 0;font-size:12.5px;color:#4A5563}' +
+    '.lp-sampul .lp-kp div{border-left:4px solid var(--w,#1F3A5F)}' +
+    '.lp-pie{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}' +
+    '.lp-pie>div{border:1px solid var(--garis);border-radius:12px;padding:12px 14px;break-inside:avoid}' +
+    '.lp-pie h4{margin:0 0 8px;font-size:13.5px;color:#1F3A5F}' +
+    '.lp-pie .isi{display:flex;align-items:center;gap:14px}.lp-pie svg{flex:0 0 132px;width:132px;height:132px}' +
+    '.lp-pie ul{list-style:none;margin:0;padding:0;flex:1;min-width:0;font-size:11.5px}' +
+    '.lp-pie li{display:grid;grid-template-columns:10px 1fr auto;gap:6px;align-items:baseline;padding:2px 0;border-bottom:1px dotted #E1E5EA}' +
+    '.lp-pie li i{width:10px;height:10px;border-radius:2px;display:block;align-self:center}' +
+    '.lp-pie li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lp-pie li b{font-variant-numeric:tabular-nums;font-weight:700}' +
+    '.lp-pie li em{font-style:normal;color:var(--abu);font-weight:400;margin-left:4px}' +
+    '.lp-pie .ket{font-size:11px;color:var(--abu);margin:6px 0 0}' +
+    '.lp-isi{display:grid;grid-template-columns:1fr 1fr;gap:2px 24px;font-size:12px;margin-top:14px;color:#4A5563}' +
+    '.lp-isi h4{grid-column:1/-1;margin:0 0 4px;font-size:13px;color:#1F3A5F}' +
+    '@media (max-width:700px){.lp-pie{grid-template-columns:1fr}.lp-kop img{height:34px}.lp-isi{grid-template-columns:1fr}}' +
     '.lp-gaji .lp-t td:first-child{min-width:170px}.lp-gaji .lp-t td:nth-child(2){min-width:110px}' +
     '@media (max-width:600px){.lp-t{font-size:12px}.lp-t th,.lp-t td{padding:7px 6px 7px 0}.lp-t small{font-size:11px}.lp-kp{grid-template-columns:1fr 1fr;gap:8px}.lp-kp b{font-size:17px}.lp-aksi .tbl{flex:1 1 auto}}' +
     '@media print{' +
@@ -53,6 +73,14 @@
     '  .lp-t{font-size:10.5px}.lp-t th,.lp-t td{padding:4px 6px 4px 0}' +
     '  .lp-gl{overflow:visible}.lp-print-only{display:block}' +
     '  .lp-kp div{border:1px solid #ccc}' +
+    '  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    '  .lp-top,.lp-layar{display:none!important}' +
+    '  .lp-sampul{border:0;padding:0;margin:0;break-after:page}.lp-sampul .lp-kp{gap:8px}.lp-sampul .lp-kp b{font-size:15px}.lp-sampul .lp-kp div{padding:8px 10px}' +
+    '  .lp-pie{gap:10px}.lp-pie svg{flex-basis:118px;width:118px;height:118px}' +
+    '  .lp-sec{break-before:auto!important}.lp-sec+.lp-sec{break-before:page!important}' +
+    '  .lp-sec h3{font-size:15px;color:#1F3A5F;border-bottom:2px solid #1F3A5F;padding-bottom:6px;margin:0 0 10px}' +
+    '  .lp-t th{background:#EEF2F6;color:#1F3A5F;padding-left:4px}.lp-t td:first-child,.lp-t th:first-child{padding-left:4px}' +
+    '  .lp-t tr.tot td{background:#F3F5F8}' +
     '}';
 
   var S = { data: null, bulan: '', memuat: false };
@@ -123,7 +151,7 @@
     b.push(tr(['TOTAL OMZET', '', '', '', rp(H.omzet)], [4], 'tot'));
     return '<div class="cd lp-sec" id="lp1"><h3><span class="no">1</span>Omzet</h3>' +
       tabel(['Saluran', 'Penjualan / pesanan', 'Pcs', 'Retur', 'Omzet bersih'], b, [1, 2, 3, 4]) +
-      '<p class="lp-cat">Official = file ekspor pesanan marketplace (tanpa pesanan batal / belum bayar, dikurangi retur). Consignment & Toko Offline = penjualan yang dilaporkan staf, dikurangi barang retur. Reseller = order yang sudah dibayar (status Selesai). Order berstatus Dikirim belum dibayar reseller sehingga belum dihitung; ubah status order ke Selesai setelah transfer masuk.</p></div>';
+      '<p class="lp-cat">Official = file ekspor pesanan marketplace (tanpa pesanan batal / belum bayar, dikurangi retur). Consignment & Toko Offline = penjualan yang dilaporkan staf, dikurangi barang retur. Reseller = order berstatus Dikirim / Selesai. Order baru masuk penerimaan (bagian 6) setelah berstatus Selesai, yaitu sudah ditransfer reseller.</p></div>';
   }
 
   function bagian2(D, H) {
@@ -296,6 +324,52 @@
     return h + '</div>';
   }
 
+  var WARNA = ['#1F3A5F', '#2A9D8F', '#E9A23B', '#6C8EBF', '#C8553D', '#8AA05B', '#9AA3AE'];
+  function jt(v) { v = Number(v) || 0; return (v < 0 ? '−' : '') + 'Rp' + (Math.abs(v) / 1e6).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + ' jt'; }
+  // Grafik donat (SVG, ikut tercetak). items: [{n, v}]; maks 6 irisan, sisanya "Lainnya".
+  function donat(judul, items, tengah, ket) {
+    var L = items.filter(function (x) { return x.v > 0; }).sort(function (a, b) { return b.v - a.v; });
+    if (L.length > 6) { var sisa = L.slice(5); L = L.slice(0, 5).concat([{ n: 'Lainnya (' + sisa.length + ')', v: jml(sisa, function (x) { return x.v; }) }]); }
+    var tot = jml(L, function (x) { return x.v; }), R = 52, K = 2 * Math.PI * R, awal = 0;
+    var svg = '<svg viewBox="0 0 132 132" role="img" aria-label="' + esc(judul) + '"><circle cx="66" cy="66" r="' + R + '" fill="none" stroke="#EEF1F4" stroke-width="22"/>';
+    L.forEach(function (x, i) {
+      var p = tot ? x.v / tot : 0, pj = p * K;
+      svg += '<circle cx="66" cy="66" r="' + R + '" fill="none" stroke="' + (x.w || WARNA[i % WARNA.length]) + '" stroke-width="22" stroke-dasharray="' + pj.toFixed(2) + ' ' + (K - pj).toFixed(2) + '" stroke-dashoffset="' + (-awal).toFixed(2) + '" transform="rotate(-90 66 66)"/>';
+      awal += pj;
+    });
+    svg += '<text x="66" y="63" text-anchor="middle" font-size="9" fill="#6B7380">' + esc(tengah[0]) + '</text><text x="66" y="77" text-anchor="middle" font-size="12.5" font-weight="800" fill="#1F3A5F">' + esc(tengah[1]) + '</text></svg>';
+    var ul = '<ul>' + L.map(function (x, i) { return '<li><i style="background:' + (x.w || WARNA[i % WARNA.length]) + '"></i><span title="' + esc(x.n) + '">' + esc(x.n) + '</span><b>' + jt(x.v) + '<em>' + (tot ? Math.round(x.v / tot * 100) : 0) + '%</em></b></li>'; }).join('') + '</ul>';
+    return '<div><h4>' + esc(judul) + '</h4><div class="isi">' + (tot ? svg + ul : '<p class="ket">Belum ada data.</p>') + '</div>' + (ket ? '<p class="ket">' + ket + '</p>' : '') + '</div>';
+  }
+  function sampul(D, H) {
+    var O = D.omzet;
+    var gOmzet = O.official.map(function (x) { return { n: NAMA_PF[x.pf], v: x.v }; })
+      .concat(H.cons.map(function (x) { return { n: x.toko, v: x.bersih }; }))
+      .concat([{ n: 'Toko Offline', v: H.offl.bersih }, { n: 'Reseller', v: H.res + H.resBelum }]);
+    var kat = {}; (D.keluar || []).forEach(function (a) { (a.kat || []).forEach(function (k) { kat[k.k] = (kat[k.k] || 0) + (Number(k.v) || 0); }); });
+    var gKeluar = Object.keys(kat).map(function (k) { return { n: k, v: kat[k] }; });
+    var gTerima = [{ n: 'Marketplace (dana cair)', v: H.offTerima }, { n: 'Setoran consignment', v: H.moscow || 0 }, { n: 'Toko Offline', v: H.offl.bersih }, { n: 'Reseller (sudah dibayar)', v: H.res }];
+    var profit = H.bersihSemua;
+    var gProfit = [{ n: 'Biaya operasional', v: H.op, w: '#6C8EBF' }, { n: 'Gaji & payroll', v: H.gaji, w: '#E9A23B' }, { n: 'Pembelian barang & bahan', v: H.beli, w: '#C8553D' }, { n: 'Profit bersih', v: profit, w: '#2A9D8F' }];
+    var isi = ['Omzet', 'Pengeluaran per sumber dana', 'Gaji & payroll', 'Pemakaian bahan baku, botol, stiker & packaging', 'Sisa stok produk & produk yang bertambah', 'Penerimaan bersih', 'Aset barang per lokasi', 'Bagi hasil produk Kenka'];
+    return '<div class="lp-sampul">' +
+      '<div class="lp-kop"><img src="logo-warna.png" alt="Moscow Supplies"><div class="pt"><b>PT. TOENTOENAN LANGKAH ELOHIM</b>Moscow Supplies<br>Jl. Raya Kerobokan No. 8, Kuta Utara, Badung, Bali</div></div>' +
+      '<div class="lp-jdl"><h1>Laporan Keuangan Bulanan</h1><p>Periode ' + tgl(D.dari) + ' – ' + tgl(D.sampai) + (D.berjalan ? ' (bulan berjalan)' : '') + ' · disiapkan oleh manajemen Moscow Supplies untuk konsultan pajak</p></div>' +
+      '<div class="lp-kp">' +
+      '<div style="--w:#1F3A5F"><span>Omzet</span><b>' + rp(H.omzet) + '</b><small>semua saluran penjualan</small></div>' +
+      '<div style="--w:#C8553D"><span>Uang keluar</span><b>' + rp(H.keluar) + '</b><small>Rekening Belanja, ShopeePay, Kas Tunai</small></div>' +
+      '<div style="--w:#6C8EBF"><span>Total penerimaan</span><b>' + rp(H.terima) + '</b><small>setelah potongan platform & bagian toko</small></div>' +
+      '<div style="--w:#2A9D8F"><span>Profit bersih</span><b>' + rp(profit) + '</b><small>setelah biaya operasional, gaji & pembelian</small></div></div>' +
+      '<div class="lp-pie">' +
+      donat('Omzet per saluran', gOmzet, ['Omzet', jt(H.omzet)]) +
+      donat('Uang keluar per kategori', gKeluar, ['Uang keluar', jt(H.keluar)]) +
+      donat('Total penerimaan per sumber', gTerima, ['Penerimaan', jt(H.terima)]) +
+      donat('Penggunaan total penerimaan', gProfit, ['Profit bersih', jt(profit)], profit < 0 ? 'Biaya melebihi penerimaan sebesar ' + rp(-profit) + '.' : 'Profit bersih = total penerimaan − biaya operasional − gaji & payroll − pembelian barang & bahan.') +
+      '</div>' +
+      '<div class="lp-isi"><h4>Isi laporan</h4>' + isi.map(function (t, i) { return '<div>' + (i + 1) + '. ' + esc(t) + '</div>'; }).join('') + '</div>' +
+      '</div>';
+  }
+
   function gambar(el, opsi) {
     if (!document.getElementById('lpCss')) { var s = document.createElement('style'); s.id = 'lpCss'; s.textContent = CSS; document.head.appendChild(s); }
     var D = S.data;
@@ -306,12 +380,9 @@
       '<button type="button" class="tbl" id="lpExcel">Unduh Excel</button><button type="button" class="tbl" id="lpPdf">Cetak / Simpan PDF</button>' +
       (D.berjalan ? '<button type="button" class="tbl" id="lpArsip" title="Simpan posisi stok & bagi hasil saat ini untuk laporan bulan ini">Arsipkan posisi akhir bulan</button>' : '') + '</div></div>';
     if (S.pesan) h += '<div class="msg ' + (S.kelas || 'ok') + '">' + esc(S.pesan) + '</div>';
-    if (D.arsip) h += '<p class="lp-cat" style="margin:-6px 0 12px">Arsip posisi akhir bulan dibuat ' + esc(String(D.arsip.dibuat || '').slice(0, 16).replace('T', ' ')) + (D.arsip.oleh ? ' oleh ' + esc(D.arsip.oleh) : '') + '.</p>';
-    else if (D.berjalan) h += '<p class="lp-cat" style="margin:-6px 0 12px">Sisa stok dan aset per lokasi di bawah adalah posisi saat ini. Pada tanggal terakhir bulan (setelah hitung fisik), tekan "Arsipkan posisi akhir bulan" supaya laporan ' + esc(namaBulan(D.bulan)) + ' tetap bisa dibuka bulan depan.</p>';
-    h += '<div class="lp-kp"><div><span>Omzet</span><b>' + rp(H.omzet) + '</b><small>semua saluran</small></div>' +
-      '<div><span>Uang keluar (3 sumber dana)</span><b>' + rp(H.keluar) + '</b><small>Rekening Belanja, ShopeePay, Kas Tunai</small></div>' +
-      '<div><span>Total penerimaan</span><b>' + rp(H.terima) + '</b><small>setelah potongan platform & bagian toko</small></div>' +
-      '<div><span>Penerimaan bersih</span><b>' + rp(H.bersihOp) + '</b><small>setelah biaya operasional &amp; gaji</small></div></div>';
+    if (D.arsip) h += '<p class="lp-cat lp-layar" style="margin:-6px 0 12px">Arsip posisi akhir bulan dibuat ' + esc(String(D.arsip.dibuat || '').slice(0, 16).replace('T', ' ')) + (D.arsip.oleh ? ' oleh ' + esc(D.arsip.oleh) : '') + '.</p>';
+    else if (D.berjalan) h += '<p class="lp-cat lp-layar" style="margin:-6px 0 12px">Sisa stok dan aset per lokasi di bawah adalah posisi saat ini. Pada tanggal terakhir bulan (setelah hitung fisik), tekan "Arsipkan posisi akhir bulan" supaya laporan ' + esc(namaBulan(D.bulan)) + ' tetap bisa dibuka bulan depan.</p>';
+    h += sampul(D, H);
     h += bagian1(D, H) + bagian2(D, H) + bagianGaji(D, H) + bagian3(D) + bagian4(D, H) + bagian5(D, H) + bagian6(D, H) + bagianKenka(D);
     h += '<p class="lp-cat lp-print-only">Dicetak dari Master Data Moscow Supplies, ' + tgl(D.hari) + '.</p>';
     el.innerHTML = h;
@@ -362,6 +433,8 @@
     var d = el.querySelectorAll('details'), buka = [];
     d.forEach(function (x) { buka.push(x.open); x.open = true; });
     var judul = document.title; document.title = 'Laporan Moscow Supplies ' + namaBulan(S.data.bulan);
+    var f = document.getElementById('lpCetakCss') || document.head.appendChild(Object.assign(document.createElement('style'), { id: 'lpCetakCss' }));
+    f.textContent = '@media print{@page{@bottom-left{content:"Moscow Supplies  ·  Laporan Keuangan ' + namaBulan(S.data.bulan) + '";font-size:8pt;color:#6B7380}@bottom-right{content:"Halaman " counter(page) " / " counter(pages);font-size:8pt;color:#6B7380}}}';
     setTimeout(function () {
       window.print();
       document.title = judul;
