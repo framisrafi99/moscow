@@ -92,6 +92,7 @@
     var op = kel['Biaya operasional'] || 0, beli = kel['Pembelian barang & bahan'] || 0;
     // Gaji: dari payroll (total biaya PT). Gaji yang juga tercatat di Accounting dikeluarkan dari biaya operasional supaya tidak terhitung dua kali.
     var gajiAcc = 0; (D.keluar || []).forEach(function (a) { (a.kat || []).forEach(function (k) { if (/gaji|payroll|bonus bagi hasil kenka/i.test(k.k)) gajiAcc += Number(k.v) || 0; }); });
+    if (typeof D.gajiAcc === 'number') gajiAcc = D.gajiAcc; // semua akun (termasuk Rekening PT), SQL 136
     var G = ringkasGaji(D.gaji || []), gaji = G.n ? G.biaya : gajiAcc, opTanpa = op - gajiAcc;
     return { off: off, offTerima: offTerima, cons: cons, consB: consB, offl: offl, res: res, omzet: off + consB + offl.bersih + res, keluar: keluar, kel: kel,
       moscow: moscow, terima: terima, op: opTanpa, gaji: gaji, gajiAcc: gajiAcc, G: G, beli: beli,
@@ -332,6 +333,8 @@
       // Payroll bulan itu dari form Payroll.
       var g = await opsi.sb.rpc('laporan_gaji', { p_bulan: r.data.bulan });
       r.data.gaji = g.error ? [] : g.data || [];
+      var ga = await opsi.sb.rpc('laporan_gaji_acc', { p_bulan: r.data.bulan });
+      if (!ga.error && ga.data != null) r.data.gajiAcc = Number(ga.data) || 0;
     }
     // Bagi hasil consignment bulan yang sudah lewat tanpa arsip: dihitung langsung dari Supabase (bhmd.js), sama dengan menu Bagi hasil.
     if (!r.error && r.data && !r.data.bh && !(r.data.arsip && r.data.arsip.bh) && window.BagiHasilMd) {
