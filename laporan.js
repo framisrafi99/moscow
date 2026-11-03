@@ -93,9 +93,12 @@
     // Gaji: dari payroll (total biaya PT). Gaji yang juga tercatat di Accounting dikeluarkan dari biaya operasional supaya tidak terhitung dua kali.
     var gajiAcc = 0; (D.keluar || []).forEach(function (a) { (a.kat || []).forEach(function (k) { if (/gaji|payroll|bonus bagi hasil kenka/i.test(k.k)) gajiAcc += Number(k.v) || 0; }); });
     if (typeof D.gajiAcc === 'number') gajiAcc = D.gajiAcc; // semua akun (termasuk Rekening PT), SQL 136
-    var G = ringkasGaji(D.gaji || []), gaji = G.n ? G.biaya : gajiAcc, opTanpa = op - gajiAcc;
+    // Potongan platform yang dicatat di akun "(belum cair)" sudah terpotong dari dana cair: jangan dihitung lagi sebagai biaya (SQL 137).
+    var semuaDana = O.official.every(function (x) { return !x.v || danaOff(D, x.pf); });
+    var potAcc = semuaDana && typeof D.potAcc === 'number' ? D.potAcc : 0;
+    var G = ringkasGaji(D.gaji || []), gaji = G.n ? G.biaya : gajiAcc, opTanpa = op - gajiAcc - potAcc;
     return { off: off, offTerima: offTerima, cons: cons, consB: consB, offl: offl, res: res, omzet: off + consB + offl.bersih + res, keluar: keluar, kel: kel,
-      moscow: moscow, terima: terima, op: opTanpa, gaji: gaji, gajiAcc: gajiAcc, G: G, beli: beli,
+      moscow: moscow, terima: terima, op: opTanpa, gaji: gaji, gajiAcc: gajiAcc, potAcc: potAcc, G: G, beli: beli,
       bersihOp: terima - opTanpa - gaji, bersihSemua: terima - opTanpa - gaji - beli, P: P };
   }
 
@@ -246,7 +249,7 @@
     b.push(tr(['<b>Toko Offline</b>', rp(H.offl.bersih), '–', rp(H.offl.bersih)], [1, 2, 3], 'g'));
     b.push(tr(['<b>Reseller (dibayar)</b>', rp(H.res), '–', rp(H.res)], [1, 2, 3], 'g'));
     b.push(tr(['TOTAL PENERIMAAN', '', '', rp(H.terima)], [3], 'tot'));
-    b.push(tr(['− Biaya operasional Moscow' + (H.gajiAcc ? '<small>tanpa gaji yang tercatat di Accounting</small>' : ''), '', '', rp(-H.op)], [3]));
+    b.push(tr(['− Biaya operasional Moscow' + (H.gajiAcc || H.potAcc ? '<small>tanpa ' + [H.gajiAcc ? 'gaji yang tercatat di Accounting' : '', H.potAcc ? 'potongan platform ' + rp(H.potAcc) + ' (sudah terpotong dari dana cair)' : ''].filter(Boolean).join(' dan ') + '</small>' : ''), '', '', rp(-H.op)], [3]));
     b.push(tr(['− Gaji &amp; payroll<small>' + (H.G.n ? 'total biaya PT, ' + fmt(H.G.n) + ' orang (bagian 3)' : H.gajiAcc ? 'dari Accounting (payroll bulan ini belum diisi)' : 'payroll bulan ini belum diisi') + '</small>', '', '', H.gaji ? rp(-H.gaji) : '–'], [3]));
     b.push(tr(['PENERIMAAN BERSIH setelah biaya operasional &amp; gaji', '', '', rp(H.bersihOp)], [3], 'tot'));
     b.push(tr(['− Pembelian barang & bahan', '', '', rp(-H.beli)], [3]));
@@ -335,6 +338,8 @@
       r.data.gaji = g.error ? [] : g.data || [];
       var ga = await opsi.sb.rpc('laporan_gaji_acc', { p_bulan: r.data.bulan });
       if (!ga.error && ga.data != null) r.data.gajiAcc = Number(ga.data) || 0;
+      var pa = await opsi.sb.rpc('laporan_potongan_acc', { p_bulan: r.data.bulan });
+      if (!pa.error && pa.data != null) r.data.potAcc = Number(pa.data) || 0;
     }
     // Bagi hasil consignment bulan yang sudah lewat tanpa arsip: dihitung langsung dari Supabase (bhmd.js), sama dengan menu Bagi hasil.
     if (!r.error && r.data && !r.data.bh && !(r.data.arsip && r.data.arsip.bh) && window.BagiHasilMd) {
