@@ -778,7 +778,7 @@
   function logoPdfMd() {
     return new Promise(function (ok) {
       var im = new Image();
-      im.onload = function () { try { var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d').drawImage(im, 0, 0); ok({ data: c.toDataURL('image/png'), w: im.naturalWidth, h: im.naturalHeight }); } catch (e) { ok(null); } };
+      im.onload = function () { try { var sk = Math.min(1, 520 / (im.naturalWidth || 520)), c = document.createElement('canvas'); c.width = Math.round(im.naturalWidth * sk); c.height = Math.round(im.naturalHeight * sk); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); ok({ data: c.toDataURL('image/png'), w: c.width, h: c.height }); } catch (e) { ok(null); } };
       im.onerror = function () { ok(null); };
       im.src = 'logo-warna.png';
     });
@@ -882,7 +882,8 @@
     ['K017', 'Kenka Sole Sauce 100ml'], ['K018', 'Kenka Sole Sauce 1 L']];
   var KENKA_MIKE50 = { K017: 1, K018: 1 };
   var KENKA_SAL = { Shopee: 'Shopee Official', Tokopedia: 'TikTok Shop Official', Lazada: 'Lazada Official' };
-  var KH = { bulan: '', data: {}, muat: {}, pdf: null };
+  var KH = { bulan: '', data: {}, muat: {}, pdf: null, pilih: {} };
+  var KENKA_BAHAN = /texaphon|lexaine|nacl|atinsoft|jerigen 5|hidrogen|peroxide|fragrance|almond|castor|peg ?40|beeswax|shea|kaleng pomade/i;
   function noKenka(b) { return 'BHK-' + String(b || '').slice(2, 4) + String(b || '').slice(5, 7) + '-001'; }
   function hitungKenka(d, bh) {
     var nama = {}, urut = {}; KENKA.forEach(function (x, i) { nama[x[0]] = x[1]; urut[x[0]] = i; });
@@ -929,7 +930,8 @@
           if (r.error) throw new Error(r.error.message);
           if (!r.data || r.data.ok === false) throw new Error((r.data && r.data.pesan) || 'Data tidak tersedia.');
           var bh = r.data.terbit ? null : await window.BagiHasilMd.hitung(sb, bln);
-          KH.data[bln] = { ok: true, raw: r.data, H: r.data.terbit ? r.data.terbit.data : hitungKenka(r.data, bh), terbit: r.data.terbit };
+          var bl = await sb.rpc('kenka_bh_beli', { p_bulan: bln });
+          KH.data[bln] = { ok: true, raw: r.data, H: r.data.terbit ? r.data.terbit.data : hitungKenka(r.data, bh), terbit: r.data.terbit, beli: Array.isArray(bl.data) ? bl.data : [] };
         } catch (e) { KH.data[bln] = { ok: false, pesan: e.message || String(e) }; }
         KH.muat[bln] = false;
         if (J.bagian === 'kenka' && KH.bulan === bln && $('jIsi')) gambarKenka($('jIsi'));
@@ -954,6 +956,22 @@
       }).join('') + '</tbody></table></div></div>';
     if (H.kurang && H.kurang.length) h += '<div class="msg w">Hitungan bagi hasil toko belum tersedia untuk ' + esc(H.kurang.join(', ')) + '; bagian toko belum dipotong.</div>';
     var simpan = {}; try { simpan = JSON.parse(localStorage.getItem('kenkaCatatan') || '{}') || {}; } catch (e) { simpan = {}; }
+    // Lampiran pengeluaran bahan baku Kenka (dibeli dengan uang Moscow) - hanya keterangan, tidak mengubah bagi hasil.
+    if (!KH.pilih[bln]) {
+      var awal = {};
+      if (T && T.data && Array.isArray(T.data.bahan)) T.data.bahan.forEach(function (x) { awal[x.no] = 1; });
+      else (d.beli || []).forEach(function (x) { if (KENKA_BAHAN.test(x.ket || '')) awal[x.no] = 1; });
+      KH.pilih[bln] = awal;
+    }
+    var pil = KH.pilih[bln], totB = 0;
+    (d.beli || []).forEach(function (x) { if (pil[x.no]) totB += Number(x.v) || 0; });
+    h += '<div class="cd"><div class="kpl"><h3>Lampiran: bahan baku Kenka dibeli Moscow</h3><span class="sb">' + rp(totB) + '</span></div>' +
+      ((d.beli || []).length ? '<div class="gulir"><table class="tabel"><thead><tr><th></th><th>Tanggal</th><th>Pembelian</th><th>Dari akun</th><th class="r">Nominal</th></tr></thead><tbody>' +
+        d.beli.map(function (x) {
+          return '<tr><td><input type="checkbox" data-khb="' + esc(x.no) + '"' + (pil[x.no] ? ' checked' : '') + '></td><td>' + esc(tglId(String(x.t).slice(0, 10))) + '<small>' + esc(x.no) + '</small></td><td>' + esc(x.ket) + '<small>' + esc(x.k) + '</small></td><td>' + esc(x.a) + '</td><td class="r angka">' + rp(x.v) + '</td></tr>';
+        }).join('') + '</tbody></table></div>' : '<div class="ksg">Tidak ada pembelian bahan baku / kemasan bulan ini.</div>') +
+      '<p class="sb" style="margin-top:6px">Centang pembelian yang untuk produk Kenka. Ikut dicetak sebagai lampiran invoice; tidak mengurangi bagian Junior karena biaya bahan baku sudah diganti lewat HPP.</p>' +
+      (T ? '<div style="margin-top:6px"><button type="button" class="tbl" id="khSimpanLamp">Simpan lampiran</button></div>' : '') + '</div>';
     if (T) {
       h += '<div class="cd"><div class="kpl"><h3>Invoice ' + esc(T.no) + '</h3><span class="label ok">terbit</span></div>' +
         '<p class="sb">Tercatat di Accounting sebagai uang keluar dari Rekening PT tanggal ' + esc(tglId(String(T.tanggal).slice(0, 10))) + ': ' + esc([T.tr_mike, T.tr_junior].filter(Boolean).join(', ')) + ' (kategori "Bonus bagi hasil Kenka", biaya operasional).</p>' +
@@ -967,7 +985,7 @@
         '<p class="sb" style="margin-top:6px">Tanggal bawaan = akhir bulan bagi hasil. Angka dikunci, lalu tercatat 2 uang keluar dari Rekening PT (bagian Mike dan bagian Junior) dengan kategori "Bonus bagi hasil Kenka" (biaya operasional).</p></div>';
     }
     h += '<p class="sb">Margin = penjualan (harga setelah diskon, dikurangi retur) − HPP − potongan platform masing-masing saluran (dari laporan dana cair) − bagian toko consignment. Skema: produk Kenka Mike 30% / Junior 70%, Kenka Sole Sauce 50% / 50%. Reseller tidak termasuk.</p>';
-    KH.pdf = { bulan: bln, H: H, T: T };
+    KH.pdf = { bulan: bln, H: H, T: T, bahan: (d.beli || []).filter(function (x) { return pil[x.no]; }) };
     el.innerHTML = h; pasangKenka(el);
   }
   function akhirBulanKh(b) { var y = +b.slice(0, 4), m = +b.slice(5, 7); return b + '-' + ('0' + new Date(y, m, 0).getDate()).slice(-2); }
@@ -1015,8 +1033,23 @@
       'Skema: produk Kenka Mike 30% / Junior 70%; Kenka Sole Sauce 50% / 50%. Bahan baku Kenka yang dibeli Moscow sudah diganti melalui HPP yang dipotong dari margin. Dibayar dari Rekening PT.';
     var bk = doc.splitTextToSize(ket, W); doc.text(bk, L, y); y += bk.length * 3.6 + 2;
     if (catatan) { doc.setTextColor.apply(doc, tinta); var bc = doc.splitTextToSize('Catatan: ' + catatan, W); doc.text(bc, L, y); y += bc.length * 3.6 + 2; }
-    if (y > 245) { doc.addPage(); kepala(); y = 50; }
-    y = Math.max(y + 8, 240);
+    // Halaman lampiran: pengeluaran bahan baku Kenka + tanda tangan (tidak ada halaman yang hanya berisi tanda tangan).
+    var bahan = k.bahan || [];
+    if (bahan.length) {
+      doc.addPage(); kepala(); y = 48;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor.apply(doc, biru); doc.text('LAMPIRAN - PENGELUARAN BAHAN BAKU KENKA', L, y);
+      y += 4.5; doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor.apply(doc, abu);
+      doc.text('Pembelian bahan baku & kemasan produk Kenka periode ' + bulanTeks(k.bulan) + ' yang dibayar dengan uang Moscow Supplies.', L, y);
+      var totB = bahan.reduce(function (a, x) { return a + (Number(x.v) || 0); }, 0);
+      doc.autoTable(Object.assign({ startY: y + 3, head: [['Tanggal', 'No. transaksi', 'Pembelian', 'Dibayar dari', 'Nominal']],
+        body: bahan.map(function (x) { return [tglId(String(x.t).slice(0, 10)), x.no, x.ket, x.a, fmt(x.v)]; }),
+        foot: [['Total', '', bahan.length + ' pembelian', '', fmt(totB)]], didParseCell: kanan(4), columnStyles: { 2: { cellWidth: 70 } } }, gaya, { styles: { fontSize: 8.2, cellPadding: 1.8, textColor: tinta } }));
+      y = doc.lastAutoTable.finalY + 5; doc.setFontSize(8); doc.setTextColor.apply(doc, abu);
+      var kb = doc.splitTextToSize('Biaya bahan baku ini sudah diganti melalui HPP yang dipotong dari margin penjualan (halaman 1), sehingga tidak dipotong lagi dari bagian bagi hasil. Sisa bahan yang belum menjadi produk tetap menjadi stok Moscow Supplies.', W);
+      doc.text(kb, L, y); y += kb.length * 3.6 + 2;
+    }
+    if (y > 238) { doc.addPage(); kepala(); y = 50; }
+    y += 14;
     var sw = W / 3, ttd = [['Dibuat,', 'Framis Iqbal', 'Pengelola Master Data'], ['Disetujui,', 'Mike', 'Komisaris'], ['Disetujui,', 'Francois Junior Bogaard', 'Direktur Utama']];
     doc.setDrawColor(150, 160, 170); doc.setLineWidth(0.3);
     ttd.forEach(function (t, i) {
@@ -1057,13 +1090,20 @@
     if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) { alertMsg('Isi tanggal dicatat dulu.', false); return; }
     if (!confirm('Terbitkan invoice ' + noKenka(k.bulan) + '?\n\nBagian Mike ' + rp(k.H.mike) + '\nBagian Junior ' + rp(k.H.junior) + '\n\nAngka dikunci dan tercatat di Accounting sebagai uang keluar dari Rekening PT tanggal ' + tglId(tgl) + '.')) return;
     tombol.disabled = true;
-    var data = JSON.parse(JSON.stringify(k.H)); data.catatan = cat;
+    var data = JSON.parse(JSON.stringify(k.H)); data.catatan = cat; data.bahan = k.bahan || [];
     var r = await sb.rpc('kenka_bh_terbit', { p_bulan: k.bulan, p_data: data, p_tanggal: tgl });
     tombol.disabled = false;
     if (r.error || !r.data || !r.data.ok) { alertMsg((r.data && r.data.pesan) || (r.error && r.error.message) || 'Gagal menerbitkan.', false); return; }
     alertMsg(r.data.pesan, true); delete KH.data[k.bulan]; gambarKenka(el);
   }
   function pasangKenka(el) {
+    el.querySelectorAll('[data-khb]').forEach(function (c) { c.onchange = function () { var p = KH.pilih[KH.bulan] || (KH.pilih[KH.bulan] = {}); if (c.checked) p[c.getAttribute('data-khb')] = 1; else delete p[c.getAttribute('data-khb')]; gambarKenka(el); }; });
+    var sl = el.querySelector('#khSimpanLamp'); if (sl) sl.onclick = async function () {
+      var k = KH.pdf; if (!k) return; sl.disabled = true;
+      var r = await sb.rpc('kenka_bh_lampiran', { p_bulan: k.bulan, p_bahan: k.bahan || [] });
+      sl.disabled = false; alertMsg((r.data && r.data.pesan) || (r.error && r.error.message) || 'Gagal menyimpan.', !!(r.data && r.data.ok));
+      if (r.data && r.data.ok && KH.data[k.bulan] && KH.data[k.bulan].terbit) { KH.data[k.bulan].terbit.data.bahan = k.bahan; }
+    };
     var p = el.querySelector('#khPdf'); if (p) p.onclick = function () { bukaPdfKenka(p); };
     var t = el.querySelector('#khTerbit'); if (t) t.onclick = function () { terbitKenka(t, el); };
     var c = el.querySelector('#khCat'); if (c) c.oninput = function () { var x = {}; try { x = JSON.parse(localStorage.getItem('kenkaCatatan') || '{}') || {}; } catch (e) { x = {}; } x[KH.bulan] = c.value; try { localStorage.setItem('kenkaCatatan', JSON.stringify(x)); } catch (e) { } };
