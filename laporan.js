@@ -82,7 +82,7 @@
     var O = D.omzet, P = posisi(D);
     var off = jml(O.official, function (x) { return x.v; });
     var tk = O.toko || [], cons = tk.filter(function (x) { return /^Consignment/.test(x.toko); }), offl = tk.filter(function (x) { return x.toko === 'Toko Offline'; })[0] || { jual: 0, retur: 0, bersih: 0 };
-    var consB = jml(cons, function (x) { return x.bersih; }), res = jml(O.reseller, function (x) { return x.v; });
+    var consB = jml(cons, function (x) { return x.bersih; }), res = jml(O.reseller, function (x) { return /^selesai$/i.test(x.st) ? x.v : 0; }), resBelum = jml(O.reseller, function (x) { return /^selesai$/i.test(x.st) ? 0 : x.v; });
     var keluar = jml(D.keluar, function (x) { return x.total; });
     var kel = {}; (D.kelompok || []).forEach(function (k) { kel[k.kel] = k.v; });
     var moscow = P.bh ? jml(P.bh, function (t) { return t.moscow; }) : null;
@@ -97,8 +97,8 @@
     var semuaDana = O.official.every(function (x) { return !x.v || danaOff(D, x.pf); });
     var potAcc = semuaDana && typeof D.potAcc === 'number' ? D.potAcc : 0;
     var G = ringkasGaji(D.gaji || []), gaji = G.n ? G.biaya : gajiAcc, opTanpa = op - gajiAcc - potAcc;
-    return { off: off, offTerima: offTerima, cons: cons, consB: consB, offl: offl, res: res, omzet: off + consB + offl.bersih + res, keluar: keluar, kel: kel,
-      moscow: moscow, terima: terima, op: opTanpa, gaji: gaji, gajiAcc: gajiAcc, potAcc: potAcc, G: G, beli: beli,
+    return { off: off, offTerima: offTerima, cons: cons, consB: consB, offl: offl, res: res, omzet: off + consB + offl.bersih + res + resBelum, keluar: keluar, kel: kel,
+      moscow: moscow, terima: terima, resBelum: resBelum, op: opTanpa, gaji: gaji, gajiAcc: gajiAcc, potAcc: potAcc, G: G, beli: beli,
       bersihOp: terima - opTanpa - gaji, bersihSemua: terima - opTanpa - gaji - beli, P: P };
   }
 
@@ -118,12 +118,12 @@
     b.push(tr(['<b>Consignment</b>', '', '', '', rp(H.consB)], [4], 'g'));
     H.cons.forEach(function (x) { b.push(tr([esc(x.toko.replace('Consignment ', '')) + '<small>penjualan dilaporkan staf' + (x.akhir ? ', terakhir ' + tgl(x.akhir) : '') + '</small>', rp(x.jual), fmt(x.pcs), x.retur ? rp(-x.retur) : '–', rp(x.bersih)], [1, 2, 3, 4])); });
     b.push(tr(['<b>Toko Offline</b>', rp(H.offl.jual), fmt(H.offl.pcs), H.offl.retur ? rp(-H.offl.retur) : '–', rp(H.offl.bersih)], [1, 2, 3, 4], 'g'));
-    b.push(tr(['<b>Reseller (sudah dibayar)</b><small>order berstatus Dikirim / Selesai, sama dengan pencatatan Accounting</small>', fmt(O.reseller.length) + ' order', fmt(jml(O.reseller, function (x) { return x.pcs; })), '–', rp(H.res)], [1, 2, 3, 4], 'g'));
+    b.push(tr(['<b>Reseller</b><small>penjualan bulan ini; masuk penerimaan setelah order berstatus Selesai (sudah ditransfer)' + (H.resBelum ? '. Belum dibayar: ' + rp(H.resBelum) : '') + '</small>', fmt(O.reseller.length) + ' order', fmt(jml(O.reseller, function (x) { return x.pcs; })), '–', rp(H.res + H.resBelum)], [1, 2, 3, 4], 'g'));
     O.reseller.forEach(function (x) { b.push(tr(['<small style="color:var(--teks2)">' + esc(x.no) + ' · ' + tgl(x.t) + ' · ' + esc(x.pel) + ' · ' + esc(x.st) + '</small>', '', fmt(x.pcs), '', rp(x.v)], [2, 4])); });
     b.push(tr(['TOTAL OMZET', '', '', '', rp(H.omzet)], [4], 'tot'));
     return '<div class="cd lp-sec" id="lp1"><h3><span class="no">1</span>Omzet</h3>' +
       tabel(['Saluran', 'Penjualan / pesanan', 'Pcs', 'Retur', 'Omzet bersih'], b, [1, 2, 3, 4]) +
-      '<p class="lp-cat">Official = file ekspor pesanan marketplace (tanpa pesanan batal / belum bayar, dikurangi retur). Consignment & Toko Offline = penjualan yang dilaporkan staf, dikurangi barang retur. Reseller = order yang sudah dibayar (Dikirim / Selesai).</p></div>';
+      '<p class="lp-cat">Official = file ekspor pesanan marketplace (tanpa pesanan batal / belum bayar, dikurangi retur). Consignment & Toko Offline = penjualan yang dilaporkan staf, dikurangi barang retur. Reseller = order yang sudah dibayar (status Selesai). Order berstatus Dikirim belum dibayar reseller sehingga belum dihitung; ubah status order ke Selesai setelah transfer masuk.</p></div>';
   }
 
   function bagian2(D, H) {
@@ -247,7 +247,7 @@
     });
     else b.push(tr(['<small>Hitungan bagi hasil bulan ini tidak tersedia (bulan sudah lewat tanpa arsip).</small>', '', '', ''], []));
     b.push(tr(['<b>Toko Offline</b>', rp(H.offl.bersih), '–', rp(H.offl.bersih)], [1, 2, 3], 'g'));
-    b.push(tr(['<b>Reseller (dibayar)</b>', rp(H.res), '–', rp(H.res)], [1, 2, 3], 'g'));
+    b.push(tr(['<b>Reseller (dibayar)</b>' + (H.resBelum ? '<small>belum ditransfer reseller, tidak dihitung: ' + rp(H.resBelum) + '</small>' : ''), rp(H.res), '–', rp(H.res)], [1, 2, 3], 'g'));
     b.push(tr(['TOTAL PENERIMAAN', '', '', rp(H.terima)], [3], 'tot'));
     b.push(tr(['− Biaya operasional Moscow' + (H.gajiAcc || H.potAcc ? '<small>tanpa ' + [H.gajiAcc ? 'gaji yang tercatat di Accounting' : '', H.potAcc ? 'potongan platform ' + rp(H.potAcc) + ' (sudah terpotong dari dana cair)' : ''].filter(Boolean).join(' dan ') + '</small>' : ''), '', '', rp(-H.op)], [3]));
     b.push(tr(['− Gaji &amp; payroll<small>' + (H.G.n ? 'total biaya PT, ' + fmt(H.G.n) + ' orang (bagian 3)' : H.gajiAcc ? 'dari Accounting (payroll bulan ini belum diisi)' : 'payroll bulan ini belum diisi') + '</small>', '', '', H.gaji ? rp(-H.gaji) : '–'], [3]));
@@ -389,7 +389,7 @@
         D.omzet.official.forEach(function (x) { o.push(['Official', NAMA_PF[x.pf], x.psn, x.pcs, -x.ret, x.v, x.akhir ? 'data s/d ' + x.akhir : 'belum ada file']); });
         H.cons.forEach(function (x) { o.push(['Consignment', x.toko, x.jual, x.pcs, -x.retur, x.bersih, 'penjualan dilaporkan staf']); });
         o.push(['Toko Offline', 'Toko Offline', H.offl.jual, H.offl.pcs, -H.offl.retur, H.offl.bersih, '']);
-        D.omzet.reseller.forEach(function (x) { o.push(['Reseller (dibayar)', x.no + ' ' + x.pel, x.t, x.pcs, 0, x.v, x.st]); });
+        D.omzet.reseller.forEach(function (x) { o.push([/^selesai$/i.test(x.st) ? 'Reseller (dibayar)' : 'Reseller (belum dibayar, tidak dihitung)', x.no + ' ' + x.pel, x.t, x.pcs, 0, x.v, x.st]); });
         o.push([], ['TOTAL OMZET', '', '', '', '', H.omzet]);
         tambah('1 Omzet', o, [18, 30, 18, 8, 12, 16, 26]);
         var k = [['Sumber dana', 'Jenis', 'Tanggal', 'No', 'Kategori / akun', 'Keterangan', 'Dicatat oleh', 'Nominal']];
