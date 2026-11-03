@@ -70,7 +70,7 @@
     '.lp-tg thead tr.grp th{text-align:center;background:#1F3A5F;color:#fff;vertical-align:middle}' +
     '.lp-tg .nm{text-align:left;min-width:170px;white-space:normal}.lp-tg td.nm small{display:block;color:var(--abu);font-size:11px}' +
     '.lp-tg tbody tr:nth-child(even) td{background:#FAFBFC}' +
-    '.lp-tg td.mn{color:#9A3412}.lp-tg td.kt,.lp-tg td.th,.lp-tg td.bt{font-weight:700}.lp-tg th.th,.lp-tg td.th{background:#EAF5EE!important}.lp-tg th.bt,.lp-tg td.bt{background:#EEF2F6!important}' +
+    '.lp-tg td.ng{color:#9A3412}.lp-tg td.gk,.lp-tg td.tp,.lp-tg td.bp{font-weight:700}.lp-tg th.tp,.lp-tg td.tp{background:#EAF5EE!important}.lp-tg th.bp,.lp-tg td.bp{background:#EEF2F6!important}' +
     '.lp-tg tr.kel td{background:#F6F8FA!important;text-align:left;font-weight:800;color:#1F3A5F;padding-top:9px}' +
     '.lp-tg tr.sub td{font-weight:800;background:#F3F5F8!important}.lp-tg tr.tot td{font-weight:800;background:#E3E9F0!important;border-top:2px solid #1F3A5F;font-size:13px}' +
     '@media (max-width:600px){.lp-t{font-size:12px}.lp-t th,.lp-t td{padding:7px 6px 7px 0}.lp-t small{font-size:11px}.lp-kp{grid-template-columns:1fr 1fr;gap:8px}.lp-kp b{font-size:17px}.lp-aksi .tbl{flex:1 1 auto}}' +
@@ -221,7 +221,7 @@
       '<div><span>THP ditransfer</span><b>' + rp(t.thp) + '</b><small>setelah BPJS karyawan &amp; kasbon</small></div><div><span>Total biaya PT</span><b>' + rp(t.biaya) + '</b><small>gaji kotor + BPJS ditanggung PT</small></div></div>';
     // Tabel gaji: angka tanpa "Rp" (satuan di judul), kolom dikelompokkan, nama + divisi dalam satu sel, garis sel jelas.
     var nf = function (v) { v = Math.round(Number(v) || 0); return v ? (v < 0 ? '−' : '') + Math.abs(v).toLocaleString('id-ID') : '–'; };
-    var KLS = ['', '', '', '', '', '', 'mn', 'kt', 'mn', 'mn', 'th', '', 'bt'];
+    var KLS = ['', '', '', '', '', '', 'ng', 'gk', 'ng', 'ng', 'tp', '', 'bp'];
     var baris = function (r, kelas, judul) {
       return '<tr' + (kelas ? ' class="' + kelas + '"' : '') + '><td class="nm">' + (judul ? '<b>' + esc(r[0]) + '</b>' : esc(r[0]) + (r[1] ? '<small>' + esc(r[1]) + '</small>' : '')) + '</td>' +
         r.slice(2).map(function (v, i) { return '<td class="' + (KLS[i + 2] || '') + '">' + nf(v) + '</td>'; }).join('') + '</tr>';
@@ -234,8 +234,8 @@
     });
     b += baris(barisTotal('TOTAL', t), 'tot', true);
     h += '<div class="lp-gl"><table class="lp-tg"><thead>' +
-      '<tr class="grp"><th rowspan="2" class="nm">Nama / divisi</th><th colspan="6">Pendapatan</th><th colspan="2">Potongan karyawan</th><th rowspan="2" class="th">THP ditransfer</th><th colspan="2">Biaya PT</th></tr>' +
-      '<tr><th>Gaji pokok</th><th>Uang makan</th><th>Lembur</th><th>Bonus</th><th>Potongan telat</th><th class="kt">Gaji kotor</th><th>BPJS karyawan</th><th>Kasbon</th><th>BPJS ditanggung PT</th><th class="bt">Total biaya PT</th></tr>' +
+      '<tr class="grp"><th rowspan="2" class="nm">Nama / divisi</th><th colspan="6">Pendapatan</th><th colspan="2">Potongan karyawan</th><th rowspan="2" class="tp">THP ditransfer</th><th colspan="2">Biaya PT</th></tr>' +
+      '<tr><th>Gaji pokok</th><th>Uang makan</th><th>Lembur</th><th>Bonus</th><th>Potongan telat</th><th class="gk">Gaji kotor</th><th>BPJS karyawan</th><th>Kasbon</th><th>BPJS ditanggung PT</th><th class="bp">Total biaya PT</th></tr>' +
       '</thead><tbody>' + b + '</tbody></table></div><p class="lp-cat" style="margin-top:4px">Semua angka dalam Rupiah.</p>';
     h += '<p class="lp-cat">Gaji kotor = gaji pokok + uang makan + lembur + bonus − potongan telat. THP = gaji kotor − BPJS karyawan − kasbon (kasbon adalah pinjaman yang dibayar lewat potongan gaji, bukan biaya). ' +
       'Total biaya PT = gaji kotor + BPJS ditanggung PT; angka ini yang mengurangi penerimaan bersih di bagian 6. Sumber: form Payroll, periode ' + esc(namaBulan(D.bulan)) + '.</p>';
