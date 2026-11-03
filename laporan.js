@@ -64,7 +64,15 @@
     '.lp-isi{display:grid;grid-template-columns:1fr 1fr;gap:2px 24px;font-size:12px;margin-top:14px;color:#4A5563}' +
     '.lp-isi h4{grid-column:1/-1;margin:0 0 4px;font-size:13px;color:#1F3A5F}' +
     '@media (max-width:700px){.lp-pie,.lp-ttp{grid-template-columns:1fr}.lp-kop img{height:34px}.lp-isi{grid-template-columns:1fr}}' +
-    '.lp-gaji .lp-t td:first-child{min-width:170px}.lp-gaji .lp-t td:nth-child(2){min-width:110px}' +
+    '.lp-tg{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}' +
+    '.lp-tg th,.lp-tg td{border:1px solid #DCE2EA;padding:6px 8px;text-align:right;white-space:nowrap}' +
+    '.lp-tg thead th{background:#EEF2F6;color:#1F3A5F;font-size:11.5px;font-weight:700;white-space:normal;line-height:1.25;vertical-align:bottom}' +
+    '.lp-tg thead tr.grp th{text-align:center;background:#1F3A5F;color:#fff;vertical-align:middle}' +
+    '.lp-tg .nm{text-align:left;min-width:170px;white-space:normal}.lp-tg td.nm small{display:block;color:var(--abu);font-size:11px}' +
+    '.lp-tg tbody tr:nth-child(even) td{background:#FAFBFC}' +
+    '.lp-tg td.mn{color:#9A3412}.lp-tg td.kt,.lp-tg td.th,.lp-tg td.bt{font-weight:700}.lp-tg th.th,.lp-tg td.th{background:#EAF5EE!important}.lp-tg th.bt,.lp-tg td.bt{background:#EEF2F6!important}' +
+    '.lp-tg tr.kel td{background:#F6F8FA!important;text-align:left;font-weight:800;color:#1F3A5F;padding-top:9px}' +
+    '.lp-tg tr.sub td{font-weight:800;background:#F3F5F8!important}.lp-tg tr.tot td{font-weight:800;background:#E3E9F0!important;border-top:2px solid #1F3A5F;font-size:13px}' +
     '@media (max-width:600px){.lp-t{font-size:12px}.lp-t th,.lp-t td{padding:7px 6px 7px 0}.lp-t small{font-size:11px}.lp-kp{grid-template-columns:1fr 1fr;gap:8px}.lp-kp b{font-size:17px}.lp-aksi .tbl{flex:1 1 auto}}' +
     '@media print{' +
     '  @page{size:A4;margin:12mm}@page lanskap{size:A4 landscape;margin:10mm}' +
@@ -74,7 +82,7 @@
     '  main#mIsi>section{display:none!important}main#mIsi>section#bLaporan{display:block!important}' +
     '  .cd{break-inside:auto;border:0!important;padding:0!important;margin-bottom:14px!important}' +
     '  .lp-sec{break-before:page}.lp-sec:first-of-type{break-before:auto}' +
-    '  .lp-gaji{page:lanskap}.lp-gaji .lp-t{font-size:8.5px}.lp-gaji .lp-t th{white-space:normal}' +
+    '  .lp-gaji{page:lanskap}.lp-tg{font-size:8.5px}.lp-tg th,.lp-tg td{padding:3px 4px}.lp-tg thead th{font-size:8px}.lp-tg .nm{min-width:0;width:16%}.lp-tg td.nm small{font-size:7.5px}.lp-tg tr.tot td{font-size:9px}' +
     '  .lp-t{font-size:10.5px}.lp-t th,.lp-t td{padding:4px 6px 4px 0}' +
     '  .lp-gl{overflow:visible}.lp-print-only{display:block}' +
     '  .lp-kp div{border:1px solid #ccc}' +
@@ -211,16 +219,24 @@
     }
     h += '<div class="lp-kp"><div><span>Jumlah penerima gaji</span><b>' + fmt(t.n) + ' orang</b></div><div><span>Gaji kotor</span><b>' + rp(t.kotor) + '</b><small>setelah potongan telat</small></div>' +
       '<div><span>THP ditransfer</span><b>' + rp(t.thp) + '</b><small>setelah BPJS karyawan &amp; kasbon</small></div><div><span>Total biaya PT</span><b>' + rp(t.biaya) + '</b><small>gaji kotor + BPJS ditanggung PT</small></div></div>';
-    var kanan = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], b = [];
-    var sel = function (r) { return r.map(function (v, i) { return i < 2 ? esc(v) : (v ? rp(v) : '–'); }); };
-    var KG = kelompokGaji(L);
+    // Tabel gaji: angka tanpa "Rp" (satuan di judul), kolom dikelompokkan, nama + divisi dalam satu sel, garis sel jelas.
+    var nf = function (v) { v = Math.round(Number(v) || 0); return v ? (v < 0 ? '−' : '') + Math.abs(v).toLocaleString('id-ID') : '–'; };
+    var KLS = ['', '', '', '', '', '', 'mn', 'kt', 'mn', 'mn', 'th', '', 'bt'];
+    var baris = function (r, kelas, judul) {
+      return '<tr' + (kelas ? ' class="' + kelas + '"' : '') + '><td class="nm">' + (judul ? '<b>' + esc(r[0]) + '</b>' : esc(r[0]) + (r[1] ? '<small>' + esc(r[1]) + '</small>' : '')) + '</td>' +
+        r.slice(2).map(function (v, i) { return '<td class="' + (KLS[i + 2] || '') + '">' + nf(v) + '</td>'; }).join('') + '</tr>';
+    };
+    var KG = kelompokGaji(L), b = '';
     KG.forEach(function (g) {
-      if (KG.length > 1) b.push(tr(['<b>' + esc(g.k) + '</b>'].concat(KOL_GAJI.slice(1).map(function () { return ''; })), [], 'g'));
-      g.L.forEach(function (x) { b.push(tr(sel(barisGaji(x)), kanan)); });
-      if (KG.length > 1) b.push(tr(sel(barisTotal('Subtotal ' + g.k, ringkasGaji(g.L))), kanan, 'sub'));
+      if (KG.length > 1) b += '<tr class="kel"><td colspan="12">' + esc(g.k) + ' · ' + g.L.length + ' orang</td></tr>';
+      g.L.forEach(function (x) { b += baris(barisGaji(x)); });
+      if (KG.length > 1) b += baris(barisTotal('Subtotal ' + g.k, ringkasGaji(g.L)), 'sub', true);
     });
-    b.push(tr(sel(barisTotal('TOTAL', t)), kanan, 'tot'));
-    h += tabel(KOL_GAJI, b, kanan);
+    b += baris(barisTotal('TOTAL', t), 'tot', true);
+    h += '<div class="lp-gl"><table class="lp-tg"><thead>' +
+      '<tr class="grp"><th rowspan="2" class="nm">Nama / divisi</th><th colspan="6">Pendapatan</th><th colspan="2">Potongan karyawan</th><th rowspan="2" class="th">THP ditransfer</th><th colspan="2">Biaya PT</th></tr>' +
+      '<tr><th>Gaji pokok</th><th>Uang makan</th><th>Lembur</th><th>Bonus</th><th>Potongan telat</th><th class="kt">Gaji kotor</th><th>BPJS karyawan</th><th>Kasbon</th><th>BPJS ditanggung PT</th><th class="bt">Total biaya PT</th></tr>' +
+      '</thead><tbody>' + b + '</tbody></table></div><p class="lp-cat" style="margin-top:4px">Semua angka dalam Rupiah.</p>';
     h += '<p class="lp-cat">Gaji kotor = gaji pokok + uang makan + lembur + bonus − potongan telat. THP = gaji kotor − BPJS karyawan − kasbon (kasbon adalah pinjaman yang dibayar lewat potongan gaji, bukan biaya). ' +
       'Total biaya PT = gaji kotor + BPJS ditanggung PT; angka ini yang mengurangi penerimaan bersih di bagian 6. Sumber: form Payroll, periode ' + esc(namaBulan(D.bulan)) + '.</p>';
     if (H.gajiAcc) h += '<p class="lp-cat">Gaji yang juga tercatat di Accounting (' + rp(H.gajiAcc) + ') tidak dihitung lagi di biaya operasional supaya tidak dobel.</p>';
