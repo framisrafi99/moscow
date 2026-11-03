@@ -2262,6 +2262,9 @@
     var r = await sb.rpc('pengadaan_aksi', { p_aksi: a, p_nos: p.nos || [no], p_qty: p.qty || null, p_catatan: p.catatan || '', p_ref: p.ref || '', p_eta: p.eta || '', p_nama: '' });
     if (r.error) { salah('Gagal menyimpan: ' + r.error.message); b.disabled = false; return; }
     if (!r.data || !r.data.ok) { salah((r.data && r.data.pesan) || 'Gagal menyimpan.'); b.disabled = false; return; }
+    // Status di layar langsung diganti (daftar dari Apps Script baru diperbarui ≤10 menit), supaya tombol tidak ditekan dua kali.
+    var ST_BARU = { setuju: 'Disetujui', tolak: 'Ditolak', batal: 'Batal', pesan: 'Dipesan', terima: 'Diterima' };
+    if (ST_BARU[a]) { x.st = ST_BARU[a]; if (a === 'setuju' && p.qty) x.qs = p.qty[no]; if (a === 'pesan') { x.ref = p.ref; x.eta = p.eta; } }
     salinKeSheetGaji();
     await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(ringkas).slice(0, 150) });
     await muatAksi(); gambarPurch();
