@@ -126,6 +126,29 @@
     'md:bh': function () { return window.BagiHasilMd.hitung(sb, bulanMundur(0)); },
     'md:bh:lalu': function () { return window.BagiHasilMd.hitung(sb, bulanMundur(1)); }
   };
+  // Sesudah menyimpan: data dihitung ulang langsung dari Supabase (beberapa detik), tidak menunggu Apps Script.
+  var segarJalan = null, segarLagi = false;
+  function segarLangsung() {
+    if (segarJalan) { segarLagi = true; return segarJalan; }
+    segarJalan = (async function () {
+      try {
+        do {
+          segarLagi = false;
+          await hitungLangsung();
+          M.badge('setuju', jumlahTunggu());
+          var y = window.scrollY, MSG = ['msgPurch', 'msgJual', 'msgAtur', 'msgUtama', 'msgGudang'], simpanMsg = {};
+          MSG.forEach(function (id) { var el = $(id); if (el && el.innerHTML) simpanMsg[id] = el.innerHTML; });
+          gambarDasbor(); gambarBeranda(false); gambarSetuju(); gambarGudang(); gambarPurch(); gambarProduksi(); gambarUang();
+          if (J.mulai) { gambarJual(); gambarJualIsi(); }
+          if (AT.mulai) gambarAtur();
+          Object.keys(simpanMsg).forEach(function (id) { var el = $(id); if (el && !el.innerHTML) el.innerHTML = simpanMsg[id]; });
+          window.scrollTo(0, y);
+        } while (segarLagi);
+      } catch (e) { }
+      segarJalan = null;
+    })();
+    return segarJalan;
+  }
   async function hitungLangsung() {
     if (!window.MdLama) return;
     var kunci = Object.keys(LANGSUNG);
@@ -505,10 +528,10 @@
     var gagal = r.error ? r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
     if (gagal) { $('msgJual').innerHTML = '<div class="msg bad">Gagal: ' + esc(gagal) + '</div>'; b.disabled = false; return; }
     salinKeSheetGaji();
-    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah status order ' + no + ' menjadi ' + st });
+    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah status order ' + no + ' menjadi ' + st }); segarLangsung();
     if (o) o.st = st;
     await muatAksi(); gambarJualIsi();
-    $('msgJual').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar di halaman ini diperbarui paling lambat 10 menit lagi.</div>';
+    $('msgJual').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar di halaman ini diperbarui dalam beberapa detik.</div>';
   }
 
   function isiPinjam() {
@@ -561,9 +584,9 @@
     var gagal = r.error ? r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
     if (gagal) { $('msgJual').innerHTML = '<div class="msg bad">' + esc(gagal) + '</div>'; if (b) b.disabled = false; return; }
     salinKeSheetGaji();
-    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(ringkas).slice(0, 150) });
+    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(ringkas).slice(0, 150) }); segarLangsung();
     await muatAksi(); J.ubahTtp = null; gambarJual(); gambarJualIsi();
-    $('msgJual').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar di halaman ini diperbarui paling lambat 10 menit lagi.</div>';
+    $('msgJual').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar di halaman ini diperbarui dalam beberapa detik.</div>';
   }
   function angkaIsian(el) { var v = String(el.value).replace(/[^\d]/g, ''); return v === '' ? '' : Number(v); }
 
@@ -631,7 +654,7 @@
     h += '<div class="cd"><div class="kpl"><h3>Riwayat terakhir</h3><span class="sb">' + rw.length + ' catatan</span></div>' + (rw.length ? '<div class="gulir"><table class="tabel"><tbody>' + rw.map(function (x) {
       var j = JN[x.j] || [x.j, 'abu'];
       return '<tr><td>' + esc(x.n) + '<small>' + esc(x.t) + ' · ' + esc(x.no) + (x.oleh ? ' · ' + esc(x.oleh) : '') + (x.st && x.st !== 'Tercatat' && x.st !== 'Disetujui' ? ' · ' + esc(x.st) : '') + '</small></td><td class="r"><span class="label ' + j[1] + '">' + esc(j[0]) + '</span><small class="angka">' + fmt(x.q) + ' pcs' + (x.j === 'JUAL' ? ' · ' + rp(x.q * x.h) : '') + '</small></td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="ksg">Belum ada riwayat.</div>') + '</div></div>';
-    return h + '<p class="sb">Penjualan titipan dicatat staf lewat formulir toko. Keputusan dari sini langsung tersimpan; daftar di halaman ini diperbarui paling lambat 10 menit kemudian.</p>';
+    return h + '<p class="sb">Penjualan titipan dicatat staf lewat formulir toko. Keputusan dari sini langsung tersimpan dan daftar di halaman ini langsung diperbarui.</p>';
   }
   function putusTitip(b) {
     var setuju = b.getAttribute('data-ttp') === 'setuju', jenis = b.getAttribute('data-jenis'), id = b.getAttribute('data-id'), nm = b.getAttribute('data-nm');
@@ -1876,9 +1899,9 @@
       var gagal = rr.error ? rr.error.message : (!rr.data || !rr.data.ok) ? ((rr.data && rr.data.pesan) || 'Gagal menyimpan.') : '';
       if (gagal) { salah(gagal); btn.disabled = false; return; }
       salinKeSheetGaji();
-      await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(ringkas).slice(0, 150) });
+      await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(ringkas).slice(0, 150) }); segarLangsung();
       AT.buka = null; await muatAksi(); gambarAtur();
-      $('msgAtur').innerHTML = '<div class="msg ok">' + esc(rr.data.pesan) + ' Daftar di halaman ini diperbarui paling lambat 10 menit lagi.</div>'; window.scrollTo(0, 0);
+      $('msgAtur').innerHTML = '<div class="msg ok">' + esc(rr.data.pesan) + ' Daftar di halaman ini diperbarui dalam beberapa detik.</div>'; window.scrollTo(0, 0);
       return;
     }
     var r = await sb.from('md_aksi').insert({ fungsi: 'mdeSimpanBaru', param: p, ringkas: String(ringkas).slice(0, 200) });
@@ -2124,7 +2147,7 @@
   }
   function gambarPengadaan(el) {
     var g = D.pengadaan;
-    var h = '<div id="msgPurch"></div><p class="tl">Diperbarui ' + waktuPotret('pengadaan') + ' · pengajuan baru dari staf masuk paling lambat 2 jam (jam 07–22)</p>' + chipPurch();
+    var h = '<div id="msgPurch"></div><p class="tl">Diperbarui ' + waktuPotret('pengadaan') + '</p>' + chipPurch();
     if (!g) h += '<div class="msg w">Data pengadaan belum tersedia. Tekan "Hitung ulang sekarang".</div>';
     else h += P.bagian === 'ajuan' ? isiAjuan(g, false) : P.bagian === 'acc' ? isiAjuan(g, true) : isiRencana(g);
     el.innerHTML = h;
@@ -2204,7 +2227,7 @@
     }).join('');
     return h + catatanAjuan(acc);
   }
-  function catatanAjuan(acc) { if (acc) return '<p class="sb">Barang yang sudah di-ACC. Bila jumlah yang dibeli berbeda dari yang di-ACC, tekan "Koreksi qty dibeli". Koreksi langsung tersimpan, tercatat di catatan pengajuan, dan dikirim ke Telegram. Purchasing hanya bisa mengurangi qty barang lokal; menambah qty atau barang impor oleh manajemen Moscow Supplies.</p>'; return '<p class="sb">Pengajuan dibuat staf dari formulirnya masing-masing. Barang lokal biasanya di-ACC Purchasing, barang impor oleh Mike; manajemen Moscow Supplies bisa keduanya. Keputusan dari sini langsung tersimpan; daftar di halaman ini diperbarui paling lambat 10 menit kemudian.</p>'; }
+  function catatanAjuan(acc) { if (acc) return '<p class="sb">Barang yang sudah di-ACC. Bila jumlah yang dibeli berbeda dari yang di-ACC, tekan "Koreksi qty dibeli". Koreksi langsung tersimpan, tercatat di catatan pengajuan, dan dikirim ke Telegram. Purchasing hanya bisa mengurangi qty barang lokal; menambah qty atau barang impor oleh manajemen Moscow Supplies.</p>'; return '<p class="sb">Pengajuan dibuat staf dari formulirnya masing-masing. Barang lokal biasanya di-ACC Purchasing, barang impor oleh Mike; manajemen Moscow Supplies bisa keduanya. Keputusan dari sini langsung tersimpan dan daftar di halaman ini langsung diperbarui.</p>'; }
   function isiRencana(g) {
     var r = g.ring, h = '<div class="kp"><div class="kt"><span class="l">Kritis</span><span class="v angka' + (r.Kritis ? ' mn' : '') + '">' + r.Kritis + '</span><span class="k">stok habis sebelum barang datang</span></div>' +
       '<div class="kt"><span class="l">Saatnya pesan</span><span class="v angka">' + r['Saatnya pesan'] + '</span><span class="k">barang</span></div>' +
@@ -2254,7 +2277,7 @@
       if (rk.error || !rk.data || !rk.data.ok) { salah(rk.error ? 'Gagal menyimpan: ' + rk.error.message : (rk.data && rk.data.pesan) || 'Gagal menyimpan.'); b.disabled = false; return; }
       x.qs = kq; P.buka['kq:' + no] = false;
       salinKeSheetGaji();
-      await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah koreksi qty pengajuan ' + no });
+      await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah koreksi qty pengajuan ' + no }); segarLangsung();
       await muatAksi(); gambarPurch();
       $('msgPurch').innerHTML = '<div class="msg ok">' + esc(rk.data.pesan) + '</div>';
       return;
@@ -2280,13 +2303,13 @@
     var r = await sb.rpc('pengadaan_aksi', { p_aksi: a, p_nos: p.nos || [no], p_qty: p.qty || null, p_catatan: p.catatan || '', p_ref: p.ref || '', p_eta: p.eta || '', p_nama: '' });
     if (r.error) { salah('Gagal menyimpan: ' + r.error.message); b.disabled = false; return; }
     if (!r.data || !r.data.ok) { salah((r.data && r.data.pesan) || 'Gagal menyimpan.'); b.disabled = false; return; }
-    // Status di layar langsung diganti (daftar dari Apps Script baru diperbarui ≤10 menit), supaya tombol tidak ditekan dua kali.
+    // Status di layar langsung diganti, lalu daftar dihitung ulang dari Supabase (segarLangsung).
     var ST_BARU = { setuju: 'Disetujui', tolak: 'Ditolak', batal: 'Batal', pesan: 'Dipesan', terima: 'Diterima' };
     if (ST_BARU[a]) { x.st = ST_BARU[a]; if (a === 'setuju' && p.qty) x.qs = p.qty[no]; if (a === 'pesan') { x.ref = p.ref; x.eta = p.eta; } }
     salinKeSheetGaji();
-    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(ringkas).slice(0, 150) });
+    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(ringkas).slice(0, 150) }); segarLangsung();
     await muatAksi(); gambarPurch();
-    $('msgPurch').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar di halaman ini diperbarui paling lambat 10 menit lagi.</div>';
+    $('msgPurch').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar di halaman ini diperbarui dalam beberapa detik.</div>';
   }
   async function aksiMassal(b) {
     var a = b.getAttribute('data-massal'), g = D.pengadaan, st = a === 'pesan' ? 'Disetujui' : 'Dipesan';
@@ -2304,7 +2327,7 @@
     L.forEach(function (x) { if (lewat.indexOf(x.no + ' (') === -1) { x.st = a === 'pesan' ? 'Dipesan' : 'Diterima'; if (a === 'pesan') { x.ref = P.mRef || ''; x.eta = P.mEta; } } delete P.pilih[x.no]; });
     if (a === 'pesan') { P.mRef = ''; P.mEta = ''; }
     salinKeSheetGaji();
-    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah tandai ' + nos.length + ' pengajuan ' + (a === 'pesan' ? 'dipesan' : 'diterima') });
+    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah tandai ' + nos.length + ' pengajuan ' + (a === 'pesan' ? 'dipesan' : 'diterima') }); segarLangsung();
     await muatAksi(); gambarPurch();
     $('msgPurch').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + '</div>';
   }
@@ -2315,8 +2338,8 @@
     var gagal = r.error ? r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
     if (gagal) { $('msgPurch').innerHTML = '<div class="msg bad">' + esc(gagal) + '</div>'; b.disabled = false; return; }
     salinKeSheetGaji();
-    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah cek pembelian tanpa pengajuan ' + no });
-    $('msgPurch').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar diperbarui paling lambat 10 menit lagi.</div>';
+    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah cek pembelian tanpa pengajuan ' + no }); segarLangsung();
+    $('msgPurch').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar diperbarui dalam beberapa detik.</div>';
     await muatAksi(); gambarPurch();
   }
 
@@ -2368,16 +2391,16 @@
       var r = await sb.rpc(c[0], c[1]);
       var gagal = r.error ? 'Gagal menyimpan: ' + r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
       if (gagal) {
-        if (hasil.length) { salinKeSheetGaji(); await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(kirim[0].ringkas).slice(0, 150) }); }
+        if (hasil.length) { salinKeSheetGaji(); await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(kirim[0].ringkas).slice(0, 150) }); segarLangsung(); }
         pesanP((hasil.length ? hasil.join(' ') + ' ' : '') + gagal); b.disabled = false; return;
       }
       hasil.push(r.data.pesan);
     }
     salinKeSheetGaji();
-    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(kirim.map(function (k) { return k.ringkas; }).join(' · ')).slice(0, 150) });
+    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + String(kirim.map(function (k) { return k.ringkas; }).join(' · ')).slice(0, 150) }); segarLangsung();
     P.buka['batal:' + no] = false;
     await muatAksi(); gambarPurch();
-    pesanP(hasil.join(' ') + ' Daftar di halaman ini diperbarui paling lambat 10 menit lagi.', true);
+    pesanP(hasil.join(' ') + ' Daftar di halaman ini diperbarui dalam beberapa detik.', true);
   }
 
   // ======================= PERSETUJUAN: pembungkus 3 bagian =======================
@@ -2419,7 +2442,7 @@
   }
   async function hitungUlang(b) {
     if (b) b.disabled = true;
-    var r = await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang semua data Master Data' });
+    var r = await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang semua data Master Data' }); segarLangsung();
     if (b) b.disabled = false;
     await muatAksi(); gambarSetuju();
     alertMsg(r.error ? 'Gagal meminta hitung ulang: ' + r.error.message : 'Hitung ulang diminta. Angka baru muncul paling lambat 10 menit lagi (tekan Muat ulang).', !r.error);
@@ -2504,8 +2527,8 @@
         var gagal = r.error ? r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
         if (gagal) { tempat.innerHTML = '<div class="msg bad">' + esc(gagal) + '</div>'; b.disabled = false; return; }
         salinKeSheetGaji();
-        await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + (aksi === 'setuju' ? 'setujui' : 'tolak') + ' request ' + o.no });
-        tempat.innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar diperbarui paling lambat 10 menit lagi.</div>';
+        await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + (aksi === 'setuju' ? 'setujui' : 'tolak') + ' request ' + o.no }); segarLangsung();
+        tempat.innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar diperbarui dalam beberapa detik.</div>';
         el.querySelectorAll('[data-rq="' + i + '"]').forEach(function (x) { x.disabled = true; });
       };
     });
@@ -2561,8 +2584,8 @@
         var gagal = r.error ? r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
         if (gagal) { tempat.innerHTML = '<div class="msg bad">' + esc(gagal) + '</div>'; b.disabled = false; return; }
         salinKeSheetGaji();
-        await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + nama + ' ' + o.no });
-        tempat.innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar diperbarui paling lambat 10 menit lagi.</div>';
+        await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + nama + ' ' + o.no }); segarLangsung();
+        tempat.innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar diperbarui dalam beberapa detik.</div>';
         el.querySelectorAll('[data-pt="' + i + '"]').forEach(function (x) { x.disabled = true; });
       };
     });
@@ -2625,7 +2648,7 @@
     var gagal = r.error ? r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
     if (gagal) { $('msgSetuju').innerHTML = '<div class="msg bad">Gagal menyimpan keputusan: ' + esc(gagal) + ((r.data && r.data.gagal && r.data.gagal.length) ? ' (' + esc(r.data.gagal.join('; ')) + ')' : '') + '</div>'; $('tSetuju').disabled = false; $('tTolak').disabled = false; return; }
     salinKeSheetGaji();
-    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + ringkas.slice(0, 150) });
+    await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah ' + ringkas.slice(0, 150) }); segarLangsung();
     $('bgSesuai').querySelectorAll('input[data-no]:checked').forEach(function (k) { k.checked = false; k.disabled = true; });
     await muatAksi();
     // Daftar ajuan dihitung ulang langsung dari Supabase, jadi ajuan yang baru diputus langsung hilang dari daftar.
