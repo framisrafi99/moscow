@@ -363,6 +363,9 @@
     // Tutup buku (tpb.js, sama dengan Master Data baru): daftar & pemeriksaan bulan, penyeimbang hitung stok.
     tpbData: function (a) { return window.TutupBuku.tpbData(sb, a[0] || {}); },
     tpbPenyeimbang: function () { return window.TutupBuku.penyeimbang(sb); },
+    // HPP & Harga, stok sistem di Edit Barang (md.js; harga dasar & stok Renon memakai data Supabase yang sudah dirapikan).
+    mmHargaData: function () { return window.MdLama.mmHargaData(sb); },
+    mdeStok: function (a) { return window.MdLama.mdeStok(sb, a[0] || {}); },
     gjData: async function (a) {
       var r = await sb.rpc('gaji_data', { p_per: teks((a[0] || {}).per) });
       if (r.error) throw new Error(r.error.message);
@@ -798,7 +801,7 @@
     var h = r.data;
     if (h && h.ok && !h.ulang) {
       await salinKeSheet();
-      try { var d = await kirim('mmHargaData', [{ key: key }]); if (d && d.r && d.r.ok) h.data = d.r; } catch (e) { }
+      try { var d = await window.MdLama.mmHargaData(sb); if (d && d.ok) h.data = d; } catch (e) { }
     }
     return h;
   }
