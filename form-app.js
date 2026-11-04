@@ -366,6 +366,11 @@
     // HPP & Harga, stok sistem di Edit Barang (md.js; harga dasar & stok Renon memakai data Supabase yang sudah dirapikan).
     mmHargaData: function () { return window.MdLama.mmHargaData(sb); },
     mdeStok: function (a) { return window.MdLama.mdeStok(sb, a[0] || {}); },
+    // Order & omzet toko (tokomd.js; omzet Renon tanpa baris yang dibatalkan, sama dengan Master Data baru).
+    ambilOrder: function (a) { return window.TokoMd.ambilOrder(sb, a[0] || {}); },
+    omzetKotor: function (a) { return window.TokoMd.omzetKotor(sb, a[0] || {}); },
+    pieToko: function (a) { return window.TokoMd.pieToko(sb, a[0] || {}); },
+    laporanToko: function (a) { return window.TokoMd.laporanToko(sb, a[0] || {}); },
     riwayatHitung: function (a) { var t = teks((a[0] || {}).toko); return t && window.TokoBaca ? window.TokoBaca.riwayatHitung(sb, t) : null; },
     gjData: async function (a) {
       var r = await sb.rpc('gaji_data', { p_per: teks((a[0] || {}).per) });
