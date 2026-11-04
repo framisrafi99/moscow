@@ -348,6 +348,9 @@
     hrgNaikData: function () { return window.MdLama.hrgNaikData(sb); },
     mdRingkasan: function () { return window.MdLama.mdRingkasan(sb); },
     gdRingkas: function () { return window.MdLama.gdRingkas(sb); },
+    // Dasbor lama (file 13 dsData). Beda dgn Apps Script hanya disengaja: stok online memakai jam hitung Kantor Packing dalam WITA
+    // (Apps Script membandingkan jam WIB dengan waktu kirim WITA, dan totalnya tidak dihitung ulang sesudah koreksi), dan laporan Renon BATAL tidak dihitung.
+    dsData: function (a) { var p = a[0] || {}; return window.Dasbor.dsData(sb, { dari: p.dari, sampai: p.sampai }); },
     mpRingkasOfficial: function (a) { return window.MdLama.mpRingkasOfficial(sb, a[0] || {}); },
     mpData: function (a) { return window.MdLama.mpData(sb, a[0] || {}); },
     pantauProduksi: function (a) { var j = a[0] && a[0].jenis; return j === 'produksi' || j === 'bahan' ? window.BahanBaku.pantauProduksi(sb, a[0], j) : null; },
