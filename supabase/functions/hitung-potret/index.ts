@@ -29,7 +29,7 @@ function kunciPublik(): string {
 const sb = createClient(URL_SB, kunciServer(), { auth: { persistSession: false }, global: { headers: { 'x-moscow-robot': 'potret' } } });
 
 const FILES = ['lembar.js', 'gudang.js', 'kp.js', 'produksi.js', 'bahanbaku.js', 'akun.js', 'md.js', 'pengadaan.js', 'robot.js', 'rpd.js',
-  'dasbor.js', 'stoksemua.js', 'bagihasil.js', 'bhmd.js', 'tpb.js'];
+  'dasbor.js', 'stoksemua.js', 'bagihasil.js', 'bhmd.js', 'tpb.js', 'tokomd.js'];
 // deno-lint-ignore no-explicit-any
 const W: any = globalThis;
 let versiDimuat = '';
@@ -40,8 +40,10 @@ async function muatRumus() {
   if (tanda === versiDimuat) return tanda;
   W.window = W;
   for (const f of versi) {
-    const kode = await (await fetch(APP + f)).text();
-    (0, eval)(kode);
+    const r = await fetch(APP + f);
+    // File yang belum terbit (404) dilewati supaya rumus lain tetap jalan; rumus yang butuh file itu akan gagal sendiri.
+    if (!r.ok) { await r.text().catch(() => ''); continue; }
+    (0, eval)(await r.text());
   }
   versiDimuat = tanda;
   // Satu kali jalan robot: isi tiap tabel cukup dibaca sekali dari database (lembar_baca), dipakai semua rumus.
@@ -98,6 +100,14 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
   'md:bh': async () => ({ 'md:bh': await W.BagiHasilMd.hitung(sb, bulanMundur(0)) }),
   'md:bh:lalu': async () => ({ 'md:bh:lalu': await W.BagiHasilMd.hitung(sb, bulanMundur(1)) }),
   'acc:oto': async () => ({ 'acc:oto': await W.Akunting.accOto(sb) }),
+  // Kartu "Hasil penjualan" toko offline (file 82 tokoHasilPenjualan) untuk formulir staf Toko Offline: bulan ini & bulan lalu (5 Nov 2026).
+  'thp': async () => {
+    const pel = await sb.from('pelanggan').select('nama_pelanggan');
+    const toko = Array.from(new Set((pel.data || []).map((x) => String(x.nama_pelanggan || '').trim()).filter((n) => /offline/i.test(n))));
+    const out: Isi = {};
+    for (const t of toko) for (const b of [bulanMundur(0), bulanMundur(1)]) out['thp:' + t + ':' + b] = await W.TokoMd.hasilPenjualan(sb, { toko: t, bulan: b });
+    return out;
+  },
   // Halaman Mike (KBS file 85): barang baru menunggu harga jual, kenaikan harga beli 61 hari, laporan bulanan (KB_laporan_).
   'md:tpb': async () => ({ 'md:tpb': await W.TutupBuku.tpbData(sb, { bulan: W.TutupBuku.bulanPotret() }) }),
   'kb:bbr': async () => ({ 'kb:bbr': await W.MdLama.bbrData(sb) }),
@@ -140,7 +150,7 @@ const GRUP: string[][] = [
   ['md:beranda', 'acc:oto'], ['md:acc', 'md:acc:lalu'], ['md:ringkasan'],
   ['md:setuju', 'md:tanpa', 'md:titip', 'md:request', 'md:pantau'], ['md:hrgnaik', 'md:hbb', 'kb:bbr', 'kb:hrgnaik'],
   ['md:mkt'], ['md:mkt:lalu'], ['md:botol', 'md:pp:prod', 'md:pp:bahan', 'md:prod'], ['md:bbk', 'md:rbb'], ['md:rpd'],
-  ['md:barang'], ['hpp'], ['md:pengadaan'], ['md:gudang'], ['md:beli:lalu'], ['md:bh'], ['md:bh:lalu'], ['stok:semua'],
+  ['md:barang'], ['hpp'], ['md:pengadaan'], ['md:gudang'], ['md:beli:lalu'], ['md:bh'], ['md:bh:lalu'], ['stok:semua'], ['thp'],
 ];
 
 // Bandingkan dua isi (abaikan jam "diperbarui"/"dibuat"/"hariIni"); hasil: daftar jalur yang berbeda (paling banyak 6).
