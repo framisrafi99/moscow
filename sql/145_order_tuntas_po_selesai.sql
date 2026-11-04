@@ -1,0 +1,7 @@
+-- 4 Nov 2026: dua proses lanjutan dipindah dari Apps Script ke Supabase.
+-- 1) _order_tuntas(no, asal): order Disetujui yang sudah terkirim semua -> Dikirim (+ efek order_status untuk Telegram).
+--    gudang_kirim memanggilnya langsung (dulu efek 'order_tuntas' -> OM_tuntas_ Apps Script).
+--    gudang_order_kirim: asal efek manajemen ikut diperbarui untuk jenis order_status.
+-- 2) gudang_terima_po: PO Selesai -> pengajuan lokal "Dibayar Viory · PO-..." berstatus Dipesan ikut Diterima
+--    (dulu bagian efek 'terima_po' Apps Script, pembungkus file 71). Variabel v_po_tuntas dipakai karena pengadaan_ajuan punya kolom "no".
+-- Diterapkan dengan mengganti baris di definisi fungsi (DO block), lalu diuji dengan transaksi yang dibatalkan.
