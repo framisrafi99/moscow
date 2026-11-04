@@ -1,0 +1,5 @@
+-- 151 (4 Nov 2026): harga stok masuk botol / stiker / packaging (kemasan_harga_simpan) -> catatan kenaikan harga langsung di Supabase.
+-- _kms_naik(id bahan_masuk, pengisi): salinan SBE_JENIS_.kemasan_harga (Apps Script file 85, KMS_masuk_ / KMS_barang_ file 4):
+-- harga satuan baru > harga satuan stok masuk sebelumnya (barang sama) + 0,005 -> _hrg_catat (harga_naik_log + Telegram "HARGA BELI NAIK").
+-- kemasan_harga_simpan sekarang memanggil perform public._kms_naik(b.id, v_pengisi) menggantikan efek 'kemasan_harga'.
+-- Definisi lengkap: pg_get_functiondef('public._kms_naik(bigint,text)'::regprocedure).
