@@ -1101,7 +1101,81 @@
     return { ok: true, list: r.list.filter(function (x) { return x.t >= batas; }), diperbarui: r.diperbarui };
   }
 
-  window.MdLama = { bbrData: bbrData, kbNaik: kbNaik, mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, lapisHpp: lapisHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu, mdeData: mdeData, mpPsn: async function (sb) { return MP_bacaPsn_(await window.Lembar.muat(sb, TABEL_MP)); },
+
+  // ======================= HPP & HARGA (file 40 mmHargaData) =======================
+  // HPP (MM_hppPeta_), harga jual, harga dasar per consignment (sheet HPP_MEDAN / HPP_SIDOARJO / HPP_RENON), stok toko, usulan menunggu & riwayat.
+  var MM_TOKO_ = [['Consignment Medan', 'Medan', 'hpp_medan'], ['Consignment Sidoarjo', 'Sidoarjo', 'hpp_sidoarjo'], ['Consignment Renon', 'Renon', 'hpp_renon']];
+  function mmDasar(k) { return String(k || '').trim().toUpperCase().split('-')[0]; }
+  async function mmHargaData(sb) {
+    var h = await Promise.all([bahanHpp(sb), semua(sb, 'harga_usul_log', 'no,waktu,dari_link,nama_pengusul,jenis,lokasi,kode,nama_barang,lama,baru,alasan,status,waktu_keputusan,diputus_oleh,catatan')]
+      .concat(MM_TOKO_.map(function (t) { return semua(sb, t[2], 'kode,nama_barang,hpp'); }))
+      .concat(MM_TOKO_.map(function (t) { return sb.rpc('toko_stok_hitung', { p_toko: t[0] }); })));
+    var H = h[0], brg = H.G.barang(), hpp = {};
+    try { hpp = H.peta(); } catch (e) { }
+    var toko = MM_TOKO_.map(function (t, i) {
+      var hd = {}, st = {};
+      h[2 + i].forEach(function (r) { var k = mmDasar(r.kode); if (!k || r.hpp === null || r.hpp === '' || !isFinite(Number(r.hpp))) return; hd[k] = { v: Number(r.hpp) }; });
+      var x = h[2 + MM_TOKO_.length + i];
+      if (x && !x.error) (x.data || []).forEach(function (r) { st[r.kode] = (st[r.kode] || 0) + (Number(r.qty) || 0); });
+      return { t: t[0], n: t[1], hd: hd, st: st };
+    });
+    var kat = [], adaKat = {};
+    var barang = brg.list.map(function (b) {
+      if (!adaKat[b.kat]) { adaKat[b.kat] = true; kat.push(b.kat); }
+      var d = mmDasar(b.k);
+      return { k: b.k, n: b.n, kat: b.kat, hpp: Math.round(hpp[b.k] || 0), hj: b.h || 0,
+        hd: toko.map(function (t) { var x = t.hd[d]; return x ? x.v : null; }), st: toko.map(function (t) { return Math.round(Number(t.st[d]) || 0); }) };
+    });
+    var R = function (v, n) { return String(v === null || v === undefined ? '' : v).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n); };
+    var jam = function (v) { var w = waktu(v); return w ? fmt(w, 'dd/MM/yyyy HH:mm') : ''; };
+    var usul = h[1].map(function (r) {
+      var w = waktu(r.waktu);
+      return { no: R(r.no, 30), wk: jam(r.waktu), ms: w ? w.getTime() : 0, dari: R(r.dari_link, 120), nama: R(r.nama_pengusul, 60), j: R(r.jenis, 30), lok: R(r.lokasi, 80),
+        k: R(r.kode, 30).toUpperCase(), n: R(r.nama_barang, 120), lama: Number(r.lama) || 0, baru: Number(r.baru) || 0, al: R(r.alasan, 300), st: R(r.status, 30),
+        wp: jam(r.waktu_keputusan), oleh: R(r.diputus_oleh, 80), cat: R(r.catatan, 300) };
+    }).filter(function (x) { return x.no; });
+    var tampil = function (x) { return { no: x.no, wk: x.wk, dari: x.dari, nama: x.nama, j: x.j, lok: x.lok, k: x.k, n: x.n, lama: x.lama, baru: x.baru, al: x.al, st: x.st, wp: x.wp, oleh: x.oleh, cat: x.cat }; };
+    var tunggu = usul.filter(function (x) { return x.st === 'Menunggu'; }).sort(function (a, b) { return a.ms - b.ms; });
+    var riwayat = usul.filter(function (x) { return x.st !== 'Menunggu'; }).sort(function (a, b) { return b.ms - a.ms; }).slice(0, 30);
+    return { ok: true, barang: barang, kategori: kat, toko: toko.map(function (t) { return { t: t.t, n: t.n }; }), tunggu: tunggu.map(tampil), riwayat: riwayat.map(tampil) };
+  }
+
+  // ======================= STOK SISTEM SATU BARANG (file 16 mdeStok / MDE_sistem_) =======================
+  async function mdeStok(sb, p) {
+    var k = String(p.k || '').replace(/\s+/g, ' ').trim().slice(0, 30).toUpperCase(), w = String(p.w || '').replace(/\s+/g, ' ').trim().toUpperCase(), lok = String(p.lok || '');
+    var hasil = function (v) { return { ok: true, k: k, lok: lok, w: w, sistem: v }; };
+    if (lok === 'prod') {
+      var r = await window.Produksi.ambilStok(sb);
+      if (!r) return null;
+      return hasil(w ? ((r.stokW && r.stokW[k] && r.stokW[k][w]) || 0) : (r.stok[k] || 0));
+    }
+    if (lok === 'gudang') {
+      var L = await window.Lembar.muat(sb, TABEL_HPP), G = window.Gudang.buat(L);
+      return hasil(G.stok(G.log())[k + '|' + (w || '')] || 0);
+    }
+    if (lok === 'kp') {
+      var A = await window.KantorPacking.siap(sb), x = A && A.A && A.A.on ? A.A.on.list.filter(function (y) { return y.k === k; })[0] : null;
+      return hasil(x ? x.q : 0);
+    }
+    var pel = await sb.from('pelanggan').select('nama_pelanggan,tipe,baris_sheet,id').order('baris_sheet', { ascending: true, nullsFirst: false }).order('id');
+    var toko = [], ada = {};
+    (pel.data || []).forEach(function (r) { var n = String(r.nama_pelanggan || '').trim(); if (n && String(r.tipe || '').trim() === 'Consignment' && !ada[n]) { ada[n] = 1; toko.push(n); } });
+    var m = /^t(\d+)$/.exec(lok), nama = m ? toko[Number(m[1])] : null;
+    if (!nama) return { ok: false, pesan: 'Terjadi kesalahan: Lokasi tidak dikenal.' };
+    if (w) {
+      var hw = await sb.rpc('toko_hitung_warna', { p_toko: nama });
+      if (hw.error) throw new Error(hw.error.message);
+      var hk = hw.data && hw.data[mmDasar(k)];
+      if (!hk) return { ok: false, pesan: 'Terjadi kesalahan: Barang ini belum pernah dihitung per warna di ' + nama + ', jadi stok per warnanya belum diketahui. Pilih "(semua warna)" atau minta staf toko menghitung stok dulu.' };
+      return hasil((hk.w && hk.w[w]) || 0);
+    }
+    var st = await sb.rpc('toko_stok_hitung', { p_toko: nama });
+    if (st.error) throw new Error(st.error.message);
+    var q = 0; (st.data || []).forEach(function (r) { if (r.kode === k) q += Number(r.qty) || 0; });
+    return hasil(q);
+  }
+
+  window.MdLama = { mmHargaData: mmHargaData, mdeStok: mdeStok, bbrData: bbrData, kbNaik: kbNaik, mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, lapisHpp: lapisHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu, mdeData: mdeData, mpPsn: async function (sb) { return MP_bacaPsn_(await window.Lembar.muat(sb, TABEL_MP)); },
     // MP_dasborJual_ (file 36): penjualan marketplace Official per barang untuk dasbor.
     mpJual: async function (sb) {
       var L = await window.Lembar.muat(sb, TABEL_MP), B = MP_barang_(L), P = MP_padananFn_(L, B), out = [];
