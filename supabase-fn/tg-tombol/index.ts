@@ -65,8 +65,12 @@ function boleh(p: string, jenis: string) {
 }
 // deno-lint-ignore no-explicit-any
 async function cari(id: string): Promise<any> {
-  const r = await sb.from('tg_acc_log').select('*').eq('id', id).maybeSingle();
-  return r.data || null;
+  // Tabel tg_acc_log (salinan sheet TG_ACC_LOG): id_sheet = kode tombol, nomor = daftar nomor, pesan = message_id.
+  const r = await sb.from('tg_acc_log').select('id_sheet,jenis,nomor,chat,pesan,status').eq('id_sheet', id).order('id', { ascending: false }).limit(1);
+  const d = r.data && r.data[0];
+  if (!d) return null;
+  return { id: String(d.id_sheet), jenis: String(d.jenis || ''), nos: String(d.nomor || '').split(',').map((s) => s.trim()).filter(Boolean),
+    chat: d.chat ? String(d.chat) : '', msg: d.pesan ? String(d.pesan) : '', status: String(d.status || '') };
 }
 // deno-lint-ignore no-explicit-any
 async function sisa(x: any): Promise<string[]> {
@@ -91,7 +95,7 @@ async function tutup(x: any, label: string) {
 async function selesai(x: any, p: string, aksi: string, alasan: string) {
   const s = x.jenis === 'uji' ? [] : await sisa(x);
   const status = s.length ? 'Sebagian' : (aksi === 'setuju' ? 'Disetujui' : 'Ditolak');
-  await sb.from('tg_acc_log').update({ status, oleh: NAMA[p], waktu_putus: new Date().toISOString(), catatan: t(alasan, 300) }).eq('id', x.id);
+  await sb.from('tg_acc_log').update({ status, diputus_oleh: NAMA[p], waktu_putus: new Date().toISOString(), catatan: t(alasan, 300) }).eq('id_sheet', x.id);
   if (!s.length) await tutup(x, (aksi === 'setuju' ? '✅ Disetujui' : '❌ Ditolak') + ' · ' + NAMA[p] + ' · ' + jam());
 }
 
@@ -104,8 +108,8 @@ async function tekan(q: any, upd: number) {
   const dari = q.from || {}, p = await peran(dari.id);
   if (!p) return jawab(q, 'Akun Telegram kamu tidak terdaftar untuk ACC. Tidak ada yang diubah.', true);
   const x = await cari(m[1]);
-  if (!x) return jawab(q, 'Tombol ini dari sistem lama. Putuskan lewat Master Data atau halaman Persetujuan.', true);
-  if (!x.chat && q.message) { x.chat = String(q.message.chat.id); x.msg = String(q.message.message_id); await sb.from('tg_acc_log').update({ chat: x.chat, msg: x.msg }).eq('id', x.id); }
+  if (!x) return jawab(q, 'Data tombol tidak ditemukan. Putuskan lewat Master Data atau halaman Persetujuan.', true);
+  if (!x.chat && q.message) { x.chat = String(q.message.chat.id); x.msg = String(q.message.message_id); await sb.from('tg_acc_log').update({ chat: x.chat, pesan: x.msg }).eq('id_sheet', x.id); }
   const izin = boleh(p, x.jenis);
   if (izin) return jawab(q, izin, true);
   if (!(await sisa(x)).length) { await tutup(x, '✔️ Sudah diproses'); return jawab(q, 'Sudah diproses sebelumnya (Master Data / Telegram). Tidak ada yang diubah.', true); }

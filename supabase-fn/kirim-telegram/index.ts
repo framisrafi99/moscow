@@ -78,7 +78,7 @@ async function kirimTombol(teks: string, jenis: string, nos: string[]) {
   if (!nos.length) return await kirim(CHAT, teks, true);
   if (await sudahTerkirim(teks)) return 'lewat: pesan sama baru saja terkirim';
   const id = 'S' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
-  const c = await sb.from('tg_acc_log').insert({ id, jenis, nos, status: 'Menunggu' });
+  const c = await sb.from('tg_acc_log').insert({ id_sheet: id, waktu: new Date().toISOString(), jenis, nomor: nos.join(','), status: 'Menunggu' });
   if (c.error) throw new Error('catat tombol: ' + c.error.message);
   const r = await fetch('https://api.telegram.org/bot' + TOKEN + '/sendMessage', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -88,8 +88,8 @@ async function kirimTombol(teks: string, jenis: string, nos: string[]) {
   const j = await r.json().catch(() => ({}));
   // deno-lint-ignore no-explicit-any
   const res = (j as any).result;
-  if (r.ok && res) { await sb.from('tg_acc_log').update({ chat: String(res.chat.id), msg: String(res.message_id) }).eq('id', id); return 'ok'; }
-  await sb.from('tg_acc_log').update({ status: 'Gagal kirim' }).eq('id', id);
+  if (r.ok && res) { await sb.from('tg_acc_log').update({ chat: String(res.chat.id), pesan: String(res.message_id) }).eq('id_sheet', id); return 'ok'; }
+  await sb.from('tg_acc_log').update({ status: 'Gagal kirim' }).eq('id_sheet', id);
   // Cadangan: kirim tanpa tombol (keputusan lewat Master Data).
   const b = await fetch('https://api.telegram.org/bot' + TOKEN + '/sendMessage', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
