@@ -94,7 +94,9 @@
     // Dashboard toko, riwayat hitung stok, dan riwayat isi laporan dihitung di halaman (toko-baca.js), tanpa Apps Script (4 Nov 2026).
     dasborToko: function () { return window.TokoBaca.dasborToko(sb, C.toko); },
     riwayatHitung: function () { return window.TokoBaca.riwayatHitung(sb, C.toko); },
-    riwayatLaporan: function (p) { return window.TokoBaca.riwayatLaporan(sb, C.toko, p); }
+    riwayatLaporan: function (p) { return window.TokoBaca.riwayatLaporan(sb, C.toko, p); },
+    // Kartu "Hasil penjualan" Toko Offline (file 82): dihitung robot Supabase (bulan ini & bulan lalu), 5 Nov 2026.
+    tokoHasilPenjualan: function (p) { return ['toko_hasil_baca', { p_toko: C.toko, p_bulan: String(p.bulan || '') }]; }
   };
   async function dataSupabase(f, a) {
     if (!C.toko || Date.now() < C.basiSampai) return null;

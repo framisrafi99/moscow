@@ -366,6 +366,7 @@
     // HPP & Harga, stok sistem di Edit Barang (md.js; harga dasar & stok Renon memakai data Supabase yang sudah dirapikan).
     mmHargaData: function () { return window.MdLama.mmHargaData(sb); },
     mdeStok: function (a) { return window.MdLama.mdeStok(sb, a[0] || {}); },
+    tokoHasilPenjualan: function (a) { return window.TokoMd.hasilPenjualan(sb, a[0] || {}); },
     // Order & omzet toko (tokomd.js; omzet Renon tanpa baris yang dibatalkan, sama dengan Master Data baru).
     ambilOrder: function (a) { return window.TokoMd.ambilOrder(sb, a[0] || {}); },
     omzetKotor: function (a) { return window.TokoMd.omzetKotor(sb, a[0] || {}); },
