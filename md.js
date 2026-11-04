@@ -1101,7 +1101,7 @@
     return { ok: true, list: r.list.filter(function (x) { return x.t >= batas; }), diperbarui: r.diperbarui };
   }
 
-  window.MdLama = { bbrData: bbrData, kbNaik: kbNaik, mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu, mdeData: mdeData, mpPsn: async function (sb) { return MP_bacaPsn_(await window.Lembar.muat(sb, TABEL_MP)); },
+  window.MdLama = { bbrData: bbrData, kbNaik: kbNaik, mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, lapisHpp: lapisHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu, mdeData: mdeData, mpPsn: async function (sb) { return MP_bacaPsn_(await window.Lembar.muat(sb, TABEL_MP)); },
     // MP_dasborJual_ (file 36): penjualan marketplace Official per barang untuk dasbor.
     mpJual: async function (sb) {
       var L = await window.Lembar.muat(sb, TABEL_MP), B = MP_barang_(L), P = MP_padananFn_(L, B), out = [];
