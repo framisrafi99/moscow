@@ -360,6 +360,9 @@
     mdeData: function () { return window.MdLama.mdeData(sb); },
     pgdData: function () { return window.RobotBeli.pgdData(sb); },
     tbBeranda: function () { return window.Akunting.berandaData(sb); },
+    // Tutup buku (tpb.js, sama dengan Master Data baru): daftar & pemeriksaan bulan, penyeimbang hitung stok.
+    tpbData: function (a) { return window.TutupBuku.tpbData(sb, a[0] || {}); },
+    tpbPenyeimbang: function () { return window.TutupBuku.penyeimbang(sb); },
     gjData: async function (a) {
       var r = await sb.rpc('gaji_data', { p_per: teks((a[0] || {}).per) });
       if (r.error) throw new Error(r.error.message);
@@ -705,6 +708,10 @@
   // Halaman Mike: ACC / tolak pengajuan impor sama dengan halaman Mike lama (pengadaan_aksi di Supabase).
   // Master Data lama (31 Okt): titipan staf dan Edit Barang (harga, HPP, info, barang baru) langsung di Supabase, sama dengan Master Data baru.
   // Qty stok tetap lewat Apps Script.
+  // Tutup buku (4 Nov 2026): tutup / buka / penyeimbang langsung di Supabase (tpb.js, SQL 134 & 153).
+  TULIS_SUPABASE.mdlama.tpbTutup = function (p) { return window.TutupBuku.tutup(sb, teks(p.bulan), { paksa: p.paksa === true }); };
+  TULIS_SUPABASE.mdlama.tpbBuka = function (p) { return window.TutupBuku.buka(sb, teks(p.bulan), teks(p.alasan)); };
+  TULIS_SUPABASE.mdlama.tpbTerapkan = function (p) { return window.TutupBuku.terapkan(sb, teks(p.bulan)); };
   TULIS_SUPABASE.mdlama.ttpPutus = function (p) {
     return ['ttp_putus', { p_jenis: teks(p.jenis), p_id: teks(p.id), p_aksi: teks(p.aksi), p_hpp: teks(p.hpp), p_harga: teks(p.harga), p_qty: teks(p.qty) }];
   };

@@ -186,5 +186,84 @@
     return x.toISOString().slice(0, 7);
   }
 
-  window.TutupBuku = { tpbData: tpbData, bulanPotret: bulanPotret, periksa: periksa, tutup: tutup, buka: buka };
+  // ======================= PENYEIMBANG (tpbPenyeimbang / tpbTerapkan, file 74 TPB_hitungPenyeimbang_) =======================
+  // Ajuan hitung stok Kantor Packing & Gudang Utama yang menunggu -> kiriman yang belum tercatat, produksi belum tercatat / stok awal online,
+  // dan sisa selisih. Ditulis lewat rpc tpb_py_terapkan (SQL 153, khusus manajemen).
+  var TPB_PRODUKSI_ = /cat moscow|kenka/i, KP = 'Kantor Packing', GU = 'Gudang';
+  async function hitungPenyeimbang(sb) {
+    var L = await window.Lembar.muat(sb, ['barang_order', 'produksi_sesuai_log']), G = window.Gudang.buat(L), brg = G.barang();
+    var semua = [];
+    window.Lembar.baca(L, 'produksi_sesuai_log', 14).forEach(function (r) {
+      var no = String(r[0] || '').trim(); if (!no) return;
+      var sel = Number(r[8]);
+      semua.push({ no: no, bg: String(r[2] || '').trim(), k: String(r[3] || '').trim().toUpperCase(), n: String(r[4] || '').replace(/\s+/g, ' ').trim(),
+        w: String(r[5] === null || r[5] === undefined ? '' : r[5]).replace(/\s+/g, ' ').trim().toUpperCase(), sel: isFinite(sel) ? sel : 0, st: String(r[11] || '').trim() });
+    });
+    var per = {}, urut = [], nKP = 0, nGU = 0;
+    semua.forEach(function (x) {
+      if (x.st !== 'Menunggu' || !x.k || !x.sel || (x.bg !== KP && x.bg !== GU)) return;
+      if (x.bg === KP) nKP++; else nGU++;
+      if (!per[x.k]) {
+        var b = brg.idx[x.k] !== undefined ? brg.list[brg.idx[x.k]] : null;
+        per[x.k] = { k: x.k, n: (b && b.n) || x.n || x.k, kat: (b && b.kat) || '', kp: {}, gu: {}, aj: [] };
+        urut.push(x.k);
+      }
+      var o = per[x.k], sisi = x.bg === KP ? o.kp : o.gu;
+      sisi[x.w] = (sisi[x.w] || 0) + x.sel;
+      o.aj.push(x);
+    });
+    var hasil = [], tot = { kpLebih: 0, kirim: 0, prod: 0, awal: 0, sisaKP: 0, sisaGU: 0, ajuan: 0 };
+    urut.forEach(function (k) {
+      var o = per[k], prod = TPB_PRODUKSI_.test(o.kat), kpLebih = 0, guLebih = 0;
+      Object.keys(o.kp).forEach(function (w) { if (o.kp[w] > 0) kpLebih += o.kp[w]; });
+      Object.keys(o.gu).forEach(function (w) { if (o.gu[w] < 0) guLebih += -o.gu[w]; });
+      var kirim = Math.min(kpLebih, guLebih), tambahKP = {}, kurangGU = {}, kirimW = [], isiW = [], s = kirim;
+      Object.keys(o.gu).sort(function (a, b) { return o.gu[a] - o.gu[b]; }).forEach(function (w) {
+        if (s <= 0 || o.gu[w] >= 0) return;
+        var q = Math.min(s, -o.gu[w]);
+        kirimW.push({ w: w, q: q }); kurangGU[w] = (kurangGU[w] || 0) + q; tambahKP[w] = (tambahKP[w] || 0) + q; s -= q;
+      });
+      var sisa = kpLebih - kirim;
+      Object.keys(o.kp).sort(function (a, b) { return o.kp[b] - o.kp[a]; }).forEach(function (w) {
+        if (sisa <= 0) return;
+        var perlu = (o.kp[w] || 0) - (tambahKP[w] || 0);
+        if (perlu <= 0) return;
+        var q = Math.min(sisa, perlu);
+        isiW.push({ w: w, q: q }); tambahKP[w] = (tambahKP[w] || 0) + q; sisa -= q;
+      });
+      if (sisa > 0) { isiW.push({ w: '', q: sisa }); tambahKP[''] = (tambahKP[''] || 0) + sisa; sisa = 0; }
+      var sisaKP = [], sisaGU = [], wKP = {}, wGU = {};
+      Object.keys(o.kp).concat(Object.keys(tambahKP)).forEach(function (w) { wKP[w] = 1; });
+      Object.keys(wKP).forEach(function (w) { var r = (o.kp[w] || 0) - (tambahKP[w] || 0); if (r) sisaKP.push({ w: w, q: r }); });
+      Object.keys(o.gu).concat(Object.keys(kurangGU)).forEach(function (w) { wGU[w] = 1; });
+      Object.keys(wGU).forEach(function (w) { var r = (o.gu[w] || 0) + (kurangGU[w] || 0); if (r) sisaGU.push({ w: w, q: r }); });
+      var isi = 0, rKP = 0, rGU = 0, selKP = 0, selGU = 0;
+      isiW.forEach(function (x) { isi += x.q; }); sisaKP.forEach(function (x) { rKP += x.q; }); sisaGU.forEach(function (x) { rGU += x.q; });
+      Object.keys(o.kp).forEach(function (w) { selKP += o.kp[w]; }); Object.keys(o.gu).forEach(function (w) { selGU += o.gu[w]; });
+      hasil.push({ k: k, n: o.n, kat: o.kat, jenis: prod ? 'Produksi' : 'Retail', selKP: selKP, selGU: selGU,
+        kirim: kirim, prod: prod ? isi : 0, awal: prod ? 0 : isi, sisaKP: rKP, sisaGU: rGU,
+        kirimW: kirimW, isiW: isiW, sisaKPW: sisaKP, sisaGUW: sisaGU, aj: o.aj.map(function (x) { return x.no; }) });
+      tot.kpLebih += kpLebih; tot.kirim += kirim; tot.prod += prod ? isi : 0; tot.awal += prod ? 0 : isi;
+      tot.sisaKP += rKP; tot.sisaGU += rGU; tot.ajuan += o.aj.length;
+    });
+    hasil.sort(function (a, b) { return (b.kirim + b.prod + b.awal) - (a.kirim + a.prod + a.awal); });
+    return { list: hasil, tot: tot, nKP: nKP, nGU: nGU };
+  }
+  async function penyeimbang(sb) {
+    var h = await hitungPenyeimbang(sb);
+    return { ok: true, nKP: h.nKP, nGU: h.nGU, tot: h.tot,
+      list: h.list.map(function (x) { return { k: x.k, n: x.n, jenis: x.jenis, selKP: x.selKP, selGU: x.selGU, kirim: x.kirim, prod: x.prod, awal: x.awal, sisaKP: x.sisaKP, sisaGU: x.sisaGU }; }) };
+  }
+  async function terapkan(sb, bulan) {
+    var h = await hitungPenyeimbang(sb);
+    if (!h.list.length) return { ok: false, pesan: 'Tidak ada ajuan hitung stok yang menunggu. Minta staf mengirim hitung stok Kantor Packing dan Gudang Utama dulu.' };
+    if (!h.nKP || !h.nGU) return { ok: false, pesan: 'Hitung stok ' + (!h.nKP ? 'Kantor Packing' : 'Gudang Utama') + ' belum dikirim. Penyeimbang butuh hasil hitung kedua lokasi.' };
+    var x = await sb.rpc('tpb_py_terapkan', { p_bulan: bulanOk(bulan) ? bulan : '', p_list: h.list.map(function (y) {
+      return { k: y.k, n: y.n, kat: y.kat, jenis: y.jenis, kirimW: y.kirimW, isiW: y.isiW, sisaKPW: y.sisaKPW, sisaGUW: y.sisaGUW, aj: y.aj };
+    }), p_tot: h.tot });
+    if (x.error) return { ok: false, pesan: x.error.message };
+    return x.data || { ok: false, pesan: 'Gagal menerapkan penyeimbang.' };
+  }
+
+  window.TutupBuku = { tpbData: tpbData, bulanPotret: bulanPotret, periksa: periksa, tutup: tutup, buka: buka, penyeimbang: penyeimbang, terapkan: terapkan };
 })();
