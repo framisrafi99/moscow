@@ -1,0 +1,4 @@
+-- 153 (4 Nov 2026): penyeimbang tutup buku (tpbTerapkan Apps Script file 74) di Supabase.
+-- Dihitung tpb.js (TutupBuku.penyeimbang / terapkan = TPB_hitungPenyeimbang_), ditulis rpc tpb_py_terapkan(p_bulan, p_list, p_tot), khusus manajemen:
+-- gudang_log (kiriman / produksi belum tercatat, ref PY-yyyy-MM|...), online_stok_awal (penyesuaian pembukaan), produksi_sesuai_log (sisa selisih PY-yyMMdd-NNN, Disetujui),
+-- ajuan asal -> 'Diganti penyeimbang'. Definisi lengkap: pg_get_functiondef('public.tpb_py_terapkan(text,jsonb,jsonb)'::regprocedure).
