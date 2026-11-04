@@ -148,7 +148,17 @@
       });
       return { ok: true, list: list };
     }
-    return { ptrData: ptrData, pgsTerbuka: pgsTerbuka, pgsData: pgsData, gdxPengajuan: gdxPengajuan, ajuan: ajuan, pgdAjuan: pgdAjuan };
+    // ptrTerima (file 72): pengajuan di daftar "barang dibayar" bagian ini + apakah ada di daftar stok botol & stiker.
+    function ptrCari(app, no) {
+      var bagian = BAGIAN[app];
+      var x = ajuan().filter(function (y) {
+        return y.no === no && y.bg === bagian && y.st === PGD_ST_.PESAN && String(y.ref || '').indexOf(PLX_REF_) === 0 && !terpakai(y);
+      })[0];
+      if (!x) return null;
+      var nm = String(x.n || '').replace(/ · [A-Z0-9 ]+$/, '');
+      return { x: x, nama: nm, adaStm: daftarBahan().some(function (b) { return kunci(b.n) === kunci(nm); }) };
+    }
+    return { ptrCari: ptrCari, ptrData: ptrData, pgsTerbuka: pgsTerbuka, pgsData: pgsData, gdxPengajuan: gdxPengajuan, ajuan: ajuan, pgdAjuan: pgdAjuan };
   }
 
   async function muat(sb) { return buat(await window.Lembar.muat(sb, TABEL)); }
@@ -168,6 +178,7 @@
       return h[1] ? h[0].gdxPengajuan(h[1]) : null;
     },
     ptrData: async function (sb, app) { return (await muat(sb)).ptrData(app); },
+    ptrCari: async function (sb, app, no) { return (await muat(sb)).ptrCari(app, no); },
     pgsTerbuka: async function (sb, app) { return (await muat(sb)).pgsTerbuka(app); },
     // Laporan pengajuan per tanggal untuk dikirim ke Purchasing (ajuan-pdf.js): semua pengajuan bagian itu, dengan tanda impor.
     ajuanBagian: async function (sb, app) {

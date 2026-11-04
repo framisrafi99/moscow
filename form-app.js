@@ -320,8 +320,59 @@
       return ['hpp_usul', { p_app: app, p_jenis: teks(p.jenis), p_k: teks(p.k), p_nilai: teks(p.nilai), p_alasan: teks(p.alasan), p_nama: teks(p.nama), p_token: teks(p.token) }];
     };
   }
+
+  // Terima barang yang sudah dibayar Purchasing (ptrTerima, file 72) langsung di Supabase, tanpa Apps Script (4 Nov 2026).
+  // Cabangnya sama dengan Apps Script: PO gudang -> gudang_terima_po; bahan baku -> bbk_beli + bbk_sampai;
+  // botol & stiker produksi -> produksi_simpan_masuk; selebihnya ditandai diterima saja (ptr_tandai_terima).
+  function ptrTerimaRpc(app) {
+    return async function (p) {
+      async function rpc(nm, a) { var r = await sb.rpc(nm, a); if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Tekan simpan sekali lagi; aman, tidak akan tercatat dua kali.'); return r.data; }
+      function tandai(qty, ket) { return rpc('ptr_tandai_terima', { p_app: app, p_no: no, p_qty: String(qty), p_ket: ket, p_nama: nama }); }
+      var no = teks(p.no).trim().slice(0, 30), nama = teks(p.nama).replace(/\s+/g, ' ').trim().slice(0, 40);
+      if (nama.length < 2) return { ok: false, pesan: 'Isi nama penerima.' };
+      var c = await window.Pengadaan.ptrCari(sb, app, no);
+      if (!c) return { ok: false, pesan: 'Pengajuan ' + no + ' tidak ada di daftar barang dibayar bagian ini. Muat ulang.' };
+      var x = c.x, dibeli = x.qs !== null && x.qs !== undefined ? x.qs : x.q;
+      var qty = Number(teks(p.qty).replace(',', '.'));
+      if (!(qty > 0) || qty > 1000000) return { ok: false, pesan: 'Isi jumlah yang diterima.' };
+      var cat = teks(p.catatan).replace(/\s+/g, ' ').trim().slice(0, 150);
+      if (Math.abs(qty - dibeli) > 1e-9 && cat.length < 3) return { ok: false, pesan: 'Jumlah diterima berbeda dengan yang dibeli (' + dibeli + ' ' + x.s + '). Isi catatannya.' };
+      var tag = '[' + x.no + ']', token = teks(p.token).slice(0, 60) || ('ptr' + x.no + qty), hari = hariIni();
+      var po = (/\b(PO-\d{6}-\d+)\b/.exec(x.ref || '') || [])[1] || '';
+      if (x.kel === 'Barang jualan') {
+        if (!po) return tandai(qty, 'tanpa PO');
+        if (Math.round(qty) !== qty) return { ok: false, pesan: 'Jumlah barang jualan harus angka bulat.' };
+        return rpc('gudang_terima_po', { p_tanggal: hari, p_no: po, p_nama: nama, p_catatan: (tag + ' ' + cat).trim(), p_token: token,
+          p_items: [{ k: x.k, w: x.w || '', baik: qty, rusak: 0 }] });
+      }
+      if (x.kel === 'Bahan baku' && app === 'bahanbaku' && x.k) {
+        var tot = (/Rp ([\d.]+)/.exec(x.ref || '') || [])[1], bag = String(x.ref || '').split(' · ');
+        var beli = await rpc('bbk_beli', { p_tanggal: x.wps || hari, p_kode: x.k, p_qty: String(dibeli), p_satuan: x.s, p_harga: tot ? String(Number(tot.replace(/\./g, '')) || '') : '',
+          p_supplier: bag[bag.length - 1].slice(0, 60), p_catatan: tag + ' dibayar Viory', p_pengisi: nama, p_baru: null, p_token: token + 'b' });
+        if (!beli || !beli.ok) return beli && beli.lewat ? { ok: false, pesan: 'Pembelian bahan ini perlu dicatat lewat menu Pembelian.' } : (beli || { ok: false, pesan: 'Gagal mencatat pembelian bahan baku.' });
+        var pb = (/Pembelian (\S+) tercatat/.exec(beli.pesan || '') || [])[1];
+        if (!pb) {
+          var cek = await sb.from('pengadaan_ajuan').select('ref_po_supplier').eq('no', x.no).limit(1);
+          pb = cek.data && cek.data[0] ? (/Form bahan baku (\S+)/.exec(cek.data[0].ref_po_supplier || '') || [])[1] : '';
+        }
+        if (!pb) return { ok: false, pesan: 'Pembelian tercatat, tapi nomor pembeliannya tidak terbaca. Tandai Sampai lewat form bahan baku > Pembelian.' };
+        return rpc('bbk_sampai', { p_no: pb, p_tanggal: hari, p_qty: String(qty), p_pengisi: nama, p_catatan: cat || ('Diterima dari pengajuan ' + x.no) });
+      }
+      if ((x.kel === 'Botol & stiker' || x.kel === 'Packaging & lainnya') && app === 'produksi') {
+        if (Math.round(qty) !== qty) return { ok: false, pesan: 'Jumlah harus angka bulat.' };
+        if (!c.adaStm) {
+          var t = await tandai(qty, 'tanpa stok sistem: tidak ada di daftar botol & stiker');
+          if (t && t.ok) t.pesan = x.no + ' ditandai diterima (barang ini tidak ada di daftar stok botol & stiker).';
+          return t;
+        }
+        return rpc('produksi_simpan_masuk', { p_tanggal: hari, p_nama: c.nama, p_qty: String(qty), p_pengisi: nama, p_catatan: (tag + ' ' + cat).trim(), p_token: token });
+      }
+      return tandai(qty, 'tanpa stok sistem');
+    };
+  }
   var TULIS_SUPABASE = {
     produksi: {
+      ptrTerima: ptrTerimaRpc('produksi'),
       hppUsul: hppUsulRpc('produksi'),
       // Harga kemasan (31 Okt): langsung di Supabase; kenaikan harga dicatat Apps Script (efek_antre 'kemasan_harga').
       kemasanHargaSimpan: function (p) {
@@ -358,6 +409,7 @@
     },
     gudang: {
       hppUsul: hppUsulRpc('gudang'),
+      ptrTerima: ptrTerimaRpc('gudang'),
       gdxKpUsul: hppUsulRpc('kp'),
       // Hitung stok & penyesuaian Kantor Packing: stok sistem dari kp.js, dicatat RPC kp_ajuan.
       gdxKpHitung: function (p) { return window.KantorPacking.gdxKpHitung(sb, p); },
@@ -440,6 +492,7 @@
     },
     bahanbaku: {
       hppUsul: hppUsulRpc('bahanbaku'),
+      ptrTerima: ptrTerimaRpc('bahanbaku'),
       // Pengajuan pembelian (pgdAjukan + pembungkus): robot dari potret; Telegram, pesan Mike & Viory oleh Apps Script (efek_antre).
       pgsAjukan: function (p) {
         return ['pengadaan_ajukan', { p_app: 'bahanbaku', p_nama: teks(p.nama), p_yakin: p.yakin === true, p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
