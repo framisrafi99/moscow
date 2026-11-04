@@ -387,6 +387,8 @@
       return v;
     },
     riwayatHitung: function (a) { var t = teks((a[0] || {}).toko); return t && window.TokoBaca ? window.TokoBaca.riwayatHitung(sb, t) : null; },
+    // Koreksi catatan gudang (5 Nov 2026): daftar catatan Gudang Utama beberapa hari terakhir (kgh_daftar).
+    kghDaftar: function (a) { return ['kgh_daftar', { p_hari: Number((a[0] || {}).hari) || 30 }]; },
     gjData: async function (a) {
       var r = await sb.rpc('gaji_data', { p_per: teks((a[0] || {}).per) });
       if (r.error) throw new Error(r.error.message);
@@ -790,6 +792,11 @@
     return ['mp_padanan_simpan', { p_items: items }];
   };
   TULIS_SUPABASE.mdlama.mpTambahStaf = function (p) { return window.MdLama.mpTambahStaf(sb, p); };
+  // Koreksi catatan gudang: hapus baris salah / dobel, diarsip dulu ke gudang_log_hapus (kgh_hapus).
+  TULIS_SUPABASE.mdlama.kghHapus = function (p) {
+    var items = (Array.isArray(p.items) ? p.items : []).slice(0, 100).map(function (x) { x = x || {}; return { b: teks(x.b), s: teks(x.s) }; });
+    return ['kgh_hapus', { p_items: items, p_alasan: teks(p.alasan), p_token: teks(p.token) }];
+  };
   TULIS_SUPABASE.mdlama.ttpPutus = function (p) {
     return ['ttp_putus', { p_jenis: teks(p.jenis), p_id: teks(p.id), p_aksi: teks(p.aksi), p_hpp: teks(p.hpp), p_harga: teks(p.harga), p_qty: teks(p.qty) }];
   };
