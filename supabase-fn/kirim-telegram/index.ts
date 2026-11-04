@@ -4,7 +4,7 @@
 //   tg_tombol (4 Nov 2026): pesan bertombol Setujui / Tolak (pengajuan impor, request pindah stok, usulan HPP);
 //                           tombolnya dijawab Edge Function tg-tombol (tabel tg_acc_log).
 // Pesan "tg" yang bertombol (REQUEST PINDAH STOK BARU / USULAN UBAH ...) juga dikirim dengan tombol di sini.
-// Rahasia: TG_TOKEN, TG_CHAT (grup), TG_VIORY (boleh kosong). Dipanggil jadwal dengan header x-moscow-robot-kunci.
+// Rahasia: TG_TOKEN, TG_CHAT (grup), TG_VIORY, TG_CHAT_MIKE (boleh kosong). Dipanggil jadwal dengan header x-moscow-robot-kunci.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const URL_SB = Deno.env.get('SUPABASE_URL')!;
@@ -18,8 +18,9 @@ const sb = createClient(URL_SB, kunciServer(), { auth: { persistSession: false }
 const TOKEN = (Deno.env.get('TG_TOKEN') || '').trim();
 const CHAT = (Deno.env.get('TG_CHAT') || '').trim();
 const VIORY = (Deno.env.get('TG_VIORY') || '').trim();
+const MIKE = (Deno.env.get('TG_CHAT_MIKE') || '').trim();
 const MAKS_BARIS = 12;
-const JENIS = ['tg', 'tg_tombol', 'pl_viory', 'tg_kirim', 'terima_selisih', 'produksi_masuk', 'order_status', 'sa_ajuan'];
+const JENIS = ['tg', 'tg_tombol', 'pl_viory', 'pl_mike', 'tg_kirim', 'terima_selisih', 'produksi_masuk', 'order_status', 'sa_ajuan'];
 
 function json(isi: unknown, status = 200) { return new Response(JSON.stringify(isi), { status, headers: { 'Content-Type': 'application/json' } }); }
 function esc(s: unknown) { return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -165,6 +166,7 @@ async function kerjakan(jenis: string, d: any, bahan?: any): Promise<string> {
     return await kirimTombol(teks, String(d.jenis || ''), nos);
   }
   if (jenis === 'pl_viory') return await kirim(VIORY, String(d.teks || ''), false);
+  if (jenis === 'pl_mike') return await kirim(MIKE, String(d.teks || ''), false);
   if (jenis === 'tg_kirim') {
     const p = d.p || {}, nm = await nama();
     const items = Array.isArray(p.items) ? p.items : [];
@@ -234,7 +236,8 @@ Deno.serve(async (req) => {
   if (!(k && k.data && k.data.kunci === tanda)) return json({ ok: false, pesan: 'Tidak diizinkan.' }, 403);
   if (!TOKEN || !CHAT) return json({ ok: false, pesan: 'Rahasia TG_TOKEN / TG_CHAT belum diisi; antrean dibiarkan untuk Apps Script.' });
   namaBarang = null;
-  const jenis = JENIS.filter((j) => j !== 'pl_viory' || VIORY);
+  // Pesan pribadi tanpa rahasia chat (TG_VIORY / TG_CHAT_MIKE) dibiarkan untuk Apps Script.
+  const jenis = JENIS.filter((j) => (j !== 'pl_viory' || VIORY) && (j !== 'pl_mike' || MIKE));
   const r = await sb.from('efek_antre').select('id,jenis,data,dibuat').is('selesai', null).in('jenis', jenis).order('id').limit(30);
   const hasil: string[] = [];
   for (const x of r.data || []) {

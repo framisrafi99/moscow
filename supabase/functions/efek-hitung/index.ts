@@ -1,6 +1,7 @@
 // =====================================================================
 // Edge Function "efek-hitung" — proses lanjutan yang butuh rumus aplikasi, dikerjakan di Supabase (pengganti SBE_JENIS_ Apps Script).
 //   terima_po : Telegram "BARANG SUPPLIER DITERIMA" + usulan HPP baru (hpp-terima.js = CHR_hitungTerima_, simpan lewat hpp_terima_simpan).
+//   pgd_ajukan : pengajuan pembelian staf -> cek kenaikan harga (HRG), pesan pribadi Mike (impor) / Viory (lokal), pesan grup (bertombol ACC untuk impor).
 //   kb_biaya / biaya_po : biaya PO menyusul sesudah barang diterima -> usulan koreksi HPP (CHR_koreksiBiaya_, simpan lewat hpp_biaya_simpan).
 // Rumus dimuat dari app.moscowsupplies.com (file yang sama dengan aplikasi), seperti Edge Function hitung-potret.
 // Dipanggil jadwal pg_cron dengan header x-moscow-robot-kunci (isi robot_kunci id 1). Verify JWT dimatikan.
@@ -85,6 +86,120 @@ async function terimaPo(d: any): Promise<string> {
   return 'ok (Supabase) ' + ((r.data && r.data.n) || 0) + ' usulan HPP';
 }
 
+function rp(n: unknown) { return 'Rp ' + fmt(n); }
+// HRG_peta_ (file 24) versi ringan: harga beli terakhir per "Kelompok|KODE".
+// deno-lint-ignore no-explicit-any
+async function hrgPeta(): Promise<Record<string, any>> {
+  // deno-lint-ignore no-explicit-any
+  const peta: Record<string, any> = {};
+  // deno-lint-ignore no-explicit-any
+  const taruh = (kunci: string, rw: any[]) => { const a = rw.length ? rw[rw.length - 1] : null; if (a && a.h) peta[kunci] = { hb: a.h, tg: a.t || '', sup: a.sup || '' }; };
+  const L = await W.Lembar.muat(sb, ['barang_order', 'po_log', 'po_item', 'po_biaya', 'bahan_baku_beli', 'bahan', 'bahan_masuk']);
+  const fmtT = W.Lembar.format, tgl = (v: unknown) => v instanceof Date ? fmtT(v, 'yyyy-MM-dd') : (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '');
+  const rapi = (v: unknown, n: number) => String(v ?? '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+  // A. Barang jualan: riwayat harga di PO (tanpa PO ditolak / batal).
+  try {
+    const G = W.Gudang.buat(L), po = G.po(), brg = G.barang();
+    // deno-lint-ignore no-explicit-any
+    const rw: Record<string, any[]> = {};
+    // deno-lint-ignore no-explicit-any
+    po.list.slice().sort((a: any, b: any) => a.t < b.t ? -1 : a.t > b.t ? 1 : a.ms - b.ms).forEach((o: any) => {
+      if (o.st === 'Ditolak' || o.st === 'Batal') return;
+      // deno-lint-ignore no-explicit-any
+      o.items.forEach((it: any) => { if (it.h) (rw[it.k] = rw[it.k] || []).push({ h: it.h, t: tgl(o.t), sup: o.sup }); });
+    });
+    // deno-lint-ignore no-explicit-any
+    brg.list.forEach((b: any) => taruh('Barang jualan|' + b.k, rw[b.k] || []));
+  } catch (_) { /* sama dengan Apps Script: bagian ini dilewati */ }
+  // B. Bahan baku: catatan pembelian (BBK_beli_ + BBK_isiHarga_).
+  try {
+    // deno-lint-ignore no-explicit-any
+    const rw: Record<string, any[]> = {};
+    // deno-lint-ignore no-explicit-any
+    W.Lembar.baca(L, 'bahan_baku_beli', 17).forEach((r: any[]) => {
+      const no = rapi(r[0], 30), k = rapi(r[2], 30).toUpperCase(), q = Number(r[4]), h = Number(r[7]);
+      if (!no || !k || !(r[1] instanceof Date) || !isFinite(q)) return;
+      const hh = (r[7] !== '' && isFinite(h) && h > 0) ? h : 0, hs = hh > 0 && q > 0 ? Math.round(hh / q * 100) / 100 : 0;
+      if (hs) (rw[k] = rw[k] || []).push({ h: Math.round(hs), t: tgl(r[1]), sup: rapi(r[6], 60) });
+    });
+    Object.keys(rw).forEach((k) => taruh('Bahan baku|' + k, rw[k]));
+  } catch (_) { /* lewati */ }
+  // C. Botol & stiker: catatan stok masuk (harga total / qty).
+  try {
+    const kunci = (n: unknown) => String(n).replace(/\s+/g, ' ').trim().toLowerCase(), kmap: Record<string, string> = {};
+    // deno-lint-ignore no-explicit-any
+    W.Lembar.baca(L, 'bahan', 6).forEach((r: any[]) => {
+      const j = /stik/i.test(String(r[0])) ? 'S' : (/botol/i.test(String(r[0])) ? 'B' : ''), n = String(r[1]).replace(/\s+/g, ' ').trim();
+      if (!j || !n || kmap[kunci(n)]) return;
+      kmap[kunci(n)] = String(String(r[3]).trim() || n).toUpperCase();
+    });
+    // deno-lint-ignore no-explicit-any
+    const rw: Record<string, any[]> = {};
+    // deno-lint-ignore no-explicit-any
+    W.Lembar.baca(L, 'bahan_masuk', 8).forEach((r: any[]) => {
+      const q = Number(r[3]), tot = Number(r[7]), k = kmap[kunci(r[2])];
+      if (k && q > 0 && tot > 0) (rw[k] = rw[k] || []).push({ h: Math.round(tot / q), t: tgl(r[0]) });
+    });
+    Object.keys(rw).forEach((k) => taruh('Botol & stiker|' + k, rw[k]));
+  } catch (_) { /* lewati */ }
+  return peta;
+}
+
+// SBE_JENIS_.pgd_ajukan (file 85)
+// deno-lint-ignore no-explicit-any
+async function pgdAjukan(d: any): Promise<string> {
+  const nos: string[] = (Array.isArray(d.nos) ? d.nos : []).map(String), p = d.p || {};
+  // deno-lint-ignore no-explicit-any
+  const items: any[] = (Array.isArray(p.items) ? p.items : []).filter((it: any) => it && typeof it === 'object');
+  const q = await sb.from('pengadaan_ajuan').select('no,kelompok,kode,nama,perkiraan_harga_satuan,pengaju,asal_barang').in('no', nos.length ? nos : ['-']);
+  if (q.error) throw new Error(q.error.message);
+  // deno-lint-ignore no-explicit-any
+  const idx: Record<string, any> = {};
+  // deno-lint-ignore no-explicit-any
+  (q.data || []).forEach((x: any) => { idx[String(x.no).trim()] = x; });
+  const ket: string[] = [];
+  // Harga perkiraan lebih tinggi dari harga beli terakhir -> catatan kenaikan harga (HRG_catat_).
+  try {
+    const peta = await hrgPeta(), naik: unknown[] = [];
+    nos.forEach((no) => {
+      const r = idx[no]; if (!r) return;
+      const kel = String(r.kelompok || ''), k = String(r.kode || '').toUpperCase(), h = Number(r.perkiraan_harga_satuan) || 0, x = peta[kel + '|' + k];
+      if (x && x.hb > 0 && h > x.hb) naik.push({ sumber: 'Pengajuan', no: String(r.no), kel, k, n: String(r.nama || ''), w: '', lama: x.hb, tgLama: x.tg, baru: h, sup: x.sup, pg: String(r.pengaju || '') });
+    });
+    if (naik.length) { const h = await sb.rpc('_hrg_catat', { p_naik: naik }); if (h.error) throw new Error(h.error.message); ket.push(naik.length + ' harga naik'); }
+  } catch (e) { ket.push('HRG gagal: ' + String((e as Error)?.message || e).slice(0, 80)); }
+  // deno-lint-ignore no-explicit-any
+  const baris = (x: any) => esc(x.n || x.k || '-') + ' — ' + fmt(Number(x.q) || 0) + ' ' + esc(x.s || 'pcs');
+  // deno-lint-ignore no-explicit-any
+  const alasan = (x: any) => x.alasan ? '\n   <i>Alasan: ' + esc(x.alasan) + '</i>' : '';
+  // Pesan pribadi Mike: pengajuan impor perlu ACC (IMP_pesanMike_).
+  const imp = items.filter((it) => it.imp);
+  if (imp.length) {
+    let total = 0;
+    const b = imp.map((it) => { const h = Number(it.h) || 0; total += (Number(it.q) || 0) * h; return baris(it) + (h ? ' × ' + rp(h) : '') + alasan(it); });
+    await sb.from('efek_antre').insert({ jenis: 'pl_mike', data: { teks: '🌏 <b>PENGAJUAN IMPOR — perlu ACC</b>\n' + 'Diajukan: <b>' + esc(p.nama || '-') + '</b> (' + esc(p.bagian || '-') + ')\n\n' +
+      daftar(b) + (total ? '\n\nPerkiraan nilai: <b>' + rp(total) + '</b>' : '') + '\n\nACC lewat halaman Mike › Pengadaan, atau oleh manajemen Moscow Supplies di Master Data.' + '\n\n<i>' + jam() + '</i>' } });
+  }
+  // Pesan pribadi Viory: barang lokal perlu ACC.
+  const lok = items.filter((it) => it.imp === false);
+  if (lok.length) {
+    await sb.from('efek_antre').insert({ jenis: 'pl_viory', data: { teks: '🏪 <b>PENGAJUAN LOKAL — perlu ACC</b>\nDiajukan: <b>' + esc(p.nama || '-') + '</b> (' + esc(p.bagian || '-') + ')\n\n' +
+      daftar(lok.map((it) => baris(it) + alasan(it))) + '\n\nACC lewat link Purchasing › ACC lokal.\n\n<i>' + jam() + '</i>' } });
+  }
+  // Pesan grup (SBE_pgdTeks_), bertombol Setujui / Tolak untuk barang impor.
+  let total = 0;
+  const b = items.map((it) => { const h = Number(it.h) || 0; total += (Number(it.q) || 0) * h; return (it.imp ? '🌏 <b>IMPOR</b> · ' : '') + baris(it) + (h ? ' × ' + rp(h) : '') + alasan(it); });
+  const teks = (items.some((it) => it.imp) ? '🌏 <b>PENGAJUAN IMPOR</b> — perlu ACC manajemen Moscow Supplies / Mike\n' : '') + '🟡 <b>PENGAJUAN PEMBELIAN BARU</b>\n' +
+    'Diajukan: <b>' + esc(p.nama) + '</b> (' + esc(p.bagian) + ')\n\n' + daftar(b) + (total ? '\n\nPerkiraan nilai: <b>' + rp(total) + '</b>' : '') +
+    '\n\nMenunggu persetujuan manajemen Moscow Supplies / Mike (menu Pengadaan).' + '\n\n<i>' + jam() + '</i>';
+  const nImp = nos.filter((no) => idx[no] && String(idx[no].asal_barang || '') === 'Impor');
+  const lokal = nos.length - nImp.length;
+  const tt = teks + (lokal ? '\n🏪 Barang lokal langsung dibelanjakan Viory (tanpa ACC).' : '');
+  if (nImp.length) await sb.from('efek_antre').insert({ jenis: 'tg_tombol', data: { teks: tt, jenis: 'pgd', nos: nImp } });
+  else await sb.from('efek_antre').insert({ jenis: 'tg', data: { teks: tt, asal: d.asal || null } });
+  return 'ok (Supabase)' + (ket.length ? ' ' + ket.join(', ') : '');
+}
+
 // SBE_JENIS_.kb_biaya / biaya_po (file 85) -> CHR_koreksiBiaya_ (file 60)
 // deno-lint-ignore no-explicit-any
 async function biayaPo(d: any): Promise<string> {
@@ -95,7 +210,7 @@ async function biayaPo(d: any): Promise<string> {
   if (r.error) throw new Error('hpp_biaya_simpan: ' + r.error.message);
   return 'ok (Supabase) ' + ((r.data && r.data.n) || 0) + ' usulan koreksi HPP';
 }
-const JENIS = ['terima_po', 'kb_biaya', 'biaya_po'];
+const JENIS = ['terima_po', 'kb_biaya', 'biaya_po', 'pgd_ajukan'];
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ ok: false }, 405);
@@ -112,8 +227,9 @@ Deno.serve(async (req) => {
     SIMPANAN = {};
     let ket = 'ok';
     const d = x.data || {};
-    try { ket = x.jenis === 'terima_po' ? await terimaPo(d) : await biayaPo(d); } catch (e) {
+    try { ket = x.jenis === 'terima_po' ? await terimaPo(d) : x.jenis === 'pgd_ajukan' ? await pgdAjukan(d) : await biayaPo(d); } catch (e) {
       ket = 'gagal: ' + String((e as Error)?.message || e).slice(0, 200);
+      if (x.jenis === 'pgd_ajukan') { await sb.from('efek_antre').update({ hasil: ket }).eq('id', x.id); hasil.push(x.jenis + ' #' + x.id + ': ' + ket); continue; }
       // CHR_gagalTg_
       const apa = x.jenis === 'terima_po' ? 'Penerimaan ' + (d.tb || '') : 'Biaya PO ' + (d.po || d.no || '');
       await sb.from('efek_antre').insert({ jenis: 'tg', data: { teks: '⚠️ <b>HPP GAGAL DIHITUNG</b>\n' + esc(apa) + '\n' + esc(ket).slice(0, 300) + '\nPenerimaan / biaya tetap tersimpan. Periksa HPP barang ini di Master Data.' } });
