@@ -1,0 +1,3 @@
+-- 4 Nov 2026: halaman Mike (form.html?f=mike) boleh dibuka manajemen Moscow Supplies (selain Mike & Junior).
+-- Hanya mengubah baris 'mike' di halaman_baca; sudah diterapkan langsung di Supabase.
+-- when 'mike' then case when lower(btrim(coalesce(nm, ''))) in ('mike', 'junior') then array['kendali_bisnis', 'manajemen'] else array['manajemen'] end
