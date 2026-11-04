@@ -1,0 +1,5 @@
+-- 4 Nov 2026: kenaikan harga beli bahan baku dicatat langsung di Supabase (pengganti efek 'bbk_beli' -> HRG_catat_ Apps Script).
+--   _hrg_catat(jsonb): baris harga_naik_log + Telegram "HARGA BELI NAIK" (efek tg, dikirim kirim-telegram).
+--   _bbk_naik(no): harga satuan pembelian (harga_total / qty) > pembelian terakhir bahan yang sama (+0,005) -> _hrg_catat.
+--   bbk_beli: baris efek 'bbk_beli' diganti "perform public._bbk_naik(no_beli)".
+-- Diuji dengan transaksi yang dibatalkan (Lexaine C +20%: Rp 29.000 -> Rp 34.800).
