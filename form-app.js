@@ -66,7 +66,7 @@
         { k: 'impor', nm: 'Impor', ik: 'purch', l: ['Impor@#kbTabs'] },
         { k: 'laporan', nm: 'Laporan', ik: 'laporan', l: ['Laporan@#kbTabs'] },
         { k: 'hpp', nm: 'HPP & Harga', ik: 'harga', l: ['HPP & Harga@#kbTabs'], pendek: 'HPP' },
-        { k: 'naik', nm: 'Harga naik', ik: 'dasbor', l: ['Harga naik@#kbTabs'] },
+        { k: 'naik', nm: 'ACC ubah HPP', ik: 'dasbor', l: ['Harga naik@#kbTabs'], pendek: 'ACC HPP' },
         { grup: 'PERSETUJUAN & LAPORAN' },
         { k: 'acc', nm: 'ACC Pengajuan', ik: 'setuju', href: 'form.html?f=mikelama#acc' },
         { k: 'laris', nm: 'Laris & Lambat', ik: 'jual', href: 'form.html?f=mikelama#laris' },
@@ -85,6 +85,7 @@
         { k: 'omzet', nm: 'Omzet', ik: 'uang', l: ['Omzet@#tabs'] },
         { k: 'profit', nm: 'Profit', ik: 'laporan', l: ['Profit@#tabs'] },
         { grup: 'KENDALI BISNIS' },
+        { k: 'hppacc', nm: 'ACC ubah HPP', ik: 'setuju', href: 'form.html?f=mike#naik' },
         { k: 'kb', nm: 'Impor, laporan, HPP', ik: 'dasbor', href: 'form.html?f=mike' },
         { k: 'stok', nm: 'Stok semua lokasi', ik: 'stok', href: 'stok.html' }
       ],
