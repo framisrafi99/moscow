@@ -1,0 +1,4 @@
+-- 154 (5 Nov 2026): isian manual bagi hasil consignment (bagiHasilSimpanX / bagiHasilSimpan Apps Script file 10 / 3) di Supabase.
+-- bh_manual_simpan(toko, bulan, shopee, tiktok, ongkir, catatan): ubah baris bulan itu (atau tambah) di bagi_hasil_medan / _sidoarjo / _renon. Khusus manajemen.
+-- Setoran dana cair (danaCairSetoran file 77) dari Master Data lama: akunting_simpan jenis Pindah dari "Setoran <toko> (belum disetor)" (form-app.js).
+-- Definisi lengkap: pg_get_functiondef('public.bh_manual_simpan(text,text,text,text,text,text)'::regprocedure).

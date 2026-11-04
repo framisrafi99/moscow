@@ -744,6 +744,31 @@
   TULIS_SUPABASE.mdlama.mpUpload = function (p) {
     return ['mp_upload', { p_toko: teks(p.toko), p_platform: teks(p.platform), p_up: teks(p.up), p_rows: Array.isArray(p.rows) ? p.rows : [] }];
   };
+  // Bagi hasil consignment (5 Nov 2026): isian manual (bh_manual_simpan) lalu hitungan terbaru; setoran dicatat di accounting
+  // sebagai pindah dari akun "Setoran <toko> (belum disetor)" ke rekening (file 77), keterangan memuat [BH yyyy-MM].
+  TULIS_SUPABASE.mdlama.bagiHasilSimpanX = async function (p) {
+    var toko = teks(p.toko) || 'Consignment Medan', bulan = teks(p.bulan);
+    var r = await sb.rpc('bh_manual_simpan', { p_toko: toko, p_bulan: bulan, p_shopee: teks(p.shopee), p_tiktok: teks(p.tiktok), p_ongkir: teks(p.ongkir), p_catatan: teks(p.catatan) });
+    if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Tekan simpan sekali lagi.');
+    if (!r.data || !r.data.ok) return r.data;
+    var h = await window.BagiHasilMd.hitung(sb, bulan), d = h && h.ok ? h.toko.filter(function (x) { return x.toko === toko; })[0] : null;
+    if (!d) return r.data;
+    d.ok = true; d.pesan = r.data.pesan; if (toko === 'Consignment Medan') d.nama = r.data.nama;
+    return d;
+  };
+  TULIS_SUPABASE.mdlama.danaCairSetoran = async function (p) {
+    var toko = teks(p.toko).replace(/\s+/g, ' ').trim(), bulan = teks(p.bulan).trim();
+    if (['Consignment Medan', 'Consignment Sidoarjo', 'Consignment Renon'].indexOf(toko) === -1) return { ok: false, pesan: 'Toko tidak dikenal.' };
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(bulan)) return { ok: false, pesan: 'Bulan tidak valid.' };
+    var nb = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][Number(bulan.slice(5, 7)) - 1] + ' ' + bulan.slice(0, 4);
+    var akunBelum = 'Setoran ' + toko + ' (belum disetor)';
+    var r = await sb.rpc('akunting_simpan', { p_tanggal: teks(p.tanggal), p_jenis: 'Pindah', p_akun: akunBelum, p_tujuan: teks(p.akun), p_kategori: '',
+      p_nominal: teks(p.nominal), p_ket: 'Setoran bagi hasil ' + toko + ' ' + nb + ' [BH ' + bulan + ']', p_token: teks(p.token) });
+    if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Tekan simpan sekali lagi; aman, tidak akan tercatat dua kali.');
+    var h = r.data;
+    if (h && !h.ok && /akun/i.test(h.pesan || '')) h.pesan += ' (Akun "' + akunBelum + '" harus ada di daftar akun Accounting.)';
+    return h;
+  };
   TULIS_SUPABASE.mdlama.ttpPutus = function (p) {
     return ['ttp_putus', { p_jenis: teks(p.jenis), p_id: teks(p.id), p_aksi: teks(p.aksi), p_hpp: teks(p.hpp), p_harga: teks(p.harga), p_qty: teks(p.qty) }];
   };
