@@ -4,7 +4,8 @@
  *   omzetKotor  (file 5)            : omzet consignment (laporanToko_) + order reseller selain Batal
  *   pieToko     (file 3)            : penjualan satu toko per kode dasar
  *   laporanToko (file 0)            : penjualan, biaya, return satu toko + stok (toko_stok_hitung) + hitung per warna (toko_hitung_warna)
- * Butuh: lembar.js, gudang.js.
+ *   tokoHasilPenjualan (file 82)    : omzet, HPP terjual, biaya & profit toko offline per bulan
+ * Butuh: lembar.js, gudang.js, md.js (MdLama.bahanHpp).
  */
 (function () {
   'use strict';
@@ -132,5 +133,41 @@
     lap.ok = true; lap.toko = toko; lap.stok = stok; lap.hitung = h[2].data || {}; lap.diperbarui = diperbarui();
     return lap;
   }
-  window.TokoMd = { ambilOrder: ambilOrder, omzetKotor: omzetKotor, pieToko: pieToko, laporanToko: laporanToko, laporan: laporan };
+
+  // tokoHasilPenjualan (file 82 THP_hitung_): omzet, HPP barang terjual (HPP per tanggal, DS_hppTgl_), biaya toko, profit bersih toko offline.
+  async function hasilPenjualan(sb, p) {
+    var toko = s(p.toko).replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (!/offline/i.test(toko)) return { ok: false, pesan: 'Hasil penjualan ini hanya untuk toko offline.' };
+    var bulan = s(p.bulan).trim().slice(0, 7);
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(bulan)) return { ok: false, pesan: 'Bulan tidak valid.' };
+    var akhir = new Date(Date.UTC(+bulan.slice(0, 4), +bulan.slice(5, 7), 0)).toISOString().slice(0, 10), dari = bulan + '-01';
+    var q = function (t, kol) { return semua(sb, function () { return sb.from(t).select(kol).eq('toko', toko).gte('tanggal', dari).lte('tanggal', akhir); }); };
+    var h = await Promise.all([window.MdLama.bahanHpp(sb), q('toko_jual_log', 'tanggal,toko,kode,nama_barang,qty_terjual,total,id,baris_sheet'),
+      q('toko_retur_log', 'tanggal,toko,kode,nama_barang,qty,nilai,id,baris_sheet'), q('toko_biaya_log', 'tanggal,toko,keterangan,nominal,id,baris_sheet')]);
+    var H = h[0], hpp = {}, nama = {};
+    try { hpp = H.peta() || {}; } catch (e) { hpp = {}; }
+    try { H.G.barang().list.forEach(function (b) { nama[b.k] = b.n; }); } catch (e) { }
+    var t = function (v, n) { return s(v).replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n || 120); };
+    var num = function (v) { var x = Number(v); return isFinite(x) ? x : 0; };
+    var per = {}, tanpa = {}, omzet = 0, retur = 0, hppTot = 0, qty = 0;
+    var catat = function (tg, kode, qq, v, nm) {
+      var k = kodeDasar(kode);
+      if (!k || !qq) return;
+      var hh = Number(H.pada(k, tg, hpp[k] || 0)) || 0;
+      var x = per[k] || (per[k] = { k: k, n: nama[k] || nm || k, q: 0, v: 0, hpp: 0 });
+      x.q += qq; x.v += v; x.hpp += qq * hh; hppTot += qq * hh;
+      if (!hh && qq > 0) tanpa[k] = x.n;
+    };
+    h[1].forEach(function (r) { if (t(r.toko, 80) !== toko || !r.tanggal) return; var tg = s(r.tanggal).slice(0, 10), qq = num(r.qty_terjual), v = num(r.total); omzet += v; qty += qq; catat(tg, r.kode, qq, v, t(r.nama_barang, 80)); });
+    h[2].forEach(function (r) { if (t(r.toko, 80) !== toko || !r.tanggal) return; var tg = s(r.tanggal).slice(0, 10), qq = num(r.qty), v = num(r.nilai); retur += v; qty -= qq; catat(tg, r.kode, -qq, -v, t(r.nama_barang, 80)); });
+    var biaya = [], biayaTot = 0;
+    h[3].forEach(function (r) { if (t(r.toko, 80) !== toko || !r.tanggal) return; var v = num(r.nominal); if (!v) return; biayaTot += v; biaya.push({ t: s(r.tanggal).slice(0, 10), ket: t(r.keterangan, 120), v: v }); });
+    biaya.sort(function (a, b) { return a.t < b.t ? -1 : 1; });
+    var items = Object.keys(per).map(function (k) { var x = per[k]; x.hpp = Math.round(x.hpp); x.p = x.v - x.hpp; return x; })
+      .filter(function (x) { return x.q || x.v; }).sort(function (a, b) { return b.v - a.v; });
+    var bersih = omzet - retur; hppTot = Math.round(hppTot);
+    return { ok: true, toko: toko, bulan: bulan, qty: qty, penjualan: omzet, retur: retur, omzet: bersih, hpp: hppTot, kotor: bersih - hppTot, biaya: biayaTot,
+      profit: bersih - hppTot - biayaTot, biayaList: biaya, items: items, tanpaHpp: Object.keys(tanpa).map(function (k) { return tanpa[k]; }), diperbarui: diperbarui() };
+  }
+  window.TokoMd = { hasilPenjualan: hasilPenjualan, ambilOrder: ambilOrder, omzetKotor: omzetKotor, pieToko: pieToko, laporanToko: laporanToko, laporan: laporan };
 })();
