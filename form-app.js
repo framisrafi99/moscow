@@ -371,6 +371,20 @@
     omzetKotor: function (a) { return window.TokoMd.omzetKotor(sb, a[0] || {}); },
     pieToko: function (a) { return window.TokoMd.pieToko(sb, a[0] || {}); },
     laporanToko: function (a) { return window.TokoMd.laporanToko(sb, a[0] || {}); },
+    // Bagi hasil consignment & invoice (bhmd.js / bagihasil.js, sama dengan Master Data baru); setoran tercatat dari catatan accounting.
+    bagiHasilDataX: async function (a) {
+      var p = a[0] || {}, r = await window.BagiHasilMd.hitung(sb, teks(p.bulan));
+      return r && r.ok ? (r.toko.filter(function (x) { return x.toko === teks(p.toko); })[0] || null) : null;
+    },
+    bhInvoice: async function (a) {
+      var p = a[0] || {}, toko = teks(p.toko), bulan = teks(p.bulan);
+      var h = await Promise.all([sb.rpc('toko_bahan_bagi_hasil', { p_toko: toko, p_bulan: bulan }), window.BagiHasilMd.hitung(sb, bulan)]);
+      if (h[0].error || !h[0].data || h[0].data.ok !== true) return null;
+      var v = window.BagiHasil.invoice(toko, bulan, h[0].data, false);
+      var d = h[1] && h[1].ok ? h[1].toko.filter(function (x) { return x.toko === toko; })[0] : null, st = d && ((d.dc && d.dc.setoran) || (d.rn && d.rn.setoran));
+      if (v && v.ok && st) v.tercatat = st.tercatat;
+      return v;
+    },
     riwayatHitung: function (a) { var t = teks((a[0] || {}).toko); return t && window.TokoBaca ? window.TokoBaca.riwayatHitung(sb, t) : null; },
     gjData: async function (a) {
       var r = await sb.rpc('gaji_data', { p_per: teks((a[0] || {}).per) });
@@ -721,6 +735,15 @@
   TULIS_SUPABASE.mdlama.tpbTutup = function (p) { return window.TutupBuku.tutup(sb, teks(p.bulan), { paksa: p.paksa === true }); };
   TULIS_SUPABASE.mdlama.tpbBuka = function (p) { return window.TutupBuku.buka(sb, teks(p.bulan), teks(p.alasan)); };
   TULIS_SUPABASE.mdlama.tpbTerapkan = function (p) { return window.TutupBuku.terapkan(sb, teks(p.bulan)); };
+  // Upload dana cair & penjualan marketplace (SQL 141 / 129, sama dengan form toko dan Master Data baru).
+  TULIS_SUPABASE.mdlama.danaCairSimpan = function (p) {
+    var d = p.data && typeof p.data === 'object' ? Object.assign({}, p.data) : {};
+    d.nama = teks(p.nama);
+    return ['dana_cair_simpan', { p_toko: teks(p.toko), p_data: d, p_file: teks(p.file), p_yakin: p.yakin === true }];
+  };
+  TULIS_SUPABASE.mdlama.mpUpload = function (p) {
+    return ['mp_upload', { p_toko: teks(p.toko), p_platform: teks(p.platform), p_up: teks(p.up), p_rows: Array.isArray(p.rows) ? p.rows : [] }];
+  };
   TULIS_SUPABASE.mdlama.ttpPutus = function (p) {
     return ['ttp_putus', { p_jenis: teks(p.jenis), p_id: teks(p.id), p_aksi: teks(p.aksi), p_hpp: teks(p.hpp), p_harga: teks(p.harga), p_qty: teks(p.qty) }];
   };
