@@ -1,6 +1,7 @@
 // =====================================================================
 // Edge Function "efek-hitung" — proses lanjutan yang butuh rumus aplikasi, dikerjakan di Supabase (pengganti SBE_JENIS_ Apps Script).
 //   terima_po : Telegram "BARANG SUPPLIER DITERIMA" + usulan HPP baru (hpp-terima.js = CHR_hitungTerima_, simpan lewat hpp_terima_simpan).
+//   kb_biaya / biaya_po : biaya PO menyusul sesudah barang diterima -> usulan koreksi HPP (CHR_koreksiBiaya_, simpan lewat hpp_biaya_simpan).
 // Rumus dimuat dari app.moscowsupplies.com (file yang sama dengan aplikasi), seperti Edge Function hitung-potret.
 // Dipanggil jadwal pg_cron dengan header x-moscow-robot-kunci (isi robot_kunci id 1). Verify JWT dimatikan.
 // =====================================================================
@@ -84,12 +85,24 @@ async function terimaPo(d: any): Promise<string> {
   return 'ok (Supabase) ' + ((r.data && r.data.n) || 0) + ' usulan HPP';
 }
 
+// SBE_JENIS_.kb_biaya / biaya_po (file 85) -> CHR_koreksiBiaya_ (file 60)
+// deno-lint-ignore no-explicit-any
+async function biayaPo(d: any): Promise<string> {
+  const po = String(d.po || d.no || '').trim(), v = Math.round(Number(d.v)) || 0;
+  const h = await W.HppTerima.koreksiBiaya(sb, po, v, String(d.jenis || ''));
+  if (!h || !h.ok || !h.daftar.length) return 'ok (Supabase) tanpa koreksi HPP';
+  const r = await sb.rpc('hpp_biaya_simpan', { p_hasil: h });
+  if (r.error) throw new Error('hpp_biaya_simpan: ' + r.error.message);
+  return 'ok (Supabase) ' + ((r.data && r.data.n) || 0) + ' usulan koreksi HPP';
+}
+const JENIS = ['terima_po', 'kb_biaya', 'biaya_po'];
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ ok: false }, 405);
   const tanda = req.headers.get('x-moscow-robot-kunci') || '';
   const k = tanda ? await sb.from('robot_kunci').select('kunci').eq('id', 1).maybeSingle() : null;
   if (!(k && k.data && k.data.kunci === tanda)) return json({ ok: false, pesan: 'Tidak diizinkan.' }, 403);
-  const r = await sb.from('efek_antre').select('id,jenis,data,dibuat').is('selesai', null).in('jenis', ['terima_po']).order('id').limit(5);
+  const r = await sb.from('efek_antre').select('id,jenis,data,dibuat').is('selesai', null).in('jenis', JENIS).order('id').limit(5);
   const hasil: string[] = [];
   if (!(r.data || []).length) return json({ ok: true, hasil });
   await muatRumus();
@@ -98,7 +111,13 @@ Deno.serve(async (req) => {
     if (a.error || !a.data || !a.data.length) continue;
     SIMPANAN = {};
     let ket = 'ok';
-    try { ket = await terimaPo(x.data || {}); } catch (e) { ket = 'gagal: ' + String((e as Error)?.message || e).slice(0, 200); }
+    const d = x.data || {};
+    try { ket = x.jenis === 'terima_po' ? await terimaPo(d) : await biayaPo(d); } catch (e) {
+      ket = 'gagal: ' + String((e as Error)?.message || e).slice(0, 200);
+      // CHR_gagalTg_
+      const apa = x.jenis === 'terima_po' ? 'Penerimaan ' + (d.tb || '') : 'Biaya PO ' + (d.po || d.no || '');
+      await sb.from('efek_antre').insert({ jenis: 'tg', data: { teks: '⚠️ <b>HPP GAGAL DIHITUNG</b>\n' + esc(apa) + '\n' + esc(ket).slice(0, 300) + '\nPenerimaan / biaya tetap tersimpan. Periksa HPP barang ini di Master Data.' } });
+    }
     await sb.from('efek_antre').update({ hasil: ket }).eq('id', x.id);
     hasil.push(x.jenis + ' #' + x.id + ': ' + ket);
   }

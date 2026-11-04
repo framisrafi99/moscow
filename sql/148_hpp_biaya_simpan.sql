@@ -1,0 +1,5 @@
+-- 148 (4 Nov 2026): koreksi HPP karena biaya PO menyusul (pengganti CHR_koreksiBiaya_ + CHR_usulkan_ Apps Script).
+-- Dihitung hpp-terima.js koreksiBiaya di Edge Function efek-hitung (efek kb_biaya / biaya_po), disimpan lewat hpp_biaya_simpan (service role):
+-- harga_usul_log (dari 'Penerimaan barang (koreksi biaya) PO-..'), hpp_hitung_log (jenis 'Koreksi biaya'), Telegram "USULAN HPP BARU".
+-- Definisi lengkap ada di database (lihat pg_get_functiondef('hpp_biaya_simpan(jsonb)'::regprocedure)).
+-- Jadwal efek-hitung (job 11) sekarang juga untuk 'kb_biaya', 'biaya_po'; Apps Script melewati keduanya (SBE_SUPABASE_, versi 268).
