@@ -168,6 +168,11 @@
       return h[1] ? h[0].gdxPengajuan(h[1]) : null;
     },
     ptrData: async function (sb, app) { return (await muat(sb)).ptrData(app); },
-    pgsTerbuka: async function (sb, app) { return (await muat(sb)).pgsTerbuka(app); }
+    pgsTerbuka: async function (sb, app) { return (await muat(sb)).pgsTerbuka(app); },
+    // Laporan pengajuan per tanggal untuk dikirim ke Purchasing (ajuan-pdf.js): semua pengajuan bagian itu, dengan tanda impor.
+    ajuanBagian: async function (sb, app) {
+      var bg = BAGIAN[app]; if (!bg) return [];
+      return (await muat(sb)).ajuan().filter(function (x) { return x.bg === bg; }).map(function (x) { x.imp = x._imp; return x; });
+    }
   };
 })();

@@ -16,7 +16,8 @@
         { k: 'salur', nm: 'Penyaluran', ik: 'pemasok', l: ['Penyaluran@.m'] },
         { k: 'riwayat', nm: 'Riwayat', ik: 'riwayat', l: ['Riwayat@.m'] },
         { k: 'uang', nm: 'Uang keluar', ik: 'uang', l: ['Uang keluar@.m'], pendek: 'Uang' },
-        { k: 'hpp', nm: 'HPP & Harga', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox' }
+        { k: 'hpp', nm: 'HPP & Harga', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox' },
+        { k: 'lapajuan', nm: 'Laporan pengajuan (PDF)', ik: 'nota', panel: 'ajuan', pendek: 'Lap. ajuan' }
       ],
       bawah: ['stok', 'order', 'salur', 'ajuan', 'lain']
     },
@@ -33,7 +34,8 @@
         { k: 'rencana', nm: 'Rencana produksi', ik: 'setuju', l: ['#pgsT1', '#tabRPD'] },
         { k: 'sesuai', nm: 'Penyesuaian stok', ik: 'atur', l: ['#pgsT1', '#tabPS'] },
         { k: 'kemasan', nm: 'Harga kemasan', ik: 'harga', l: ['#pgsT1', '#tabKms'] },
-        { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' }
+        { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' },
+        { k: 'lapajuan', nm: 'Laporan pengajuan (PDF)', ik: 'nota', panel: 'ajuan', pendek: 'Lap. ajuan' }
       ],
       bawah: ['isi', 'data', 'order', 'botol', 'lain']
     },
@@ -52,7 +54,8 @@
         { k: 'laporan', nm: 'Laporan', ik: 'laporan', l: ['#pgsT1', 'Laporan@#tabs'] },
         { k: 'pantau', nm: 'Pantau produksi', ik: 'dasbor', l: ['#pgsT1', '#tabPP'] },
         { k: 'rencana', nm: 'Rencana bahan', ik: 'setuju', l: ['#pgsT1', '#tabRBB'] },
-        { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' }
+        { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' },
+        { k: 'lapajuan', nm: 'Laporan pengajuan (PDF)', ik: 'nota', panel: 'ajuan', pendek: 'Lap. ajuan' }
       ],
       bawah: ['produksi', 'pigment', 'pakai', 'stok', 'lain']
     },
@@ -833,6 +836,18 @@
     el.hidden = false; sec.classList.add('pk-mode'); $('muatan').hidden = true; document.documentElement.classList.remove('berbingkai');
     if (APP === 'purchasing' && window.PurchasingApp) PurchasingApp.gambar(el, M.sb, k, { nama: C.nama, salin: salinKeSheet });
   }
+  // Menu dengan tampilan sendiri di form lama (mis. Laporan pengajuan PDF): bingkai disembunyikan selama menu itu dibuka.
+  function panelMenu(k) {
+    if (F.asli) return;
+    var mm = F.menu.filter(function (x) { return x.k === k; })[0], el = $('asli'), sec = document.querySelector('#mIsi > section[data-bagian="isi"]');
+    if (!el || !sec) return;
+    if (mm && mm.panel === 'ajuan') {
+      el.hidden = false; C.panel = true; sec.classList.add('pk-mode'); $('muatan').hidden = true; document.documentElement.classList.remove('berbingkai');
+      if (window.AjuanPdf) AjuanPdf.gambar(el, M.sb, APP);
+    } else if (C.panel) {
+      C.panel = false; el.hidden = true; el.innerHTML = ''; sec.classList.remove('pk-mode');
+    }
+  }
   function ukur() {
     var fr = C.frame; if (!fr || fr.hidden) return;
     if (document.querySelector('#mIsi > section.pk-mode')) return;
@@ -936,7 +951,7 @@
     pindah: function (k) {
       var mm = F.menu.filter(function (x) { return x.k === k; })[0];
       if (mm && mm.modal) { bukaModal(mm); return; }
-      C.aktif = k; if (F.asli) { panelAsli(k); return; } tekan(k); subBotol(k); panelAbsen(k); setTimeout(ukur, 0);
+      C.aktif = k; if (F.asli) { panelAsli(k); return; } tekan(k); subBotol(k); panelAbsen(k); panelMenu(k); setTimeout(ukur, 0);
     },
     siap: function (ctx) {
       if (ctx.peran === 'manajemen') {
@@ -951,7 +966,7 @@
         C.nama = String(um.full_name || um.name || '').split(' ')[0];
         panelAsli(C.aktif); return;
       }
-      muat(); panelAbsen(C.aktif);
+      muat(); panelAbsen(C.aktif); panelMenu(C.aktif);
     }
   });
 })();
