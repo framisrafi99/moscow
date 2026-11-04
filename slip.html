@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Slip Gaji - Moscow Supplies</title>
+<!-- Slip gaji staf (4 Nov 2026): pengganti halaman slip Apps Script (?slip=...). Dibuka lewat link WA berisi kode acak per staf per periode;
+     data dibaca dari Supabase (fungsi slip_baca), tampilan sama dengan slip lama (GJ_HTML_SLIP_ file 17). -->
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#eef1f5;color:#1c2430;font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.kertas{max-width:760px;margin:14px auto;background:#fff;border-radius:10px;padding:26px 28px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.kop{display:flex;align-items:center;gap:14px;border-bottom:3px double #1c2430;padding-bottom:10px}
+.kop img{height:56px}
+.kop .t{font-size:12px;color:#444}
+.kop .t b{font-size:16px;color:#1c2430;letter-spacing:.02em}
+h1{text-align:center;font-size:17px;letter-spacing:.12em;margin:16px 0 2px}
+.per{text-align:center;color:#6b7686;margin-bottom:14px}
+.id{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin-bottom:14px}
+.id span{color:#6b7686}
+.dua{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+table{width:100%;border-collapse:collapse}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;text-align:left;border-bottom:2px solid #1c2430;padding:4px 0}
+td{padding:5px 0;border-bottom:1px solid #e3e7ee}
+td.n{text-align:right;white-space:nowrap}
+tr.tot td{font-weight:700;border-bottom:0;border-top:2px solid #1c2430}
+.thp{margin-top:18px;background:#e6f2f8;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.thp b{font-size:22px;color:#1a78a0}
+.terb{font-style:italic;color:#444;margin-top:6px;font-size:13px}
+.info{font-size:12px;color:#6b7686;margin-top:10px}
+.ttd{display:flex;justify-content:space-between;margin-top:34px;text-align:center}
+.ttd div{width:42%}
+.ttd .nm{margin-top:56px;font-weight:700;text-decoration:underline}
+.aks{max-width:760px;margin:0 auto 20px;text-align:center}
+.aks button{padding:11px 20px;border-radius:10px;border:0;background:#1a78a0;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.aks button:focus-visible{outline:3px solid #1c2430;outline-offset:2px}
+.err{max-width:520px;margin:40px auto;background:#fff;border-radius:10px;padding:24px;text-align:center}
+@media (max-width:560px){.kertas{padding:18px 14px;margin:0;border-radius:0}.dua{grid-template-columns:1fr}.kop img{height:42px}}
+@media print{@page{size:A4;margin:12mm}body{background:#fff}.kertas{box-shadow:none;margin:0;max-width:none;padding:0}.aks{display:none}}
+</style></head>
+<body>
+<div id="isi"><div class="err">Memuat slip gaji…</div></div>
+<script>
+(function () {
+  'use strict';
+  var URL_SB = 'https://ufhuvwfudblbyrwzugaa.supabase.co', KUNCI_SB = 'sb_publishable_A8aEpcDck6ZOix9lrM727A_tI7QZ1xw';
+  var el = document.getElementById('isi');
+  function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function num(n) { n = Math.round(Number(n) || 0); return (n < 0 ? '-' : '') + String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  function terbilang(n) {
+    var a = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'];
+    n = Math.floor(Math.abs(n));
+    if (n < 12) return a[n];
+    if (n < 20) return terbilang(n - 10) + ' belas';
+    if (n < 100) return terbilang(Math.floor(n / 10)) + ' puluh' + (n % 10 ? ' ' + terbilang(n % 10) : '');
+    if (n < 200) return 'seratus' + (n - 100 ? ' ' + terbilang(n - 100) : '');
+    if (n < 1000) return terbilang(Math.floor(n / 100)) + ' ratus' + (n % 100 ? ' ' + terbilang(n % 100) : '');
+    if (n < 2000) return 'seribu' + (n - 1000 ? ' ' + terbilang(n - 1000) : '');
+    if (n < 1e6) return terbilang(Math.floor(n / 1000)) + ' ribu' + (n % 1000 ? ' ' + terbilang(n % 1000) : '');
+    if (n < 1e9) return terbilang(Math.floor(n / 1e6)) + ' juta' + (n % 1e6 ? ' ' + terbilang(n % 1e6) : '');
+    return terbilang(Math.floor(n / 1e9)) + ' miliar' + (n % 1e9 ? ' ' + terbilang(n % 1e9) : '');
+  }
+  function gagal(judul, isi) { el.innerHTML = '<div class="err"><b>' + esc(judul) + '</b><p>' + esc(isi) + '</p></div>'; }
+  function tampil(S) {
+    function baris(l, v) { return v ? '<tr><td>' + l + '</td><td class="n">Rp ' + num(v) + '</td></tr>' : ''; }
+    var masuk = S.gp + S.um + S.lb + S.bn, pot = S.bk + S.tl + S.ks;
+    document.title = 'Slip Gaji ' + S.n + ' - ' + S.nama;
+    el.innerHTML = '<div class="kertas">' +
+      '<div class="kop"><img src="logo-warna.png" alt="Moscow Supplies"><div class="t"><b>' + esc(S.pt.nama) + '</b><br>' + esc(S.pt.merek) + ' · ' + esc(S.pt.alamat) + '<br>' + esc(S.pt.kontak) + '</div></div>' +
+      '<h1>SLIP GAJI</h1><div class="per">Periode ' + esc(S.nama) + '</div>' +
+      '<div class="id"><span>Nama</span><b>' + esc(S.n) + '</b><span>Jabatan / Divisi</span><div>' + esc(S.div) + '</div></div>' +
+      '<div class="dua"><table><tr><th colspan="2">Pendapatan</th></tr>' + baris('Gaji pokok', S.gp) + baris('Uang makan', S.um) + baris('Lembur', S.lb) + baris(S.kel === 'Direksi' ? 'Bonus / dividen' : 'Bonus', S.bn) +
+      '<tr class="tot"><td>Total pendapatan</td><td class="n">Rp ' + num(masuk) + '</td></tr></table>' +
+      '<table><tr><th colspan="2">Potongan</th></tr>' + (pot ? '' : '<tr><td colspan="2" style="color:#6b7686">Tidak ada potongan</td></tr>') + baris('BPJS Ketenagakerjaan (karyawan)', S.bk) + baris('Keterlambatan', S.tl) + baris('Kasbon', S.ks) +
+      '<tr class="tot"><td>Total potongan</td><td class="n">Rp ' + num(pot) + '</td></tr></table></div>' +
+      '<div class="thp"><span>Gaji bersih diterima (THP)</span><b>Rp ' + num(S.thp) + '</b></div>' +
+      '<div class="terb">Terbilang: ' + esc((terbilang(S.thp) || 'nol') + ' rupiah') + '</div>' +
+      (S.bp ? '<div class="info">BPJS ditanggung perusahaan: Rp ' + num(S.bp) + ' (tidak memotong gaji).</div>' : '') +
+      '<div class="ttd"><div>Penerima,<div class="nm">' + esc(S.n) + '</div></div><div>Mengetahui,<div class="nm">' + esc(S.pt.direktur) + '</div>Direktur</div></div>' +
+      '</div><div class="aks"><button type="button" id="cetak">Simpan PDF / Cetak</button></div>';
+    document.getElementById('cetak').onclick = function () { window.print(); };
+  }
+  var kode = (new URLSearchParams(location.search).get('k') || '').trim().toLowerCase();
+  if (!/^[0-9a-f]{40}$/.test(kode)) { gagal('Slip gaji tidak ditemukan.', 'Link tidak valid. Minta link slip yang benar dari admin payroll.'); return; }
+  fetch(URL_SB + '/rest/v1/rpc/slip_baca', {
+    method: 'POST', cache: 'no-store',
+    headers: { 'Content-Type': 'application/json', apikey: KUNCI_SB },
+    body: JSON.stringify({ p_kode: kode })
+  }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
+    if (!d || !d.ok || !d.slip) { gagal('Slip gaji tidak ditemukan.', 'Link tidak valid, atau gaji periode ini belum disetujui. Hubungi admin payroll.'); return; }
+    var S = d.slip;
+    ['gp', 'um', 'lb', 'bn', 'bk', 'bp', 'tl', 'ks', 'thp'].forEach(function (k) { S[k] = Number(S[k]) || 0; });
+    tampil(S);
+  }).catch(function () { gagal('Slip gaji belum bisa dimuat.', 'Periksa sambungan internet, lalu buka ulang link ini.'); });
+})();
+</script>
+</body></html>
