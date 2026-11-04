@@ -769,6 +769,20 @@
     if (h && !h.ok && /akun/i.test(h.pesan || '')) h.pesan += ' (Akun "' + akunBelum + '" harus ada di daftar akun Accounting.)';
     return h;
   };
+  // Laporan sisa stok toko (tulisLaporanStok file 0): dulu ditulis ke sheet LAPORAN_STOK_TOKO; sekarang langsung diunduh sebagai file CSV (5 Nov 2026).
+  TULIS_SUPABASE.mdlama.tulisLaporanStok = async function (p) {
+    var toko = teks(p.toko).replace(/[\r\n]+/g, ' ').trim().slice(0, 60), daftar = Array.isArray(p.rows) ? p.rows : [];
+    if (!toko || !daftar.length) return { ok: false, pesan: 'Laporan kosong, tidak ada yang disimpan.' };
+    if (daftar.length > 5000) return { ok: false, pesan: 'Laporan terlalu panjang.' };
+    var sel = function (v) { var x = String(v === null || v === undefined ? '' : v).replace(/[\r\n]+/g, ' ').replace(/^[=+@-]+/, '').slice(0, 200); return /[";,]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+    var kini = window.Lembar ? window.Lembar.format(new Date(), 'dd/MM/yyyy HH:mm') : new Date().toLocaleString('id-ID');
+    var baris = ['LAPORAN SISA STOK - ' + sel(toko), 'Dibuat: ' + kini, 'Kode;Nama Barang;Warna;Sisa Stok'];
+    daftar.forEach(function (r) { r = r || []; var q = Number(r[3]); baris.push([sel(r[0]), sel(r[1]), sel(r[2]), (r[3] === '' || !isFinite(q)) ? '' : String(q)].join(';')); });
+    var blob = new Blob(['\ufeff' + baris.join('\r\n')], { type: 'text/csv;charset=utf-8' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'Laporan sisa stok ' + toko.replace(/[^\w .-]+/g, '') + ' ' + kini.slice(0, 10).replace(/\//g, '-') + '.csv';
+    document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    return { ok: true, pesan: 'Laporan sisa stok ' + toko + ' diunduh sebagai file CSV (' + daftar.length + ' baris). Bisa dibuka di Excel atau Google Sheets.' };
+  };
   TULIS_SUPABASE.mdlama.ttpPutus = function (p) {
     return ['ttp_putus', { p_jenis: teks(p.jenis), p_id: teks(p.id), p_aksi: teks(p.aksi), p_hpp: teks(p.hpp), p_harga: teks(p.harga), p_qty: teks(p.qty) }];
   };
