@@ -90,12 +90,17 @@
     // Pinjaman dan penyesuaian stok (Toko Offline), barang titipan (Medan).
     dataPinjam: function () { return ['toko_pinjam_data', { p_toko: C.toko }]; },
     dataSesuai: function () { return ['toko_sesuai_data', { p_toko: C.toko }]; },
-    ttpData: function (p) { return ['toko_ttp_data', { p_toko: C.toko, p_bulan: String(p.bulan || '') }]; }
+    ttpData: function (p) { return ['toko_ttp_data', { p_toko: C.toko, p_bulan: String(p.bulan || '') }]; },
+    // Dashboard toko, riwayat hitung stok, dan riwayat isi laporan dihitung di halaman (toko-baca.js), tanpa Apps Script (4 Nov 2026).
+    dasborToko: function () { return window.TokoBaca.dasborToko(sb, C.toko); },
+    riwayatHitung: function () { return window.TokoBaca.riwayatHitung(sb, C.toko); },
+    riwayatLaporan: function (p) { return window.TokoBaca.riwayatLaporan(sb, C.toko, p); }
   };
   async function dataSupabase(f, a) {
     if (!C.toko || Date.now() < C.basiSampai) return null;
     try {
       var q = BACA_SUPABASE[f]((a && a[0]) || {});
+      if (!Array.isArray(q)) { var d0 = await q; return d0 && d0.ok === true ? d0 : null; }
       var r = await sb.rpc(q[0], q[1]);
       if (r.error || !r.data || r.data.ok !== true) return null;
       var d = q[2] ? q[2](r.data) : r.data;
