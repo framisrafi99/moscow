@@ -784,6 +784,12 @@
     document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
     return { ok: true, pesan: 'Laporan sisa stok ' + toko + ' diunduh sebagai file CSV (' + daftar.length + ' baris). Bisa dibuka di Excel atau Google Sheets.' };
   };
+  // Marketplace (5 Nov 2026): padanan nama produk -> kode (mp_padanan_simpan), penjualan staf dari upload (md.js mpTambahStaf + mp_tambah_staf_simpan).
+  TULIS_SUPABASE.mdlama.mpPadananSimpan = function (p) {
+    var items = (Array.isArray(p.items) ? p.items : []).map(function (x) { x = x || {}; return { n: teks(x.n), v: teks(x.v), k: teks(x.k), w: teks(x.w) }; });
+    return ['mp_padanan_simpan', { p_items: items }];
+  };
+  TULIS_SUPABASE.mdlama.mpTambahStaf = function (p) { return window.MdLama.mpTambahStaf(sb, p); };
   TULIS_SUPABASE.mdlama.ttpPutus = function (p) {
     return ['ttp_putus', { p_jenis: teks(p.jenis), p_id: teks(p.id), p_aksi: teks(p.aksi), p_hpp: teks(p.hpp), p_harga: teks(p.harga), p_qty: teks(p.qty) }];
   };

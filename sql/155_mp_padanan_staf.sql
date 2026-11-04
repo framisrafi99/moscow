@@ -1,0 +1,5 @@
+-- 155 (5 Nov 2026): Master Data lama > marketplace tanpa Apps Script.
+-- mp_padanan_simpan(items): padanan nama produk + variasi -> kode/warna (mpPadananSimpan file 38), kode '-' = Diabaikan.
+-- mp_tambah_staf_simpan(toko, platform, rows): baris Report penjualan dari upload marketplace (mpTambahStaf file 38; dihitung md.js),
+--   diperiksa ulang dan harga dari daftar barang. Keduanya khusus manajemen.
+-- toko_hasil_baca(toko, bulan): kartu hasil penjualan Toko Offline untuk staf (hasil robot hitung-potret, kunci thp:<toko>:<bulan>).

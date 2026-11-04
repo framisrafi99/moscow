@@ -1175,7 +1175,86 @@
     return hasil(q);
   }
 
-  window.MdLama = { mmHargaData: mmHargaData, mdeStok: mdeStok, bbrData: bbrData, kbNaik: kbNaik, mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, lapisHpp: lapisHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu, mdeData: mdeData, mpPsn: async function (sb) { return MP_bacaPsn_(await window.Lembar.muat(sb, TABEL_MP)); },
+  // ======================= TAMBAH PENJUALAN STAF DARI UPLOAD MARKETPLACE (file 38 mpTambahStaf) =======================
+  // Pesanan marketplace toko consignment yang belum tercatat staf -> baris Report penjualan toko (saluran = platform). Ditulis rpc mp_tambah_staf_simpan.
+  var MP_TOKO_STAF_ = { 'Consignment Medan': ['Shopee', 'Tokopedia'], 'Consignment Sidoarjo': ['Shopee'] };
+  async function mpTambahStaf(sb, p) {
+    var toko = MP_t_(p.toko, 40), pf = MP_t_(p.platform, 20);
+    if (!MP_TOKO_STAF_[toko] || MP_TOKO_STAF_[toko].indexOf(pf) === -1) return { ok: false, pesan: 'Hanya untuk toko consignment.' };
+    var dari = MP_tgl_(p.dari), sampai = MP_tgl_(p.sampai);
+    if (!dari || !sampai || dari > sampai) return { ok: false, pesan: 'Periode tidak valid.' };
+    var pilih = {};
+    (Array.isArray(p.items) ? p.items : []).slice(0, 300).forEach(function (x) { if (x && x.k) pilih[MP_t_(x.k, 30).toUpperCase() + '|' + rapiWarna_(x.w)] = 1; });
+    if (!Object.keys(pilih).length) return { ok: false, pesan: 'Belum ada barang yang dicentang.' };
+    var h = await Promise.all([window.Lembar.muat(sb, TABEL_MP),
+      semuaQ(sb, function () { return sb.from('toko_jual_log').select('tanggal,toko,kode,qty_terjual,warna,saluran,id,baris_sheet').eq('toko', toko).gte('tanggal', dari).lte('tanggal', sampai); }),
+      sb.rpc('toko_stok_hitung', { p_toko: toko })]);
+    if (h[2].error) throw new Error(h[2].error.message);
+    var L = h[0], B = MP_barang_(L), P = MP_padananFn_(L, B), mk = {};
+    MP_bacaPsn_(L).forEach(function (x) {
+      if (x.toko !== toko || x.pf !== pf || x.batal || x.belum) return;
+      var t = x.dibuat.slice(0, 10);
+      if (t < dari || t > sampai) return;
+      var q = x.q - x.ret;
+      if (!(q > 0)) return;
+      var m = P(x.nm, x.vr, x.ha);
+      if (!m.k || m.k === '-' || m.st !== 'Dikonfirmasi') return;
+      var kk = m.k + '|' + (m.w || '');
+      if (!pilih[kk]) return;
+      var hh = mk[kk] || (mk[kk] = {}); hh[t] = (hh[t] || 0) + q;
+    });
+    // MP_staf_ (ikut = true): penjualan yang sudah dicatat staf (saluran sama atau kosong).
+    var bh = {};
+    h[1].forEach(function (r) {
+      if (!r.tanggal || MP_t_(r.toko, 80) !== toko) return;
+      var t = String(r.tanggal).slice(0, 10), q = Number(r.qty_terjual) || 0;
+      if (!q) return;
+      var sl = MP_t_(r.saluran, 30);
+      if (sl && sl !== pf) return;
+      var kk = MP_t_(r.kode, 30).toUpperCase() + '|' + rapiWarna_(r.warna), x = bh[kk] || (bh[kk] = {});
+      x[t] = (x[t] || 0) + q;
+    });
+    var stok = {}, pakai = {}, rows = [], lewat = [], pcs = 0;
+    (h[2].data || []).forEach(function (r) { stok[r.kode] = (stok[r.kode] || 0) + (Number(r.qty) || 0); });
+    Object.keys(pilih).forEach(function (kk) {
+      var bag = kk.split('|'), k = bag[0], w = bag[1] || '', b = B.idx[k];
+      if (!b) { lewat.push(k + ' (kode tidak ada)'); return; }
+      var nm = b.nama + (w ? ' ' + w : '');
+      if (b.warna.length && (!w || b.warna.indexOf(w) === -1)) { lewat.push(nm + ' (warna belum ada)'); return; }
+      var hm = mk[kk] || {}, hs = bh[kk] || {}, tm = 0, ts = 0;
+      Object.keys(hm).forEach(function (t) { tm += hm[t]; }); Object.keys(hs).forEach(function (t) { ts += hs[t]; });
+      var sisa = tm - ts;
+      if (sisa <= 0) { lewat.push(nm + ' (sudah cocok)'); return; }
+      var ada = (Number(stok[k]) || 0) - (pakai[k] || 0);
+      if (sisa > ada) { lewat.push(nm + ' (stok toko di sistem tinggal ' + ada + ', perlu ' + sisa + ')'); return; }
+      pakai[k] = (pakai[k] || 0) + sisa;
+      Object.keys(hm).filter(function (t) { return hm[t] - (hs[t] || 0) > 0; }).sort().reverse().forEach(function (t) {
+        if (sisa <= 0) return;
+        var q = Math.min(sisa, hm[t] - (hs[t] || 0));
+        sisa -= q; rows.push({ t: t, k: k, w: w, q: q }); pcs += q;
+      });
+    });
+    if (rows.length) {
+      var r = await sb.rpc('mp_tambah_staf_simpan', { p_toko: toko, p_platform: pf, p_rows: rows });
+      if (r.error) throw new Error(r.error.message);
+      if (!r.data || !r.data.ok) return r.data;
+    }
+    var pesan = rows.length ? 'Ditambahkan ' + pcs + ' pcs (' + rows.length + ' baris) ke Report penjualan ' + toko + ' dengan saluran ' + pf + '.' : 'Tidak ada yang ditambahkan.';
+    if (lewat.length) pesan += ' Dilewati: ' + lewat.slice(0, 6).join('; ') + (lewat.length > 6 ? ' (+' + (lewat.length - 6) + ' lagi)' : '') + '.';
+    return { ok: rows.length > 0, pesan: pesan, pcs: pcs };
+  }
+  async function semuaQ(sb, buat) {
+    var out = [], dari = 0;
+    for (;;) {
+      var r = await buat().order('baris_sheet', { ascending: true, nullsFirst: false }).order('id').range(dari, dari + 999);
+      if (r.error) throw new Error(r.error.message);
+      out = out.concat(r.data || []);
+      if (!r.data || r.data.length < 1000) return out;
+      dari += 1000;
+    }
+  }
+
+  window.MdLama = { mpTambahStaf: mpTambahStaf, mmHargaData: mmHargaData, mdeStok: mdeStok, bbrData: bbrData, kbNaik: kbNaik, mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, lapisHpp: lapisHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu, mdeData: mdeData, mpPsn: async function (sb) { return MP_bacaPsn_(await window.Lembar.muat(sb, TABEL_MP)); },
     // MP_dasborJual_ (file 36): penjualan marketplace Official per barang untuk dasbor.
     mpJual: async function (sb) {
       var L = await window.Lembar.muat(sb, TABEL_MP), B = MP_barang_(L), P = MP_padananFn_(L, B), out = [];
