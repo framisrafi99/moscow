@@ -75,8 +75,10 @@
     var dari = s(p.dari), sampai = s(p.sampai), re = /^\d{4}-\d{2}-\d{2}$/;
     if (!re.test(dari) || !re.test(sampai)) return { ok: false, pesan: 'Tanggal tidak valid.' };
     if (dari > sampai) return { ok: false, pesan: 'Tanggal awal harus sebelum tanggal akhir.' };
-    var urut = await kumpulOrder(sb, dari, sampai), BATAS = 300;
-    return { ok: true, orders: urut.slice(0, BATAS), terpotong: urut.length > BATAS, diperbarui: diperbarui() };
+    var urut = await kumpulOrder(sb, dari, sampai), BATAS = 300, orders = urut.slice(0, BATAS);
+    // File 52: menu Order hanya menampilkan order reseller (request toko & consignment ada di Persetujuan), kecuali diminta semua.
+    if (!p.semua) orders = orders.filter(function (o) { return o.tp !== 'Consignment'; });
+    return { ok: true, orders: orders, terpotong: urut.length > BATAS, diperbarui: diperbarui() };
   }
   async function omzetKotor(sb, p) {
     var dari = s(p.dari), sampai = s(p.sampai), salah = salahPeriode(dari, sampai);
