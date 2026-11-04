@@ -261,6 +261,78 @@
     kbHarga: function () { return window.KendaliBisnis.kbHarga(sb); },
     kbNaik: function () { return window.KendaliBisnis.kbNaik(sb); }
   };
+  // Persetujuan & laporan Mike (ACC Pengajuan, Kenaikan harga, Laris & Lambat, Omzet, Profit) dari Supabase (4 Nov 2026).
+  // Rumus sama dengan Apps Script: pgdData (robot.js), impData (kb.js kbData.tunggu = PW_imporTunggu_), hppMikeData (kb.js kbNaik.usul),
+  // hrgNaikData & bbrData (md.js), ceoUang (file 27, dari Dasbor.dsData).
+  function CEO_grup_(n) {
+    var s = String(n || '').toLowerCase();
+    if (/reseller/.test(s)) return 'Reseller';
+    if (/shopee|tokopedia|tokped|lazada|tiktok|online|marketplace/.test(s)) return 'Online';
+    if (/offline/.test(s)) return 'Toko offline';
+    return 'Consignment';
+  }
+  async function ceoUang(p) {
+    var r = await window.Dasbor.dsData(sb, { dari: p && p.dari, sampai: p && p.sampai });
+    if (!r || !r.ok) return null;
+    var u = r.uang || null, t = r.terjual || null, URUT = ['Online', 'Consignment', 'Toko offline', 'Reseller'], G = {};
+    URUT.forEach(function (n) { G[n] = { n: n, v: 0, l: 0, q: 0, det: [] }; });
+    (t && t.saluran ? t.saluran : []).forEach(function (s) {
+      var x = G[CEO_grup_(s.n)];
+      x.v += s.omzet || 0; x.l += s.omzetL || 0; x.q += s.q || 0;
+      if (s.omzet || s.omzetL) x.det.push({ n: String(s.n).replace(/^Consignment /, ''), v: s.omzet || 0, l: s.omzetL || 0, q: s.q || 0 });
+    });
+    if (u) {
+      var ini = {}, lalu = u.saluranLalu || {};
+      (u.saluran || []).forEach(function (x) { ini[x.n] = x.v; });
+      Object.keys(ini).concat(Object.keys(lalu)).filter(function (k, i, a) { return a.indexOf(k) === i; }).forEach(function (k) {
+        if (CEO_grup_(k) !== 'Online') return;
+        var v = ini[k] || 0, l = lalu[k] || 0;
+        if (!v && !l) return;
+        G.Online.v += v; G.Online.l += l;
+        G.Online.det.push({ n: String(k).replace(/^Penjualan /, ''), v: v, l: l, q: 0 });
+      });
+    }
+    var omzet = URUT.map(function (n) { var x = G[n]; x.det.sort(function (a, b) { return b.v - a.v; }); return x; });
+    var profit = null;
+    if (u) {
+      var kat = {}, katL = u.saluranLalu || {};
+      (u.saluran || []).forEach(function (x) { kat[x.n] = x.v; });
+      var ada = function (o, nama) { return Object.keys(o).some(function (k) { return k.toLowerCase() === nama.toLowerCase() && o[k]; }); };
+      var hpp = 0, hppL = 0, luar = [];
+      (t && t.saluran ? t.saluran : []).forEach(function (s) {
+        var nama = s.n === 'Reseller' ? 'Penjualan reseller' : 'Penjualan ' + s.n;
+        if (ada(kat, nama)) hpp += s.hpp || 0; else if (s.omzet) luar.push({ n: String(s.n).replace(/^Consignment /, ''), v: s.omzet });
+        if (ada(katL, nama)) hppL += s.hppL || 0;
+      });
+      profit = {
+        pend: u.ini.pend, pendL: u.lalu.pend, hpp: Math.round(hpp), hppL: Math.round(hppL), ops: u.ini.ops, opsL: u.lalu.ops,
+        laba: Math.round(u.ini.pend - hpp - u.ini.ops), labaL: Math.round(u.lalu.pend - hppL - u.lalu.ops),
+        pendKat: (u.saluran || []).map(function (x) { return { n: String(x.n).replace(/^Penjualan /, ''), v: x.v }; }),
+        beban: (u.beban || []).slice(0, 10), beli: u.ini.beli, luar: luar
+      };
+    }
+    return { ok: true, dari: r.dari, sampai: r.sampai, lDari: r.lDari, lSampai: r.lSampai, hariIni: r.hariIni,
+      omzet: omzet, profit: profit, tanpaHpp: t && t.tanpaHpp ? t.tanpaHpp.length : 0, gagal: r.gagal || [], diperbarui: r.diperbarui };
+  }
+  BACA_SUPABASE.mikelama = {
+    pgdData: async function () {
+      if (!window.RobotBeli) return null;
+      var r = await window.RobotBeli.pgdData(sb);
+      if (r && r.ok) { r.peran = 'ceo'; r.link = null; }
+      return r;
+    },
+    impData: async function () {
+      var r = await window.KendaliBisnis.kbData(sb);
+      return r && r.ok ? { ok: true, list: r.tunggu, hariIni: window.Lembar.format(new Date(), 'yyyy-MM-dd'), diperbarui: window.Lembar.format(new Date(), 'dd/MM/yyyy HH:mm') } : null;
+    },
+    hppMikeData: async function () {
+      var r = await window.KendaliBisnis.kbNaik(sb);
+      return r && r.ok ? { ok: true, list: r.usul } : null;
+    },
+    hrgNaikData: function () { return window.MdLama.hrgNaikData(sb); },
+    bbrData: function () { return window.MdLama.bbrData(sb); },
+    ceoUang: function (a) { return ceoUang(a[0] || {}); }
+  };
   // Master Data lama (31 Okt): bagian yang dihitung dari Supabase (md.js, akun.js, produksi.js); selebihnya tetap Apps Script.
   BACA_SUPABASE.mdlama = {
     akuntingLaporan: function (a) { return window.Akunting.akuntingLaporan(sb, a[0]); },

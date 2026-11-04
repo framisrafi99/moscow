@@ -1,0 +1,4 @@
+-- 4 Nov 2026: halaman_baca juga melayani 'mikelama' (Persetujuan & laporan Mike) untuk Mike, Junior, dan manajemen,
+-- supaya tampilan halaman dibaca dari halaman_cache (tidak menunggu Apps Script). Apps Script menyimpan cache-nya
+-- (SBA_HALAMAN_SIMPAN_ ditambah 'mikelama' di 84_supabase.gs).
+-- when 'mikelama' then case when lower(btrim(coalesce(nm, ''))) in ('mike', 'junior') then array['kendali_bisnis', 'manajemen'] else array['manajemen'] end
