@@ -107,7 +107,7 @@
     });
     doc.autoTable({
       startY: 59, head: [['No', 'Barang', 'Qty', 'Perkiraan harga', 'Subtotal', 'Asal / status', 'No. pengajuan']], body: body,
-      foot: [['', 'PERKIRAAN TOTAL', '', '', f(tot), '', '']],
+      foot: [['', 'PERKIRAAN TOTAL', '', '', tot ? f(tot) : 'belum ada harga', '', '']],
       margin: { left: L, right: 14 }, styles: { font: 'helvetica', fontSize: 8.2, cellPadding: 2, textColor: [15, 27, 42], lineColor: [226, 231, 238], lineWidth: 0.2, valign: 'top' },
       headStyles: { fillColor: NAVY, textColor: 255, fontStyle: 'bold' }, footStyles: { fillColor: [231, 243, 249], textColor: NAVY, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -119,7 +119,8 @@
     doc.text(doc.splitTextToSize('Daftar ini dibuat otomatis dari pengajuan yang tersimpan di aplikasi Moscow Supplies. Harga adalah perkiraan dari staf; Purchasing mencatat qty dan harga sebenarnya saat membelanjakan. Barang impor di-ACC Mike.', R - L - 70), L, yEnd);
     doc.setTextColor(15, 27, 42); doc.text('Diajukan oleh,', R - 30, yEnd, { align: 'center' });
     doc.setDrawColor(15, 27, 42); doc.setLineWidth(0.2); doc.line(R - 55, yEnd + 20, R - 5, yEnd + 20);
-    doc.setFont('helvetica', 'bold'); doc.text(S.pg || bagian, R - 30, yEnd + 24.5, { align: 'center' });
+    doc.setFont('helvetica', 'bold'); var pgs = P.tampil.map(function (a) { return a.pg; }).filter(function (v, i, A) { return v && A.indexOf(v) === i; });
+    doc.text(S.pg || (pgs.length === 1 ? pgs[0] : bagian), R - 30, yEnd + 24.5, { align: 'center' });
     var n = doc.getNumberOfPages();
     for (var i = 1; i <= n; i++) {
       doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(90, 102, 119);
@@ -132,7 +133,7 @@
   function ringkasWa(P, tot) {
     var t = '*Daftar pengajuan pembelian ' + (NAMA_BAGIAN[S.app] || '') + '*\nTanggal: ' + tglPanjang(S.tgl) + (S.pg ? '\nDiajukan oleh: ' + S.pg : '') + '\n\n';
     t += P.tampil.map(function (a, i) { return (i + 1) + '. ' + a.n + ' — ' + f(qOf(a)) + ' ' + a.s + (a.imp ? ' (impor)' : ''); }).join('\n');
-    return t + '\n\nPerkiraan total: ' + rp(tot) + '\nPDF terlampir.';
+    return t + (tot ? '\n\nPerkiraan total: ' + rp(tot) : '') + '\n\nPDF terlampir.';
   }
 
   async function kirim(bt, wa) {
