@@ -352,7 +352,19 @@
     mpData: function (a) { return window.MdLama.mpData(sb, a[0] || {}); },
     pantauProduksi: function (a) { var j = a[0] && a[0].jenis; return j === 'produksi' || j === 'bahan' ? window.BahanBaku.pantauProduksi(sb, a[0], j) : null; },
     rencanaProduksi: function () { return window.BahanBaku.rencanaProduksi(sb); },
-    rencanaBahan: function (a) { return window.BahanBaku.rencanaBahan(sb, a[0] || {}); }
+    rencanaBahan: function (a) { return window.BahanBaku.rencanaBahan(sb, a[0] || {}); },
+    // 4 Nov 2026: dicocokkan dengan Apps Script (sama; pgdData Supabase memakai setelan waktu tunggu terbaru, gjData memakai link slip baru).
+    stokBahan: function () { return window.Produksi.stokBahan(sb); },
+    bahanBakuData: function (a) { return window.BahanBaku.bahanBakuData(sb, a[0] || {}); },
+    ambilPantau: function (a) { return window.Produksi.ambilPantau(sb, a[0] || {}); },
+    mdeData: function () { return window.MdLama.mdeData(sb); },
+    pgdData: function () { return window.RobotBeli.pgdData(sb); },
+    tbBeranda: function () { return window.Akunting.berandaData(sb); },
+    gjData: async function (a) {
+      var r = await sb.rpc('gaji_data', { p_per: teks((a[0] || {}).per) });
+      if (r.error) throw new Error(r.error.message);
+      return r.data;
+    }
   };
   // Payroll (tahap 5f): data gaji langsung dari Supabase.
   BACA_SUPABASE.payroll = {
@@ -752,7 +764,7 @@
     // Seperti Apps Script: sesudah berhasil, daftar barang & riwayat ikut dikirim (dibaca sesudah barisnya tersalin ke sheet).
     if (h && h.ok) {
       await salinKeSheet();
-      try { var d = await kirim('mdeData', [{ key: p.key }]); if (d && d.r && d.r.ok) { h.barang = d.r.barang; h.log = d.r.log; h.kategori = d.r.kategori; } } catch (e) { }
+      try { var d = await window.MdLama.mdeData(sb); if (d && d.ok) { h.barang = d.barang; h.log = d.log; h.kategori = d.kategori; } } catch (e) { }
     }
     return h;
   };
