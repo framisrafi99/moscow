@@ -391,7 +391,11 @@
     },
     riwayatHitung: function (a) { var t = teks((a[0] || {}).toko); return t && window.TokoBaca ? window.TokoBaca.riwayatHitung(sb, t) : null; },
     // Koreksi catatan gudang (5 Nov 2026): daftar catatan Gudang Utama beberapa hari terakhir (kgh_daftar).
-    kghDaftar: function (a) { return ['kgh_daftar', { p_hari: Number((a[0] || {}).hari) || 30 }]; },
+    kghDaftar: async function (a) {
+      var r = await sb.rpc('kgh_daftar', { p_hari: Number((a[0] || {}).hari) || 30 });
+      if (r.error) throw new Error(r.error.message);
+      return r.data;
+    },
     gjData: async function (a) {
       var r = await sb.rpc('gaji_data', { p_per: teks((a[0] || {}).per) });
       if (r.error) throw new Error(r.error.message);
