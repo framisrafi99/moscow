@@ -1,0 +1,3 @@
+-- 4 Nov 2026: dana_cair_simpan (SQL 131) juga boleh dipanggil staf toko untuk tokonya sendiri (_boleh_tulis_toko),
+-- pengganti danaCairSimpan Apps Script di form toko. diupload_oleh = 'staf: <nama>' untuk staf, 'manajemen' untuk manajemen.
+-- Diterapkan dengan mengganti 3 baris pada definisi fungsi (lihat riwayat sesi); isi lainnya sama dengan SQL 131.

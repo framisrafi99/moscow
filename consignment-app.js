@@ -171,6 +171,13 @@
       return ['toko_dana_simpan', { p_toko: C.toko, p_jenis: '', p_saluran: String(p.saluran || ''), p_bulan: String(p.bulan || ''),
         p_nilai: String(p.dana === undefined || p.dana === null ? '' : p.dana), p_nama: String(p.nama || '') }];
     },
+    // Upload laporan dana cair marketplace oleh staf toko (danaCairSimpan file 75) langsung di Supabase (4 Nov 2026).
+    // Rincian pesanan disalin Apps Script ke sheet lewat efek_antre seperti upload dari Master Data.
+    danaCairSimpan: function (p) {
+      var d = p.data && typeof p.data === 'object' ? Object.assign({}, p.data) : {};
+      d.nama = String(p.nama || '');
+      return ['dana_cair_simpan', { p_toko: C.toko, p_data: d, p_file: String(p.file || ''), p_yakin: !!p.yakin }];
+    },
     danaTunaiSimpan: function (p) {
       return ['toko_dana_simpan', { p_toko: C.toko, p_jenis: 'tunai', p_saluran: '', p_bulan: String(p.bulan || ''),
         p_nilai: String(p.nominal === undefined || p.nominal === null ? '' : p.nominal), p_nama: String(p.nama || '') }];
