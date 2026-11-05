@@ -169,6 +169,15 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
   // ---------- kartu ----------
   function kartu(b: Any): { text: string; markup: Any } {
     const r = b.baca || {};
+    if (r.tandai) {
+      const td = r.tandai, cb = (op: string) => 'b|' + b.id + '|' + op;
+      let ht = '🧾 <b>Bukti dari ' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) +
+        '\n✅ Uangnya <b>sudah tercatat</b>: ' + esc(td.tr.join(', ')) + (td.cocok && td.cocok.sumber ? ' (' + esc(td.cocok.sumber) + ')' : '') +
+        '\n\n⚠️ <b>Tapi pengajuan ini masih berstatus belum dibayar</b> (nota → sistem):';
+      td.p.forEach((x: Any) => { ht += '\n• ' + (x.nota && x.nota.toLowerCase() !== String(x.n).toLowerCase() ? esc(x.nota) + ' → ' : '') + '<b>' + esc(x.no) + ' ' + esc(x.n) + '</b> · ' + x.q + ' ' + esc(x.s) + ' · ' + rp(x.t); });
+      ht += '\n\n<i>' + esc(b.pengirim) + ', tekan ✅ Tandai sudah dibayar. Pengajuan berstatus dibayar dan ditautkan ke ' + esc(td.tr.join(', ')) + ' — uang TIDAK dicatat lagi.</i>';
+      return { text: ht, markup: { inline_keyboard: [[{ text: '✅ Tandai sudah dibayar', callback_data: cb('t') }], [{ text: '❌ Bukan pengajuan ini', callback_data: cb('n') }]] } };
+    }
     if (r.pindah) {
       const pd = r.pindah, cb = (op: string) => 'b|' + b.id + '|' + op;
       let hp = '🔁 <b>Pindah dana dari ' + esc(b.pengirim) + '</b>\n💸 <b>' + (b.nominal ? rp(b.nominal) : 'nominal belum terbaca') + '</b> · ' + tglId(b.tanggal) +
@@ -423,6 +432,12 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       const c = await sb.rpc('bb_cocok', { p_nominal: nominal, p_tanggal: tanggal, p_pengirim: nama });
       const cand = Array.isArray(c.data) && c.data[0];
       if (cand) {
+        // uang sudah tercatat, tapi barangnya masih ada di pengajuan yang belum dibayar -> tawarkan "Tandai sudah dibayar"
+        const rc = rencanaBayar(r, belum, items, nominal);
+        if (rc && rc.p.length) {
+          b = await ubah(id, { baca: { ...r, tandai: { tr: cand.no, toko: rc.toko, p: rc.p, cocok: cand } } });
+          await tampil(b); return;
+        }
         await sb.rpc('bb_tempel', { p_id: id, p_nos: cand.no });
         await tampil(b, '🧾 <b>' + esc(nama) + '</b> · ' + rp(nominal) + ' · ' + tglId(tanggal) + '\n' + teksCocok(cand));
         return;
@@ -547,6 +562,21 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       await tampil(b, '✅ <b>Sudah dibayar</b> oleh ' + esc(pengisi) + ' · ' + esc(b.akun) + ' · ' + tglId(b.tanggal) + '\n💸 ' + rp(b.nominal) + teksRencana(rc) +
         '\n\n📒 Accounting: ' + esc((r.data.trs || []).join(', ')) + '\n📎 Bukti dilampirkan. Staf: terima barangnya di form masing-masing.');
       return jawab('Tercatat dibayar: ' + (r.data.trs || []).join(', '));
+    }
+    if (op === 't' || op === 'n') {
+      const td = b.baca && b.baca.tandai; if (!td) return jawab('Tidak ada pengajuan yang perlu ditandai.');
+      if (op === 'n') {
+        await sb.rpc('bb_tempel', { p_id: id, p_nos: td.tr });
+        await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n' + teksCocok(td.cocok || { no: td.tr, t: '', sumber: '', v: b.nominal }));
+        return jawab('Bukti ditempel ke ' + td.tr.join(', '));
+      }
+      const r = await sb.rpc('bb_tandai', { p_id: id, p_oleh: pengisi });
+      if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal menyimpan.'), true);
+      await simpanPadanan(td.p.map((x: Any) => ({ nota: x.nota, sistem: x.n })));
+      let h = '✅ <b>Ditandai sudah dibayar</b> oleh ' + esc(pengisi) + ' · ' + tglId(b.tanggal) + '\n📒 Accounting: ' + esc(td.tr.join(', ')) + ' (sudah ada, tidak dicatat lagi)';
+      td.p.forEach((x: Any) => { h += '\n• <b>' + esc(x.no) + ' ' + esc(x.n) + '</b> · ' + x.q + ' ' + esc(x.s) + ' · ' + rp(x.t); });
+      await tampil(b, h + '\n📎 Bukti dilampirkan. Staf: terima barangnya di form masing-masing.');
+      return jawab('Pengajuan ditandai dibayar.');
     }
     if (op === 'I') {
       const rc = b.baca && b.baca.rencana; if (!rc || !rc.calon) return jawab('Tidak ada pilihan impor.');
@@ -682,5 +712,13 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     return { ok: true, pesan: k.result.message_id, sematkan: !!(s && s.ok), galat: s && !s.ok ? t(s.description, 120) : '' };
   }
 
-  return { grup, tombol, periksaTunggu, bacaUlang, uji, umumkan };
+  // pengingat harian (jadwal 09:13 WITA): pengajuan sudah di-ACC > 3 hari yang belum dibayar
+  async function pengingat() {
+    const r = await sb.rpc('bb_pengingat_ajuan');
+    if (r.error) return { ok: false, pesan: r.error.message };
+    if (!r.data) return { ok: true, pesan: 'tidak ada' };
+    return await umumkan(String(r.data), false);
+  }
+
+  return { grup, tombol, periksaTunggu, bacaUlang, uji, umumkan, pengingat };
 }
