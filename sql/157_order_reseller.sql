@@ -209,3 +209,5 @@ grant execute on function public.pelanggan_tambah(text, text, numeric) to authen
 --   menggantikan _rp_tg_masuk_d (teks "pindah stok" hanya untuk consignment). Definisi lengkap: pg_get_functiondef('public._order_tg_reseller(jsonb)'::regprocedure).
 -- * _rp_tg_masuk: warna tidak ditulis dua kali bila nama barang sudah berakhiran warna ("Leather Paint - BLACK BLACK").
 -- * pelanggan.link_order diganti ke aplikasi: reseller order.html?k=<kode>, consignment consignment.html.
+-- * order_simpan_layanan(p_pelanggan, ...): khusus service_role, jembatan link order Apps Script lama (simpanOrder memanggilnya,
+--   tapi fungsi ini belum pernah ada sehingga order reseller lewat link lama gagal). Meneruskan ke order_kunci_simpan.
