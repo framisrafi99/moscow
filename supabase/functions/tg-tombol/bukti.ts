@@ -22,6 +22,7 @@ const KATEGORI = ['Pembelian bahan baku', 'Botol, stiker & kemasan', 'Pembelian 
 const BELANJA = ['Pembelian bahan baku', 'Botol, stiker & kemasan', 'Pembelian barang dagang / impor', 'Perlengkapan & ATK'];
 const ANGGOTA = ['Junior', 'Mike', 'Viory', 'Daffa', 'Ronny', 'Iqbal'];
 const MODEL = (Deno.env.get('BB_MODEL') || 'claude-sonnet-5-5').trim();
+const MIKE_TANYA = 10000000;   // bukti Mike >= Rp 10 juta tanpa rekening yang terlihat: robot menanyakan Rekening PT atau Rekening Belanja
 
 function esc(s: unknown) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function t(v: unknown, n = 200) { return String(v ?? '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n); }
@@ -32,7 +33,7 @@ function tglId(d: string | null) { return d ? d.slice(8, 10) + '/' + d.slice(5, 
 function akunBawaan(nama: string, nominal: number) {
   if (nama === 'Junior') return 'Rekening Belanja';
   if (nama === 'Viory') return 'ShopeePay';
-  if (nama === 'Mike') return nominal > 10000000 ? 'Rekening PT' : 'Rekening Belanja';
+  if (nama === 'Mike') return nominal >= MIKE_TANYA ? '' : 'Rekening Belanja';   // nominal besar: robot menanyakan PT atau Belanja
   return '';
 }
 function akunDariTeks(s: string) {
@@ -369,7 +370,9 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     const kategori = KATEGORI.indexOf(String(r.kategori)) > -1 ? String(r.kategori) : 'Biaya lain-lain';
     const akun = akunDariTeks(teks) || (AKUN.indexOf(String(r.sumber)) > -1 ? String(r.sumber) : '') || akunBawaan(nama, nominal);
     const ket = t((r.ringkasan || teks || 'Pengeluaran') + (r.penerima && String(r.ringkasan || '').toLowerCase().indexOf(String(r.penerima).toLowerCase()) === -1 ? ' (' + r.penerima + ')' : ''), 150);
-    let b = await ubah(id, { baca: r, nominal: nominal || null, tanggal, kategori, akun: akun || null, keterangan: ket, status: 'usul' });
+    const tanyaAkun = !akun && nama === 'Mike' && nominal >= MIKE_TANYA;
+    let b = await ubah(id, { baca: r, nominal: nominal || null, tanggal, kategori, akun: akun || null, keterangan: ket, status: 'usul',
+      catatan: tanyaAkun ? '💬 Mike, nominalnya besar: dibayar dari Rekening PT atau Rekening Belanja? Pilih akunnya di bawah.' : null });
 
     // bukti kembar (foto yang sama dikirim dua kali)
     if (nominal) {
@@ -455,7 +458,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       await sb.from('bb_anggota').upsert({ uid: String(dari.id), nama: nm, nama_tg: t([dari.first_name, dari.last_name].join(' '), 60), waktu: new Date().toISOString() });
       const ab = akunBawaan(nm, 0);
       await api('sendMessage', { chat_id: chat.id, reply_to_message_id: m.message_id, parse_mode: 'HTML', text: '✅ Kamu terdaftar sebagai <b>' + nm + '</b>.' +
-        (ab ? ' Akun bayar bawaan: <b>' + ab + '</b>' + (nm === 'Mike' ? ' (di atas Rp 10 juta: Rekening PT)' : '') + '. Kalau beda, tulis di caption (mis. "cash", "shopee", "tf PT").'
+        (ab ? ' Akun bayar bawaan: <b>' + ab + '</b>' + (nm === 'Mike' ? ' (nominal besar: robot menanyakan Rekening PT atau Rekening Belanja)' : '') + '. Kalau beda, tulis di caption (mis. "cash", "shopee", "tf PT").'
           : ' Setiap kirim bukti, <b>tulis saluran bayarnya</b> di caption (mis. "kas", "shopee", "tf belanja").') });
       return true;
     }
@@ -579,7 +582,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     if (op === 'A' || op === 'K') {
       const i = Number(p[3]), v = (op === 'A' ? AKUN : KATEGORI)[i];
       if (!v) return jawab('Pilihan tidak dikenal.');
-      const baru = await ubah(id, op === 'A' ? { akun: v } : { kategori: v });
+      const baru = await ubah(id, op === 'A' ? { akun: v, ...(String(b.catatan || '').startsWith('💬') ? { catatan: null } : {}) } : { kategori: v });
       await tampil(baru); return jawab((op === 'A' ? 'Akun: ' : 'Kategori: ') + v);
     }
     if (op === 'm') { await tampil(b); return jawab(''); }
@@ -639,5 +642,15 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       hasil: nominal && items.length ? cocokBarang(r, items, nominal, b.caption || '') : null };
   }
 
-  return { grup, tombol, periksaTunggu, bacaUlang, uji };
+  // pengumuman manajemen: robot mengirim teks ke grup Bukti Bayar lalu menyematkannya (dipanggil lewat kunci robot)
+  async function umumkan(teks: string) {
+    const g = await atur('grup');
+    if (!g || !g.chat) return { ok: false, pesan: 'Grup Bukti Bayar belum diatur.' };
+    const k = await api('sendMessage', { chat_id: g.chat, text: String(teks).slice(0, 4000), disable_web_page_preview: true });
+    if (!(k && k.ok)) return { ok: false, pesan: 'Kirim gagal: ' + t(k && k.description, 120) };
+    const s = await api('pinChatMessage', { chat_id: g.chat, message_id: k.result.message_id, disable_notification: false });
+    return { ok: true, pesan: k.result.message_id, sematkan: !!(s && s.ok), galat: s && !s.ok ? t(s.description, 120) : '' };
+  }
+
+  return { grup, tombol, periksaTunggu, bacaUlang, uji, umumkan };
 }

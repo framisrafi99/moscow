@@ -226,6 +226,7 @@ Deno.serve(async (req) => {
     let isi: any = {};
     try { isi = await req.json(); } catch (_) { isi = {}; }
     if (isi && isi.uji) return json(await bukti.uji(Number(isi.uji)));
+    if (isi && isi.umumkan) return json(await bukti.umumkan(String(isi.umumkan)));
     const a =await bukti.periksaTunggu(), n = await bukti.bacaUlang();
     return json({ ok: true, ...a, bacaUlang: n });
   }
