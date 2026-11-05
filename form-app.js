@@ -999,6 +999,80 @@
     new MutationObserver(function () { if (tunda) return; tunda = requestAnimationFrame(function () { tunda = 0; pasang(); }); })
       .observe(dok.body, { childList: true, subtree: true });
   }
+  // Koreksi pengajuan pembelian oleh pengaju (5 Nov 2026): tombol "Koreksi" di daftar pengajuan Gudang Utama, Produksi, Bahan Baku.
+  // Langsung tersimpan (RPC pengadaan_koreksi) tanpa ACC Master Data; dicatat & dikabarkan ke grup.
+  function koreksiAjuan(dok) {
+    var NO_RE = /^[A-Z]{1,4}-\d{6}-\d+$/;
+    function e_(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function f_(n) { n = Number(n) || 0; return n.toLocaleString('id-ID', { maximumFractionDigits: 2 }); }
+    var GAYA_IN = 'width:100%;box-sizing:border-box;margin-top:4px;padding:9px 10px;border:1px solid #cfd6e0;border-radius:10px;font:inherit;background:#fff';
+    function baris() {
+      var out = [];
+      Array.prototype.forEach.call(dok.querySelectorAll('#pgsIsi .aj, #gdxIsi .row'), function (r) {
+        var ks = r.querySelector('.ks'); if (!ks) return;
+        var bag = ks.textContent.split(' · ').map(function (x) { return x.trim(); });
+        if (!NO_RE.test(bag[0])) return;
+        if (APP === 'gudang' && bag[2] && bag[2] !== 'Gudang' && !C.mgmt) return;
+        var ch = Array.prototype.filter.call(r.querySelectorAll('.ch'), function (c) { return !c.classList.contains('Impor'); })[0];
+        out.push({ el: r, no: bag[0], st: ch ? ch.textContent.trim() : '', ch: ch });
+      });
+      return out;
+    }
+    function pasang() {
+      baris().forEach(function (b) {
+        if (b.el.querySelector('.kxB')) return;
+        if (b.st !== 'Menunggu' && b.st !== 'Disetujui') return;
+        var w = dok.createElement('div'); w.className = 'kxB'; w.style.marginTop = '6px';
+        w.innerHTML = '<button type="button" style="border:1px solid #1a78a0;background:#fff;color:#1a78a0;border-radius:9px;padding:6px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer">&#9998;&#65039; Koreksi</button><div class="kxP"></div>';
+        b.el.appendChild(w);
+        w.querySelector('button').onclick = function () { buka(b, w.querySelector('.kxP'), w.querySelector('button')); };
+      });
+    }
+    async function buka(b, P, tb) {
+      if (P.innerHTML) { P.innerHTML = ''; return; }
+      P.innerHTML = '<div style="font-size:13px;color:#5a6677;margin-top:6px">Memuat...</div>';
+      var r = await sb.rpc('pengadaan_koreksi', { p_no: b.no, p_aksi: 'lihat' }), d = r && r.data;
+      if (!d || !d.ok) { P.innerHTML = '<div style="font-size:13px;color:#b3261e;margin-top:6px">' + e_((d && d.pesan) || (r.error && r.error.message) || 'Gagal memuat.') + '</div>'; return; }
+      if (!d.boleh) { P.innerHTML = '<div style="font-size:13px;color:#8a4b0b;margin-top:6px">' + e_(d.info) + '</div>'; return; }
+      var tunggu = d.st === 'Menunggu', q0 = d.qs !== null && d.qs !== undefined ? d.qs : d.q;
+      var nmAwal = (dok.getElementById('nama') || {}).value || C.nama || '';
+      P.innerHTML = '<div style="margin-top:8px;border:1px solid #cfe0ea;background:#f3f8fb;border-radius:10px;padding:10px;font-size:13.5px">' +
+        '<div style="color:#4a5566;margin-bottom:6px">' + e_(d.info) + '</div>' +
+        '<label style="display:block;margin-top:6px;font-weight:600">Qty (' + e_(d.s || 'pcs') + ')</label><input class="kxQ" inputmode="decimal" value="' + e_(q0) + '" style="' + GAYA_IN + '">' +
+        (tunggu ? '<label style="display:block;margin-top:8px;font-weight:600">Perkiraan harga satuan (Rp, boleh kosong)</label><input class="kxH" inputmode="numeric" value="' + (d.h ? e_(d.h) : '') + '" style="' + GAYA_IN + '">' +
+          '<label style="display:block;margin-top:8px;font-weight:600">Alasan pengajuan</label><input class="kxA" maxlength="300" value="' + e_(d.al) + '" style="' + GAYA_IN + '">' : '') +
+        '<label style="display:block;margin-top:8px;font-weight:600">Alasan koreksi (wajib)</label><input class="kxC" maxlength="200" placeholder="Mis. salah ketik qty / tidak jadi dibeli" style="' + GAYA_IN + '">' +
+        '<label style="display:block;margin-top:8px;font-weight:600">Nama kamu</label><input class="kxN" maxlength="40" value="' + e_(nmAwal) + '" style="' + GAYA_IN + '">' +
+        '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button type="button" class="kxS" style="flex:1;min-width:140px;border:0;border-radius:10px;background:#1a78a0;color:#fff;padding:10px;font:inherit;font-weight:700;cursor:pointer">Simpan koreksi</button>' +
+        '<button type="button" class="kxX" style="flex:1;min-width:140px;border:1px solid #b3261e;border-radius:10px;background:#fff;color:#b3261e;padding:10px;font:inherit;font-weight:700;cursor:pointer">Batalkan pengajuan</button></div>' +
+        '<div class="kxM" style="margin-top:8px;font-size:13px"></div></div>';
+      var $q = function (c) { return P.querySelector(c); };
+      async function kirim(aksi, bt) {
+        var m = $q('.kxM'), cat = $q('.kxC').value.trim(), nm = $q('.kxN').value.trim();
+        if (cat.length < 3) { m.style.color = '#b3261e'; m.textContent = 'Tulis alasan koreksinya.'; $q('.kxC').focus(); return; }
+        if (aksi === 'batal' && !window.confirm('Batalkan pengajuan ' + b.no + ' (' + d.n + ')?')) return;
+        bt.disabled = true; m.style.color = '#4a5566'; m.textContent = 'Menyimpan...';
+        var r2 = await sb.rpc('pengadaan_koreksi', { p_no: b.no, p_aksi: aksi, p_qty: $q('.kxQ').value, p_harga: $q('.kxH') ? $q('.kxH').value : null,
+          p_alasan_ajuan: $q('.kxA') ? $q('.kxA').value : null, p_catatan: cat, p_nama: nm });
+        var h = r2 && r2.data; bt.disabled = false;
+        if (!h || !h.ok) { m.style.color = '#b3261e'; m.textContent = (h && h.pesan) || (r2.error && r2.error.message) || 'Gagal menyimpan. Coba lagi.'; return; }
+        if (nm) C.nama = nm;
+        // perbarui baris di daftar
+        if (b.ch) { b.ch.textContent = h.st; b.ch.className = 'ch ' + h.st; }
+        Array.prototype.forEach.call(b.el.children, function (c) {
+          if (/^Qty\b/.test(c.textContent || '') && h.st !== 'Batal') c.innerHTML = 'Qty <b>' + f_(h.q) + '</b> ' + e_(d.s) + (h.h ? ' &times; Rp ' + f_(h.h) + ' = Rp ' + f_(h.q * h.h) : '') + ' <span style="color:#1a78a0;font-size:12px">(dikoreksi)</span>';
+        });
+        P.innerHTML = '<div style="margin-top:6px;font-size:13px;color:#157347;background:#e8f5ee;border-radius:8px;padding:8px 10px">' + e_(h.pesan) + '</div>';
+        if (h.st === 'Batal') tb.remove();
+      }
+      $q('.kxS').onclick = function () { kirim('ubah', this); };
+      $q('.kxX').onclick = function () { kirim('batal', this); };
+    }
+    pasang();
+    var tunda = 0;
+    new MutationObserver(function () { if (tunda) return; tunda = requestAnimationFrame(function () { tunda = 0; pasang(); }); })
+      .observe(dok.body, { childList: true, subtree: true });
+  }
   function ikonGd(dok) {
     if (!dok.getElementById('ikGaya')) {
       var g = dok.createElement('style'); g.id = 'ikGaya';
@@ -1238,6 +1312,7 @@
       if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
       ukur(); tekan(C.aktif);
       if (APP === 'gudang') { try { cariKodeKirim(dok); } catch (e) { } try { ikonGd(dok); } catch (e) { } try { tanggalOpname(dok); } catch (e) { } }
+      if (APP === 'gudang' || APP === 'produksi' || APP === 'bahanbaku') { try { koreksiAjuan(dok); } catch (e) { } }
       if (BUKA.length) jalankanBuka(dok);
       // Stok di dalam tampilan simpanan bisa sudah lama: langsung dimuat ulang (form produksi).
       if (dariSimpanan) try { if (typeof fr.contentWindow.muatStok === 'function') fr.contentWindow.muatStok(); } catch (e) { }
@@ -1260,6 +1335,7 @@
       C.aktif = k; if (F.asli) { panelAsli(k); return; } tekan(k); subBotol(k); panelAbsen(k); panelMenu(k); setTimeout(ukur, 0);
     },
     siap: function (ctx) {
+      C.mgmt = ctx.peran === 'manajemen';
       if (ctx.peran === 'manajemen') {
         var nav = document.querySelector('#mSide nav');
         if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + M.svg('beranda') + '<span class="nm">Master Data</span></a>');
