@@ -88,16 +88,18 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
   }
 
   // ---------- AI ----------
-  async function baca(isi: { data?: Uint8Array; mime?: string; teks: string; tglPesan: string }): Promise<Any> {
+  async function baca(isi: { data?: Uint8Array; mime?: string; teks: string; tglPesan: string; daftar?: Any[]; padanan?: Any[] }): Promise<Any> {
     const kunci = (Deno.env.get('ANTHROPIC_API_KEY') || '').trim();
     if (!kunci) return { galat: 'kunci' };
-    const perintah = 'Kamu membaca bukti pengeluaran uang perusahaan Moscow Supplies (PT Toentoenan Langkah Elohim, Bali). Hari ini ' + isi.tglPesan +
+    const daftar = (isi.daftar || []).map((x: Any, i: number) => 'B' + (i + 1) + ' = ' + t(x.n, 60) + ' · Rp ' + Math.round(Number(x.v) || 0)).join('\n');
+    const pdn = (isi.padanan || []).map((x: Any) => '"' + t(x.nota, 60) + '" = "' + t(x.sistem, 60) + '"').join('; ');
+    const perintah ='Kamu membaca bukti pengeluaran uang perusahaan Moscow Supplies (PT Toentoenan Langkah Elohim, Bali). Hari ini ' + isi.tglPesan +
       ' (WITA); bukti dikirim hari ini, jadi tahun yang tidak tertulis = tahun ini.\n' +
       (isi.teks ? 'Caption / pesan pengirim: "' + isi.teks + '"\n' : '') +
       'Jawab HANYA dengan JSON (tanpa teks lain):\n' +
       '{"bukti":true|false, "belum_bayar":true|false, "nominal":angka total yang dibayar (rupiah, bulat), "tanggal":"YYYY-MM-DD" atau null, ' +
       '"penerima":"toko / penerima", "ringkasan":"apa yang dibayar, singkat, maks 110 huruf, bahasa Indonesia", "kategori":"salah satu kategori", ' +
-      '"sumber":"Rekening Belanja|Rekening PT|ShopeePay|Kas Tunai|" , "ref":"nomor referensi / no pesanan atau \\"\\"", "barang":[{"nama":"nama barang","total":angka}], "yakin":0-1}\n' +
+      '"sumber":"Rekening Belanja|Rekening PT|ShopeePay|Kas Tunai|" , "ref":"nomor referensi / no pesanan atau \\"\\"", "barang":[{"nama":"nama barang","total":angka}], "sistem":[{"kode":"B1","nota":"nama barang di bukti"}], "yakin":0-1}\n' +
       'Aturan: bukti=true kalau ini bukti pembayaran / nota / struk / transfer / pesanan yang sudah dibayar, atau pesan teks yang melaporkan pengeluaran. ' +
       'belum_bayar=true kalau ini pesanan / invoice / sales order / COD / tagihan yang belum lunas. ' +
       'nominal = total yang benar-benar dibayar (termasuk ongkir & biaya admin), bukan harga satuan; kalau ada beberapa pesanan, jumlahkan semuanya. ' +
@@ -106,7 +108,11 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       'Saldo ShopeePay / ShopeePay = ShopeePay; kalau tidak terlihat isi "". ' +
       'kategori pilih tepat salah satu: ' + KATEGORI.join(' | ') + '. ' +
       'Contoh: listrik/token PLN/air/wifi = Listrik, air & internet; servis AC/konsumsi/uang operasional = Biaya lain-lain; botol/stiker/kemasan/plastik = Botol, stiker & kemasan; ' +
-      'bahan kimia/cat sablon/lem = Pembelian bahan baku; gaji DW/upah = Gaji & upah; ongkir/grab/kargo = Ongkos kirim & ekspedisi.';
+      'bahan kimia/cat sablon/lem = Pembelian bahan baku; gaji DW/upah = Gaji & upah; ongkir/grab/kargo = Ongkos kirim & ekspedisi.' +
+      (daftar ? '\n\nBarang yang SUDAH dibayar lewat aplikasi Moscow beberapa hari ini (nama di sistem bisa berbeda dengan nama di toko / nota; harga sistem = total per barang termasuk ongkir):\n' + daftar +
+        (pdn ? '\nPadanan nama yang pernah dikonfirmasi (nota = sistem): ' + pdn : '') +
+        '\nsistem = untuk SETIAP barang di bukti yang sama dengan barang di daftar itu, isi {"kode":"Bn","nota":"nama barang di bukti"}. Cocokkan dari arti nama (jenis, ukuran, warna), jumlah dan harga, bukan dari ejaan. ' +
+        'Satu kode hanya sekali. Jangan memasangkan kalau ragu. Kalau tidak ada yang sama, "sistem":[].' : '\nsistem = [].');
     // deno-lint-ignore no-explicit-any
     const konten: any[] = [];
     if (isi.data && isi.mime) {
@@ -137,8 +143,8 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       '\n📝 ' + esc(b.keterangan || '-') + '\n🏷️ ' + esc(b.kategori || '-') + '\n🏦 ' + (b.akun ? esc(b.akun) : '❓ <b>akun bayar belum dipilih</b> (pilih di bawah)');
     if (r.belum_bayar) h += '\n\n⚠️ <i>Sepertinya ini pesanan / tagihan yang belum lunas. Catat hanya kalau sudah dibayar.</i>';
     if (r.bukti === false) h += '\n\n⚠️ <i>Sepertinya bukan bukti pembayaran. Abaikan kalau memang bukan.</i>';
-    if (r.kandidat) h += '\n\n🔎 <i>Mungkin sudah tercatat dari belanja lewat aplikasi: ' + esc(r.kandidat.n.join(', ')) + ' = ' + rp(r.kandidat.sum) +
-      ' (' + esc(r.kandidat.tr.join(', ')) + '). Kalau sama, tekan 📎 Sudah tercatat.</i>';
+    if (r.kandidat) h += '\n\n🔎 <b>Mungkin sudah tercatat</b> dari belanja lewat aplikasi (nota → sistem):' + barisPasang(r.kandidat) + '\n= ' + rp(r.kandidat.sum) +
+      ' (' + esc(r.kandidat.tr.join(', ')) + ')' + (r.kandidat.beda ? ', selisih ' + rp(Math.abs(r.kandidat.beda)) : '') + '\n<i>Kalau sama, tekan 📎 Sudah tercatat.</i>';
     if (b.status === 'tunggu') h += '\n\n⏳ <i>Belum ada di aplikasi. Kalau ini belanja dari pengajuan, input dulu di aplikasi (Bayar di Purchasing / bayar PO) — bukti ditempel otomatis. Kalau bukan, tekan ✅ Catat.</i>';
     if (b.catatan) h += '\n\n<i>' + esc(b.catatan) + '</i>';
     const id = b.id;
@@ -168,6 +174,45 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
   function teksCocok(c: Any) {
     return '✅ <b>Sudah tercatat</b> — ' + esc(c.no.join(', ')) + ' (' + esc(c.t) + ', ' + esc(c.sumber) + ') · ' + rp(c.v) +
       (c.beda ? ' <i>(selisih ' + rp(Math.abs(c.beda)) + ')</i>' : '') + '\n📎 Bukti dilampirkan, tidak dicatat dua kali.';
+  }
+
+  // ---------- padanan nama barang: nota / toko -> nama di sistem ----------
+  function barisPasang(kd: Any) {
+    const ps = Array.isArray(kd.pasang) && kd.pasang.length ? kd.pasang : (kd.n || []).map((n: string) => ({ sistem: n }));
+    return ps.map((p: Any) => '\n• ' + (p.nota && p.nota.toLowerCase() !== String(p.sistem).toLowerCase() ? esc(p.nota) + ' → ' : '') + '<b>' + esc(p.sistem) + '</b>' + (p.v ? ' · ' + rp(p.v) : '')).join('');
+  }
+  async function simpanPadanan(ps: Any[]) {
+    const rows = (Array.isArray(ps) ? ps : []).filter((p: Any) => p && p.nota && p.sistem && String(p.nota).toLowerCase() !== String(p.sistem).toLowerCase())
+      .map((p: Any) => ({ nota: t(p.nota, 80), sistem: t(p.sistem, 80), waktu: new Date().toISOString() }));
+    if (rows.length) await sb.from('bb_padanan').upsert(rows, { onConflict: 'nota,sistem' });
+  }
+  async function barangSistem(tgl: string) { const br = await sb.rpc('bb_barang', { p_tanggal: tgl }); return Array.isArray(br.data) ? br.data.slice(0, 30) : []; }
+  async function padananUntuk(items: Any[]) {
+    if (!items.length) return [];
+    const r = await sb.from('bb_padanan').select('nota,sistem').in('sistem', Array.from(new Set(items.map((x: Any) => String(x.n))))).order('waktu', { ascending: false }).limit(40);
+    return r.data || [];
+  }
+  // Pasangan dari AI (kode Bn) dulu; kalau tidak ada / jumlahnya jauh, cadangan: kombinasi harga + kata nama.
+  function cocokBarang(r: Any, items: Any[], nominal: number, teks: string) {
+    let h: Any = null;
+    const pasang: Any[] = [];
+    for (const s of (Array.isArray(r.sistem) ? r.sistem : [])) {
+      const it = items[Number(String((s && s.kode) || '').replace(/\D/g, '')) - 1];
+      if (it && !pasang.some((p) => p.it === it)) pasang.push({ it, nota: t(s.nota, 60) });
+    }
+    if (pasang.length) {
+      const sum = pasang.reduce((a, p) => a + Number(p.it.v), 0);
+      h = { pick: pasang.map((p) => p.it), sum, d: Math.abs(sum - nominal), semua: true, pasang: pasang.map((p) => ({ nota: p.nota, sistem: p.it.n, v: Number(p.it.v) })) };
+    }
+    if (!h || h.d > nominal * 0.15) {
+      const namaBukti = (Array.isArray(r.barang) ? r.barang.map((x: Any) => String((x && x.nama) || '')) : []).concat([String(r.ringkasan || ''), teks]);
+      const c = cariBarang(items, nominal, namaBukti);
+      if (c) h = { ...c, pasang: c.pick.map((x: Any) => ({ nota: '', sistem: x.n, v: Number(x.v) })) };
+    }
+    if (!h || h.d > nominal * 0.15) return null;
+    const tr = Array.from(new Set(h.pick.map((x: Any) => String(x.tr)))) as string[];
+    return { yakin: !!h.semua && h.d <= Math.max(5000, nominal * 0.01),
+      kd: { tr, pg: h.pick.map((x: Any) => x.pg), n: h.pick.map((x: Any) => x.n), sum: h.sum, beda: h.sum - nominal, pasang: h.pasang } };
   }
 
   // ---------- proses satu bukti ----------
@@ -208,7 +253,8 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       }
       if (!data) { await tampil({ chat: String(chat.id), robot_msg: robotMsg }, '⚠️ Foto tidak bisa diunduh dari Telegram. Kirim ulang ya.'); await ubah(id, { status: 'gagal' }); return; }
     }
-    const r = await baca({ data, mime, teks, tglPesan });
+    const items = await barangSistem(tglPesan);
+    const r = await baca({ data, mime, teks, tglPesan, daftar: items, padanan: await padananUntuk(items) });
     if (r.galat) {
       const p = r.galat === 'kunci' ? '⚠️ Robot belum bisa membaca bukti: kunci AI belum dipasang di server. Bukti tersimpan, nanti dibaca ulang.' : (m.ulang ? '⚠️ Bukti tetap belum terbaca setelah dibaca ulang. Kirim ulang fotonya (lebih jelas / dipotong), atau tulis nominal + keterangannya sebagai teks.'
         : '⚠️ Bukti belum terbaca (' + esc(r.pesan || 'AI') + '). Robot akan membaca ulang otomatis dalam 1 jam, atau kirim ulang sekarang.');
@@ -244,20 +290,18 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       }
     }
     // cocokkan ke rincian barang yang dibayar lewat aplikasi (satu screenshot bisa berisi beberapa barang dari beberapa transaksi)
-    if (nominal) {
-      const br = await sb.rpc('bb_barang', { p_tanggal: tanggal });
-      const namaBukti = (Array.isArray(r.barang) ? r.barang.map((x: Any) => String(x && x.nama || '')) : []).concat([String(r.ringkasan || ''), teks]);
-      const hasil = Array.isArray(br.data) && br.data.length ? cariBarang(br.data, nominal, namaBukti) : null;
+    if (nominal && items.length) {
+      const hasil = cocokBarang(r, items, nominal, teks);
       if (hasil) {
-        const tr = Array.from(new Set(hasil.pick.map((x: Any) => String(x.tr)))) as string[];
-        const kand = { tr, pg: hasil.pick.map((x: Any) => x.pg), n: hasil.pick.map((x: Any) => x.n), sum: hasil.sum, beda: hasil.sum - nominal };
-        if (hasil.semua && hasil.d <= Math.max(5000, nominal * 0.01)) {
-          await sb.rpc('bb_tempel', { p_id: id, p_nos: tr });
-          await tampil(b, '🧾 <b>' + esc(nama) + '</b> · ' + rp(nominal) + ' · ' + tglId(tanggal) + '\n✅ <b>Sudah tercatat</b> dari belanja lewat aplikasi: ' + esc(kand.n.join(', ')) +
-            ' = ' + rp(kand.sum) + ' (' + esc(tr.join(', ')) + ')' + (kand.beda ? ' <i>(selisih ' + rp(Math.abs(kand.beda)) + ')</i>' : '') + '\n📎 Bukti dilampirkan, tidak dicatat dua kali.');
+        const kand = hasil.kd;
+        if (hasil.yakin) {
+          await sb.rpc('bb_tempel', { p_id: id, p_nos: kand.tr });
+          await simpanPadanan(kand.pasang);
+          await tampil(b, '🧾 <b>' + esc(nama) + '</b> · ' + rp(nominal) + ' · ' + tglId(tanggal) + '\n✅ <b>Sudah tercatat</b> dari belanja lewat aplikasi (nota → sistem):' + barisPasang(kand) +
+            '\n= ' + rp(kand.sum) + ' (' + esc(kand.tr.join(', ')) + ')' + (kand.beda ? ' <i>(selisih ' + rp(Math.abs(kand.beda)) + ')</i>' : '') + '\n📎 Bukti dilampirkan, tidak dicatat dua kali.');
           return;
         }
-        if (hasil.d <= nominal * 0.15) b = await ubah(id, { baca: { ...r, kandidat: kand } });
+        b = await ubah(id, { baca: { ...r, kandidat: kand } });
       }
     }
     if ((nama === 'Viory' || nama === 'Mike') && BELANJA.indexOf(kategori) > -1 && !r.belum_bayar && !(b.baca && b.baca.kandidat)) b = await ubah(id, { status: 'tunggu' });
@@ -343,8 +387,9 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       const kd = b.baca && b.baca.kandidat;
       if (!kd) return jawab('Tidak ada transaksi pembanding.');
       await sb.rpc('bb_tempel', { p_id: id, p_nos: kd.tr });
-      await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n✅ <b>Sudah tercatat</b> (dikonfirmasi ' + esc(oleh) + '): ' + esc(kd.n.join(', ')) +
-        ' = ' + rp(kd.sum) + ' (' + esc(kd.tr.join(', ')) + ')\n📎 Bukti dilampirkan, tidak dicatat dua kali.');
+      await simpanPadanan(kd.pasang);
+      await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n✅ <b>Sudah tercatat</b> (dikonfirmasi ' + esc(oleh) + ', nota → sistem):' + barisPasang(kd) +
+        '\n= ' + rp(kd.sum) + ' (' + esc(kd.tr.join(', ')) + ')\n📎 Bukti dilampirkan, tidak dicatat dua kali.');
       return jawab('Bukti ditempel ke ' + kd.tr.join(', '));
     }
     if (op === 'x') { await ubah(id, { status: 'bukan' }); await tampil(b, '❌ Ditandai bukan pengeluaran oleh ' + esc(oleh) + '. Tidak dicatat.'); return jawab('Tidak dicatat.'); }
@@ -404,5 +449,17 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     return n;
   }
 
-  return { grup, tombol, periksaTunggu, bacaUlang };
+  // uji tanpa mengubah apa pun: baca ulang bukti #id lalu tunjukkan pasangan barangnya (dipanggil lewat kunci robot)
+  async function uji(id: number) {
+    const b = await ambil(id); if (!b || !b.file_id) return { ok: false };
+    const f = await api('getFile', { file_id: b.file_id }); if (!(f && f.ok)) return { ok: false, pesan: 'getFile' };
+    const res = await fetch('https://api.telegram.org/file/bot' + TOKEN + '/' + f.result.file_path);
+    const data = new Uint8Array(await res.arrayBuffer());
+    const tglPesan = hariWita(new Date(b.waktu).getTime()), items = await barangSistem(tglPesan);
+    const r = await baca({ data, mime: b.file_jenis === 'pdf' ? 'application/pdf' : 'image/jpeg', teks: b.caption || '', tglPesan, daftar: items, padanan: await padananUntuk(items) });
+    const nominal = Math.round(Number(r.nominal) || 0);
+    return { ok: true, nominal, sistem: r.sistem, hasil: nominal && items.length ? cocokBarang(r, items, nominal, b.caption || '') : null };
+  }
+
+  return { grup, tombol, periksaTunggu, bacaUlang, uji };
 }

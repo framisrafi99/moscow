@@ -222,7 +222,11 @@ Deno.serve(async (req) => {
   if (robot) {
     const k = await sb.from('robot_kunci').select('kunci').eq('id', 1).maybeSingle();
     if (!(k.data && k.data.kunci === robot)) return json({ ok: false }, 403);
-    const a = await bukti.periksaTunggu(), n = await bukti.bacaUlang();
+    // deno-lint-ignore no-explicit-any
+    let isi: any = {};
+    try { isi = await req.json(); } catch (_) { isi = {}; }
+    if (isi && isi.uji) return json(await bukti.uji(Number(isi.uji)));
+    const a =await bukti.periksaTunggu(), n = await bukti.bacaUlang();
     return json({ ok: true, ...a, bacaUlang: n });
   }
   const tanda = req.headers.get('x-telegram-bot-api-secret-token');

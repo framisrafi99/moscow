@@ -138,3 +138,8 @@ returns jsonb language sql stable security definer set search_path to 'public' a
 $function$;
 revoke all on function public.bb_barang(date) from public, anon, authenticated;
 grant execute on function public.bb_barang(date) to service_role;
+
+-- Padanan nama barang: nama di nota / toko -> nama barang di sistem. Diisi otomatis setiap kali robot / anggota mengonfirmasi
+-- bahwa bukti sama dengan belanja di aplikasi; dipakai sebagai petunjuk untuk AI pada bukti berikutnya.
+create table if not exists public.bb_padanan (nota text not null, sistem text not null, waktu timestamptz not null default now(), primary key (nota, sistem));
+alter table public.bb_padanan enable row level security;
