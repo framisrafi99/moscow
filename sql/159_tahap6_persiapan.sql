@@ -1,0 +1,7 @@
+-- 5 Nov 2026 (persiapan tahap 6): pekerjaan yang tadinya hanya bisa dijalankan Apps Script lewat antrean md_aksi.
+-- * mde_qty_kp(k, sistem, nilai, alasan, token): edit qty stok online (Kantor Packing) dari Master Data › Edit barang
+--   (dulu md_aksi mdeSimpanBaru -> MDE_qty_ file 16). Stok sistem dihitung di aplikasi (kp.js) dan dikirim.
+--   Mencatat md_ubah_log + produksi_sesuai_log (bagian Kantor Packing, Disetujui), sama dengan Apps Script.
+-- * _gj_angka(v, label) = GJ_int_; gaji_staf_ubah(p) = gjStafUbah (tambah / ubah / resign / aktif) langsung di tabel gaji_staf;
+--   gaji_staf_simpan(p, ringkas) = gaji_staf_ubah + riwayat di md_aksi (status selesai/gagal, bukan antrean).
+-- Definisi lengkap: pg_get_functiondef.

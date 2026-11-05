@@ -1,8 +1,7 @@
 /* =====================================================================
    DATA STAF (Payroll › Data staf) — khusus manajemen Moscow Supplies.
    Tambah karyawan baru, ubah jabatan / gaji tetap, tandai staf resign.
-   Sumber data tetap sheet GAJI_STAF: perubahan dikirim lewat antrean md_aksi
-   (fungsi Apps Script gjStafUbah), diproses tiap ±5 menit, lalu tersalin ke aplikasi.
+   Perubahan langsung tersimpan di Supabase (gaji_staf_simpan, 5 Nov 2026); riwayatnya dicatat di md_aksi.
    Staf resign tidak dihapus (riwayat gaji tetap ada): kolom Aktif = Tidak.
    ===================================================================== */
 (function () {
@@ -105,10 +104,12 @@
     if (S.sibuk) return;
     S.sibuk = true; S.pesan = 'Mengirim…'; S.kelas = 'ok'; gambar();
     try {
-      var r = await S.sb.from('md_aksi').insert({ fungsi: 'gjStafUbah', param: param, ringkas: String(ringkas).slice(0, 200) });
+      // 5 Nov 2026: langsung tersimpan di Supabase (gaji_staf_simpan), tidak lewat antrean Apps Script lagi.
+      var r = await S.sb.rpc('gaji_staf_simpan', { p: param, p_ringkas: String(ringkas).slice(0, 200) });
       if (r.error) throw new Error(r.error.message);
-      S.pesan = esc(ok) + ' Akan tersimpan di sheet dalam ±5 menit.'; S.kelas = 'ok'; S.ubah = null; S.tambah = false;
-    } catch (e) { S.pesan = 'Gagal mengirim: ' + esc(e.message || e); S.kelas = 'bad'; S.sibuk = false; gambar(); return false; }
+      if (!r.data || !r.data.ok) throw new Error((r.data && r.data.pesan) || 'Gagal menyimpan.');
+      S.pesan = esc(r.data.pesan); S.kelas = 'ok'; S.ubah = null; S.tambah = false;
+    } catch (e) { S.pesan = 'Gagal menyimpan: ' + esc(e.message || e); S.kelas = 'bad'; S.sibuk = false; gambar(); return false; }
     S.sibuk = false; await muat(); return true;
   }
 

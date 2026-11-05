@@ -1913,11 +1913,17 @@
     p.alasan = alasan; p.yakin = true; p.token = 'md' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
     btn.disabled = true;
     // Harga jual, HPP, nama/kategori/warna, barang baru, dan qty stok langsung tersimpan di Supabase.
-    // Qty Kantor Packing (stok online) tetap lewat antrean Apps Script (fungsi menjawab {lewat:true}).
     var rq = null;
     if (p.jenis === 'qty') {
       var lokQ = B.lokasi.filter(function (l) { return l.id === p.lok; })[0] || {};
       rq = await sb.rpc('mde_qty', { p_k: p.k, p_lok: p.lok, p_toko: lokQ.n || '', p_w: p.w || '', p_nilai: String(p.nilai), p_alasan: p.alasan, p_token: p.token });
+      // Kantor Packing (stok online): stok sistem dihitung di sini (kp.js, sama dengan Apps Script), lalu disimpan mde_qty_kp (5 Nov 2026).
+      if (rq && rq.data && rq.data.lewat) {
+        var sk = null;
+        try { sk = window.MdLama && window.MdLama.mdeStok ? await window.MdLama.mdeStok(sb, { lok: 'kp', k: p.k }) : null; } catch (e) { sk = null; }
+        if (!sk || !sk.ok) { salah('Stok sistem Kantor Packing belum terbaca. Muat ulang halaman lalu coba lagi.'); btn.disabled = false; return; }
+        rq = await sb.rpc('mde_qty_kp', { p_k: p.k, p_sistem: String(sk.sistem), p_nilai: String(p.nilai), p_alasan: p.alasan, p_token: p.token });
+      }
     }
     if (p.jenis === 'harga' || p.jenis === 'hpp' || p.jenis === 'info' || p.jenis === 'baru' || (rq && !(rq.data && rq.data.lewat))) {
       var rr = rq ? rq : (p.jenis === 'harga' || p.jenis === 'hpp')
