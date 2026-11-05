@@ -46,7 +46,7 @@
     '.ab-aksi{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}' +
     '.ab-pre{overflow:auto;max-height:260px;font-size:12px;background:var(--latar);border-radius:10px;padding:8px}.ab-pre td{padding:2px 8px;border-bottom:1px solid var(--garis2);white-space:nowrap}';
 
-  var A = { el: null, sb: null, opsi: {}, file: '', scan: null, izin: {}, uji: {}, jamStaf: {}, sumber: '', perPilih: '', per: '', gaji: null, peta: {}, alpa: {}, pesan: '', kelas: 'ok', sibuk: false, mentah: null,
+  var A = { stat: {}, el: null, sb: null, opsi: {}, file: '', scan: null, izin: {}, uji: {}, jamStaf: {}, sumber: '', perPilih: '', per: '', gaji: null, peta: {}, alpa: {}, pesan: '', kelas: 'ok', sibuk: false, mentah: null,
             libur: bacaLokal('abLibur', [0]), merah: '' };
 
   /* ---------- membaca file ---------- */
@@ -152,13 +152,24 @@
   function tanggalMerah() {
     var s = {}; String(A.merah || '').split(/[^0-9]+/).forEach(function (x) { if (x && +x >= 1 && +x <= 31) s[+x] = 1; }); return s;
   }
+  function upahDari(staf) { return staf ? Number(staf.upah != null ? staf.upah : staf.gp) || 0 : 0; }
   function hitungStaf(namaMesin, staf) {
+    // 5 Nov 2026: sumber aplikasi Absensi dihitung di server (_gaji_absen_stat), sama dengan gaji berjalan.
+    if (A.sumber === 'app' && A.stat[namaMesin]) {
+      var st = A.stat[namaMesin], g = upahDari(staf);
+      var r0 = { hadir: st.hadir, kerja: st.kerja, alpaOtomatis: st.alpa, izin: st.izin, kurang: st.kurang, telatHari: st.telatHari, telatMenit: st.telatMenit,
+        lemburHari: st.lemburHari, lemburMenit: st.lemburMenit, masukLibur: st.masukLibur, masukHari: st.masukHari, libur: st.libur, hari: st.hari || [] };
+      r0.lemburRp = g / ATUR.pembagiLembur * (1.5 * (st.lembur15 || 0) / 60 + 2 * (st.lembur2 || 0) / 60);
+      r0.telatRp = g / ATUR.hariKerja / ATUR.jamSehari / 60 * r0.telatMenit;
+      r0.masukLiburRp = g / ATUR.hariKerja * (r0.masukLibur || 0);
+      return r0;
+    }
     var per = A.per, y = +per.slice(0, 4), b = +per.slice(5, 7), jml = new Date(y, b, 0).getDate();
-    var merah = tanggalMerah(), data = A.scan[namaMesin] || {}, gp = staf ? Number(staf.gp) || 0 : 0;
+    var merah = tanggalMerah(), data = A.scan[namaMesin] || {}, gp = upahDari(staf);
     var perMenit = gp / ATUR.hariKerja / ATUR.jamSehari / 60, perJamLembur = gp / ATUR.pembagiLembur;
     // Jam kerja staf ini (aplikasi Absensi); file mesin memakai bawaan 10.00–17.00. Lembur mulai 20 menit sesudah jam pulang.
     var js = A.jamStaf[namaMesin] || {}, jMasuk = js.masuk != null ? Number(js.masuk) : ATUR.masuk, jLembur = js.pulang != null ? Number(js.pulang) + 20 : ATUR.batasLembur;
-    var r = { hadir: 0, kerja: 0, alpaOtomatis: 0, telatHari: 0, telatMenit: 0, lemburHari: 0, lemburMenit: 0, lemburRp: 0, kurang: 0, libur: 0, hari: [] };
+    var r = { masukHari: 0, hadir: 0, kerja: 0, alpaOtomatis: 0, telatHari: 0, telatMenit: 0, lemburHari: 0, lemburMenit: 0, lemburRp: 0, kurang: 0, libur: 0, hari: [] };
     for (var d = 1; d <= jml; d++) {
       var tg = ymd(y, b, d), dow = new Date(y, b - 1, d).getDay(), libur = A.libur.indexOf(dow) > -1 || !!merah[d] ||
         (Array.isArray(js.hari) && js.hari.indexOf(dow) === -1);   // hari kerja per staf (mis. tim kreatif Senin–Jumat, Sabtu WFH)
@@ -172,6 +183,7 @@
         else if (!libur) { r.alpaOtomatis++; baris.ket = A.sumber === 'app' ? 'Tidak absen' : 'Tidak ada scan'; r.hari.push(baris); }
         continue;
       }
+      r.masukHari++;
       if (t.length === 1 || t[t.length - 1] - t[0] < 60) {
         if (t[0] < 13 * 60) baris.masuk = t[0]; else baris.pulang = t[t.length - 1];
         baris.ket = A.sumber === 'app' ? (baris.pulang == null ? 'Tidak absen pulang' : 'Tidak absen masuk') : 'Scan cuma sekali'; r.kurang++;
@@ -211,12 +223,19 @@
     var daftar = stafList();
     return Object.keys(A.scan).sort().map(function (nm) {
       var stafNama = A.peta[nm], staf = daftar.filter(function (s) { return s.n === stafNama; })[0] || null;
-      var r = hitungStaf(nm, staf);
+      var r = hitungStaf(nm, staf), kel = (staf && staf.kel) || (A.stat[nm] && A.stat[nm].kel) || 'Karyawan';
       var alpa = A.alpa[nm] != null ? A.alpa[nm] : r.alpaOtomatis;
-      var gp = staf ? Number(staf.gp) || 0 : 0, dapatMakan = staf ? Number(staf.um) > 0 : false;
-      r.alpa = alpa; r.alpaRp = gp / ATUR.hariKerja * alpa;
-      r.um = dapatMakan ? Math.max(0, ATUR.makanSehari * (ATUR.hariKerja - alpa)) : 0;
-      r.tl = Math.round(r.telatRp + r.alpaRp); r.lb = Math.round(r.lemburRp + (r.masukLiburRp || 0));
+      var gp = upahDari(staf), umStaf = A.stat[nm] && A.stat[nm].umStaf != null ? Number(A.stat[nm].umStaf) : (staf ? Number(staf.um) || 0 : 0);
+      r.kel = kel;
+      if (kel === 'DW') {             // upah harian x hari masuk; tanpa uang makan, lembur, potongan
+        r.alpa = 0; r.alpaRp = 0; r.um = 0; r.tl = 0; r.lb = 0; r.gpDW = Math.round(gp * (r.masukHari || 0)); r.upah = gp;
+      } else if (kel === 'Magang') {  // uang saku tetap; tanpa potongan telat/alpa, tanpa lembur
+        r.alpa = 0; r.alpaRp = 0; r.um = umStaf; r.tl = 0; r.lb = 0;
+      } else {
+        r.alpa = alpa; r.alpaRp = gp / ATUR.hariKerja * alpa;
+        r.um = umStaf > 0 ? Math.max(0, ATUR.makanSehari * (ATUR.hariKerja - alpa)) : 0;
+        r.tl = Math.round(r.telatRp + r.alpaRp); r.lb = Math.round(r.lemburRp + (r.masukLiburRp || 0));
+      }
       return { mesin: nm, staf: staf, r: r };
     });
   }
@@ -224,7 +243,7 @@
   /* ---------- tampilan ---------- */
   function gambar() {
     var el = A.el; if (!el) return;
-    var h = '<div class="ab"><h2>Hitung absensi ke gaji</h2><p class="sb">Ambil absen bulan ini dari aplikasi Absensi (atau unggah file mesin absensi lama). Sistem menghitung telat, lembur, alpa, dan uang makan per staf, lalu kamu periksa sebelum dimasukkan ke Gaji staf sebagai Draft.</p>';
+    var h = '<div class="ab"><h2>Hitung absensi ke gaji</h2><p class="sb"><b>Gaji berjalan otomatis:</b> setiap staf absen masuk / pulang, gajinya langsung tercatat di Gaji staf (Draft) bulan itu, dan tiap malam alpa dihitung ulang. Di sini kamu bisa melihat rinciannya per hari, mengatur hari libur & tanggal merah, atau memasukkan ulang. Karyawan: telat, lembur, alpa, uang makan. Magang: uang saku tetap tanpa potongan. DW: upah harian x hari masuk.</p>';
     h += '<div class="ab-kotak"><div class="ab-f">' +
       '<label>Periode aplikasi Absensi<span style="display:flex;gap:8px"><input type="month" id="abPer" value="' + esc(A.perPilih || bulanIni()) + '" style="height:44px;padding:0 10px;border:1px solid var(--garis);border-radius:12px;font-size:15px">' +
         '<button type="button" class="tbl pri" id="abAmbil"' + (A.sibuk ? ' disabled' : '') + '>Ambil absen</button></span></label>' +
@@ -262,9 +281,10 @@
             }).join('') + '</table></details>' : '') + '</td>' +
           '<td><select data-peta="' + i + '"><option value="">— tidak dihitung —</option>' + opsiStaf.map(function (s) {
             return '<option' + (x.staf && x.staf.n === s.n ? ' selected' : '') + '>' + esc(s.n) + '</option>';
-          }).join('') + '</select>' + (x.staf ? '<small>Gaji pokok ' + rp(x.staf.gp) + '</small>' : '') + '</td>' +
+          }).join('') + '</select>' + (x.staf ? (r.kel === 'DW' ? '<small>DW: ' + (r.masukHari || 0) + ' hari &times; ' + rp(r.upah) + ' = <b>' + rp(r.gpDW) + '</b></small>'
+            : r.kel === 'Magang' ? '<small>Magang: uang saku ' + rp(upahDari(x.staf)) + ', tanpa potongan</small>' : '<small>Gaji pokok ' + rp(upahDari(x.staf)) + '</small>') : '') + '</td>' +
           '<td class="r">' + r.hadir + '/' + r.kerja + '</td>' +
-          '<td class="r"><input type="text" inputmode="numeric" data-alpa="' + i + '" value="' + r.alpa + '" aria-label="Hari alpa ' + esc(x.mesin) + '">' +
+          '<td class="r">' + (r.kel === 'DW' || r.kel === 'Magang' ? '–' : '<input type="text" inputmode="numeric" data-alpa="' + i + '" value="' + r.alpa + '" aria-label="Hari alpa ' + esc(x.mesin) + '">') +
             (r.alpaOtomatis ? '<small>' + r.alpaOtomatis + (A.sumber === 'app' ? ' hari tidak absen' : ' hari tanpa scan') + '</small>' : '') + '</td>' +
           '<td class="r">' + (r.telatMenit ? r.telatMenit + ' mnt<small>' + r.telatHari + ' hari</small>' : '–') + '</td>' +
           '<td class="r">' + (r.lemburMenit || r.masukLibur ? (x.staf ? rp(r.lb) : '') + (r.lemburMenit ? '<small>' + durasi(r.lemburMenit) + ', ' + r.lemburHari + ' hari</small>' : '') +
@@ -292,11 +312,11 @@
       c.onchange = function () {
         var i = +c.getAttribute('data-libur');
         A.libur = A.libur.filter(function (x) { return x !== i; }); if (c.checked) A.libur.push(i);
-        simpanLokal('abLibur', A.libur); A.alpa = {}; gambar();
+        simpanLokal('abLibur', A.libur); A.alpa = {}; aturServer();
       };
     });
     var mr = el.querySelector('#abMerah');
-    if (mr) mr.onchange = function () { A.merah = mr.value; A.alpa = {}; gambar(); };
+    if (mr) mr.onchange = function () { A.merah = mr.value; A.alpa = {}; aturServer(); };
     var hs = A.scan ? Object.keys(A.scan).sort() : [];
     el.querySelectorAll('[data-peta]').forEach(function (s) {
       s.onchange = function () {
@@ -312,6 +332,17 @@
     });
     var bt = el.querySelector('#abSimpan'); if (bt) bt.onclick = simpan;
   }
+  // Libur rutin & tanggal merah disimpan di server (dipakai gaji berjalan), lalu absen dihitung ulang.
+  async function aturServer() {
+    if (A.sumber !== 'app' || !A.per) { gambar(); return; }
+    var merah = String(A.merah || '').split(/[^0-9]+/).filter(Boolean).map(Number);
+    A.sibuk = true; A.pesan = 'Menyimpan hari libur…'; A.kelas = 'ok'; gambar();
+    try {
+      var r = await A.sb.rpc('gaji_atur_simpan', { p_per: A.per, p_libur: A.libur, p_merah: merah });
+      if (r.error || !r.data || !r.data.ok) throw new Error((r.error && r.error.message) || (r.data && r.data.pesan) || 'Gagal menyimpan.');
+      A.sibuk = false; await ambilAplikasi(A.per); A.pesan = esc(r.data.pesan); A.kelas = 'ok'; gambar();
+    } catch (e) { A.sibuk = false; A.pesan = 'Hari libur gagal disimpan: ' + esc(e.message || e); A.kelas = 'bad'; gambar(); }
+  }
   async function muatGaji() {
     var r = await A.sb.rpc('gaji_data', { p_per: A.per });
     if (r.error) throw new Error(r.error.message);
@@ -323,19 +354,15 @@
   async function ambilAplikasi(per) {
     A.sibuk = true; A.pesan = 'Mengambil absen ' + BLS[+per.slice(5, 7) - 1] + ' ' + per.slice(0, 4) + '…'; A.kelas = 'ok'; A.mentah = null; A.scan = null; A.gaji = null; A.alpa = {}; A.izin = {}; gambar();
     try {
-      var r = await A.sb.rpc('absen_rekap', { p_per: per });
-      if (r.error) throw new Error(/does not exist|schema cache/i.test(r.error.message) ? 'Fitur absensi belum aktif: jalankan sql/absensi.sql di Supabase.' : r.error.message);
+      var r = await A.sb.rpc('gaji_absen_hitung', { p_per: per });
+      if (r.error) throw new Error(r.error.message);
       if (!r.data || !r.data.ok) throw new Error((r.data && r.data.pesan) || 'Absen gagal diambil.');
-      var scan = {}, izin = {}, uji = {};
+      var scan = {}, uji = {}, stat = {};
       (r.data.uji || []).forEach(function (x) { uji[x.tanggal] = x.keterangan; });
-      (r.data.staf || []).forEach(function (n) { scan[n] = {}; });
-      (r.data.hari || []).forEach(function (x) {
-        var o = scan[x.nama] || (scan[x.nama] = {}), t = o[x.tanggal] || (o[x.tanggal] = []);
-        if (x.masuk != null) t.push(Number(x.masuk)); if (x.pulang != null) t.push(Number(x.pulang));
-      });
-      (r.data.izin || []).forEach(function (x) { (izin[x.nama] || (izin[x.nama] = {}))[x.tanggal] = x.jenis; });
+      (r.data.staf || []).forEach(function (x) { scan[x.nama] = {}; stat[x.nama] = x; });
       if (!Object.keys(scan).length) throw new Error('Belum ada staf terdaftar di Absensi. Daftarkan di menu Absensi staf › Staf & lokasi.');
-      A.scan = scan; A.izin = izin; A.uji = uji; A.jamStaf = r.data.jam || {}; A.per = per; A.perPilih = per; A.sumber = 'app'; A.file = '';
+      A.scan = scan; A.stat = stat; A.izin = {}; A.uji = uji; A.jamStaf = {}; A.per = per; A.perPilih = per; A.sumber = 'app'; A.file = '';
+      A.libur = (r.data.libur || [0]).map(Number); A.merah = (r.data.merah || []).join(', ');
       await muatGaji();
       A.peta = {}; Object.keys(A.scan).forEach(function (nm) { A.peta[nm] = cocokOtomatis(nm); });
       var belum = Object.keys(A.peta).filter(function (k) { return !A.peta[k]; }).length;
@@ -347,7 +374,7 @@
     finally { A.sibuk = false; gambar(); }
   }
   async function proses(f) {
-    A.sumber = 'file'; A.izin = {}; A.uji = {}; A.jamStaf = {};
+    A.sumber = 'file'; A.izin = {}; A.uji = {}; A.jamStaf = {}; A.stat = {};
     A.sibuk = true; A.pesan = 'Membaca ' + esc(f.name) + '…'; A.kelas = 'ok'; A.mentah = null; A.scan = null; A.gaji = null; A.alpa = {}; gambar();
     try {
       var h = await bacaFile(f);
@@ -372,7 +399,10 @@
       if (x) {
         var r = x.r;
         it.um = r.um; it.lb = r.lb; it.tl = r.tl;
-        var c = 'Absensi: telat ' + r.telatMenit + ' mnt, alpa ' + r.alpa + ' hr (' + rp(r.alpaRp) + '), lembur ' + r.lemburMenit + ' mnt' + (r.masukLibur ? ', masuk di luar hari kerja ' + r.masukLibur + ' hr (' + rp(r.masukLiburRp) + ')' : '');
+        if (r.kel === 'DW') it.gp = r.gpDW;
+        var c = r.kel === 'DW' ? 'Absensi: masuk ' + (r.masukHari || 0) + ' hari x ' + rp(r.upah) + ' (DW)'
+          : r.kel === 'Magang' ? 'Absensi: hadir ' + r.hadir + ' hari (magang, tanpa potongan)'
+          : 'Absensi: telat ' + r.telatMenit + ' mnt, alpa ' + r.alpa + ' hr (' + rp(r.alpaRp) + '), lembur ' + r.lemburMenit + ' mnt' + (r.masukLibur ? ', masuk di luar hari kerja ' + r.masukLibur + ' hr (' + rp(r.masukLiburRp) + ')' : '');
         it.cat = (c + (cat ? ' | ' + cat : '')).slice(0, 200);
       }
       return it;

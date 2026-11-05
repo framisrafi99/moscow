@@ -42,20 +42,29 @@
     finally { S.sibuk = false; gambar(); }
   }
 
+  // Kelompok (5 Nov 2026): Karyawan, Magang (uang saku tetap, tanpa potongan), DW (upah per hari masuk), Direksi.
+  var KEL = ['Karyawan', 'Magang', 'DW', 'Direksi'];
+  var KET_KEL = {
+    Karyawan: 'Gaji bulanan; telat, alpa, lembur dihitung dari absensi.',
+    Magang: 'Uang saku bulanan tetap; ikut jam kerja karyawan, tanpa potongan telat/alpa, tanpa lembur.',
+    DW: 'Upah per hari masuk (pulang jam berapa pun setelah packing selesai); tanpa uang makan, BPJS, lembur, potongan.',
+    Direksi: 'Tidak ikut absensi.'
+  };
+  function labelGp(kel) { return kel === 'DW' ? 'Upah per hari masuk' : kel === 'Magang' ? 'Uang saku / bulan' : 'Gaji pokok'; }
   function formStaf(x, baru) {
     x = x || {};
     var v = function (k) { return x[k] != null && x[k] !== '' ? x[k] : ''; };
     return '<div class="sk-f">' +
       (baru ? '<label>Nama lengkap<input id="skNama" maxlength="80" placeholder="sesuai KTP"></label>' : '') +
       '<label>Jabatan / divisi<input id="skDiv" maxlength="60" value="' + esc(v('div')) + '" placeholder="mis. Staf Produksi"></label>' +
-      '<label>Kelompok<select id="skKel"><option' + (x.kel !== 'Direksi' ? ' selected' : '') + '>Karyawan</option><option' + (x.kel === 'Direksi' ? ' selected' : '') + '>Direksi</option></select></label>' +
-      '<label>Gaji pokok<input id="skGp" inputmode="numeric" value="' + esc(v('gp')) + '" placeholder="mis. 3000000"></label>' +
+      '<label>Kelompok<select id="skKel">' + KEL.map(function (k) { return '<option' + ((x.kel || 'Karyawan') === k ? ' selected' : '') + '>' + k + '</option>'; }).join('') + '</select></label>' +
+      '<label><span id="skGpL">' + labelGp(x.kel) + '</span><input id="skGp" inputmode="numeric" value="' + esc(v('gp')) + '" placeholder="' + (x.kel === 'DW' ? '100000' : 'mis. 3000000') + '"></label>' +
       '<label>Uang makan / bulan<input id="skUm" inputmode="numeric" value="' + esc(v('um')) + '" placeholder="mis. 520000"></label>' +
       (baru ? '<label>Paket BPJS<select id="skPk"><option value="">–</option><option>A</option><option>B</option></select></label>' : '') +
       '<label>BPJS karyawan / bulan<input id="skBk" inputmode="numeric" value="' + esc(v('bk')) + '" placeholder="0"></label>' +
       '<label>BPJS ditanggung PT / bulan<input id="skBp" inputmode="numeric" value="' + esc(v('bp')) + '" placeholder="0"></label>' +
       '<label>No WA (untuk slip gaji)<input id="skWa" inputmode="tel" maxlength="30" value="' + esc(v('wa')) + '" placeholder="08…"></label>' +
-      '</div>';
+      '</div><p class="sb" id="skKelKet" style="margin:8px 0 0">' + esc(KET_KEL[x.kel || 'Karyawan'] || '') + '</p>';
   }
   function bacaForm(baru) {
     var el = S.el, q = function (id) { var e = el.querySelector('#' + id); return e ? e.value.trim() : ''; };
@@ -79,8 +88,8 @@
       h += '<div class="sk-kotak"><b>Staf aktif (' + S.rows.length + ')</b><div class="sk-gl"><table class="sk-t"><thead><tr><th>Nama</th><th>Jabatan</th><th class="r">Gaji pokok</th><th class="r">Uang makan</th><th></th></tr></thead><tbody>' +
         S.rows.map(function (x, i) {
           var buka = S.ubah === i, keluar = S.aksi.some(function (a) { return a.status === 'menunggu' && a.ringkas.indexOf('Resign: ' + x.n) === 0; });
-          return '<tr><td><b>' + esc(x.n) + '</b>' + (x.kel === 'Direksi' ? '<small>Direksi</small>' : '') + (keluar ? '<small style="color:var(--merah,#B42318)">Sedang diproses resign</small>' : '') + '</td><td>' + esc(x.div || '–') + '</td>' +
-            '<td class="r">' + rp(x.gp) + '</td><td class="r">' + rp(x.um) + '</td>' +
+          return '<tr><td><b>' + esc(x.n) + '</b>' + (x.kel && x.kel !== 'Karyawan' ? '<small>' + esc(x.kel) + '</small>' : '') + (keluar ? '<small style="color:var(--merah,#B42318)">Sedang diproses resign</small>' : '') + '</td><td>' + esc(x.div || '–') + '</td>' +
+            '<td class="r">' + (x.kel === 'DW' ? rp(x.upah != null ? x.upah : x.gp) + '<small>per hari</small>' : rp(x.upah != null ? x.upah : x.gp) + (x.kel === 'Magang' ? '<small>uang saku</small>' : '')) + '</td><td class="r">' + rp(x.um) + '</td>' +
             '<td><div class="sk-tb"><button type="button" class="tbl kcl" data-ubah="' + i + '">' + (buka ? 'Tutup' : 'Ubah') + '</button>' +
             (x.kel === 'Direksi' || keluar ? '' : '<button type="button" class="tbl kcl mer" data-resign="' + i + '">Resign</button>') + '</div></td></tr>' +
             (buka ? '<tr><td colspan="5" style="background:var(--latar)">' + formStaf(x, false) +
@@ -126,6 +135,15 @@
 
   function pasang() {
     var el = S.el;
+    var kl = el.querySelector('#skKel');
+    if (kl) kl.onchange = function () {
+      var lb = el.querySelector('#skGpL'), kt = el.querySelector('#skKelKet'), gp = el.querySelector('#skGp'), um = el.querySelector('#skUm');
+      if (lb) lb.textContent = labelGp(kl.value);
+      if (kt) kt.textContent = KET_KEL[kl.value] || '';
+      if (gp) gp.placeholder = kl.value === 'DW' ? '100000' : 'mis. 3000000';
+      if (kl.value === 'DW' && gp && !gp.value) gp.value = '100000';
+      if (kl.value === 'DW' && um && el.querySelector('#skNama')) um.value = '0';
+    };
     var b = el.querySelector('#skTambah'); if (b) b.onclick = function () { S.tambah = true; S.pesan = ''; gambar(); };
     b = el.querySelector('#skBatal'); if (b) b.onclick = function () { S.tambah = false; gambar(); };
     b = el.querySelector('#skMuat'); if (b) b.onclick = function () { S.pesan = ''; muat(); };
@@ -134,7 +152,7 @@
       var p = bacaForm(true);
       if (p.nama.length < 3) { S.pesan = 'Tulis nama lengkap karyawan.'; S.kelas = 'bad'; gambar(); return; }
       if (!p.divisi) { S.pesan = 'Isi jabatan / divisi.'; S.kelas = 'bad'; gambar(); return; }
-      if (!p.gp) { S.pesan = 'Isi gaji pokok.'; S.kelas = 'bad'; gambar(); return; }
+      if (!p.gp) { S.pesan = 'Isi ' + labelGp(p.kelompok).toLowerCase() + '.'; S.kelas = 'bad'; gambar(); return; }
       if ((S.rows || []).some(function (x) { return x.n.toLowerCase() === p.nama.toLowerCase(); })) { S.pesan = esc(p.nama) + ' sudah ada di daftar staf.'; S.kelas = 'bad'; gambar(); return; }
       p.aksi = 'tambah';
       antre(p, 'Tambah karyawan: ' + p.nama + ' (' + p.divisi + ', gaji pokok ' + rp(p.gp) + ')', p.nama + ' dikirim untuk ditambahkan.');
@@ -145,7 +163,7 @@
     b = el.querySelector('#skSimpanUbah');
     if (b) b.onclick = function () {
       var x = S.rows[+b.getAttribute('data-i')], p = bacaForm(false), beda = [];
-      var lama = { divisi: x.div || '', kelompok: x.kel || 'Karyawan', gp: x.gp || 0, um: x.um || 0, bk: x.bk || 0, bp: x.bp || 0, wa: x.wa || '' };
+      var lama = { divisi: x.div || '', kelompok: x.kel || 'Karyawan', gp: (x.upah != null ? x.upah : x.gp) || 0, um: x.um || 0, bk: x.bk || 0, bp: x.bp || 0, wa: x.wa || '' };
       var label = { divisi: 'jabatan', kelompok: 'kelompok', gp: 'gaji pokok', um: 'uang makan', bk: 'BPJS karyawan', bp: 'BPJS PT', wa: 'No WA' };
       var kirim = { aksi: 'ubah', nama: x.n };
       Object.keys(lama).forEach(function (k) {
