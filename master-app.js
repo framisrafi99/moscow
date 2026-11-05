@@ -1652,7 +1652,7 @@
   // ======================= PENGATURAN (Pelanggan & Link) =======================
   var AT = { mulai: false, data: null, bagian: 'pel', stok: null, q: '', kat: '', buka: null, f: 'harga', ql: '' };
   async function muatAtur() {
-    var h = await Promise.all([sb.from('pelanggan').select('nama_pelanggan,tipe,diskon_persen,catatan,link_order').order('baris_sheet'), sb.from('hasil_hitung').select('data,dibuat').eq('kunci', 'stok:semua'), sb.from('pengguna').select('email,nama,peran,lingkup,aktif,catatan,dibuat').order('dibuat')]);
+    var h = await Promise.all([sb.from('pelanggan').select('nama_pelanggan,tipe,diskon_persen,catatan,link_order,kunci_link').order('baris_sheet'), sb.from('hasil_hitung').select('data,dibuat').eq('kunci', 'stok:semua'), sb.from('pengguna').select('email,nama,peran,lingkup,aktif,catatan,dibuat').order('dibuat')]);
     AT.peng = h[2].error ? null : h[2].data || [];
     AT.data = h[0].error ? { galat: h[0].error.message } : h[0].data || [];
     AT.stok = (!h[1].error && h[1].data && h[1].data[0]) ? h[1].data[0].data : null;
@@ -1670,7 +1670,9 @@
     el.innerHTML = h;
     el.querySelectorAll('[data-atb]').forEach(function (b) { b.onclick = function () { AT.bagian = b.getAttribute('data-atb'); gambarAtur(); }; });
     var salin = function (teks) { var ok = function () { $('msgAtur').innerHTML = '<div class="msg ok">Link disalin.</div>'; }; if (navigator.clipboard) navigator.clipboard.writeText(teks).then(ok, function () { prompt('Salin link ini:', teks); }); else prompt('Salin link ini:', teks); };
-    el.querySelectorAll('[data-salin]').forEach(function (b) { b.onclick = function () { salin(AT.data[Number(b.getAttribute('data-salin'))].link_order); }; });
+    el.querySelectorAll('[data-salin]').forEach(function (b) { b.onclick = function () { salin(linkPel(AT.data[Number(b.getAttribute('data-salin'))])); }; });
+    var pt = $('pelTipe'); if (pt) pt.onchange = function () { $('pelDiskon').closest('label').style.display = pt.value === 'Reseller' ? '' : 'none'; };
+    var pb = $('pelTambah'); if (pb) pb.onclick = function () { tambahPelanggan(pb); };
     el.querySelectorAll('[data-salin-url]').forEach(function (b) { b.onclick = function () { salin(b.getAttribute('data-salin-url')); }; });
     el.querySelectorAll('[data-eb]').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-eb'); AT.buka = AT.buka === k ? null : k; AT.f = 'harga'; gambarAtur(); }; });
     el.querySelectorAll('[data-ebf]').forEach(function (b) { b.onclick = function () { AT.f = b.getAttribute('data-ebf'); gambarAtur(); }; });
@@ -1686,14 +1688,29 @@
     var on = el.querySelector('[data-atb][aria-pressed="true"]');
     if (on && on.parentNode.scrollWidth > on.parentNode.clientWidth) on.parentNode.scrollLeft = Math.max(0, on.offsetLeft - on.parentNode.offsetLeft - 16);
   }
+  // Link pelanggan (5 Nov 2026): reseller -> form order aplikasi (order.html?k=kode masuk), consignment -> aplikasi toko (masuk dengan akun).
+  function dasarApp() { return location.href.replace(/[^\/]*([?#].*)?$/, ''); }
+  function linkPel(x) {
+    if (x.tipe === 'Reseller' && x.kunci_link) return dasarApp() + 'order.html?k=' + encodeURIComponent(x.kunci_link);
+    if (x.tipe === 'Consignment') return dasarApp() + 'consignment.html';
+    return x.link_order || '';
+  }
   function isiPelanggan() {
-    var d = AT.data, dasar = location.href.replace(/[^\/]*([?#].*)?$/, ''), h = '';
+    var d = AT.data, dasar = dasarApp(), h = '';
     h += '<div class="cd"><div class="kpl"><h3>Pelanggan &amp; link formulir</h3><span class="sb">' + (d && d.length ? d.length + ' pelanggan' : '') + '</span></div>';
     if (!d) h += '<div class="ksg">Memuat…</div>';
     else if (d.galat) h += '<div class="msg bad">Gagal memuat: ' + esc(d.galat) + '</div>';
     else h += '<table class="tabel"><tbody>' + d.map(function (x, i) {
-      return '<tr><td><b>' + esc(x.nama_pelanggan) + '</b><small>' + esc(x.tipe) + (x.diskon_persen ? ' · diskon ' + fmt(x.diskon_persen) + '%' : '') + (x.catatan ? ' · ' + esc(x.catatan) : '') + '</small></td><td class="r">' + (x.link_order ? '<button type="button" class="tbl" data-salin="' + i + '">Salin link</button>' : '<span class="sb">–</span>') + '</td></tr>'; }).join('') + '</tbody></table>' +
-      '<p class="sb">Link formulir order / laporan untuk tiap toko dan reseller. Jangan bagikan link satu toko ke toko lain. Menambah pelanggan atau mengubah diskon masih lewat menu Pelanggan &amp; Link di Master Data lama.</p>';
+      var r = x.tipe === 'Reseller';
+      return '<tr><td><b>' + esc(x.nama_pelanggan) + '</b><small>' + esc(x.tipe) + (r ? ' · diskon ' + fmt(x.diskon_persen || 0) + '%' + (x.kunci_link ? ' · kode masuk <b>' + esc(x.kunci_link) + '</b>' : ' · belum punya kode masuk') : ' · staf masuk aplikasi toko dengan akun') + (x.catatan ? ' · ' + esc(x.catatan) : '') + '</small></td><td class="r">' + (linkPel(x) ? '<button type="button" class="tbl" data-salin="' + i + '">Salin link</button>' : '<span class="sb">–</span>') + '</td></tr>'; }).join('') + '</tbody></table>' +
+      '<p class="sb">Link reseller langsung membuka form order dengan kode masuknya. Reseller juga bisa membuka <b>' + esc(dasar) + 'order.html</b> lalu mengetik kode masuk. Jangan bagikan kode satu reseller ke reseller lain.</p>' +
+      '<p><button type="button" class="tbl" data-salin-url="' + esc(dasar + 'order.html') + '">Salin link form order (layar kode masuk)</button></p>';
+    h += '</div><div class="cd"><h3>Tambah pelanggan</h3><div class="mini" style="background:#F7F9FB;padding:10px;border-radius:12px;margin:6px 0">' +
+      '<label>Nama pelanggan<input class="isian" id="pelNama" maxlength="60" placeholder="Misal: Reseller Makassar"></label>' +
+      '<label>Tipe<select class="isian" id="pelTipe"><option value="Reseller">Reseller (beli putus)</option><option value="Consignment">Consignment (toko titipan)</option></select></label>' +
+      '<label>Diskon reseller<select class="isian" id="pelDiskon"><option value="0">Tanpa diskon</option>' + [15, 20, 25, 35].map(function (n) { return '<option value="' + n + '">' + n + '%</option>'; }).join('') + '</select></label>' +
+      '<div class="aksi-baris" style="grid-column:1/-1"><button type="button" class="tbl pri" id="pelTambah">Tambah pelanggan</button></div></div>' +
+      '<p class="sb">Reseller langsung mendapat kode masuk 8 huruf untuk form order. Toko consignment perlu akun staf toko di Akses &amp; perangkat.</p>';
     h += '</div><div class="cd"><h3>Aplikasi baru</h3><table class="tabel"><tbody>' + [['Master Data', 'master.html', 'manajemen Moscow Supplies'], ['Kendali Bisnis', 'kendali.html', 'manajemen, Mike, kendali bisnis'], ['Stok', 'stok.html', 'manajemen, accounting, gudang, staf toko (lokasinya sendiri)'], ['Kasir Toko Offline', 'kasir.html', 'staf toko offline'], ['Manager Kreatif', 'kreatif.html', 'manajemen, manager kreatif, tim kreatif']].map(function (a) {
       return '<tr><td><b>' + a[0] + '</b><small>Untuk ' + esc(a[2]) + ' · masuk dengan akun Google yang terdaftar</small></td><td class="r"><button type="button" class="tbl" data-salin-url="' + esc(dasar + a[1]) + '">Salin link</button></td></tr>'; }).join('') + '</tbody></table></div>';
     return h;
@@ -1756,6 +1773,18 @@
       }).join('') + '</tbody></table>';
     });
     return h + '<p class="sb">Perangkat = browser di HP/laptop yang membuka link formulir lama (Apps Script). Keputusan dari sini berlaku paling lambat 10 menit kemudian. "Cabut semua akses sekaligus" tetap lewat Keamanan Perangkat di Master Data lama (untuk keadaan darurat).</p></div>';
+  }
+  async function tambahPelanggan(b) {
+    var nama = ($('pelNama').value || '').trim(), tipe = $('pelTipe').value, d = Number($('pelDiskon').value) || 0;
+    var salah = function (t) { $('msgAtur').innerHTML = '<div class="msg bad">' + esc(t) + '</div>'; window.scrollTo(0, 0); };
+    if (nama.length < 2) { salah('Nama pelanggan belum diisi.'); return; }
+    b.disabled = true; b.textContent = 'Menyimpan…';
+    var r = await sb.rpc('pelanggan_tambah', { p_nama: nama, p_tipe: tipe, p_diskon: tipe === 'Reseller' ? d : 0 });
+    b.disabled = false; b.textContent = 'Tambah pelanggan';
+    if (r.error) { salah('Gagal menyimpan: ' + r.error.message); return; }
+    if (!r.data || !r.data.ok) { salah((r.data && r.data.pesan) || 'Gagal menyimpan pelanggan.'); return; }
+    await muatAtur();
+    $('msgAtur').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + (r.data.kode ? ' Link ordernya: ' + esc(dasarApp() + 'order.html?k=' + r.data.kode) : '') + '</div>'; window.scrollTo(0, 0);
   }
   async function simpanPengguna(b) {
     var id = b.getAttribute('data-pg-simpan'), w = $('bAtur').querySelector('[data-pgform="' + id + '"]');

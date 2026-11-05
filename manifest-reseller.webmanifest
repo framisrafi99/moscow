@@ -3,7 +3,7 @@
   "name": "Moscow Supplies - order reseller",
   "short_name": "Moscow Order",
   "description": "Form order reseller Moscow Supplies",
-  "start_url": "./reseller.html",
+  "start_url": "./order.html",
   "scope": "./",
   "display": "minimal-ui",
   "orientation": "portrait",

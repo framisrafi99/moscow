@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#ffffff">
+<title>Order Moscow Supplies</title>
+<link rel="manifest" href="manifest-reseller.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Form order reseller (5 Nov 2026): pengganti halaman order Apps Script. Tanpa akun: reseller masuk dengan kode masuk 8 huruf
+     (atau link order.html?k=KODE). Harga, diskon & nomor order ditentukan di Supabase (order_halaman, order_kunci_simpan, order_kunci_riwayat). -->
+<style>
+:root{--bg:#F4F7FA;--card:#fff;--ink:#0F1B2A;--mut:#5A6677;--line:#E2E7EE;--pri:#1E78A8;--pri2:#E7F3F9;--ok:#146C43;--okbg:#E6F4EC;--bad:#B42318;--badbg:#FDECEA;--warn:#9A5B00;--warnbg:#FFF4E0}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 "Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--pri);outline-offset:2px}
+.wrap{max-width:720px;margin:0 auto;padding:16px 16px 140px}
+header.top{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header.top .in{max-width:720px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px}
+header.top img{height:34px}
+header.top .who{margin-left:auto;text-align:right;font-size:13px;color:var(--mut);line-height:1.3}
+header.top .who b{display:block;color:var(--ink);font-size:14px}
+.tabs{display:flex;gap:6px;max-width:720px;margin:0 auto;padding:0 16px 10px}
+.tabs button{flex:1;border:1px solid var(--line);background:#fff;border-radius:12px;padding:9px 6px;font-weight:700;color:var(--mut)}
+.tabs button[aria-selected=true]{background:var(--ink);border-color:var(--ink);color:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
+h2{font-size:17px;margin:0 0 4px}
+.sub{color:var(--mut);font-size:13px}
+label.f{display:block;font-size:13px;font-weight:700;margin:12px 0 4px}
+input[type=text],input[type=date],input[type=search],input[type=number],textarea{width:100%;border:1px solid #D5DEE9;border-radius:12px;padding:11px 12px;background:#fff}
+textarea{min-height:60px;resize:vertical}
+.dua{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:12px;padding:12px 18px;font-weight:700;background:var(--pri);color:#fff}
+.btn.sec{background:#fff;color:var(--ink);border:1px solid #C9D6E2}
+.btn.blok{width:100%}
+.btn[disabled]{opacity:.55;cursor:default}
+.msg{border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14px}
+.msg.bad{background:var(--badbg);color:var(--bad)}
+.msg.ok{background:var(--okbg);color:var(--ok)}
+.msg.warn{background:var(--warnbg);color:var(--warn)}
+.hide{display:none!important}
+/* layar masuk */
+.gate{max-width:420px;margin:8vh auto 0;text-align:center}
+.gate img{height:64px;margin-bottom:14px}
+.gate input{text-align:center;font-size:20px;letter-spacing:.18em;text-transform:uppercase;font-weight:700}
+/* daftar barang */
+.cari{position:sticky;top:98px;z-index:3;background:var(--bg);padding:6px 0 8px}
+.kat{width:100%;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;border-radius:14px;padding:13px 14px;margin-top:8px;text-align:left}
+.kat .kn{font-weight:800}
+.kat .kj{color:var(--mut);font-size:13px}
+.kat .kc{margin-left:auto;font-size:12px;font-weight:700;color:var(--ok);background:var(--okbg);border-radius:999px;padding:2px 9px}
+.kat .kc:empty{display:none}
+.kat .kp{color:var(--mut);width:14px;text-align:center}
+.kisi{background:#fff;border:1px solid var(--line);border-top:0;border-radius:0 0 14px 14px;margin-top:-6px;padding:4px 12px}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .n{flex:1;min-width:0}
+.row .n b{display:block;font-weight:700}
+.row .n .kd{color:var(--mut);font-weight:600;font-size:12px;margin-right:4px}
+.row .n span.h{font-size:13px;color:var(--mut)}
+.row .n span.h em{font-style:normal;color:var(--ok);font-weight:700}
+.row input{width:76px;text-align:center;padding:9px 6px}
+.row.off{opacity:.5}
+.wbtn{border:1px solid #C9D6E2;background:#fff;border-radius:10px;padding:8px 10px;font-weight:700;font-size:13px;white-space:nowrap}
+.wbtn[aria-expanded=true]{background:var(--pri2);border-color:var(--pri);color:var(--pri)}
+.wlist{padding:0 0 8px 12px;border-left:3px solid var(--pri2);margin:0 0 6px}
+.wlist .row{padding:6px 0}
+.terisi{display:block;font-size:12px;color:var(--ok);font-weight:700}
+.kosong{text-align:center;color:var(--mut);padding:24px 8px}
+/* bilah bawah */
+.bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(15,27,42,.06);z-index:6;padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.bar .in{max-width:720px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.bar .tot{flex:1;font-size:13px;color:var(--mut);line-height:1.3}
+.bar .tot b{display:block;color:var(--ink);font-size:18px}
+/* tabel order */
+table.ord{width:100%;border-collapse:collapse;font-size:14px}
+table.ord th{font-size:12px;color:var(--mut);text-align:left;font-weight:700;border-bottom:1px solid var(--line);padding:6px 4px}
+table.ord td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+table.ord .a{text-align:right;white-space:nowrap}
+table.ord tr.s td{font-weight:800;border-bottom:0}
+/* riwayat */
+.ro{border:1px solid var(--line);border-radius:14px;background:#fff;margin-bottom:8px}
+.ro>button{width:100%;display:flex;gap:10px;align-items:center;border:0;background:transparent;padding:12px 14px;text-align:left}
+.ro .no{font-weight:800}
+.ro .tg{color:var(--mut);font-size:13px}
+.ro .nil{margin-left:auto;text-align:right;font-weight:700;white-space:nowrap}
+.st{display:inline-block;font-size:11.5px;font-weight:800;border-radius:999px;padding:2px 9px;margin-top:2px}
+.st.Menunggu{background:var(--warnbg);color:var(--warn)}
+.st.Disetujui{background:var(--pri2);color:var(--pri)}
+.st.Dikirim{background:#EEE9FB;color:#5B3FB3}
+.st.Selesai{background:var(--okbg);color:var(--ok)}
+.st.Batal{background:var(--badbg);color:var(--bad)}
+.ro .isi{padding:0 14px 12px}
+.ringkas{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.ringkas div{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px}
+.ringkas b{display:block;font-size:18px}
+.ringkas span{font-size:12.5px;color:var(--mut)}
+.kaki{text-align:center;color:var(--mut);font-size:12.5px;margin-top:22px}
+.kaki button{border:0;background:none;color:var(--pri);font-weight:700;text-decoration:underline;padding:4px}
+@media (max-width:420px){.dua{grid-template-columns:1fr}}
+@media print{header.top,.tabs,.bar,.kaki,.noprint{display:none!important}body{background:#fff}.card{border:0;padding:0}.wrap{padding:0}}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style></head>
+<body>
+<div id="gate" class="wrap hide">
+  <div class="gate">
+    <img src="logo-warna.png" alt="Moscow Supplies">
+    <h2>Order reseller</h2>
+    <p class="sub">Masukkan kode masuk dari Moscow Supplies (8 huruf/angka). Cukup sekali di HP ini.</p>
+    <form id="gForm" autocomplete="off">
+      <input id="gKode" type="text" inputmode="text" maxlength="20" aria-label="Kode masuk" placeholder="KODE MASUK" autocapitalize="characters" spellcheck="false">
+      <div id="gMsg" class="msg bad hide" role="alert"></div>
+      <button class="btn blok" id="gBtn" type="submit" style="margin-top:12px">Masuk</button>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="hide">
+  <header class="top">
+    <div class="in"><img src="logo-warna.png" alt="Moscow Supplies"><div class="who"><b id="pNama"></b><span id="pInfo"></span></div></div>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tOrder" aria-selected="true">Buat order</button>
+      <button type="button" role="tab" id="tRiwayat" aria-selected="false">Riwayat order</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="err" class="msg bad hide" role="alert"></div>
+
+    <!-- Buat order -->
+    <section id="vForm">
+      <div class="card">
+        <div class="dua">
+          <div><label class="f" for="tgl">Tanggal order</label><input id="tgl" type="date"></div>
+          <div><label class="f" for="nama">Nama pengisi</label><input id="nama" type="text" maxlength="40" placeholder="Nama kamu"></div>
+        </div>
+        <label class="f" for="ct">Catatan (opsional)</label>
+        <textarea id="ct" maxlength="200" placeholder="Misal: kirim lewat ekspedisi X, alamat gudang baru"></textarea>
+      </div>
+      <div class="cari"><input id="cari" type="search" placeholder="Cari nama, kode, atau warna barang" aria-label="Cari barang"></div>
+      <div id="daftar"><div class="kosong">Memuat daftar barang…</div></div>
+    </section>
+
+    <!-- Periksa -->
+    <section id="vCek" class="hide">
+      <div class="card"><h2>Periksa order</h2><p class="sub">Pastikan barang dan jumlahnya sudah benar sebelum dikirim.</p><div id="cekIsi"></div></div>
+      <div class="dua noprint">
+        <button type="button" class="btn sec" id="kembali">Ubah order</button>
+        <button type="button" class="btn" id="kirim">Kirim order</button>
+      </div>
+    </section>
+
+    <!-- Berhasil -->
+    <section id="vOk" class="hide">
+      <div class="card">
+        <div class="msg ok" id="okPesan" role="status"></div>
+        <div id="okNota"></div>
+        <p class="sub">Order ini menunggu persetujuan manajemen Moscow Supplies. Statusnya bisa dilihat di Riwayat order.</p>
+      </div>
+      <div class="dua noprint">
+        <button type="button" class="btn sec" id="cetak">Simpan PDF / cetak</button>
+        <button type="button" class="btn" id="baru">Buat order baru</button>
+      </div>
+    </section>
+
+    <!-- Riwayat -->
+    <section id="vRiwayat" class="hide">
+      <div id="rwIsi"><div class="kosong">Memuat riwayat…</div></div>
+    </section>
+
+    <div class="kaki noprint">Pakai kode lain? <button type="button" id="keluar">Keluar dari HP ini</button></div>
+  </main>
+
+  <div class="bar" id="bar">
+    <div class="in">
+      <div class="tot"><span id="barQ">Belum ada barang</span><b id="barRp">Rp 0</b></div>
+      <button type="button" class="btn" id="periksa" disabled>Periksa order</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var URL_SB = 'https://ufhuvwfudblbyrwzugaa.supabase.co', KUNCI_SB = 'sb_publishable_A8aEpcDck6ZOix9lrM727A_tI7QZ1xw';
+  var SIMPAN = 'order_kunci', SIMPAN_NAMA = 'nama_order';
+  var D = null, Q = {}, BUKA = {}, WBUKA = {}, KAT = [], paket = null, token = '', layar = 'form', RW = null, RWBUKA = {};
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function fmt(n) { n = Math.round(Number(n) || 0); return (n < 0 ? '-' : '') + String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  function rp(n) { return 'Rp ' + fmt(n); }
+  function pct(n) { return String(Math.round((Number(n) || 0) * 100) / 100).replace('.', ','); }
+  var BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  function tglIndo(t) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t || ''); return m ? (+m[3]) + ' ' + BLN[+m[2] - 1] + ' ' + m[1] : (t || ''); }
+  function baca(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function tulis(k, v) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) { } }
+  function buatToken() { var a = new Uint8Array(12), s = ''; try { crypto.getRandomValues(a); } catch (e) { for (var i = 0; i < 12; i++) a[i] = Math.floor(Math.random() * 256); } for (var j = 0; j < 12; j++) s += ('0' + a[j].toString(16)).slice(-2); return 'ro' + Date.now().toString(36) + s; }
+  function pesan(id, teks, kls) { var el = $(id); if (!teks) { el.className = 'msg hide'; el.textContent = ''; return; } el.className = 'msg ' + (kls || 'bad'); el.textContent = teks; }
+
+  function rpc(fn, args) {
+    return fetch(URL_SB + '/rest/v1/rpc/' + fn, {
+      method: 'POST', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', apikey: KUNCI_SB },
+      body: JSON.stringify(args)
+    }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+  }
+
+  // ---------- Masuk ----------
+  function tampilGerbang(teks) {
+    $('app').className = 'hide'; $('gate').className = 'wrap';
+    pesan('gMsg', teks || '');
+    setTimeout(function () { try { $('gKode').focus(); } catch (e) { } }, 50);
+  }
+  $('gForm').onsubmit = function (e) {
+    e.preventDefault();
+    var kode = $('gKode').value.replace(/\s+/g, '');
+    if (kode.length < 8) { pesan('gMsg', 'Kode masuk 8 huruf/angka. Periksa lagi.'); return; }
+    var b = $('gBtn'); b.disabled = true; b.textContent = 'Memeriksa…'; pesan('gMsg', '');
+    muat(kode).then(function (ok) { b.disabled = false; b.textContent = 'Masuk'; if (ok) $('gKode').value = ''; });
+  };
+
+  function muat(kunci) {
+    return rpc('order_halaman', { p_kunci: kunci }).then(function (r) {
+      if (!r || !r.ok) {
+        if (r && r.toko) tulis(SIMPAN, '');
+        tampilGerbang((r && r.pesan) || 'Kode tidak dikenal.');
+        return false;
+      }
+      D = r; tulis(SIMPAN, r.kunci);
+      if (/[?&]k=/.test(location.search)) history.replaceState(null, '', location.pathname);
+      mulai();
+      return true;
+    }).catch(function () {
+      tampilGerbang('Gagal terhubung. Periksa internet lalu coba lagi.');
+      return false;
+    });
+  }
+
+  function mulai() {
+    var p = D.pelanggan;
+    $('gate').className = 'wrap hide'; $('app').className = '';
+    $('pNama').textContent = p.n;
+    $('pInfo').textContent = p.d ? 'Diskon reseller ' + pct(p.d) + '%' : 'Reseller';
+    $('tgl').value = D.tanggal;
+    $('nama').value = baca(SIMPAN_NAMA);
+    var per = {}; KAT = [];
+    D.items.forEach(function (it) {
+      if (!per[it.kat]) { per[it.kat] = { nama: it.kat, items: [] }; KAT.push(per[it.kat]); }
+      per[it.kat].items.push(it);
+    });
+    Q = {}; BUKA = {}; WBUKA = {}; token = buatToken();
+    tab('order'); gambar(); hitung();
+    var hd = document.querySelector('header.top'); if (hd) document.querySelector('.cari').style.top = hd.offsetHeight + 'px';
+  }
+
+  // ---------- Daftar barang ----------
+  function hargaDisk(h) { var d = Number(D.pelanggan.d) || 0; return d ? Math.round(h * (100 - d) / 100) : h; }
+  function isiKat(k) {
+    var n = 0, q = 0;
+    k.items.forEach(function (it) {
+      if (it.w && it.w.length) it.w.forEach(function (w) { var v = Q[it.kode + '-' + w]; if (v) { n++; q += v; } });
+      else if (Q[it.kode]) { n++; q += Q[it.kode]; }
+    });
+    return n ? q + ' pcs' : '';
+  }
+  function terisiW(it) {
+    var a = [];
+    it.w.forEach(function (w) { var v = Q[it.kode + '-' + w]; if (v) a.push(w.charAt(0) + w.slice(1).toLowerCase() + ' ' + v); });
+    return a.join(', ');
+  }
+  function baris(kode, nama, harga, mati, sub) {
+    var hd = (D.pelanggan.d && harga > 0) ? ' · <em>' + rp(hargaDisk(harga)) + '</em> setelah diskon' : '';
+    return '<div class="row' + (mati ? ' off' : '') + '"><div class="n">' + (sub ? '<b>' + esc(nama) + '</b>' :
+      '<b><span class="kd">' + esc(kode) + '</span>' + esc(nama) + '</b><span class="h">' + (mati ? 'Harga belum tersedia' : rp(harga) + hd) + '</span>') + '</div>' +
+      '<input type="number" inputmode="numeric" min="0" step="1" placeholder="0" aria-label="Jumlah ' + esc(nama) + '" data-k="' + esc(kode) + '" value="' + (Q[kode] || '') + '"' + (mati ? ' disabled' : '') + '></div>';
+  }
+  function gambar() {
+    var q = $('cari').value.toLowerCase().trim(), h = '', ada = false;
+    KAT.forEach(function (k, n) {
+      var buka = !!q || !!BUKA[n], isi = '', cocok = 0;
+      k.items.forEach(function (it) {
+        var adaW = !!(it.w && it.w.length);
+        var teks = (it.kode + ' ' + it.nama + (adaW ? ' ' + it.w.join(' ') : '')).toLowerCase();
+        if (q && teks.indexOf(q) < 0) return;
+        cocok++;
+        if (!buka) return;
+        var mati = !(it.harga > 0);
+        if (!adaW) { isi += baris(it.kode, it.nama, it.harga, mati); return; }
+        var wb = !!WBUKA[it.kode] || (q && it.w.join(' ').toLowerCase().indexOf(q) >= 0), t = terisiW(it);
+        var hd = (D.pelanggan.d && it.harga > 0) ? ' · <em>' + rp(hargaDisk(it.harga)) + '</em> setelah diskon' : '';
+        isi += '<div class="row' + (mati ? ' off' : '') + '"><div class="n"><b><span class="kd">' + esc(it.kode) + '</span>' + esc(it.nama) + '</b>' +
+          '<span class="h">' + (mati ? 'Harga belum tersedia' : rp(it.harga) + hd) + ' · ' + it.w.length + ' warna</span>' +
+          '<span class="terisi" id="ws_' + esc(it.kode) + '">' + esc(t) + '</span></div>' +
+          '<button type="button" class="wbtn" data-w="' + esc(it.kode) + '" aria-expanded="' + (wb ? 'true' : 'false') + '"' + (mati ? ' disabled' : '') + '>' + (wb ? 'Tutup' : 'Pilih warna') + '</button></div>';
+        if (wb && !mati) {
+          isi += '<div class="wlist">';
+          var semuaW = !q || (it.kode + ' ' + it.nama).toLowerCase().indexOf(q) >= 0;
+          it.w.forEach(function (w) {
+            if (!semuaW && w.toLowerCase().indexOf(q) < 0) return;
+            isi += baris(it.kode + '-' + w, w, it.harga, false, true);
+          });
+          isi += '</div>';
+        }
+      });
+      if (q && !cocok) return;
+      ada = true;
+      h += '<button type="button" class="kat" data-kat="' + n + '" aria-expanded="' + (buka ? 'true' : 'false') + '"><span class="kn">' + esc(k.nama) + '</span>' +
+        '<span class="kj">' + (q ? cocok + ' cocok' : k.items.length + ' barang') + '</span><span class="kc" id="kc_' + n + '">' + esc(isiKat(k)) + '</span>' +
+        '<span class="kp" aria-hidden="true">' + (buka ? '▾' : '▸') + '</span></button>';
+      if (buka) h += '<div class="kisi">' + isi + '</div>';
+    });
+    $('daftar').innerHTML = ada ? h : '<div class="kosong">Barang tidak ditemukan. Coba kata lain.</div>';
+  }
+  function cariBrg(kode) {
+    var dasar = kode.split('-')[0];
+    for (var i = 0; i < D.items.length; i++) if (D.items[i].kode === dasar) return D.items[i];
+    return null;
+  }
+  function rinci() {
+    var items = [], sub = 0, disk = 0, d = Number(D.pelanggan.d) || 0, pcs = 0;
+    D.items.forEach(function (it) {
+      var kodes = (it.w && it.w.length) ? it.w.map(function (w) { return it.kode + '-' + w; }) : [it.kode];
+      kodes.forEach(function (k) {
+        var q = Q[k]; if (!q) return;
+        var w = k.indexOf('-') > 0 ? k.slice(k.indexOf('-') + 1) : '', s = q * it.harga, dd = Math.round(s * d / 100);
+        items.push({ kode: k, nama: it.nama + (w ? ' - ' + w : ''), qty: q, harga: it.harga, s: s });
+        sub += s; disk += dd; pcs += q;
+      });
+    });
+    return { items: items, sub: sub, disk: disk, tot: sub - disk, d: d, pcs: pcs };
+  }
+  function hitung() {
+    var r = rinci();
+    $('barQ').textContent = r.items.length ? r.items.length + ' barang · ' + fmt(r.pcs) + ' pcs' + (r.disk ? ' · diskon ' + pct(r.d) + '%' : '') : 'Belum ada barang';
+    $('barRp').textContent = rp(r.tot);
+    $('periksa').disabled = !r.items.length;
+    KAT.forEach(function (k, n) { var el = $('kc_' + n); if (el) el.textContent = isiKat(k); });
+  }
+
+  $('daftar').addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (!t) return;
+    if (t.hasAttribute('data-kat')) { var n = +t.getAttribute('data-kat'); BUKA[n] = !BUKA[n]; gambar(); return; }
+    if (t.hasAttribute('data-w')) { var k = t.getAttribute('data-w'); WBUKA[k] = !WBUKA[k]; gambar(); }
+  });
+  $('daftar').addEventListener('input', function (e) {
+    var t = e.target; if (!t.hasAttribute('data-k')) return;
+    var k = t.getAttribute('data-k'), v = t.value.trim();
+    if (v === '') delete Q[k];
+    else { var q = Number(v); if (isFinite(q) && q > 0 && Math.floor(q) === q && q <= 1000000) Q[k] = q; else delete Q[k]; }
+    var it = cariBrg(k), el = it && $('ws_' + it.kode);
+    if (el && it.w && it.w.length) el.textContent = terisiW(it);
+    hitung();
+  });
+  $('cari').addEventListener('input', gambar);
+
+  // ---------- Periksa & kirim ----------
+  function tabel(o) {
+    var h = '<table class="ord"><thead><tr><th>Barang</th><th class="a">Qty</th><th class="a">Harga</th><th class="a">Jumlah</th></tr></thead><tbody>';
+    o.items.forEach(function (it) { h += '<tr><td>' + esc(it.n) + '</td><td class="a">' + fmt(it.q) + '</td><td class="a">' + fmt(it.h) + '</td><td class="a">' + fmt(it.s) + '</td></tr>'; });
+    h += '<tr><td colspan="3">Subtotal</td><td class="a">' + rp(o.sub) + '</td></tr>' +
+      (o.disk ? '<tr><td colspan="3">Diskon ' + pct(o.d) + '%</td><td class="a">- ' + rp(o.disk) + '</td></tr>' : '') +
+      '<tr class="s"><td colspan="3">Total</td><td class="a">' + rp(o.tot) + '</td></tr></tbody></table>';
+    return h;
+  }
+  function kepala(o, judul) {
+    return '<p>' + (judul ? '<b>' + esc(judul) + '</b><br>' : '') + 'Pelanggan: <b>' + esc(D.pelanggan.n) + '</b><br>Tanggal: <b>' + esc(tglIndo(o.t)) + '</b>' +
+      (o.p ? '<br>Pengisi: <b>' + esc(o.p) + '</b>' : '') + (o.c ? '<br>Catatan: <b>' + esc(o.c) + '</b>' : '') + '</p>';
+  }
+  $('periksa').onclick = function () {
+    pesan('err', '');
+    var tgl = $('tgl').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) { pesan('err', 'Tanggal order belum diisi.'); return; }
+    var r = rinci();
+    if (!r.items.length) { pesan('err', 'Belum ada jumlah barang yang diisi.'); return; }
+    paket = { tanggal: tgl, items: r.items, nama: $('nama').value.trim(), catatan: $('ct').value.trim() };
+    var o = { t: tgl, p: paket.nama, c: paket.catatan, d: r.d, sub: r.sub, disk: r.disk, tot: r.tot,
+      items: r.items.map(function (x) { return { n: x.nama, q: x.qty, h: x.harga, s: x.s }; }) };
+    $('cekIsi').innerHTML = kepala(o) + tabel(o);
+    lihat('cek');
+  };
+  $('kembali').onclick = function () { lihat('form'); };
+  $('kirim').onclick = function () {
+    var b = $('kirim'); if (b.disabled || !paket) return;
+    b.disabled = true; b.textContent = 'Mengirim…'; pesan('err', '');
+    tulis(SIMPAN_NAMA, paket.nama);
+    rpc('order_kunci_simpan', {
+      p_kunci: D.kunci, p_tanggal: paket.tanggal, p_nama: paket.nama, p_catatan: paket.catatan, p_token: token,
+      p_items: paket.items.map(function (x) { return { kode: x.kode, qty: String(x.qty) }; })
+    }).then(function (r) {
+      b.disabled = false; b.textContent = 'Kirim order';
+      if (!r || !r.ok) { pesan('err', (r && r.pesan) || 'Order belum tersimpan. Coba lagi.'); return; }
+      $('okPesan').textContent = r.pesan;
+      $('okNota').innerHTML = r.order ? kepala(r.order, 'Order ' + r.order.no) + tabel(r.order) : '';
+      RW = null; lihat('ok');
+    }).catch(function () {
+      b.disabled = false; b.textContent = 'Kirim order';
+      pesan('err', 'Gagal terhubung. Tekan Kirim order sekali lagi; aman, order tidak akan tercatat dua kali.');
+    });
+  };
+  $('baru').onclick = function () {
+    Q = {}; WBUKA = {}; paket = null; token = buatToken();
+    $('cari').value = ''; $('ct').value = ''; $('tgl').value = D.tanggal;
+    gambar(); hitung(); lihat('form');
+  };
+  $('cetak').onclick = function () { window.print(); };
+
+  // ---------- Layar & tab ----------
+  function lihat(l) {
+    layar = l;
+    $('vForm').className = l === 'form' ? '' : 'hide';
+    $('vCek').className = l === 'cek' ? '' : 'hide';
+    $('vOk').className = l === 'ok' ? '' : 'hide';
+    $('vRiwayat').className = l === 'riwayat' ? '' : 'hide';
+    $('bar').className = l === 'form' ? 'bar' : 'bar hide';
+    window.scrollTo(0, 0);
+  }
+  function tab(t) {
+    $('tOrder').setAttribute('aria-selected', t === 'order' ? 'true' : 'false');
+    $('tRiwayat').setAttribute('aria-selected', t === 'riwayat' ? 'true' : 'false');
+    pesan('err', '');
+    if (t === 'riwayat') { lihat('riwayat'); muatRiwayat(); } else lihat(layar === 'riwayat' ? 'form' : (layar || 'form'));
+  }
+  $('tOrder').onclick = function () { tab('order'); };
+  $('tRiwayat').onclick = function () { tab('riwayat'); };
+
+  // ---------- Riwayat ----------
+  function muatRiwayat() {
+    if (RW) { gambarRiwayat(); return; }
+    $('rwIsi').innerHTML = '<div class="kosong">Memuat riwayat…</div>';
+    rpc('order_kunci_riwayat', { p_kunci: D.kunci }).then(function (r) {
+      if (!r || !r.ok) { $('rwIsi').innerHTML = '<div class="msg bad">' + esc((r && r.pesan) || 'Riwayat belum bisa dimuat.') + '</div>'; return; }
+      RW = r; gambarRiwayat();
+    }).catch(function () { $('rwIsi').innerHTML = '<div class="msg bad">Gagal terhubung. Periksa internet lalu buka lagi tab ini.</div>'; });
+  }
+  function gambarRiwayat() {
+    var r = RW, h = '<div class="ringkas"><div><b>' + fmt(r.jumlah) + '</b><span>order (tanpa yang batal)</span></div><div><b>' + rp(r.total) + '</b><span>total belanja</span></div></div>';
+    if (!r.orders.length) h += '<div class="kosong">Belum ada order. Order pertama kamu akan muncul di sini.</div>';
+    r.orders.forEach(function (o, i) {
+      var b = !!RWBUKA[o.no];
+      h += '<div class="ro"><button type="button" data-ro="' + esc(o.no) + '" aria-expanded="' + b + '"><div><div class="no">' + esc(o.no) + '</div><div class="tg">' + esc(tglIndo(o.t)) + ' · ' + o.items.length + ' barang</div></div>' +
+        '<div class="nil">' + rp(o.tot) + '<br><span class="st ' + esc(o.st) + '">' + esc(o.st) + '</span></div></button>' +
+        (b ? '<div class="isi">' + (o.c ? '<p class="sub">Catatan: ' + esc(o.c) + '</p>' : '') + tabel(o) + '</div>' : '') + '</div>';
+    });
+    if (r.terpotong) h += '<p class="sub">Menampilkan 200 order terbaru.</p>';
+    h += '<p class="sub" style="text-align:center">Diperbarui ' + esc(r.diperbarui) + ' · <button type="button" class="wbtn" id="rwMuat">Muat ulang</button></p>';
+    $('rwIsi').innerHTML = h;
+  }
+  $('rwIsi').addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (!t) return;
+    if (t.id === 'rwMuat') { RW = null; muatRiwayat(); return; }
+    var no = t.getAttribute('data-ro'); if (no) { RWBUKA[no] = !RWBUKA[no]; gambarRiwayat(); }
+  });
+
+  $('keluar').onclick = function () {
+    if (!window.confirm('Keluar dari HP ini? Untuk order lagi kamu perlu mengetik kode masuk.')) return;
+    tulis(SIMPAN, ''); D = null; tampilGerbang('');
+  };
+
+  // ---------- Mulai ----------
+  var dariLink = (new URLSearchParams(location.search).get('k') || '').trim(), simpanan = baca(SIMPAN);
+  if (dariLink || simpanan) {
+    $('app').className = '';
+    muat(dariLink || simpanan);
+  } else tampilGerbang('');
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () { });
+})();
+</script>
+</body></html>
