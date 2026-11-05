@@ -97,6 +97,42 @@
     dasborToko: function () { return window.TokoBaca.dasborToko(sb, C.toko); },
     riwayatHitung: function () { return window.TokoBaca.riwayatHitung(sb, C.toko); },
     riwayatLaporan: function (p) { return window.TokoBaca.riwayatLaporan(sb, C.toko, p); },
+    // Kasir di dalam form Toko Offline (dataKasir / notaKasir, file 6): dari Supabase, sama dengan aplikasi Kasir (5 Nov 2026).
+    dataKasir: async function () {
+      var r = await Promise.all([sb.rpc('toko_stok_hitung', { p_toko: C.toko }), sb.rpc('toko_hitung_warna', { p_toko: C.toko })]);
+      if (r[0].error || r[1].error || !Array.isArray(r[0].data)) return null;
+      var stok = {}, stokW = {}, w = r[1].data || {};
+      r[0].data.forEach(function (x) { if (x.kode) stok[x.kode] = Number(x.qty) || 0; });
+      Object.keys(w).forEach(function (k) { if (w[k] && w[k].w) stokW[k] = w[k].w; });
+      return { ok: true, stok: stok, stokW: stokW };
+    },
+    notaKasir: async function (p) {
+      var tgl = String(p.tanggal || '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) return { ok: false, pesan: 'Tanggal tidak valid.' };
+      var r = await sb.from('toko_jual_log').select('kode,nama_barang,qty_terjual,harga_jual,total,waktu_masuk,pengisi,warna,no_nota,diskon_persen,pembeli,ongkir,baris_sheet,id')
+        .eq('toko', C.toko).eq('tanggal', tgl).not('no_nota', 'is', null).order('baris_sheet', { ascending: true, nullsFirst: false }).order('id');
+      if (r.error) return null;
+      var mb = await sb.from('toko_nota_bayar').select('no_nota,metode').eq('toko', C.toko).eq('tanggal', tgl), metode = {};
+      if (mb.error) return null;
+      (mb.data || []).forEach(function (m) { metode[String(m.no_nota || '').trim()] = m.metode; });
+      var idx = {}, out = [];
+      (r.data || []).forEach(function (x) {
+        var no = String(x.no_nota || '').trim(); if (!no) return;
+        if (!(no in idx)) {
+          var ms = x.waktu_masuk ? new Date(x.waktu_masuk).getTime() : 0, j = new Date(ms + 8 * 3600e3);
+          idx[no] = out.length;
+          out.push({ no: no, t: tgl, jam: ms ? ('0' + j.getUTCHours()).slice(-2) + ':' + ('0' + j.getUTCMinutes()).slice(-2) : '', ms: ms,
+            kasir: String(x.pengisi || '').replace(/^kasir:\s*/i, ''), pembeli: String(x.pembeli || ''), items: [], bruto: 0, diskon: 0, total: 0, ongkir: 0 });
+        }
+        var n = out[idx[no]], q = Number(x.qty_terjual) || 0, h = Number(x.harga_jual) || 0, tot = Number(x.total) || 0, ok = Number(x.ongkir);
+        if (isFinite(ok) && ok > 0) n.ongkir += ok;
+        n.items.push({ k: String(x.kode || '').trim().toUpperCase(), n: String(x.nama_barang || ''), w: String(x.warna || ''), q: q, h: h, d: Number(x.diskon_persen) || 0, tot: tot });
+        n.bruto += q * h; n.total += tot; n.diskon += q * h - tot;
+      });
+      out.sort(function (a, b) { return b.ms - a.ms || (a.no < b.no ? 1 : -1); });
+      out.forEach(function (n) { delete n.ms; if (metode[n.no]) n.metode = metode[n.no]; });
+      return { ok: true, tanggal: tgl, nota: out };
+    },
     // Kartu "Hasil penjualan" Toko Offline (file 82): dihitung robot Supabase (bulan ini & bulan lalu), 5 Nov 2026.
     tokoHasilPenjualan: function (p) { return ['toko_hasil_baca', { p_toko: C.toko, p_bulan: String(p.bulan || '') }]; }
   };
