@@ -52,6 +52,33 @@ function angka(s: string): number | null {
   return isFinite(n) && n > 0 ? Math.round(n) : null;
 }
 
+// Cocokkan bukti (bisa berisi beberapa barang) dengan barang yang dibayar lewat aplikasi: kombinasi 1-4 barang yang
+// jumlahnya dekat dengan nominal bukti (maks. selisih 15%), diutamakan yang NAMA barangnya cocok dengan barang yang dibaca AI.
+const BUKAN_KATA = new Set(['pcs', 'isi', 'set', 'dan', 'untuk', 'dengan', 'warna', 'ukuran', 'pack', 'pak', 'roll', 'liter', 'gram', 'grams', 'kg', 'ml']);
+function kata(s: unknown) { return String(s ?? '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(' ').filter((w) => w.length >= 3 && !BUKAN_KATA.has(w) && !/^\d+$/.test(w)); }
+function cariBarang(items: Any[], target: number, namaBukti: string[]) {
+  const kb = new Set(namaBukti.flatMap(kata));
+  const n = Math.min(items.length, 30), pick: Any[] = [];
+  const cocokNama = (x: Any) => kata(x.n).some((w) => kb.has(w));
+  let best: Any = null;
+  const nilai = (sum: number, p: Any[]) => {
+    const d = Math.abs(sum - target);
+    if (d > target * 0.15) return;
+    const skor = p.filter(cocokNama).length, semua = skor === p.length;
+    if (!best || (semua && !best.semua) || (semua === best.semua && (skor > best.skor || (skor === best.skor && d < best.d)))) best = { d, sum, pick: p.slice(), skor, semua };
+  };
+  const rec = (start: number, sum: number) => {
+    if (pick.length) nilai(sum, pick);
+    if (pick.length === 4) return;
+    for (let i = start; i < n; i++) {
+      if (sum + Number(items[i].v) > target * 1.2) continue;
+      pick.push(items[i]); rec(i + 1, sum + Number(items[i].v)); pick.pop();
+    }
+  };
+  rec(0, 0);
+  return best && best.skor > 0 ? best : null;
+}
+
 export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, TOKEN: string, peran: (uid: unknown) => Promise<string>) {
   async function atur(kunci: string) { const r = await sb.from('bb_atur').select('nilai').eq('kunci', kunci).maybeSingle(); return r.data ? r.data.nilai : null; }
   async function anggota(uid: string) { const r = await sb.from('bb_anggota').select('nama').eq('uid', uid).maybeSingle(); return r.data ? String(r.data.nama) : ''; }
@@ -70,10 +97,11 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       'Jawab HANYA dengan JSON (tanpa teks lain):\n' +
       '{"bukti":true|false, "belum_bayar":true|false, "nominal":angka total yang dibayar (rupiah, bulat), "tanggal":"YYYY-MM-DD" atau null, ' +
       '"penerima":"toko / penerima", "ringkasan":"apa yang dibayar, singkat, maks 110 huruf, bahasa Indonesia", "kategori":"salah satu kategori", ' +
-      '"sumber":"Rekening Belanja|Rekening PT|ShopeePay|Kas Tunai|" , "ref":"nomor referensi / no pesanan atau \\"\\"", "yakin":0-1}\n' +
+      '"sumber":"Rekening Belanja|Rekening PT|ShopeePay|Kas Tunai|" , "ref":"nomor referensi / no pesanan atau \\"\\"", "barang":[{"nama":"nama barang","total":angka}], "yakin":0-1}\n' +
       'Aturan: bukti=true kalau ini bukti pembayaran / nota / struk / transfer / pesanan yang sudah dibayar, atau pesan teks yang melaporkan pengeluaran. ' +
       'belum_bayar=true kalau ini pesanan / invoice / sales order / COD / tagihan yang belum lunas. ' +
-      'nominal = total yang benar-benar dibayar (termasuk ongkir & biaya admin), bukan harga satuan. ' +
+      'nominal = total yang benar-benar dibayar (termasuk ongkir & biaya admin), bukan harga satuan; kalau ada beberapa pesanan, jumlahkan semuanya. ' +
+      'barang = daftar barang / pesanan yang terlihat (maks 10) dengan total masing-masing; kosongkan [] kalau tidak ada rincian. ' +
       'sumber: rekening BCA 613-0358401 atau 613-0**-**01 = Rekening Belanja; rekening 770-0875355 atau TOENTOENAN LANGKAH ELOHI = Rekening PT; ' +
       'Saldo ShopeePay / ShopeePay = ShopeePay; kalau tidak terlihat isi "". ' +
       'kategori pilih tepat salah satu: ' + KATEGORI.join(' | ') + '. ' +
@@ -107,10 +135,13 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       '\n📝 ' + esc(b.keterangan || '-') + '\n🏷️ ' + esc(b.kategori || '-') + '\n🏦 ' + (b.akun ? esc(b.akun) : '❓ <b>akun bayar belum dipilih</b> (pilih di bawah)');
     if (r.belum_bayar) h += '\n\n⚠️ <i>Sepertinya ini pesanan / tagihan yang belum lunas. Catat hanya kalau sudah dibayar.</i>';
     if (r.bukti === false) h += '\n\n⚠️ <i>Sepertinya bukan bukti pembayaran. Abaikan kalau memang bukan.</i>';
+    if (r.kandidat) h += '\n\n🔎 <i>Mungkin sudah tercatat dari belanja lewat aplikasi: ' + esc(r.kandidat.n.join(', ')) + ' = ' + rp(r.kandidat.sum) +
+      ' (' + esc(r.kandidat.tr.join(', ')) + '). Kalau sama, tekan 📎 Sudah tercatat.</i>';
     if (b.status === 'tunggu') h += '\n\n⏳ <i>Belum ada di aplikasi. Kalau ini belanja dari pengajuan, input dulu di aplikasi (Bayar di Purchasing / bayar PO) — bukti ditempel otomatis. Kalau bukan, tekan ✅ Catat.</i>';
     if (b.catatan) h += '\n\n<i>' + esc(b.catatan) + '</i>';
     const id = b.id;
     let rows: Any[];
+    const atas = r.kandidat ? [[{ text: '📎 Sudah tercatat', callback_data: 'b|' + id + '|s' }]] : [];
     if (!b.akun) {
       rows = [AKUN.slice(0, 3).map((a, i) => ({ text: a, callback_data: 'b|' + id + '|A|' + i })), AKUN.slice(3).map((a, i) => ({ text: a, callback_data: 'b|' + id + '|A|' + (i + 3) })),
         [{ text: '✏️ Ubah', callback_data: 'b|' + id + '|u' }, { text: '❌ Bukan', callback_data: 'b|' + id + '|x' }]];
@@ -118,7 +149,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       rows = [[{ text: '✅ Catat', callback_data: 'b|' + id + '|c' }, { text: '✏️ Ubah', callback_data: 'b|' + id + '|u' }],
         [{ text: '🏦 Akun', callback_data: 'b|' + id + '|a' }, { text: '🏷️ Kategori', callback_data: 'b|' + id + '|k' }, { text: '❌ Bukan', callback_data: 'b|' + id + '|x' }]];
     }
-    return { text: h, markup: { inline_keyboard: rows } };
+    return { text: h, markup: { inline_keyboard: atas.concat(rows) } };
   }
   async function tampil(b: Any, selesai?: string) {
     if (!b.robot_msg) return;
@@ -209,7 +240,24 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
         return;
       }
     }
-    if ((nama === 'Viory' || nama === 'Mike') && BELANJA.indexOf(kategori) > -1 && !r.belum_bayar) b = await ubah(id, { status: 'tunggu' });
+    // cocokkan ke rincian barang yang dibayar lewat aplikasi (satu screenshot bisa berisi beberapa barang dari beberapa transaksi)
+    if (nominal) {
+      const br = await sb.rpc('bb_barang', { p_tanggal: tanggal });
+      const namaBukti = (Array.isArray(r.barang) ? r.barang.map((x: Any) => String(x && x.nama || '')) : []).concat([String(r.ringkasan || ''), teks]);
+      const hasil = Array.isArray(br.data) && br.data.length ? cariBarang(br.data, nominal, namaBukti) : null;
+      if (hasil) {
+        const tr = Array.from(new Set(hasil.pick.map((x: Any) => String(x.tr)))) as string[];
+        const kand = { tr, pg: hasil.pick.map((x: Any) => x.pg), n: hasil.pick.map((x: Any) => x.n), sum: hasil.sum, beda: hasil.sum - nominal };
+        if (hasil.semua && hasil.d <= Math.max(5000, nominal * 0.01)) {
+          await sb.rpc('bb_tempel', { p_id: id, p_nos: tr });
+          await tampil(b, '🧾 <b>' + esc(nama) + '</b> · ' + rp(nominal) + ' · ' + tglId(tanggal) + '\n✅ <b>Sudah tercatat</b> dari belanja lewat aplikasi: ' + esc(kand.n.join(', ')) +
+            ' = ' + rp(kand.sum) + ' (' + esc(tr.join(', ')) + ')' + (kand.beda ? ' <i>(selisih ' + rp(Math.abs(kand.beda)) + ')</i>' : '') + '\n📎 Bukti dilampirkan, tidak dicatat dua kali.');
+          return;
+        }
+        if (hasil.d <= nominal * 0.15) b = await ubah(id, { baca: { ...r, kandidat: kand } });
+      }
+    }
+    if ((nama === 'Viory' || nama === 'Mike') && BELANJA.indexOf(kategori) > -1 && !r.belum_bayar && !(b.baca && b.baca.kandidat)) b = await ubah(id, { status: 'tunggu' });
     await tampil(b);
   }
 
@@ -287,6 +335,14 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal mencatat.'), true);
       await tampil(b, '✅ <b>Dicatat ' + esc(r.data.no) + '</b> oleh ' + esc(oleh) + '\n💸 ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + ' · ' + esc(b.akun) + '\n📝 ' + esc(b.keterangan) + ' · ' + esc(b.kategori));
       return jawab('Tercatat di accounting: ' + r.data.no);
+    }
+    if (op === 's') {
+      const kd = b.baca && b.baca.kandidat;
+      if (!kd) return jawab('Tidak ada transaksi pembanding.');
+      await sb.rpc('bb_tempel', { p_id: id, p_nos: kd.tr });
+      await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n✅ <b>Sudah tercatat</b> (dikonfirmasi ' + esc(oleh) + '): ' + esc(kd.n.join(', ')) +
+        ' = ' + rp(kd.sum) + ' (' + esc(kd.tr.join(', ')) + ')\n📎 Bukti dilampirkan, tidak dicatat dua kali.');
+      return jawab('Bukti ditempel ke ' + kd.tr.join(', '));
     }
     if (op === 'x') { await ubah(id, { status: 'bukan' }); await tampil(b, '❌ Ditandai bukan pengeluaran oleh ' + esc(oleh) + '. Tidak dicatat.'); return jawab('Tidak dicatat.'); }
     if (op === 'a' || op === 'k') {

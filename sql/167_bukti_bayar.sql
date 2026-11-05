@@ -114,3 +114,27 @@ select cron.schedule('bukti-bayar-periksa', '17 * * * *', $c$
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-moscow-robot-kunci', (select kunci from public.robot_kunci where id = 1)),
     body := '{}'::jsonb, timeout_milliseconds := 120000)
 $c$);
+
+-- Barang yang dibayar Viory lewat aplikasi (pengadaan_ajuan ref "Dibayar Viory · ... · Rp X · toko") di sekitar tanggal bukti,
+-- beserta nomor transaksi accounting-nya (keterangan TR memuat nomor pengajuan; cadangan: toko + tanggal).
+-- Dipakai robot untuk screenshot Shopee berisi beberapa pesanan (cariBarang di bukti.ts: kombinasi 1-4 barang + kecocokan nama).
+create or replace function public.bb_barang(p_tanggal date)
+returns jsonb language sql stable security definer set search_path to 'public' as $function$
+  select coalesce(jsonb_agg(jsonb_build_object('pg', z.no, 'n', z.n, 'v', z.v, 'tr', z.tr) order by z.v desc), '[]')
+    from (
+      select btrim(a.no) no, left(coalesce(a.nama, ''), 40) n,
+             replace(substring(a.ref_po_supplier from 'Rp ([0-9.]+)'), '.', '')::numeric v,
+             coalesce(
+               (select btrim(l.no) from acc_log l where l.pengisi ilike 'purchasing:%' and coalesce(l.status, 'Aktif') <> 'Batal'
+                  and l.keterangan like '%' || btrim(a.no) || '%' order by l.id desc limit 1),
+               (select btrim(l.no) from acc_log l where l.pengisi ilike 'purchasing:%' and coalesce(l.status, 'Aktif') <> 'Batal'
+                  and l.tanggal = (a.waktu_pesan at time zone 'Asia/Makassar')::date
+                  and l.keterangan ilike 'Belanja lokal ' || btrim(split_part(a.ref_po_supplier, ' · ', array_length(string_to_array(a.ref_po_supplier, ' · '), 1))) || '%'
+                  order by l.id limit 1)) tr
+        from pengadaan_ajuan a
+       where a.ref_po_supplier like 'Dibayar Viory%' and a.ref_po_supplier ~ 'Rp [0-9.]+'
+         and (a.waktu_pesan at time zone 'Asia/Makassar')::date between p_tanggal - 7 and p_tanggal + 2
+    ) z where z.v > 0 and z.tr is not null;
+$function$;
+revoke all on function public.bb_barang(date) from public, anon, authenticated;
+grant execute on function public.bb_barang(date) to service_role;
