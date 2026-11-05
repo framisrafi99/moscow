@@ -97,7 +97,7 @@
     pss.forEach(function (x) { if (x.bg === KP && x.st === 'Disetujui' && x.wk && x.sel && x.k) adj[x.k] = (adj[x.k] || 0) + x.sel; });
     Object.keys(adj).forEach(function (k) { var x = ambil(k); x.sesuai = (x.sesuai || 0) + adj[k]; x.q += adj[k]; });
     // Bungkus MP: penjualan marketplace Official (padanan dikonfirmasi) sejak stok awal / hitung stok terakhir.
-    var mp = { per: {}, perW: [] };
+    var mp = { per: {}, perW: [] }, hitW = {};
     // Peristiwa sesudah suatu waktu (hitung stok dengan tanggal mundur, 5 Nov 2026): kiriman gudang & penjualan, per barang dan per warna.
     var evKirim = [], evJual = [];
     var msWita = function (s) { var m = s.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) - WITA * 3600000 : NaN; };
@@ -159,37 +159,18 @@
         if (k && jamHitung[k] && r[0].getTime() >= jamHitung[k] && isFinite(q)) kirimSesudah[k] = (kirimSesudah[k] || 0) + q;
       });
       Object.keys(jamHitung).forEach(function (k) {
-        var hit = 0, ada = false;
-        pss.forEach(function (x) { if (x.bg === KP && x.st === 'Disetujui' && x.wk && x.wa && x.k === k && x.wa.getTime() === jamHitung[k]) { hit += x.hit; ada = true; } });
+        var hit = 0, ada = false, rw = {}, adaW = false, lanjut = 0;
+        pss.forEach(function (x) {
+          if (x.bg !== KP || x.st !== 'Disetujui' || !x.wk || !x.wa || x.k !== k) return;
+          if (x.wa.getTime() === jamHitung[k]) { hit += x.hit; ada = true; rw[x.w] = (rw[x.w] || 0) + x.hit; if (x.w) adaW = true; }
+          else if (x.wa.getTime() > jamHitung[k]) lanjut += x.sel; // penyesuaian disetujui sesudah jam hitung tetap ikut
+        });
         if (!ada) return;
-        var x = ambil(k), q = hit + (kirimSesudah[k] || 0) - (jualSesudah[k] || 0);
-        x.koreksiHitung = q - x.q; x.q = q;
+        var x = ambil(k), q = hit + lanjut + (kirimSesudah[k] || 0) - (jualSesudah[k] || 0);
+        x.qDasar = x.q; x.koreksiHitung = q - x.q; x.q = q;
+        if (adaW) hitW[k] = { jam: jamHitung[k], rw: rw, lanjut: lanjut };
       });
     }
-    var on = { list: list, mulai: mulai };
-    // KPW_rinci_: rincian per warna
-    var part = {}, tambah = function (k, w, q) { if (!k || !w || !q || !isFinite(q)) return; var o = part[k] || (part[k] = {}); o[w] = (o[w] || 0) + q; };
-    var mulaiK = {};
-    list.forEach(function (x) { if (x.t) mulaiK[x.k] = x.t; });
-    awal.forEach(function (r) { var k = rapi(r[0], 30).toUpperCase(), w = warna(r[3]), q = Number(r[4]); if (k && w && isFinite(q)) tambah(k, w, q); });
-    log.forEach(function (x) {
-      if (!/^keluar/i.test(x.j) || String(x.st).toLowerCase() !== tujuan || !x.k || !x.w) return;
-      var dari = mulaiK[x.k] || mulai; if (dari && x.t < dari) return;
-      tambah(x.k, x.w, x.q);
-    });
-    pss.forEach(function (x) { if (x.bg === KP && x.st === 'Disetujui' && x.wk && x.sel && x.k && x.w) tambah(x.k, x.w, x.sel); });
-    mp.perW.forEach(function (a) { tambah(a[0], a[1], a[2]); });
-    var rinci = {};
-    list.forEach(function (x) {
-      var c = part[x.k] || {}, s = 0;
-      Object.keys(c).forEach(function (w) { if (!c[w]) delete c[w]; else s += c[w]; });
-      rinci[x.k] = { tot: x.q, c: c, r: x.q - s };
-    });
-    Object.keys(part).forEach(function (k) {
-      if (rinci[k]) return;
-      var s = 0; Object.keys(part[k]).forEach(function (w) { s += part[k][w]; });
-      rinci[k] = { tot: 0, c: part[k], r: -s };
-    });
     // Pergerakan sesudah waktu T (ms): stok per T = stok sekarang - kirim + jual (total dan per warna).
     var geser = function (T) {
       var g = { kirim: {}, jual: {}, kirimW: {}, jualW: {} };
@@ -205,6 +186,47 @@
       });
       return g;
     };
+    var on = { list: list, mulai: mulai };
+    // KPW_rinci_: rincian per warna
+    var part = {}, tambah = function (k, w, q) { if (!k || !w || !q || !isFinite(q)) return; var o = part[k] || (part[k] = {}); o[w] = (o[w] || 0) + q; };
+    var mulaiK = {};
+    list.forEach(function (x) { if (x.t) mulaiK[x.k] = x.t; });
+    awal.forEach(function (r) { var k = rapi(r[0], 30).toUpperCase(), w = warna(r[3]), q = Number(r[4]); if (k && w && isFinite(q)) tambah(k, w, q); });
+    log.forEach(function (x) {
+      if (!/^keluar/i.test(x.j) || String(x.st).toLowerCase() !== tujuan || !x.k || !x.w) return;
+      var dari = mulaiK[x.k] || mulai; if (dari && x.t < dari) return;
+      tambah(x.k, x.w, x.q);
+    });
+    pss.forEach(function (x) { if (x.bg === KP && x.st === 'Disetujui' && x.wk && x.sel && x.k && x.w) tambah(x.k, x.w, x.sel); });
+    mp.perW.forEach(function (a) { tambah(a[0], a[1], a[2]); });
+    // Hitung stok per warna (5 Nov 2026): warna yang dihitung = hasil hitung + kiriman sesudahnya - penjualan sesudahnya
+    // (sama seperti total; sebelumnya rincian warna tetap dijumlah dari seluruh riwayat sehingga penjualan yang diupload terlambat
+    // memotongnya lagi). Warna yang tidak tercatat di hitungan itu (cocok / tidak diisi) memakai stok sistem saat itu.
+    Object.keys(hitW).forEach(function (k) {
+      var h = hitW[k], G = geser(h.jam), c = part[k] || (part[k] = {}), x = ambil(k), lanjutW = {}, ws = {}, cJam = 0, asliJam = 0;
+      pss.forEach(function (y) { if (y.bg === KP && y.st === 'Disetujui' && y.wk && y.wa && y.k === k && y.w && y.wa.getTime() > h.jam) lanjutW[y.w] = (lanjutW[y.w] || 0) + y.sel; });
+      Object.keys(c).forEach(function (w) { ws[w] = 1; });
+      Object.keys(h.rw).forEach(function (w) { if (w) ws[w] = 1; });
+      Object.keys(ws).forEach(function (w) {
+        var kw = k + '|' + w, sesudah = (G.kirimW[kw] || 0) - (G.jualW[kw] || 0) + (lanjutW[w] || 0), lama = (c[w] || 0) - sesudah;
+        asliJam += lama;
+        if (h.rw[w] !== undefined) { cJam += h.rw[w]; c[w] = h.rw[w] + sesudah; } else cJam += lama;
+      });
+      var sisaJam = h.rw[''] !== undefined ? h.rw[''] : (x.qDasar - (G.kirim[k] || 0) + (G.jual[k] || 0) - h.lanjut) - asliJam;
+      var q = cJam + sisaJam + h.lanjut + (G.kirim[k] || 0) - (G.jual[k] || 0);
+      x.koreksiHitung = q - x.qDasar; x.q = q;
+    });
+    var rinci = {};
+    list.forEach(function (x) {
+      var c = part[x.k] || {}, s = 0;
+      Object.keys(c).forEach(function (w) { if (!c[w]) delete c[w]; else s += c[w]; });
+      rinci[x.k] = { tot: x.q, c: c, r: x.q - s };
+    });
+    Object.keys(part).forEach(function (k) {
+      if (rinci[k]) return;
+      var s = 0; Object.keys(part[k]).forEach(function (w) { s += part[k][w]; });
+      rinci[k] = { tot: 0, c: part[k], r: -s };
+    });
     return { brg: brg, on: on, rinci: rinci, pss: pss, geser: geser };
   }
 
