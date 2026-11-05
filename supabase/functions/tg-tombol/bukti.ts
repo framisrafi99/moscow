@@ -643,11 +643,12 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
   }
 
   // pengumuman manajemen: robot mengirim teks ke grup Bukti Bayar lalu menyematkannya (dipanggil lewat kunci robot)
-  async function umumkan(teks: string) {
+  async function umumkan(teks: string, sematkan = true) {
     const g = await atur('grup');
     if (!g || !g.chat) return { ok: false, pesan: 'Grup Bukti Bayar belum diatur.' };
     const k = await api('sendMessage', { chat_id: g.chat, text: String(teks).slice(0, 4000), disable_web_page_preview: true });
     if (!(k && k.ok)) return { ok: false, pesan: 'Kirim gagal: ' + t(k && k.description, 120) };
+    if (!sematkan) return { ok: true, pesan: k.result.message_id, sematkan: false, galat: '' };
     const s = await api('pinChatMessage', { chat_id: g.chat, message_id: k.result.message_id, disable_notification: false });
     return { ok: true, pesan: k.result.message_id, sematkan: !!(s && s.ok), galat: s && !s.ok ? t(s.description, 120) : '' };
   }
