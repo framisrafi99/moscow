@@ -682,12 +682,18 @@
     akunting: {
       // Metode bayar nota Toko Offline (31 Okt): langsung di Supabase.
       simpanMetodeBayar: function (p) { return ['simpan_metode_bayar', { p_ubah: Array.isArray(p.ubah) ? p.ubah : [] }]; },
-      akuntingSimpan: function (p) {
-        return ['akunting_simpan', { p_tanggal: teks(p.tanggal), p_jenis: teks(p.jenis), p_akun: teks(p.akun), p_tujuan: teks(p.tujuan),
-          p_kategori: teks(p.kategori), p_nominal: teks(p.nominal), p_ket: teks(p.ket), p_token: teks(p.token) }];
+      // 5 Nov 2026: uang keluar dicek dulu (nominal sama, selisih tanggal maks. 3 hari, dari sumber mana pun) supaya tidak tercatat dobel.
+      akuntingSimpan: async function (p) {
+        if (teks(p.jenis) === 'Keluar' && !(await cekDobelAcc([{ t: teks(p.tanggal), v: teks(p.nominal), ket: teks(p.ket) }])))
+          return { ok: false, pesan: 'Tidak disimpan: transaksi ini kemungkinan sudah tercatat. Cek di tab Riwayat.' };
+        return rpcData('akunting_simpan', { p_tanggal: teks(p.tanggal), p_jenis: teks(p.jenis), p_akun: teks(p.akun), p_tujuan: teks(p.tujuan),
+          p_kategori: teks(p.kategori), p_nominal: teks(p.nominal), p_ket: teks(p.ket), p_token: teks(p.token) });
       },
-      akuntingSimpanBanyak: function (p) {
-        return ['akunting_simpan_banyak', { p_tanggal: teks(p.tanggal), p_akun: teks(p.akun), p_rows: Array.isArray(p.rows) ? p.rows : [], p_token: teks(p.token) }];
+      akuntingSimpanBanyak: async function (p) {
+        var rows = Array.isArray(p.rows) ? p.rows : [];
+        if (!(await cekDobelAcc(rows.map(function (x) { return { t: teks(p.tanggal), v: teks(x && x.nominal), ket: teks(x && x.ket) }; }))))
+          return { ok: false, pesan: 'Tidak disimpan: ada pengeluaran yang kemungkinan sudah tercatat. Hapus baris itu lalu simpan lagi.' };
+        return rpcData('akunting_simpan_banyak', { p_tanggal: teks(p.tanggal), p_akun: teks(p.akun), p_rows: rows, p_token: teks(p.token) });
       },
       akuntingBatal: function (p) { return ['akunting_batal', { p_no: teks(p.no) }]; }
     },
@@ -902,6 +908,26 @@
     ubahStatusOrder: ['md:request', 'md:pantau'], ttpPutus: ['md:titip'], ttpBarangUbah: ['md:titip'], gdPoPutus: ['md:gudang'], gdPoBayar: ['md:gudang'],
     gdBiayaBayar: ['md:gudang'], gdPoBatalMgmt: ['md:gudang'], pgdAksi: ['md:pengadaan'], pgsTanpaCek: ['md:tanpa'], mdeSimpan: ['md:barang']
   };
+  async function rpcData(fn, args) {
+    var r = await sb.rpc(fn, args);
+    if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Tekan simpan sekali lagi; aman, tidak akan tercatat dua kali.');
+    return r.data;
+  }
+  // Pengaman uang keluar dobel: true = lanjut simpan, false = dibatalkan pengguna.
+  async function cekDobelAcc(rows) {
+    var d;
+    try { var r = await sb.rpc('acc_cek_dobel', { p_rows: rows.map(function (x) { return { t: x.t, v: String(x.v || '').replace(/[^\d]/g, '') }; }) }); d = r && r.data && r.data.dobel; }
+    catch (e) { return true; }
+    if (!d || !d.length) return true;
+    var rp = function (n) { return 'Rp ' + Math.round(Number(n) || 0).toLocaleString('id-ID'); };
+    var t = 'Kemungkinan SUDAH TERCATAT (nominal sama, selisih tanggal maks. 3 hari):\n\n' + d.map(function (x) {
+      var b = rows[x.i - 1] || {};
+      return '• ' + (rows.length > 1 ? 'Baris ' + x.i + ': ' : '') + rp(x.v) + (b.ket ? ' – ' + b.ket : '') + '\n' + x.ada.slice(0, 3).map(function (a) {
+        return '   sudah ada ' + a.no + ' (' + a.t + ', ' + a.sumber + ')' + (a.ket ? ': ' + a.ket : '');
+      }).join('\n');
+    }).join('\n\n') + '\n\nTekan OK kalau ini memang transaksi lain (tetap simpan).\nTekan Batal kalau ini transaksi yang sama.';
+    return window.confirm(t);
+  }
   async function tulisSupabase(f, a) {
     var q = TULIS_SUPABASE[APP][f]((a && a[0]) || {}), hasil;
     if (Array.isArray(q)) {
