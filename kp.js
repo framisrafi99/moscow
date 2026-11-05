@@ -188,7 +188,8 @@
     };
     var on = { list: list, mulai: mulai };
     // KPW_rinci_: rincian per warna
-    var part = {}, tambah = function (k, w, q) { if (!k || !w || !q || !isFinite(q)) return; var o = part[k] || (part[k] = {}); o[w] = (o[w] || 0) + q; };
+    var part = {}, tambah = function (k, w, q) { if (!k || !w || !q || !isFinite(q)) return;
+      var bb = brg.idx[k] !== undefined ? brg.list[brg.idx[k]] : null; if (bb && !bb.w.length) return; // barang tanpa varian warna: tidak dirinci var o = part[k] || (part[k] = {}); o[w] = (o[w] || 0) + q; };
     var mulaiK = {};
     list.forEach(function (x) { if (x.t) mulaiK[x.k] = x.t; });
     awal.forEach(function (r) { var k = rapi(r[0], 30).toUpperCase(), w = warna(r[3]), q = Number(r[4]); if (k && w && isFinite(q)) tambah(k, w, q); });
