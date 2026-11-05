@@ -535,8 +535,8 @@
       ptrTerima: ptrTerimaRpc('gudang'),
       gdxKpUsul: hppUsulRpc('kp'),
       // Hitung stok & penyesuaian Kantor Packing: stok sistem dari kp.js, dicatat RPC kp_ajuan.
-      gdxKpHitung: function (p) { return window.KantorPacking.gdxKpHitung(sb, p); },
-      gdxKpHitungW: function (p) { return window.KantorPacking.gdxKpHitungW(sb, p); },
+      gdxKpHitung: function (p) { return window.KantorPacking.gdxKpHitung(sb, Object.assign({}, p, { tanggal: tglOp('gdxKa') })); },
+      gdxKpHitungW: function (p) { return window.KantorPacking.gdxKpHitungW(sb, Object.assign({}, p, { tanggal: tglOp('kpwAl') })); },
       gdxKpSesuaiW: function (p) { return window.KantorPacking.gdxKpSesuaiW(sb, p); },
       // Pengajuan pembelian (pgdAjukan + pembungkus): robot dari potret; Telegram, pesan Mike & Viory oleh Apps Script (efek_antre).
       gdxAjukan: function (p) {
@@ -549,7 +549,8 @@
       },
       // Hitung stok (opname) dan penyesuaian stok gudang: ajuan menunggu persetujuan; Telegram dijalankan Apps Script (efek_antre).
       gdOpname: function (p) {
-        return ['gudang_opname', { p_nama: teks(p.nama), p_alasan: teks(p.alasan), p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token) }];
+        return ['gudang_opname', { p_nama: teks(p.nama), p_alasan: teks(p.alasan), p_items: Array.isArray(p.items) ? p.items : [], p_token: teks(p.token),
+          p_tanggal: tglOp('skAlasan') || null }];
       },
       // Order Masuk: tombol "Kirim" (surat jalan + info pengiriman di ORDER_PROSES). Dengan foto paket tetap lewat Apps Script (foto ke Drive).
       gdxOrderKirim: function (p) {
@@ -964,6 +965,40 @@
     '🏠': 'M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5'
   };
   var EMOJI_GD = /^[\s‍️]*(\p{Extended_Pictographic})[‍️]*\s*/u;
+  // Hitung stok (Gudang Utama, Kantor Packing total & per warna): pilihan tanggal hitung (5 Nov 2026).
+  // Kotak tanggal disisipkan di atas kolom keterangan setiap kali form menggambar ulang; nilainya disimpan di sini.
+  var TGL_OP = {};
+  function hariWita(geser) { return new Date(Date.now() + 8 * 3600e3 - (geser || 0) * 86400e3).toISOString().slice(0, 10); }
+  function tglOp(id) { var t = TGL_OP[id] || ''; return /^\d{4}-\d{2}-\d{2}$/.test(t) && t < hariWita() ? t : ''; }
+  function tanggalOpname(dok) {
+    var CATATAN = 'Hasil hitung dianggap jumlah fisik di akhir tanggal ini. Selisih dibandingkan dengan stok sistem per akhir tanggal itu; ' +
+      'barang yang keluar / masuk sesudahnya (penyaluran, kiriman produksi, penjualan) tetap tercatat. Angka "stok sistem" di daftar adalah stok hari ini.';
+    function pasang() {
+      ['skAlasan', 'gdxKa', 'kpwAl'].forEach(function (id) {
+        var el = dok.getElementById(id);
+        if (!el || dok.getElementById('tgOp_' + id)) return;
+        var ref = el.previousElementSibling && el.previousElementSibling.tagName === 'LABEL' ? el.previousElementSibling : el;
+        var w = dok.createElement('div'); w.style.margin = '0 0 12px';
+        w.innerHTML = '<label for="tgOp_' + id + '" style="margin-top:0">Tanggal hitung stok</label>' +
+          '<input type="date" id="tgOp_' + id + '" min="' + hariWita(62) + '" max="' + hariWita() + '" value="' + (tglOp(id) || hariWita()) + '">' +
+          '<div class="kecil ks" style="margin-top:4px"></div>';
+        ref.parentNode.insertBefore(w, ref);
+        var inp = w.querySelector('input'), ket = w.querySelector('div');
+        var tulis = function () {
+          var v = inp.value || hariWita();
+          if (v > hariWita()) { v = hariWita(); inp.value = v; }
+          TGL_OP[id] = v < hariWita() ? v : '';
+          ket.textContent = TGL_OP[id] ? CATATAN : 'Hitung stok hari ini. Ganti tanggal kalau hitungnya dilakukan di hari sebelumnya.';
+          ket.style.color = TGL_OP[id] ? '#9A5B00' : '';
+        };
+        inp.addEventListener('change', tulis); inp.addEventListener('input', tulis); tulis();
+      });
+    }
+    pasang();
+    var tunda = 0;
+    new MutationObserver(function () { if (tunda) return; tunda = requestAnimationFrame(function () { tunda = 0; pasang(); }); })
+      .observe(dok.body, { childList: true, subtree: true });
+  }
   function ikonGd(dok) {
     if (!dok.getElementById('ikGaya')) {
       var g = dok.createElement('style'); g.id = 'ikGaya';
@@ -1202,7 +1237,7 @@
       var nm = dok.getElementById('nama');
       if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
       ukur(); tekan(C.aktif);
-      if (APP === 'gudang') { try { cariKodeKirim(dok); } catch (e) { } try { ikonGd(dok); } catch (e) { } }
+      if (APP === 'gudang') { try { cariKodeKirim(dok); } catch (e) { } try { ikonGd(dok); } catch (e) { } try { tanggalOpname(dok); } catch (e) { } }
       if (BUKA.length) jalankanBuka(dok);
       // Stok di dalam tampilan simpanan bisa sudah lama: langsung dimuat ulang (form produksi).
       if (dariSimpanan) try { if (typeof fr.contentWindow.muatStok === 'function') fr.contentWindow.muatStok(); } catch (e) { }

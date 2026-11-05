@@ -98,6 +98,14 @@
     Object.keys(adj).forEach(function (k) { var x = ambil(k); x.sesuai = (x.sesuai || 0) + adj[k]; x.q += adj[k]; });
     // Bungkus MP: penjualan marketplace Official (padanan dikonfirmasi) sejak stok awal / hitung stok terakhir.
     var mp = { per: {}, perW: [] };
+    // Peristiwa sesudah suatu waktu (hitung stok dengan tanggal mundur, 5 Nov 2026): kiriman gudang & penjualan, per barang dan per warna.
+    var evKirim = [], evJual = [];
+    var msWita = function (s) { var m = s.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) - WITA * 3600000 : NaN; };
+    baca('gudang_log', 12).forEach(function (r) {
+      if (!(r[0] instanceof Date) || !/^keluar/i.test(rapi(r[1], 30)) || rapi(r[6], 100).toLowerCase() !== tujuan) return;
+      var k = rapi(r[2], 30).toUpperCase(), q = Number(r[5]);
+      if (k && isFinite(q)) evKirim.push({ k: k, w: warna(r[4]), ms: r[0].getTime(), q: q });
+    });
     if (aktif) {
       var pdn = {};
       baca('mp_padanan', 7).forEach(function (r) {
@@ -123,7 +131,6 @@
         var t = x.wa.getTime();
         if (!jamHitung[x.k] || t > jamHitung[x.k]) jamHitung[x.k] = t;
       });
-      var msWita = function (s) { var m = s.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) - WITA * 3600000 : NaN; };
       var jualSesudah = {};
       baca('mp_pesanan', 17).forEach(function (r) {
         if (rapi(r[1], 40) !== 'Official' || !rapi(r[3], 40)) return;
@@ -138,6 +145,7 @@
         var pk = PAKET[m.k], kk = pk ? pk.k : m.k;
         var c = batas[kk] || umum;
         if (c && kirim < c) return;
+        evJual.push({ k: kk, ms: msWita(kirim), q: pk ? q * pk.w.length : q, w: pk ? pk.w.map(function (w) { return [w, q]; }) : (warna(m.w) ? [[warna(m.w), q]] : []) });
         if (jamHitung[kk] && msWita(kirim) >= jamHitung[kk]) jualSesudah[kk] = (jualSesudah[kk] || 0) + (pk ? q * pk.w.length : q);
         mp.per[kk] = (mp.per[kk] || 0) + (pk ? q * pk.w.length : q);
         if (pk) pk.w.forEach(function (w) { mp.perW.push([pk.k, w, -q]); });
@@ -182,7 +190,22 @@
       var s = 0; Object.keys(part[k]).forEach(function (w) { s += part[k][w]; });
       rinci[k] = { tot: 0, c: part[k], r: -s };
     });
-    return { brg: brg, on: on, rinci: rinci, pss: pss };
+    // Pergerakan sesudah waktu T (ms): stok per T = stok sekarang - kirim + jual (total dan per warna).
+    var geser = function (T) {
+      var g = { kirim: {}, jual: {}, kirimW: {}, jualW: {} };
+      evKirim.forEach(function (e) {
+        if (e.ms < T) return;
+        g.kirim[e.k] = (g.kirim[e.k] || 0) + e.q;
+        if (e.w) g.kirimW[e.k + '|' + e.w] = (g.kirimW[e.k + '|' + e.w] || 0) + e.q;
+      });
+      evJual.forEach(function (e) {
+        if (!(e.ms >= T)) return;
+        g.jual[e.k] = (g.jual[e.k] || 0) + e.q;
+        e.w.forEach(function (a) { g.jualW[e.k + '|' + a[0]] = (g.jualW[e.k + '|' + a[0]] || 0) + a[1]; });
+      });
+      return g;
+    };
+    return { brg: brg, on: on, rinci: rinci, pss: pss, geser: geser };
   }
 
   function daftarWarna(b, x) {
@@ -272,13 +295,21 @@
     var A = (await siap(sb)).A, daftar = Array.isArray(p.items) ? p.items : [], items = [];
     var sis = {};
     A.on.list.forEach(function (x) { sis[x.k] = x.q; });
+    // Tanggal hitung mundur: stok sistem pembanding = stok per akhir tanggal itu (23:59:59 WITA).
+    var tgl = jenis === 'sesuaiW' ? '' : rapi(p.tanggal, 10), G = null, hariIni = fmt(new Date(), WITA, 'yyyy-MM-dd');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(tgl) && tgl < hariIni) {
+      var tm = tgl.split('-');
+      G = A.geser(Date.UTC(+tm[0], +tm[1] - 1, +tm[2], 23, 59, 59) - WITA * 3600000);
+    } else if (tgl > hariIni) return { ok: false, pesan: 'Tanggal hitung stok tidak boleh sesudah hari ini.' };
+    else tgl = '';
+    var mundur = function (k) { return G ? -(G.kirim[k] || 0) + (G.jual[k] || 0) : 0; };
     for (var i = 0; i < daftar.length; i++) {
       var x = daftar[i] || {}, k = rapi(x.k, 30).toUpperCase(), w = jenis === 'hitung' ? '' : warna(x.w);
       var b = A.brg.idx[k] !== undefined ? A.brg.list[A.brg.idx[k]] : null;
       if (jenis === 'hitung') {
         var nm = b ? b.n : (A.on.list.filter(function (y) { return y.k === k; })[0] || {}).n;
         if (!nm) return { ok: false, pesan: 'Barang tidak dikenal: ' + k };
-        items.push({ k: k, n: nm, sis: sis[k] || 0, hitung: x.hitung });
+        items.push({ k: k, n: nm, sis: (sis[k] || 0) + mundur(k), hitung: x.hitung });
         continue;
       }
       var rc = A.rinci[k];
@@ -287,10 +318,17 @@
       if (w && wl.indexOf(w) === -1) return { ok: false, pesan: 'Warna ' + w + ' tidak ada di daftar ' + n2 + '.' };
       if (jenis === 'sesuaiW' && !w && wl.length && !(rc && rc.r)) return { ok: false, pesan: 'Pilih warna untuk ' + n2 + '.' };
       var s = !rc ? 0 : (w ? (rc.c[w] || 0) : rc.r);
+      if (G && jenis === 'hitungW') {
+        var kw = 0, jw = 0;
+        Object.keys(G.kirimW).forEach(function (z) { if (z.split('|')[0] === k) kw += G.kirimW[z]; });
+        Object.keys(G.jualW).forEach(function (z) { if (z.split('|')[0] === k) jw += G.jualW[z]; });
+        s += w ? -(G.kirimW[k + '|' + w] || 0) + (G.jualW[k + '|' + w] || 0)
+               : -((G.kirim[k] || 0) - kw) + ((G.jual[k] || 0) - jw);
+      }
       if (jenis === 'hitungW') items.push({ k: k, n: n2, w: w, sis: s, hitung: x.hitung });
       else items.push({ k: k, n: n2, w: w, sis: s, q: x.q, a: x.a, al: x.al });
     }
-    var r = await sb.rpc('kp_ajuan', { p_jenis: jenis, p_nama: rapi(p.nama, 40), p_alasan: jenis === 'sesuaiW' ? rapi(p.catatan, 200) : rapi(p.alasan, 200), p_items: items, p_token: rapi(p.token, 80) });
+    var r = await sb.rpc('kp_ajuan', { p_jenis: jenis, p_nama: rapi(p.nama, 40), p_alasan: jenis === 'sesuaiW' ? rapi(p.catatan, 200) : rapi(p.alasan, 200), p_items: items, p_token: rapi(p.token, 80), p_tanggal: tgl || null });
     if (r.error) throw new Error('Gagal menyimpan: ' + r.error.message + '. Tekan kirim sekali lagi; aman, tidak akan tercatat dua kali.');
     lupakan();
     return r.data;
