@@ -1,0 +1,7 @@
+-- 5 Nov 2026 (tahap 5): tampilan form staf tidak lagi bergantung pada Apps Script.
+-- * _barang_order_daftar(): daftar barang order (bacaBarangOrder_(true)); dipakai order_halaman & halaman_isi.
+-- * halaman_isi(): data yang dulu ditanam Apps Script di tampilan form (daftar barang order, pelanggan untuk manajemen,
+--   setelan nota kasir). Aplikasi memasukkannya ke tampilan simpanan (halaman_cache) saat form dibuka.
+--   Sudah dicek sama persis dengan isi tampilan buatan Apps Script (Master Data lama, toko, kasir; produksi lewat produksi.js).
+-- * gas_pakai + gas_pakai_catat(app, fn): catatan per hari fungsi Apps Script yang masih dipanggil aplikasi (bahan tahap 6).
+-- Definisi lengkap ada di database (pg_get_functiondef).

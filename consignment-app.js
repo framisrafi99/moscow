@@ -55,6 +55,8 @@
   async function kirim(f, a) {
     var badan = JSON.stringify({ t: await token(), f: f, a: a || [], toko: C.toko });
     var r;
+    // Catatan pemakaian Apps Script (tahap 6). Tidak ditunggu.
+    try { sb.rpc('gas_pakai_catat', { p_app: 'toko:' + (C.toko || ''), p_fn: f }).then(function () { }, function () { }); } catch (e) { }
     try { r = await fetch(SERVER, { method: 'POST', body: badan, redirect: 'follow' }); }
     catch (e) { throw new Error('Tidak tersambung ke server. Periksa internet lalu coba lagi.'); }
     var teks = await r.text(), d = null;
@@ -169,6 +171,8 @@
         p_items: Array.isArray(p.items) ? p.items : [], p_token: String(p.token || '') }];
     },
     // Bagi hasil: dana diterima per marketplace dan uang tunai penjualan offline (Sidoarjo).
+    // Pengaturan nota kasir (simpanSetelanNota Apps Script) -> sama dengan aplikasi Kasir (5 Nov 2026).
+    simpanSetelanNota: function (p) { return ['kasir_simpan_setelan', { p: { toko: C.toko, setelan: p.setelan || {} } }]; },
     salDanaSimpan: function (p) {
       return ['toko_dana_simpan', { p_toko: C.toko, p_jenis: '', p_saluran: String(p.saluran || ''), p_bulan: String(p.bulan || ''),
         p_nilai: String(p.dana === undefined || p.dana === null ? '' : p.dana), p_nama: String(p.nama || '') }];
@@ -481,6 +485,35 @@
     return html.split('"tanggal":"' + lama + '"').join('"tanggal":"' + kini + '"').split('"hariIni":"' + lama + '"').join('"hariIni":"' + kini + '"');
   }
 
+
+  // Blok data JSON yang ditanam di tampilan form ("var D = {...};") diganti isinya (5 Nov 2026, tanpa Apps Script).
+  function gantiBlok(html, nama, ubah) {
+    var m = new RegExp('(?:var|const|let)\\s+' + nama + '\\s*=\\s*').exec(html); if (!m) return html;
+    var s = html.indexOf('{', m.index); if (s < 0 || s > m.index + m[0].length + 2) return html;
+    var dalam = 0, i = s, str = false;
+    for (; i < html.length; i++) {
+      var c = html[i];
+      if (str) { if (c === '\\') { i++; continue; } if (c === '"') str = false; continue; }
+      if (c === '"') { str = true; continue; }
+      if (c === '{' || c === '[') dalam++; else if (c === '}' || c === ']') { dalam--; if (!dalam) break; }
+    }
+    var o; try { o = JSON.parse(html.slice(s, i + 1)); } catch (e) { return html; }
+    o = ubah(o) || o;
+    return html.slice(0, s) + JSON.stringify(o).replace(/</g, '\\u003c') + html.slice(i + 1);
+  }
+  // Daftar barang order & setelan nota kasir di tampilan simpanan diperbarui dari Supabase (dulu ditanam Apps Script).
+  async function isiUlang(html) {
+    try {
+      var r = await Promise.race([sb.rpc('halaman_isi'), new Promise(function (ok) { setTimeout(function () { ok(null); }, 6000); })]), d = r && r.data;
+      if (!d || !d.ok || !d.items || !d.items.length) return html;
+      html = gantiBlok(html, 'D', function (D) { if (Array.isArray(D.items)) D.items = d.items; });
+      html = gantiBlok(html, 'KS_DATA', function (K) {
+        if (Array.isArray(K.items)) K.items = d.items.map(function (b) { return { k: b.kode, n: b.nama, h: b.harga, kat: b.kat, w: b.w }; });
+        var st = d.kasir && d.kasir[K.toko || C.toko]; if (st) K.setelan = Object.assign({}, K.setelan || {}, st);
+      });
+    } catch (e) { }
+    return html;
+  }
   async function muat() {
     var m = $('muatan'); m.hidden = false; m.className = ''; m.textContent = 'Memuat form ' + (C.toko || 'toko') + '…';
     // Tampilan form yang tersimpan di Supabase dipakai dulu supaya terbuka seketika; yang lama diperbarui di belakang.
@@ -490,10 +523,10 @@
       if (!r.error && r.data && r.data.html) simpanan = r.data;
     } catch (e) { simpanan = null; }
     var umur = simpanan ? Date.now() - new Date(simpanan.dibuat).getTime() : Infinity;
-    if (simpanan && umur < 30 * 86400000) { // tampilan simpanan dipakai sampai 30 hari (diperbarui di belakang tiap > 30 menit), supaya tidak menunggu Apps Script
+    if (simpanan) { // tampilan simpanan selalu dipakai (isinya diperbarui dari Supabase); Apps Script hanya memperbaruinya di belakang selama masih jalan
       C.toko = simpanan.toko; C.daftar = simpanan.daftar || []; C.nama = simpanan.nama || C.nama;
       pilihToko();
-      tampil(segarkan(String(simpanan.html), simpanan.dibuat));
+      tampil(await isiUlang(segarkan(String(simpanan.html), simpanan.dibuat)));
       if (umur > 30 * 60000) kirim('halaman', []).catch(function () { });
       return;
     }

@@ -463,6 +463,12 @@
       return awal ? buat(h[0]).ambilStok(awal) : null;
     },
     prodSesuaiDaftar: async function (sb, semua) { return buat(await window.Lembar.muat(sb, ['produksi_sesuai_log'])).prodSesuaiDaftar(!!semua); },
+    // Isi tampilan form produksi (dulu ditanam Apps Script, file 0 halaman form): daftar barang produksi & pilihan warnanya (5 Nov 2026).
+    halamanData: async function (sb) {
+      var P = buat(await window.Lembar.muat(sb, ['katalog', 'barang_order'])), kat = P.katalog(), ada = P.warna(), warna = {};
+      Object.keys(kat).forEach(function (k) { if (ada[k]) warna[k] = ada[k]; });
+      return { items: Object.keys(kat).map(function (k) { return { kode: k, nama: kat[k] }; }), warna: warna };
+    },
     buat: buat, TABEL: TABEL
   };
 })();

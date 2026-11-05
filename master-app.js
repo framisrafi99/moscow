@@ -2443,6 +2443,7 @@
     var s = await sb.auth.getSession(), t = s && s.data && s.data.session ? s.data.session.access_token : '';
     if (!t) throw new Error('Sesi masuk habis. Muat ulang halaman lalu masuk lagi.');
     var r;
+    try { sb.rpc('gas_pakai_catat', { p_app: 'master', p_fn: f }).then(function () { }, function () { }); } catch (e) { }
     try { r = await fetch(SERVER_AS + 'mdlama', { method: 'POST', body: JSON.stringify({ t: t, f: f, a: a || [] }), redirect: 'follow' }); }
     catch (e) { throw new Error('Tidak tersambung ke server. Periksa internet lalu coba lagi.'); }
     var teks = await r.text(), d = null;

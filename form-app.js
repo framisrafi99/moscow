@@ -192,6 +192,8 @@
     if (salinJalan) { try { await salinJalan; } catch (e) { } }
     var badan = JSON.stringify({ t: await token(), f: f, a: a || [] });
     var r;
+    // Catatan pemakaian Apps Script (tahap 6: mana yang masih bergantung). Tidak ditunggu.
+    try { sb.rpc('gas_pakai_catat', { p_app: APP, p_fn: f }).then(function () { }, function () { }); } catch (e) { }
     try { r = await fetch(SERVER + APP, { method: 'POST', body: badan, redirect: 'follow' }); }
     catch (e) { throw new Error('Tidak tersambung ke server. Periksa internet lalu coba lagi.'); }
     var teks = await r.text(), d = null;
@@ -1136,6 +1138,38 @@
     var bagian = html.slice(i, j).replace(/("tanggal":")\d{4}-\d{2}-\d{2}(")/, function (x, a, b) { return a + hariIni() + b; });
     return html.slice(0, i) + bagian + html.slice(j);
   }
+
+  // Blok data JSON yang ditanam di tampilan form ("var D = {...};") diganti isinya (5 Nov 2026, tanpa Apps Script).
+  function gantiBlok(html, nama, ubah) {
+    var m = new RegExp('(?:var|const|let)\\s+' + nama + '\\s*=\\s*').exec(html); if (!m) return html;
+    var s = html.indexOf('{', m.index); if (s < 0 || s > m.index + m[0].length + 2) return html;
+    var dalam = 0, i = s, str = false;
+    for (; i < html.length; i++) {
+      var c = html[i];
+      if (str) { if (c === '\\') { i++; continue; } if (c === '"') str = false; continue; }
+      if (c === '"') { str = true; continue; }
+      if (c === '{' || c === '[') dalam++; else if (c === '}' || c === ']') { dalam--; if (!dalam) break; }
+    }
+    var o; try { o = JSON.parse(html.slice(s, i + 1)); } catch (e) { return html; }
+    o = ubah(o) || o;
+    return html.slice(0, s) + JSON.stringify(o).replace(/</g, '\\u003c') + html.slice(i + 1);
+  }
+  // Daftar barang, pilihan warna & pelanggan di tampilan simpanan diperbarui dari Supabase (dulu ditanam Apps Script saat membuat tampilan).
+  async function isiUlang(html) {
+    try {
+      if (APP === 'produksi' && window.Produksi && window.Produksi.halamanData) {
+        var p = await batasWaktu(window.Produksi.halamanData(sb), 6000);
+        if (p && p.items && p.items.length) html = gantiBlok(html, 'D', function (D) { D.items = p.items; D.warna = p.warna; });
+      } else if (APP === 'mdlama') {
+        var r = await batasWaktu(sb.rpc('halaman_isi'), 6000), d = r && r.data;
+        if (d && d.ok && d.items && d.items.length) html = gantiBlok(html, 'D', function (D) {
+          D.items = d.items;
+          if (Array.isArray(d.pelanggan) && Array.isArray(D.pelanggan)) D.pelanggan = d.pelanggan.map(function (x) { return { n: x.n, t: x.t, d: x.d, k: 'KUNCI_LAIN' }; });
+        });
+      }
+    } catch (e) { }
+    return html;
+  }
   async function muat() {
     var m = $('muatan'); m.hidden = false; m.className = ''; m.textContent = 'Memuat form…';
     var simpanan = null;
@@ -1144,9 +1178,9 @@
       if (!r.error && r.data && r.data.html) simpanan = r.data;
     } catch (e) { simpanan = null; }
     var umur = simpanan ? Date.now() - new Date(simpanan.dibuat).getTime() : Infinity;
-    if (simpanan && umur < 30 * 86400000) { // tampilan simpanan dipakai sampai 30 hari (diperbarui di belakang tiap > 30 menit), supaya tidak menunggu Apps Script
+    if (simpanan) { // tampilan simpanan selalu dipakai (isinya diperbarui dari Supabase); Apps Script hanya memperbaruinya di belakang selama masih jalan
       C.nama = simpanan.nama || '';
-      tampil(segarkan(String(simpanan.html)), true);
+      tampil(await isiUlang(segarkan(String(simpanan.html))), true);
       if (umur > 30 * 60000) kirim('halaman', []).catch(function () { });
       return;
     }
