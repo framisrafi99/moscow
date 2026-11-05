@@ -266,11 +266,17 @@
       rd.onload = function (e) {
         try {
           var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
-          var ws = wb.Sheets[wb.SheetNames[0]];
-          perbaikiRef(ws);
-          var rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
-          var h = bacaFile(S.pf, rows);
-          if (h.galat) { pesan(el, opsi, esc(h.galat), 'bad'); return; }
+          // File bisa punya beberapa sheet (5 Nov 2026: ekspor Shopee kini diawali sheet "Advance Fulfilment", pesanan ada di sheet "orders").
+          // Semua sheet dicoba; sheet pertama yang terbaca sebagai file pesanan dipakai.
+          var h = null, galat = null;
+          for (var si = 0; si < wb.SheetNames.length && !(h && !h.galat); si++) {
+            var ws = wb.Sheets[wb.SheetNames[si]];
+            perbaikiRef(ws);
+            var rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+            var hs = bacaFile(S.pf, rows);
+            if (hs.galat) { if (!galat) galat = hs.galat; } else h = hs;
+          }
+          if (!h) { pesan(el, opsi, esc(galat || 'File tidak bisa dibaca.'), 'bad'); return; }
           h.toko = S.toko; h.pf = S.pf; h.nama = f.name;
           S.prev = h; pesan(el, opsi, '');
         } catch (err) { pesan(el, opsi, 'File tidak bisa dibaca: ' + esc(err && err.message ? err.message : err), 'bad'); }
