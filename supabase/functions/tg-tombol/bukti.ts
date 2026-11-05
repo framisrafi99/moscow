@@ -697,7 +697,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     const belum = (await sb.rpc('bb_belum_bayar')).data || { p: [], o: [] };
     const r = await baca({ data, mime: b.file_jenis === 'pdf' ? 'application/pdf' : 'image/jpeg', teks: b.caption || '', tglPesan, daftar: items, padanan: await padananUntuk(items), belum });
     const nominal = Math.round(Number(r.nominal) || 0);
-    return { ok: true, nominal, sistem: r.sistem, pindah: pindahValid(r.pindah, b.pengirim || ''), rencana: nominal ? rencanaBayar(r, belum, items, nominal) : null,
+    return { ok: true, nominal, barang: r.barang, sistem: r.sistem, pindah: pindahValid(r.pindah, b.pengirim || ''), rencana: nominal ? rencanaBayar(r, belum, items, nominal) : null,
       hasil: nominal && items.length ? cocokBarang(r, items, nominal, b.caption || '') : null };
   }
 
@@ -720,5 +720,35 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     return await umumkan(String(r.data), false);
   }
 
-  return { grup, tombol, periksaTunggu, bacaUlang, uji, umumkan, pengingat };
+  // ---------- pertanyaan konfirmasi bertombol (bb_tanya) ----------
+  // isi: { teks (HTML), pilihan: [{ label, aksi }], chats?: [chat id] } -> dikirim ke grup Bukti Bayar (bawaan) / grup lain
+  async function tanyaKirim(isi: Any) {
+    const g = await atur('grup');
+    const chats = (Array.isArray(isi.chats) && isi.chats.length ? isi.chats : [g && g.chat]).filter(Boolean).map(String);
+    const pilihan = Array.isArray(isi.pilihan) ? isi.pilihan.slice(0, 6) : [];
+    if (!pilihan.length || !chats.length) return { ok: false, pesan: 'Pilihan / grup kosong.' };
+    const ins = await sb.from('bb_tanya').insert({ teks: String(isi.teks || '').slice(0, 3500), pilihan, status: 'buka' }).select('id').single();
+    if (ins.error) return { ok: false, pesan: ins.error.message };
+    const id = ins.data.id, pesan: Any[] = [];
+    const kb = { inline_keyboard: pilihan.map((p: Any, k: number) => [{ text: t(p.label, 60), callback_data: 'q|' + id + '|' + k }]) };
+    for (const c of chats) {
+      const r = await api('sendMessage', { chat_id: c, text: String(isi.teks || '').slice(0, 3500), parse_mode: 'HTML', reply_markup: kb, disable_web_page_preview: true });
+      if (r && r.ok) pesan.push({ chat: c, msg: r.result.message_id }); else console.error('tanya kirim', c, r && r.description);
+    }
+    await sb.from('bb_tanya').update({ pesan }).eq('id', id);
+    return { ok: true, id, pesan };
+  }
+  async function tanyaTombol(q: Any) {
+    const s = String(q.data || '').split('|'), id = Number(s[1]), k = Number(s[2]);
+    const jawab = (x: string, alert = false) => api('answerCallbackQuery', { callback_query_id: q.id, text: x.slice(0, 195), show_alert: alert });
+    const nama = (await anggota(String(q.from?.id || ''))) || t([q.from?.first_name, q.from?.last_name].join(' '), 40) || 'Anggota';
+    const r = await sb.rpc('bb_tanya_jawab', { p_id: id, p_k: k, p_oleh: nama });
+    if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal menyimpan.'), true);
+    const d = r.data;
+    const teks = String(d.teks || '') + '\n\n✅ <b>Dijawab ' + esc(nama) + '</b>: ' + esc(d.label) + (d.hasil ? '\n<i>' + esc(d.hasil) + '</i>' : '');
+    for (const p of (d.pesan || [])) await api('editMessageText', { chat_id: p.chat, message_id: p.msg, text: teks.slice(0, 4000), parse_mode: 'HTML', disable_web_page_preview: true });
+    return jawab('Terima kasih, jawaban tersimpan.');
+  }
+
+  return { grup, tombol, periksaTunggu, bacaUlang, uji, umumkan, pengingat, tanyaKirim, tanyaTombol };
 }

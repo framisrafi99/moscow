@@ -107,6 +107,7 @@ async function selesai(x: any, p: string, aksi: string, alasan: string) {
 async function tekan(q: any, upd: number) {
   const data = String(q.data || '');
   if (data.startsWith('b|')) return bukti.tombol(q);
+  if (data.startsWith('q|')) return bukti.tanyaTombol(q);
   if (data === 'x') return jawab(q, 'Sudah diproses.');
   const m = /^a\|([A-Za-z0-9]+)\|([st])$/.exec(data);
   if (!m) return jawab(q, 'Tombol tidak dikenal.');
@@ -227,6 +228,7 @@ Deno.serve(async (req) => {
     try { isi = await req.json(); } catch (_) { isi = {}; }
     if (isi && isi.uji) return json(await bukti.uji(Number(isi.uji)));
     if (isi && isi.pengingat) return json(await bukti.pengingat());
+    if (isi && isi.tanya) return json(await bukti.tanyaKirim(isi.tanya));
     if (isi && isi.umumkan) return json(await bukti.umumkan(String(isi.umumkan), isi.sematkan !== false));
     const a =await bukti.periksaTunggu(), n = await bukti.bacaUlang();
     return json({ ok: true, ...a, bacaUlang: n });
