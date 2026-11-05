@@ -36,6 +36,15 @@ function akunBawaan(nama: string, nominal: number) {
   if (nama === 'Mike') return nominal >= MIKE_TANYA ? '' : 'Rekening Belanja';   // nominal besar: robot menanyakan PT atau Belanja
   return '';
 }
+// Siapa yang sebenarnya membayar: caption "dibayar Junior" lebih dulu, lalu nama pemilik rekening yang terbaca di bukti.
+const PEMBAYAR: [RegExp, string][] = [[/\b(junior|jun|francois)\b/i, 'Junior'], [/\b(mike|michael)\b/i, 'Mike'], [/\b(viory|fiori|vio)\b/i, 'Viory'],
+  [/\b(daffa|dava|dafa)\b/i, 'Daffa'], [/\b(ronny|roni|rony)\b/i, 'Ronny'], [/\biqbal\b/i, 'Iqbal']];
+const RE_DIBAYAR = /dibayar(?:\s+oleh)?\s+([a-z]+)/i;
+function cocokNamaOrang(s: string) { for (const [re, n] of PEMBAYAR) if (re.test(s)) return n; return ''; }
+function pembayarDari(caption: string, atasNama: string) {
+  const m = RE_DIBAYAR.exec(caption || '');
+  return (m && cocokNamaOrang(m[1])) || cocokNamaOrang(atasNama || '');
+}
 function akunDariTeks(s: string) {
   s = ' ' + s.toLowerCase() + ' ';
   if (/(kas|cash|tunai) ?toko/.test(s)) return 'Kas Toko Offline';
@@ -107,7 +116,10 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       'Jawab HANYA dengan JSON (tanpa teks lain):\n' +
       '{"bukti":true|false, "belum_bayar":true|false, "nominal":angka total yang dibayar (rupiah, bulat), "tanggal":"YYYY-MM-DD" atau null, ' +
       '"penerima":"toko / penerima", "ringkasan":"apa yang dibayar, singkat, maks 110 huruf, bahasa Indonesia", "kategori":"salah satu kategori", ' +
-      '"sumber":"Rekening Belanja|Rekening PT|ShopeePay|Kas Tunai|" , "ref":"nomor referensi / no pesanan atau \\"\\"", "barang":[{"nama":"nama barang","total":angka}], "sistem":[{"kode":"B1|P1|I1|O1","nota":"nama barang di bukti","total":angka}], "pindah":null atau {"dari":"akun asal","ke":"akun tujuan","biaya":angka biaya admin}, "yakin":0-1}\n' +
+      '"sumber":"Rekening Belanja|Rekening PT|ShopeePay|Kas Tunai|" , "ref":"nomor referensi / no pesanan atau \\"\\"", "barang":[{"nama":"nama barang","total":angka}], "sistem":[{"kode":"B1|P1|I1|O1","nota":"nama barang di bukti","total":angka}], "pindah":null atau {"dari":"akun asal","ke":"akun tujuan","biaya":angka biaya admin}, ' +
+      '"jenis_bayar":"transfer_bank|shopeepay|tunai|lainnya|", "atas_nama":"nama pemilik rekening / akun yang MEMBAYAR (pengirim uang) kalau terlihat, atau \\"\\"", "yakin":0-1}\n' +
+      'jenis_bayar: transfer_bank = transfer / m-banking / virtual account / QRIS dari rekening bank; shopeepay = pesanan Shopee / saldo ShopeePay (kecuali terlihat dibayar dengan transfer bank / VA); ' +
+      'tunai = nota / struk tanpa info pembayaran non-tunai atau tertulis cash; "" kalau tidak jelas. atas_nama = nama PENGIRIM uang (bukan penerima). ' +
       'Aturan: bukti=true kalau ini bukti pembayaran / nota / struk / transfer / pesanan yang sudah dibayar, atau pesan teks yang melaporkan pengeluaran. ' +
       'belum_bayar=true kalau ini pesanan / invoice / sales order / COD / tagihan yang belum lunas. ' +
       'nominal = total yang benar-benar dibayar (termasuk ongkir & biaya admin), bukan harga satuan; kalau ada beberapa pesanan, jumlahkan semuanya. ' +
@@ -161,6 +173,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       const pd = r.pindah, cb = (op: string) => 'b|' + b.id + '|' + op;
       let hp = '🔁 <b>Pindah dana dari ' + esc(b.pengirim) + '</b>\n💸 <b>' + (b.nominal ? rp(b.nominal) : 'nominal belum terbaca') + '</b> · ' + tglId(b.tanggal) +
         '\n🏦 ' + (pd.dari ? '<b>' + esc(pd.dari) + '</b>' : '❓ <b>akun asal?</b> (tekan 🏦 Dari)') + ' → <b>' + esc(pd.ke) + '</b>' +
+        (r.pembayar && r.pembayar !== b.pengirim ? '\n👤 Dibayar <b>' + esc(r.pembayar) + '</b> (bukti dikirim ' + esc(b.pengirim) + ')' : '') +
         (pd.biaya ? '\n🧾 Biaya admin ' + rp(pd.biaya) + ' <i>(dicatat sebagai pengeluaran dari ' + esc(pd.dari || 'akun asal') + ')</i>' : '') +
         '\n\n<i>Uang pindah antar akun Moscow, bukan pengeluaran. Kalau benar, ' + esc(b.pengirim) + ' tekan ✅ Catat pindah dana.</i>';
       if (b.catatan) hp += '\n\n<i>' + esc(b.catatan) + '</i>';
@@ -170,7 +183,8 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
         [{ text: '📝 Ini pengeluaran', callback_data: cb('g') }, { text: '❌ Bukan', callback_data: cb('x') }]] } };
     }
     let h ='🧾 <b>Bukti dari ' + esc(b.pengirim) + '</b>\n💸 <b>' + (b.nominal ? rp(b.nominal) : 'nominal belum terbaca') + '</b> · ' + tglId(b.tanggal) +
-      '\n📝 ' + esc(b.keterangan || '-') + '\n🏷️ ' + esc(b.kategori || '-') + '\n🏦 ' + (b.akun ? esc(b.akun) : '❓ <b>akun bayar belum dipilih</b> (pilih di bawah)');
+      '\n📝 ' + esc(b.keterangan || '-') + '\n🏷️ ' + esc(b.kategori || '-') + '\n🏦 ' + (b.akun ? esc(b.akun) : '❓ <b>akun bayar belum dipilih</b> (pilih di bawah)') +
+      (r.pembayar && r.pembayar !== b.pengirim ? '\n👤 Dibayar <b>' + esc(r.pembayar) + '</b> (bukti dikirim ' + esc(b.pengirim) + ')' : '');
     if (r.belum_bayar) h += '\n\n⚠️ <i>Sepertinya ini pesanan / tagihan yang belum lunas. Catat hanya kalau sudah dibayar.</i>';
     if (r.bukti === false) h += '\n\n⚠️ <i>Sepertinya bukan bukti pembayaran. Abaikan kalau memang bukan.</i>';
     if (r.rencana && r.rencana.calon) h += '\n\n🌏 <b>Pengajuan impor yang menunggu dibayar</b> — centang yang dibayar dengan bukti ini' +
@@ -368,11 +382,16 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     const tanggal = /^\d{4}-\d{2}-\d{2}$/.test(String(r.tanggal || '')) && String(r.tanggal) <= tglPesan ? String(r.tanggal) : tglPesan;
     if (nominal < 0) nominal = 0;
     const kategori = KATEGORI.indexOf(String(r.kategori)) > -1 ? String(r.kategori) : 'Biaya lain-lain';
-    const akun = akunDariTeks(teks) || (AKUN.indexOf(String(r.sumber)) > -1 ? String(r.sumber) : '') || akunBawaan(nama, nominal);
+    // siapa yang membayar (bisa beda dengan pengirim bukti, mis. Viory meneruskan bukti transfer Junior)
+    const pembayar = pembayarDari(teks, String(r.atas_nama || '')) || nama;
+    r.pembayar = pembayar;
+    // rekening asal: caption > rekening yang terbaca di bukti > bawaan pembayar; kalau tidak jelas robot BERTANYA (tidak menebak)
+    let akun = akunDariTeks(teks) || (AKUN.indexOf(String(r.sumber)) > -1 ? String(r.sumber) : '');
+    if (!akun) akun = pembayar === 'Viory' ? (String(r.jenis_bayar) === 'shopeepay' ? 'ShopeePay' : '') : akunBawaan(pembayar, nominal);
     const ket = t((r.ringkasan || teks || 'Pengeluaran') + (r.penerima && String(r.ringkasan || '').toLowerCase().indexOf(String(r.penerima).toLowerCase()) === -1 ? ' (' + r.penerima + ')' : ''), 150);
-    const tanyaAkun = !akun && nama === 'Mike' && nominal >= MIKE_TANYA;
     let b = await ubah(id, { baca: r, nominal: nominal || null, tanggal, kategori, akun: akun || null, keterangan: ket, status: 'usul',
-      catatan: tanyaAkun ? '💬 Mike, nominalnya besar: dibayar dari Rekening PT atau Rekening Belanja? Pilih akunnya di bawah.' : null });
+      catatan: akun ? null : (pembayar === 'Mike' && nominal >= MIKE_TANYA ? '💬 Mike, nominalnya besar: dibayar dari Rekening PT atau Rekening Belanja? Pilih akunnya di bawah.'
+        : '💬 ' + nama + ', bukti ini dibayar dari rekening / saldo mana? Pilih akunnya di bawah.') });
 
     // bukti kembar (foto yang sama dikirim dua kali)
     if (nominal) {
@@ -386,7 +405,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       }
     }
     // pindah dana antar akun Moscow (PT -> Belanja, Belanja -> ShopeePay / Kas): dicatat sebagai Pindah, bukan pengeluaran
-    const pd = pindahValid(r.pindah, nama);
+    const pd = pindahValid(r.pindah, pembayar);
     if (pd && nominal) {
       const c = await sb.rpc('bb_cocok_pindah', { p_nominal: nominal, p_tanggal: tanggal, p_dari: pd.dari, p_ke: pd.ke });
       const cand = Array.isArray(c.data) && c.data[0];
@@ -475,8 +494,15 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
   async function terapkanUbah(id: number, teks: string, m: Any) {
     const b = await ambil(id); if (!b || ['dicatat', 'cocok', 'sama', 'bukan'].indexOf(b.status) > -1) return;
     const isi: Any = {};
-    const d = /(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?/.exec(teks);
     let sisa = teks;
+    // "dibayar Junior" -> pembayar diganti; akun ikut bawaan pembayar kalau belum dipilih
+    const mb = RE_DIBAYAR.exec(teks), pb = mb ? cocokNamaOrang(mb[1]) : '';
+    if (pb) {
+      isi.baca = { ...(b.baca || {}), pembayar: pb };
+      sisa = sisa.replace(mb![0], ' ');
+      if (!b.akun) { const ab = akunBawaan(pb, Number(b.nominal) || 0); if (ab) { isi.akun = ab; isi.catatan = null; } }
+    }
+    const d = /(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?/.exec(sisa);
     if (d) {
       const y = d[3] ? (d[3].length === 2 ? '20' + d[3] : d[3]) : hariWita().slice(0, 4);
       const tg = y + '-' + ('0' + d[2]).slice(-2) + '-' + ('0' + d[1]).slice(-2);
@@ -485,13 +511,13 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     }
     const n = adaNominal(sisa) ? angka(sisa) : null;
     if (n) { isi.nominal = n; sisa = sisa.replace(/rp\.?\s*/ig, '').replace(/\d[\d.,]*\s*(k|rb|ribu|jt|juta)?\b/i, ' '); }
-    const ak = akunDariTeks(sisa); if (ak) isi.akun = ak;
+    const ak = akunDariTeks(sisa); if (ak) { isi.akun = ak; if (String(b.catatan || '').startsWith('💬')) isi.catatan = null; }
     sisa = t(sisa.replace(/[,;]+/g, ' '), 150);
     if (sisa.length >= 3 && !ak) isi.keterangan = sisa;
-    if (!Object.keys(isi).length) { await api('sendMessage', { chat_id: m.chat.id, reply_to_message_id: m.message_id, text: 'Tidak ada yang bisa diubah. Contoh: 150000 / 03/11 / listrik ruko / cash' }); return; }
+    if (!Object.keys(isi).length) { await api('sendMessage', { chat_id: m.chat.id, reply_to_message_id: m.message_id, text: 'Tidak ada yang bisa diubah. Contoh: 150000 / 03/11 / listrik ruko / cash / dibayar Junior' }); return; }
     // nominal diubah: rencana bayar dari AI tidak berlaku lagi (dicatat biasa / bayar lewat aplikasi)
     if (isi.nominal && b.baca && b.baca.rencana && Number(isi.nominal) !== Number(b.nominal))
-      isi.baca = { ...b.baca, rencana: b.baca.rencana.calon ? hitungImpor(b.baca.rencana, Number(isi.nominal)) : null };
+      isi.baca = { ...(isi.baca || b.baca), rencana: b.baca.rencana.calon ? hitungImpor(b.baca.rencana, Number(isi.nominal)) : null };
     const baru = await ubah(id, isi);
     await tampil(baru);
     await api('sendMessage', { chat_id: m.chat.id, reply_to_message_id: m.message_id, text: '✏️ Diperbarui. Cek kartu di atas lalu tekan ✅ Catat.' });
@@ -507,15 +533,18 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     if (uid !== String(b.uid)) return jawab('Hanya ' + (b.pengirim || 'pengirim bukti ini') + ' (yang mengirim bukti) yang bisa menekan tombol ini.', true);
     if (['dicatat', 'cocok', 'sama', 'bukan'].indexOf(b.status) > -1) return jawab('Sudah diproses.');
     const oleh = (await anggota(uid)) || t(q.from?.first_name, 40);
+    // pembayar sebenarnya (caption "dibayar Junior" / nama rekening di bukti) dicatat di accounting: "Junior via Viory"
+    const pb = b.baca && b.baca.pembayar ? String(b.baca.pembayar) : '';
+    const pengisi = pb && pb !== oleh ? pb + ' via ' + oleh : oleh;
     if (op === 'p') {
       const rc = b.baca && b.baca.rencana;
       if (!rc) return jawab('Tidak ada pengajuan yang cocok.');
       if (rc.calon && !rc.i.length) return jawab('Centang dulu pengajuan impor yang dibayar.', true);
       if (rc.kurang) return jawab('Total pengajuan lebih besar dari nota. Cek dulu atau bayar lewat aplikasi.', true);
-      const r = await sb.rpc('bb_bayar', { p_id: id, p_oleh: oleh });
+      const r = await sb.rpc('bb_bayar', { p_id: id, p_oleh: pengisi });
       if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal menyimpan.'), true);
       await simpanPadanan(rc.p.map((x: Any) => ({ nota: x.nota, sistem: x.n })).concat(rc.bps || []));
-      await tampil(b, '✅ <b>Sudah dibayar</b> oleh ' + esc(oleh) + ' · ' + esc(b.akun) + ' · ' + tglId(b.tanggal) + '\n💸 ' + rp(b.nominal) + teksRencana(rc) +
+      await tampil(b, '✅ <b>Sudah dibayar</b> oleh ' + esc(pengisi) + ' · ' + esc(b.akun) + ' · ' + tglId(b.tanggal) + '\n💸 ' + rp(b.nominal) + teksRencana(rc) +
         '\n\n📒 Accounting: ' + esc((r.data.trs || []).join(', ')) + '\n📎 Bukti dilampirkan. Staf: terima barangnya di form masing-masing.');
       return jawab('Tercatat dibayar: ' + (r.data.trs || []).join(', '));
     }
@@ -528,9 +557,9 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     }
     if (op === 'P') {
       const pd = b.baca && b.baca.pindah; if (!pd) return jawab('Bukti ini bukan pindah dana.');
-      const r = await sb.rpc('bb_catat_pindah', { p_id: id, p_oleh: oleh });
+      const r = await sb.rpc('bb_catat_pindah', { p_id: id, p_oleh: pengisi });
       if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal mencatat.'), true);
-      await tampil(b, '🔁 <b>Pindah dana dicatat ' + esc(r.data.no) + '</b> oleh ' + esc(oleh) + '\n💸 ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n🏦 ' + esc(pd.dari) + ' → ' + esc(pd.ke) +
+      await tampil(b, '🔁 <b>Pindah dana dicatat ' + esc(r.data.no) + '</b> oleh ' + esc(pengisi) + '\n💸 ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n🏦 ' + esc(pd.dari) + ' → ' + esc(pd.ke) +
         (r.data.biaya ? '\n🧾 Biaya admin ' + rp(pd.biaya) + ' (' + esc(r.data.biaya) + ')' : '') + '\n📎 Bukti dilampirkan.');
       return jawab('Tercatat: ' + r.data.no);
     }
@@ -557,9 +586,9 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       const c = b.nominal ? await sb.rpc('bb_cocok', { p_nominal: b.nominal, p_tanggal: b.tanggal, p_pengirim: b.pengirim }) : { data: [] };
       const cand = Array.isArray(c.data) && c.data[0];
       if (cand) { await sb.rpc('bb_tempel', { p_id: id, p_nos: cand.no }); await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n' + teksCocok(cand)); return jawab('Sudah tercatat sebelumnya — bukti ditempel.'); }
-      const r = await sb.rpc('bb_catat', { p_id: id, p_oleh: oleh });
+      const r = await sb.rpc('bb_catat', { p_id: id, p_oleh: pengisi });
       if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal mencatat.'), true);
-      await tampil(b, '✅ <b>Dicatat ' + esc(r.data.no) + '</b> oleh ' + esc(oleh) + '\n💸 ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + ' · ' + esc(b.akun) + '\n📝 ' + esc(b.keterangan) + ' · ' + esc(b.kategori));
+      await tampil(b, '✅ <b>Dicatat ' + esc(r.data.no) + '</b> oleh ' + esc(pengisi) + '\n💸 ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + ' · ' + esc(b.akun) + '\n📝 ' + esc(b.keterangan) + ' · ' + esc(b.kategori));
       return jawab('Tercatat di accounting: ' + r.data.no);
     }
     if (op === 's') {
