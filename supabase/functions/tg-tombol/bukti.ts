@@ -118,13 +118,15 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     try {
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST', headers: { 'x-api-key': kunci, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: MODEL, max_tokens: 600, messages: [{ role: 'user', content: konten }] }),
+        body: JSON.stringify({ model: MODEL, max_tokens: 2000, messages: [{ role: 'user', content: konten }] }),
       });
       const j = await r.json();
       if (!r.ok) return { galat: 'ai', pesan: t(j?.error?.message || r.status, 160) };
       const teks = String((j.content || []).map((c: Any) => c.text || '').join(''));
-      const m = /\{[\s\S]*\}/.exec(teks);
-      return m ? JSON.parse(m[0]) : { galat: 'ai', pesan: 'jawaban tidak terbaca' };
+      const a = teks.indexOf('{'), z = teks.lastIndexOf('}');
+      if (a > -1 && z > a) { try { return JSON.parse(teks.slice(a, z + 1)); } catch (_) { /* di bawah */ } }
+      console.error('bb ai', j.stop_reason, teks.slice(0, 400));
+      return { galat: 'ai', pesan: 'jawaban tidak terbaca' };
     } catch (e) { return { galat: 'ai', pesan: t((e as Error)?.message || e, 160) }; }
   }
 
@@ -208,7 +210,8 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     }
     const r = await baca({ data, mime, teks, tglPesan });
     if (r.galat) {
-      const p = r.galat === 'kunci' ? '⚠️ Robot belum bisa membaca bukti: kunci AI belum dipasang di server. Bukti tersimpan, nanti dibaca ulang.' : '⚠️ Bukti belum terbaca (' + esc(r.pesan || 'AI') + '). Coba kirim ulang sebentar lagi.';
+      const p = r.galat === 'kunci' ? '⚠️ Robot belum bisa membaca bukti: kunci AI belum dipasang di server. Bukti tersimpan, nanti dibaca ulang.' : (m.ulang ? '⚠️ Bukti tetap belum terbaca setelah dibaca ulang. Kirim ulang fotonya (lebih jelas / dipotong), atau tulis nominal + keterangannya sebagai teks.'
+        : '⚠️ Bukti belum terbaca (' + esc(r.pesan || 'AI') + '). Robot akan membaca ulang otomatis dalam 1 jam, atau kirim ulang sekarang.');
       await ubah(id, { status: 'gagal', catatan: p }); await tampil({ chat: String(chat.id), robot_msg: robotMsg }, p); return;
     }
     let nominal = Math.round(Number(r.nominal) || 0) || (teks ? angka(teks) || 0 : 0);
@@ -385,14 +388,14 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     return { tempel, tanya };
   }
 
-  // bukti yang gagal dibaca karena kunci AI belum ada: dibaca ulang
+  // bukti yang gagal dibaca (kunci AI belum ada / jawaban AI tidak terbaca): dibaca ulang sekali
   async function bacaUlang() {
     if (!(Deno.env.get('ANTHROPIC_API_KEY') || '').trim()) return 0;
-    const r = await sb.from('bb_bukti').select('*').eq('status', 'gagal').like('catatan', '%kunci AI%').limit(10);
+    const r = await sb.from('bb_bukti').select('*').eq('status', 'gagal').gte('waktu', new Date(Date.now() - 3 * 86400e3).toISOString()).limit(20);
     let n = 0;
-    for (const b of r.data || []) {
+    for (const b of (r.data || []).filter((x: Any) => /kunci AI|membaca ulang otomatis/.test(String(x.catatan || ''))).slice(0, 10)) {
       await sb.from('bb_bukti').delete().eq('id', b.id);
-      await proses({ chat: { id: b.chat }, from: { id: b.uid, first_name: b.pengirim }, message_id: b.msg, date: Math.floor(new Date(b.waktu).getTime() / 1000),
+      await proses({ ulang: true, chat: { id: b.chat }, from: { id: b.uid, first_name: b.pengirim }, message_id: b.msg, date: Math.floor(new Date(b.waktu).getTime() / 1000),
         caption: b.caption, text: b.file_id ? '' : b.caption, photo: b.file_jenis === 'foto' && b.file_id ? [{ file_id: b.file_id }] : undefined,
         document: b.file_jenis === 'pdf' && b.file_id ? { file_id: b.file_id, mime_type: 'application/pdf' } : undefined });
       if (b.robot_msg) await api('deleteMessage', { chat_id: b.chat, message_id: b.robot_msg });
