@@ -3,7 +3,7 @@
  * Penyalinan ke Google Sheets dan Telegram tetap dijalankan Apps Script di belakang (tulis-balik & efek_antre).
  */
 (function () {
-  var S = { el: null, sb: null, tab: 'belanja', D: null, memuat: false, PIL: {}, IN: {}, PERLU: {}, KQ: {}, FIL: 'Semua', ACCF: 'Belum diterima', sibuk: false, pesan: null, nama: '', salin: null };
+  var S = { el: null, sb: null, tab: 'belanja', D: null, HT: {}, memuat: false, PIL: {}, IN: {}, PERLU: {}, KQ: {}, FIL: 'Semua', ACCF: 'Belum diterima', sibuk: false, pesan: null, nama: '', salin: null };
   var BAYAR_LIST = ['ShopeePay', 'Kas Tunai', 'Rekening Belanja'];
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -37,6 +37,12 @@
       var d = await window.Purchasing.plxData(S.sb);
       if (!d || !d.ok) throw new Error('Data purchasing belum bisa dibaca.');
       S.D = d;
+      // Harga beli satuan terakhir tiap barang (pembanding harga baru, 5 Nov 2026).
+      try {
+        var nos = (d.belanja || []).map(function (a) { return a.no; });
+        var ht = nos.length ? await S.sb.rpc('plx_harga_terakhir', { p_nos: nos }) : null;
+        S.HT = ht && !ht.error && ht.data && ht.data.ok ? ht.data.harga || {} : {};
+      } catch (e2) { S.HT = {}; }
     } catch (e) { S.pesan = ['bad', 'Gagal memuat: ' + (e.message || e) + ' Tekan Muat ulang.']; }
     S.memuat = false;
     if (lalu) lalu();
@@ -54,26 +60,54 @@
         L.map(function (d) { return '<div>• ' + esc(d.no) + ' · ' + esc(d.st) + ' ' + esc(tgl(d.t)) + ' · ' + f(d.q) + ' ' + esc(d.s || '') + ' · ' + esc(d.bg) + (d.pg ? ' (' + esc(d.pg) + ')' : '') + '</div>'; }).join('') +
         '<div style="margin-top:4px">Kalau tetap mau belanja lagi, isi alasannya.</div></div>' : '') +
       (on ? '<div class="mini"><label>Qty dibeli (' + esc(a.s) + ')<input class="isian angka" inputmode="decimal" data-iq="' + esc(a.no) + '" value="' + esc(v.q !== undefined ? v.q : String(qOf(a)).replace('.', ',')) + '"></label>' +
-        '<label>Harga satuan (Rp)<input class="isian angka" inputmode="numeric" data-ih="' + esc(a.no) + '" value="' + esc(v.h !== undefined ? v.h : (a.h ? String(a.h) : '')) + '"></label>' +
+        '<label>Total dibayar untuk barang ini (Rp)<input class="isian angka" inputmode="numeric" data-it="' + esc(a.no) + '" placeholder="' + (a.h ? esc(f(Math.round(a.h * qOf(a)))) : 'termasuk ongkir') + '" value="' + esc(v.t || '') + '"></label>' +
+        '<div class="sb" style="grid-column:1/-1" id="puH_' + esc(a.no) + '">' + infoHarga(a) + '</div>' +
         (dob ? '<label style="grid-column:1/-1">Alasan belanja lagi (wajib)<input class="isian" maxlength="200" data-ia="' + esc(a.no) + '" value="' + esc(v.a || '') + '"></label>' : '') + '</div>' : '') +
       '</div></div>';
   }
-  function total() {
-    var t = 0;
-    (S.D ? S.D.belanja : []).forEach(function (a) { if (!S.PIL[a.no]) return; var v = S.IN[a.no] || {}; var qq = angka(v.q !== undefined ? v.q : qOf(a)), h = angka(v.h !== undefined ? v.h : a.h); if (qq > 0 && h > 0) t += Math.round(qq * h); });
-    return t;
+  // 5 Nov 2026: staf mengisi TOTAL yang dibayar per barang (boleh termasuk ongkir). Ongkir yang dibayar sekali untuk satu belanja
+  // diisi di kartu pembayaran dan dibagi ke barang terpilih sesuai nilainya. Harga satuan = total / qty, dihitung & disimpan sistem.
+  function totalBarang(a) { var v = S.IN[a.no] || {}, t = angka(v.t); return t > 0 ? Math.round(t) : 0; }
+  function ongkir() { var o = angka((S.IN.__f || {}).ong); return o > 0 ? Math.round(o) : 0; }
+  // Total akhir per barang terpilih (bagian ongkir dibagi sesuai nilai; sisa pembulatan masuk ke barang terakhir).
+  function rinciBayar() {
+    var L = terpilih(), dasar = 0, ong = ongkir(), out = {}, sisa = ong;
+    L.forEach(function (a) { dasar += totalBarang(a); });
+    L.forEach(function (a, i) {
+      var t = totalBarang(a), bag = !ong || !dasar ? 0 : (i === L.length - 1 ? sisa : Math.round(ong * t / dasar));
+      sisa -= bag; out[a.no] = t ? t + bag : 0;
+    });
+    return out;
+  }
+  function total() { var R = rinciBayar(), t = 0; Object.keys(R).forEach(function (k) { t += R[k]; }); return t; }
+  function infoHarga(a) {
+    var v = S.IN[a.no] || {}, qq = angka(v.q !== undefined ? v.q : qOf(a)), R = S.PIL[a.no] ? rinciBayar() : {}, t = R[a.no] || totalBarang(a), lalu = S.HT[a.no];
+    var h = qq > 0 && t > 0 ? Math.round(t / qq * 100) / 100 : 0, out = [];
+    if (h) out.push('Harga satuan: <b>' + rp(h) + '/' + esc(a.s) + '</b>' + (ongkir() && t !== totalBarang(a) ? ' (termasuk bagian ongkir ' + rp(t - totalBarang(a)) + ')' : ''));
+    if (lalu && lalu.h > 0) {
+      var p = h ? Math.round((h - lalu.h) / lalu.h * 1000) / 10 : null;
+      out.push('Terakhir dibeli ' + rp(lalu.h) + '/' + esc(a.s) + (lalu.t ? ' (' + esc(tgl(lalu.t)) + (lalu.sup ? ', ' + esc(lalu.sup) : '') + ')' : '') +
+        (p === null ? '' : p > 0.5 ? ' · <span class="naik">naik ' + String(p).replace('.', ',') + '%</span> (dilaporkan ke Kendali Bisnis)' : p < -0.5 ? ' · turun ' + String(-p).replace('.', ',') + '%' : ' · sama'));
+    } else if (h) out.push('Belum ada harga beli sebelumnya; harga ini jadi pembanding pembelian berikutnya.');
+    return out.join('<br>');
+  }
+  function segarHarga() {
+    terpilih().forEach(function (a) { var el = document.getElementById('puH_' + a.no); if (el) el.innerHTML = infoHarga(a); });
+    var tot = q('#puTot'); if (tot) tot.textContent = 'Total ' + rp(total());
   }
 
   function isiBelanja(D) {
     var L = D.belanja, f0 = S.IN.__f || {};
     var h = '<div class="cd"><div class="kpl"><h2>Belanja pengajuan barang lokal</h2><span class="sb">' + L.length + ' pengajuan</span></div>' +
-      '<p class="sb" style="margin:0">Pengajuan dari staf gudang utama, bahan baku, dan produksi. Belanjakan, centang barangnya, isi qty &amp; harga sebenarnya, lalu tekan Sudah dibelanjakan &amp; dibayar. Uang keluar tercatat otomatis.</p></div>';
+      '<p class="sb" style="margin:0">Pengajuan dari staf gudang utama, bahan baku, dan produksi. Belanjakan, centang barangnya, isi qty &amp; total yang dibayar (harga satuan dihitung otomatis), lalu tekan Sudah dibelanjakan &amp; dibayar. Uang keluar tercatat otomatis.</p></div>';
     if (!L.length) return h + '<div class="cd"><div class="aman">Tidak ada pengajuan lokal yang menunggu dibelanjakan.</div></div>';
     var bl = D.bayarList || BAYAR_LIST;
     h += '<div class="cd">' + L.map(kartuBelanja).join('') + '</div>';
     h += '<div class="cd"><h3>Pembayaran barang terpilih</h3><div class="mini"><label>Toko / supplier<input class="isian" id="puToko" maxlength="80" value="' + esc(f0.toko || '') + '"></label>' +
       '<label>Cara bayar<select class="isian" id="puBy">' + bl.map(function (b) { return '<option' + (b === f0.by ? ' selected' : '') + '>' + esc(b) + '</option>'; }).join('') + '</select></label>' +
-      '<label>Tanggal bayar<input class="isian" id="puTg" type="date" max="' + esc(D.hariIni) + '" value="' + esc(f0.tg || D.hariIni) + '"></label></div>' +
+      '<label>Tanggal bayar<input class="isian" id="puTg" type="date" max="' + esc(D.hariIni) + '" value="' + esc(f0.tg || D.hariIni) + '"></label>' +
+      '<label>Ongkir / biaya kirim (Rp, kalau dibayar terpisah)<input class="isian angka" inputmode="numeric" id="puOng" placeholder="0" value="' + esc(f0.ong || '') + '"></label></div>' +
+      '<p class="sb" style="margin:6px 0 0">Ongkir di sini dibagi otomatis ke barang terpilih sesuai nilainya, jadi harga satuan sudah termasuk ongkir. Kalau ongkir sudah dimasukkan ke total tiap barang, kosongkan saja.</p>' +
       '<div class="tot" id="puTot">Total ' + rp(total()) + '</div>' +
       '<div class="aksi-baris"><button type="button" class="tbl pri" data-pa="bayar">Sudah dibelanjakan &amp; dibayar</button></div>' +
       '<details style="margin-top:10px"><summary class="sb" style="cursor:pointer">Tolak barang terpilih</summary><div class="mini"><label style="grid-column:1/-1">Alasan penolakan (wajib)<input class="isian" id="puCat" maxlength="300"></label></div>' +
@@ -162,7 +196,8 @@
   function pesan(c, t) { S.pesan = t ? [c, esc(t)] : null; var m = q('#puMsg'); if (m) m.innerHTML = t ? '<div class="msg ' + c + '">' + esc(t) + '</div>' : ''; window.scrollTo(0, 0); }
 
   function simpanForm() {
-    S.IN.__f = { toko: q('#puToko') ? q('#puToko').value : (S.IN.__f || {}).toko || '', by: q('#puBy') ? q('#puBy').value : (S.IN.__f || {}).by || '', tg: q('#puTg') ? q('#puTg').value : (S.IN.__f || {}).tg || '' };
+    S.IN.__f = { toko: q('#puToko') ? q('#puToko').value : (S.IN.__f || {}).toko || '', by: q('#puBy') ? q('#puBy').value : (S.IN.__f || {}).by || '', tg: q('#puTg') ? q('#puTg').value : (S.IN.__f || {}).tg || '',
+      ong: q('#puOng') ? q('#puOng').value : (S.IN.__f || {}).ong || '' };
   }
   async function rpc(fn, arg) {
     var r = await S.sb.rpc(fn, arg);
@@ -186,18 +221,19 @@
     var L = terpilih(), f0 = S.IN.__f, toko = String(f0.toko || '').trim(), items = [], err = '';
     if (!L.length) { pesan('bad', 'Centang barang yang sudah dibelanjakan.'); return; }
     if (toko.length < 2) { pesan('bad', 'Isi nama toko / supplier.'); return; }
+    var R = rinciBayar();
     L.forEach(function (a) {
       if (err) return;
-      var v = S.IN[a.no] || {}, qq = angka(v.q !== undefined ? v.q : qOf(a)), h = angka(v.h !== undefined ? v.h : a.h), al = String(v.a || '').trim();
+      var v = S.IN[a.no] || {}, qq = angka(v.q !== undefined ? v.q : qOf(a)), t = R[a.no], al = String(v.a || '').trim();
       if (!(qq > 0)) err = 'Isi qty dibeli untuk ' + a.n + '.';
-      else if (!(h > 0)) err = 'Isi harga satuan untuk ' + a.n + '.';
+      else if (!(totalBarang(a) > 0)) err = 'Isi total yang dibayar untuk ' + a.n + '.';
       else if (((a.dobel && a.dobel.length) || S.PERLU[a.no]) && al.length < 5) err = 'Isi alasan belanja lagi untuk ' + a.n + ' (minimal 5 huruf).';
-      items.push({ no: a.no, q: qq, h: Math.round(h), alasan: al });
+      items.push({ no: a.no, q: qq, t: t, alasan: al });
     });
     if (err) { pesan('bad', err); return; }
     if (!window.confirm('Tandai ' + items.length + ' barang sudah dibayar ' + rp(total()) + ' lewat ' + f0.by + ' di ' + toko + '? Akan tercatat di accounting.')) return;
     jalan(bt, 'plx_bayar', { p_toko: toko, p_bayar: f0.by, p_tanggal: f0.tg, p_nama: S.nama, p_items: items, p_token: 'plx' + Date.now() + Math.random().toString(36).slice(2, 6) }, function () {
-      L.forEach(function (a) { delete S.PIL[a.no]; delete S.IN[a.no]; delete S.PERLU[a.no]; }); S.IN.__f.toko = '';
+      L.forEach(function (a) { delete S.PIL[a.no]; delete S.IN[a.no]; delete S.PERLU[a.no]; }); S.IN.__f.toko = ''; S.IN.__f.ong = '';
     });
   }
   function tolak(bt) {
@@ -241,14 +277,16 @@
     el.addEventListener('change', function (e) {
       var t = e.target, no = t.getAttribute && t.getAttribute('data-pc');
       if (no) { simpanForm(); S.PIL[no] = t.checked; gambar(); return; }
-      if (t.id === 'puToko' || t.id === 'puBy' || t.id === 'puTg') simpanForm();
+      if (t.id === 'puToko' || t.id === 'puBy' || t.id === 'puTg' || t.id === 'puOng') simpanForm();
     });
     el.addEventListener('input', function (e) {
-      var t = e.target, k = t.getAttribute && (t.getAttribute('data-iq') || t.getAttribute('data-ih') || t.getAttribute('data-ia'));
+      var t = e.target;
+      if (t.id === 'puOng') { simpanForm(); segarHarga(); return; }
+      var k = t.getAttribute && (t.getAttribute('data-iq') || t.getAttribute('data-it') || t.getAttribute('data-ia'));
       if (!k) return;
       var v = S.IN[k] = S.IN[k] || {};
-      if (t.hasAttribute('data-iq')) v.q = t.value; else if (t.hasAttribute('data-ih')) v.h = t.value; else v.a = t.value;
-      var tot = q('#puTot'); if (tot) tot.textContent = 'Total ' + rp(total());
+      if (t.hasAttribute('data-iq')) v.q = t.value; else if (t.hasAttribute('data-it')) v.t = t.value; else v.a = t.value;
+      segarHarga();
     });
   }
 
