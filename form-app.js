@@ -996,7 +996,7 @@
     }
     pasang();
     var tunda = 0;
-    new MutationObserver(function () { if (tunda) return; tunda = requestAnimationFrame(function () { tunda = 0; pasang(); }); })
+    new MutationObserver(function () { if (tunda) return; tunda = setTimeout(function () { tunda = 0; pasang(); }, 60); })
       .observe(dok.body, { childList: true, subtree: true });
   }
   // Koreksi pengajuan pembelian oleh pengaju (5 Nov 2026): tombol "Koreksi" di daftar pengajuan Gudang Utama, Produksi, Bahan Baku.
@@ -1070,7 +1070,7 @@
     }
     pasang();
     var tunda = 0;
-    new MutationObserver(function () { if (tunda) return; tunda = requestAnimationFrame(function () { tunda = 0; pasang(); }); })
+    new MutationObserver(function () { if (tunda) return; tunda = setTimeout(function () { tunda = 0; pasang(); }, 60); })
       .observe(dok.body, { childList: true, subtree: true });
   }
   function ikonGd(dok) {
