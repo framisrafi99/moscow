@@ -6,6 +6,8 @@
 //   - belum ada: kartu ringkasan + tombol ✅ Catat / ✏️ Ubah / 🏦 Akun / 🏷️ Kategori / ❌ Bukan
 //   - cocok dengan pengajuan / PO lokal yang BELUM dibayar: tombol ✅ Sudah dibayar (hanya pengirim) -> bb_bayar (= tombol Bayar Purchasing)
 //   - Viory / Mike belanja barang: tunggu input aplikasi s.d. 3 hari (dicek tiap jam, periksaTunggu)
+//   - pengajuan impor: kode I dari AI, atau (transfer tanpa rincian) centang pengajuan impor -> _impor_bayar_inti
+//   - pindah dana antar akun Moscow (PT -> Belanja -> ShopeePay / Kas): dicatat Pindah (bb_catat_pindah), bukan pengeluaran
 // Semua tombol hanya bisa ditekan oleh pengirim bukti.
 // Perintah grup: /grup_bukti (manajemen, sekali) · /saya NAMA (tiap anggota, sekali)
 // =====================================================================
@@ -95,6 +97,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     if (!kunci) return { galat: 'kunci' };
     const daftar = (isi.daftar || []).map((x: Any, i: number) => 'B' + (i + 1) + ' = ' + t(x.n, 60) + ' · Rp ' + Math.round(Number(x.v) || 0)).join('\n');
     const bp = ((isi.belum && isi.belum.p) || []).map((x: Any, i: number) => 'P' + (i + 1) + ' = ' + t(x.n, 60) + ' · ' + x.q + ' ' + x.s + (Number(x.h) > 0 ? ' · perkiraan Rp ' + Math.round(Number(x.h)) + '/' + x.s : '')).join('\n');
+    const bi = ((isi.belum && isi.belum.i) || []).map((x: Any, i: number) => 'I' + (i + 1) + ' = ' + t(x.n, 60) + ' · ' + x.q + ' ' + x.s + (Number(x.h) > 0 ? ' · perkiraan Rp ' + Math.round(Number(x.h)) + '/' + x.s : '')).join('\n');
     const bo = ((isi.belum && isi.belum.o) || []).map((x: Any, i: number) => 'O' + (i + 1) + ' = PO ' + x.no + ' ' + t(x.sup, 40) + ' · total Rp ' + x.tot).join('\n');
     const pdn = (isi.padanan || []).map((x: Any) => '"' + t(x.nota, 60) + '" = "' + t(x.sistem, 60) + '"').join('; ');
     const perintah ='Kamu membaca bukti pengeluaran uang perusahaan Moscow Supplies (PT Toentoenan Langkah Elohim, Bali). Hari ini ' + isi.tglPesan +
@@ -103,7 +106,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       'Jawab HANYA dengan JSON (tanpa teks lain):\n' +
       '{"bukti":true|false, "belum_bayar":true|false, "nominal":angka total yang dibayar (rupiah, bulat), "tanggal":"YYYY-MM-DD" atau null, ' +
       '"penerima":"toko / penerima", "ringkasan":"apa yang dibayar, singkat, maks 110 huruf, bahasa Indonesia", "kategori":"salah satu kategori", ' +
-      '"sumber":"Rekening Belanja|Rekening PT|ShopeePay|Kas Tunai|" , "ref":"nomor referensi / no pesanan atau \\"\\"", "barang":[{"nama":"nama barang","total":angka}], "sistem":[{"kode":"B1|P1|O1","nota":"nama barang di bukti","total":angka}], "yakin":0-1}\n' +
+      '"sumber":"Rekening Belanja|Rekening PT|ShopeePay|Kas Tunai|" , "ref":"nomor referensi / no pesanan atau \\"\\"", "barang":[{"nama":"nama barang","total":angka}], "sistem":[{"kode":"B1|P1|I1|O1","nota":"nama barang di bukti","total":angka}], "pindah":null atau {"dari":"akun asal","ke":"akun tujuan","biaya":angka biaya admin}, "yakin":0-1}\n' +
       'Aturan: bukti=true kalau ini bukti pembayaran / nota / struk / transfer / pesanan yang sudah dibayar, atau pesan teks yang melaporkan pengeluaran. ' +
       'belum_bayar=true kalau ini pesanan / invoice / sales order / COD / tagihan yang belum lunas. ' +
       'nominal = total yang benar-benar dibayar (termasuk ongkir & biaya admin), bukan harga satuan; kalau ada beberapa pesanan, jumlahkan semuanya. ' +
@@ -112,13 +115,19 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       'Saldo ShopeePay / ShopeePay = ShopeePay; kalau tidak terlihat isi "". ' +
       'kategori pilih tepat salah satu: ' + KATEGORI.join(' | ') + '. ' +
       'Contoh: listrik/token PLN/air/wifi = Listrik, air & internet; servis AC/konsumsi/uang operasional = Biaya lain-lain; botol/stiker/kemasan/plastik = Botol, stiker & kemasan; ' +
-      'bahan kimia/cat sablon/lem = Pembelian bahan baku; gaji DW/upah = Gaji & upah; ongkir/grab/kargo = Ongkos kirim & ekspedisi.' +
-      ((daftar || bp || bo) ? '\n\nNama barang di sistem bisa berbeda dengan nama di toko / nota.' +
+      'bahan kimia/cat sablon/lem = Pembelian bahan baku; gaji DW/upah = Gaji & upah; ongkir/grab/kargo = Ongkos kirim & ekspedisi.\n' +
+      'pindah = isi HANYA kalau uang dipindahkan ANTAR akun milik Moscow sendiri (bukan bayar ke orang / toko lain). Akun Moscow: ' +
+      'Rekening PT (BCA 770-0875355, a.n. TOENTOENAN LANGKAH ELOHIM), Rekening Belanja (BCA 613-0358401 / 613-0**-**01), ShopeePay (top up / isi saldo ShopeePay), ' +
+      'Kas Tunai (kas kantor / tarik tunai), Kas Toko Offline. Contoh: transfer PT -> rekening belanja = {"dari":"Rekening PT","ke":"Rekening Belanja"}; ' +
+      'top up ShopeePay dari BCA = {"dari":"Rekening Belanja","ke":"ShopeePay"}; tarik tunai untuk kas kantor = {"dari":"Rekening Belanja","ke":"Kas Tunai"}. ' +
+      'Untuk pindah: nominal = jumlah yang dipindahkan TANPA biaya admin, biaya = biaya admin / biaya transfer (0 kalau tidak ada); kalau akun asal tidak terlihat isi "dari":"". Selain itu "pindah":null.' +
+      ((daftar || bp || bi || bo) ?'\n\nNama barang di sistem bisa berbeda dengan nama di toko / nota.' +
         (daftar ? '\nB = barang yang SUDAH dibayar lewat aplikasi beberapa hari ini (harga = total per barang termasuk ongkir):\n' + daftar : '') +
         (bp ? '\nP = pengajuan pembelian yang BELUM dibayar:\n' + bp : '') +
+        (bi ? '\nI = pengajuan IMPOR yang sudah di-ACC dan BELUM dibayar (total di sistem dalam rupiah):\n' + bi : '') +
         (bo ? '\nO = PO supplier lokal yang BELUM dibayar:\n' + bo : '') +
         (pdn ? '\nPadanan nama yang pernah dikonfirmasi (nota = sistem): ' + pdn : '') +
-        '\nsistem = untuk SETIAP barang di bukti yang sama dengan salah satu baris B / P / O di atas, isi {"kode":"B2 / P3 / O1","nota":"nama barang di bukti","total":total rupiah barang itu di bukti}. ' +
+        '\nsistem = untuk SETIAP barang di bukti yang sama dengan salah satu baris B / P / I / O di atas, isi {"kode":"B2 / P3 / I1 / O1","nota":"nama barang di bukti","total":total rupiah barang itu di bukti}. ' +
         'total per barang = harga barang itu + bagiannya dari ongkir / biaya admin / diskon pesanannya (dibagi sebanding harga), sehingga jumlah semua total = nominal. ' +
         'Cocokkan dari arti nama (jenis, ukuran, warna), jumlah dan harga, bukan dari ejaan. Satu kode hanya sekali. Jangan memasangkan kalau ragu. Kalau tidak ada yang sama, "sistem":[].' : '\nsistem = [].');
     // deno-lint-ignore no-explicit-any
@@ -147,12 +156,26 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
   // ---------- kartu ----------
   function kartu(b: Any): { text: string; markup: Any } {
     const r = b.baca || {};
-    let h = '🧾 <b>Bukti dari ' + esc(b.pengirim) + '</b>\n💸 <b>' + (b.nominal ? rp(b.nominal) : 'nominal belum terbaca') + '</b> · ' + tglId(b.tanggal) +
+    if (r.pindah) {
+      const pd = r.pindah, cb = (op: string) => 'b|' + b.id + '|' + op;
+      let hp = '🔁 <b>Pindah dana dari ' + esc(b.pengirim) + '</b>\n💸 <b>' + (b.nominal ? rp(b.nominal) : 'nominal belum terbaca') + '</b> · ' + tglId(b.tanggal) +
+        '\n🏦 ' + (pd.dari ? '<b>' + esc(pd.dari) + '</b>' : '❓ <b>akun asal?</b> (tekan 🏦 Dari)') + ' → <b>' + esc(pd.ke) + '</b>' +
+        (pd.biaya ? '\n🧾 Biaya admin ' + rp(pd.biaya) + ' <i>(dicatat sebagai pengeluaran dari ' + esc(pd.dari || 'akun asal') + ')</i>' : '') +
+        '\n\n<i>Uang pindah antar akun Moscow, bukan pengeluaran. Kalau benar, ' + esc(b.pengirim) + ' tekan ✅ Catat pindah dana.</i>';
+      if (b.catatan) hp += '\n\n<i>' + esc(b.catatan) + '</i>';
+      return { text: hp, markup: { inline_keyboard: [
+        (pd.dari ? [{ text: '✅ Catat pindah dana', callback_data: cb('P') }] : []).concat([{ text: '✏️ Ubah', callback_data: cb('u') }]),
+        [{ text: '🏦 Dari', callback_data: cb('d') }, { text: '🏦 Ke', callback_data: cb('e') }],
+        [{ text: '📝 Ini pengeluaran', callback_data: cb('g') }, { text: '❌ Bukan', callback_data: cb('x') }]] } };
+    }
+    let h ='🧾 <b>Bukti dari ' + esc(b.pengirim) + '</b>\n💸 <b>' + (b.nominal ? rp(b.nominal) : 'nominal belum terbaca') + '</b> · ' + tglId(b.tanggal) +
       '\n📝 ' + esc(b.keterangan || '-') + '\n🏷️ ' + esc(b.kategori || '-') + '\n🏦 ' + (b.akun ? esc(b.akun) : '❓ <b>akun bayar belum dipilih</b> (pilih di bawah)');
     if (r.belum_bayar) h += '\n\n⚠️ <i>Sepertinya ini pesanan / tagihan yang belum lunas. Catat hanya kalau sudah dibayar.</i>';
     if (r.bukti === false) h += '\n\n⚠️ <i>Sepertinya bukan bukti pembayaran. Abaikan kalau memang bukan.</i>';
-    if (r.rencana) h += '\n\n🛒 <b>Pengajuan yang dibayar dengan bukti ini</b> (nota → sistem):' + teksRencana(r.rencana) +
-      (r.rencana.kurang ? '' : '\n\n<i>Kalau benar, ' + esc(b.pengirim) + ' tekan ✅ Sudah dibayar. Pengajuan langsung berstatus dibayar dan tercatat di accounting.</i>');
+    if (r.rencana && r.rencana.calon) h += '\n\n🌏 <b>Pengajuan impor yang menunggu dibayar</b> — centang yang dibayar dengan bukti ini' +
+      ' <i>(total bukti dibagi sebanding perkiraan harga)</i>:' + (r.rencana.i.length ? teksRencana(r.rencana) + '\n\n<i>Kalau benar, ' + esc(b.pengirim) + ' tekan ✅ Sudah dibayar.</i>' : '\n<i>Belum ada yang dicentang.</i>');
+    else if (r.rencana) h += '\n\n🛒 <b>Pengajuan yang dibayar dengan bukti ini</b> (nota → sistem):' + teksRencana(r.rencana) +
+      (r.rencana.kurang ? '' :'\n\n<i>Kalau benar, ' + esc(b.pengirim) + ' tekan ✅ Sudah dibayar. Pengajuan langsung berstatus dibayar dan tercatat di accounting.</i>');
     if (r.kandidat) h +='\n\n🔎 <b>Mungkin sudah tercatat</b> dari belanja lewat aplikasi (nota → sistem):' + barisPasang(r.kandidat) + '\n= ' + rp(r.kandidat.sum) +
       ' (' + esc(r.kandidat.tr.join(', ')) + ')' + (r.kandidat.beda ? ', selisih ' + rp(Math.abs(r.kandidat.beda)) : '') + '\n<i>Kalau sama, tekan 📎 Sudah tercatat.</i>';
     if (b.status === 'tunggu') h += '\n\n⏳ <i>Belum ada di aplikasi. Kalau ini belanja dari pengajuan, input dulu di aplikasi (Bayar di Purchasing / bayar PO) — bukti ditempel otomatis. Kalau bukan, tekan ✅ Catat.</i>';
@@ -164,8 +187,10 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       rows = [AKUN.slice(0, 3).map((a, i) => ({ text: a, callback_data: 'b|' + id + '|A|' + i })), AKUN.slice(3).map((a, i) => ({ text: a, callback_data: 'b|' + id + '|A|' + (i + 3) })),
         [{ text: '✏️ Ubah', callback_data: 'b|' + id + '|u' }, { text: '❌ Bukan', callback_data: 'b|' + id + '|x' }]];
     } else if (r.rencana) {
-      rows = [(r.rencana.kurang ? [] : [{ text: '✅ Sudah dibayar', callback_data: 'b|' + id + '|p' }]).concat([{ text: '✏️ Ubah', callback_data: 'b|' + id + '|u' }]),
-        [{ text: '🏦 Akun', callback_data: 'b|' + id + '|a' }, { text: '📝 Catat biasa', callback_data: 'b|' + id + '|c' }, { text: '❌ Bukan', callback_data: 'b|' + id + '|x' }]];
+      const rc = r.rencana, centang = rc.calon ? rc.calon.map((x: Any, k: number) => [{ text: (rc.pilih.indexOf(x.no) > -1 ? '☑️ ' : '⬜ ') + t(x.no + ' ' + x.n, 44), callback_data: 'b|' + id + '|I|' + k }]) : [];
+      const bisa = !rc.kurang && (!rc.calon || rc.i.length > 0);
+      rows = centang.concat([(bisa ? [{ text: '✅ Sudah dibayar', callback_data: 'b|' + id + '|p' }] : []).concat([{ text: '✏️ Ubah', callback_data: 'b|' + id + '|u' }]),
+        [{ text: '🏦 Akun', callback_data: 'b|' + id + '|a' }, { text: '📝 Catat biasa', callback_data: 'b|' + id + '|c' }, { text: '❌ Bukan', callback_data: 'b|' + id + '|x' }]]);
     } else {
       rows = [[{ text: '✅ Catat', callback_data: 'b|' + id + '|c' }, { text: '✏️ Ubah', callback_data: 'b|' + id + '|u' }],
         [{ text: '🏦 Akun', callback_data: 'b|' + id + '|a' }, { text: '🏷️ Kategori', callback_data: 'b|' + id + '|k' }, { text: '❌ Bukan', callback_data: 'b|' + id + '|x' }]];
@@ -231,30 +256,59 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
 
   // Rencana bayar: barang di bukti yang cocok dengan pengajuan BELUM dibayar (P) / PO lokal (O); B = yang sudah tercatat.
   function rencanaBayar(r: Any, belum: Any, items: Any[], nominal: number) {
-    const P = (belum && belum.p) || [], O = (belum && belum.o) || [];
-    const p: Any[] = [], o: Any[] = [], bTr: string[] = [], bPs: Any[] = [], notaPakai: string[] = [];
+    const P = (belum && belum.p) || [], I = (belum && belum.i) || [], O = (belum && belum.o) || [];
+    const p: Any[] = [], im: Any[] = [], o: Any[] = [], bTr: string[] = [], bPs: Any[] = [], notaPakai: string[] = [];
+    const baris = (x: Any, tot: number, nota: string) => ({ no: x.no, n: x.n, q: Number(x.q), s: x.s, t: tot > 0 ? tot : Math.round(Number(x.h) * Number(x.q)), nota });
     for (const s of (Array.isArray(r.sistem) ? r.sistem : [])) {
-      const m = /^([BPO])(\d+)$/i.exec(String((s && s.kode) || '').trim()); if (!m) continue;
+      const m = /^([BPIO])(\d+)$/i.exec(String((s && s.kode) || '').trim()); if (!m) continue;
       const i = Number(m[2]) - 1, jn = m[1].toUpperCase(), nota = t(s.nota, 60), tot = Math.round(Number(s.total) || 0);
-      if (jn === 'P' && P[i] && !p.some((x) => x.no === P[i].no)) p.push({ no: P[i].no, n: P[i].n, q: Number(P[i].q), s: P[i].s, t: tot > 0 ? tot : Math.round(Number(P[i].h) * Number(P[i].q)), nota });
+      if (jn === 'P' && P[i] && !p.some((x) => x.no === P[i].no)) p.push(baris(P[i], tot, nota));
+      else if (jn === 'I' && I[i] && !im.some((x) => x.no === I[i].no)) im.push(baris(I[i], tot, nota));
       else if (jn === 'O' && O[i] && !o.some((x) => x.no === O[i].no)) o.push({ no: O[i].no, sup: O[i].sup, tot: Number(O[i].tot), nota });
       else if (jn === 'B' && items[i] && bTr.indexOf(String(items[i].tr)) === -1) { bTr.push(String(items[i].tr)); bPs.push({ nota, sistem: items[i].n, v: Number(items[i].v) }); }
       else continue;
       notaPakai.push(nota.toLowerCase());
     }
-    if (!p.length && !o.length) return null;
-    const tol = Math.max(5000, nominal * 0.01);
-    let sisa = nominal - bPs.reduce((a, x) => a + x.v, 0) - o.reduce((a, x) => a + x.tot, 0) - p.reduce((a, x) => a + x.t, 0);
-    if (p.length && Math.abs(sisa) <= tol && sisa !== 0) {   // selisih kecil (ongkir / pembulatan): dibagi ke barang pengajuan sebanding harga
-      const dasar = p.reduce((a, x) => a + x.t, 0) || 1; let pakai = 0;
-      p.forEach((x, k) => { const tambah = k === p.length - 1 ? sisa - pakai : Math.round(sisa * x.t / dasar); x.t += tambah; pakai += tambah; });
+    if (!p.length && !im.length && !o.length) return null;
+    const tol = Math.max(5000, nominal * 0.01), bagi = p.concat(im);
+    let sisa = nominal - bPs.reduce((a, x) => a + x.v, 0) - o.reduce((a, x) => a + x.tot, 0) - bagi.reduce((a, x) => a + x.t, 0);
+    if (bagi.length && Math.abs(sisa) <= tol && sisa !== 0) {   // selisih kecil (ongkir / pembulatan): dibagi ke barang pengajuan sebanding harga
+      const dasar = bagi.reduce((a, x) => a + x.t, 0) || 1; let pakai = 0;
+      bagi.forEach((x, k) => { const tambah = k === bagi.length - 1 ? sisa - pakai : Math.round(sisa * x.t / dasar); x.t += tambah; pakai += tambah; });
       sisa = 0;
     }
     const sisaKet = (Array.isArray(r.barang) ? r.barang : []).map((x: Any) => t(x && x.nama, 40)).filter((n: string) => n && !notaPakai.some((u) => u.indexOf(n.toLowerCase().slice(0, 12)) > -1)).join(', ');
-    return { toko: t(r.penerima, 60), p, o, b: bTr, bps: bPs, sisa: sisa > tol ? Math.round(sisa) : 0, sisa_ket: t(sisaKet, 120), kurang: sisa < -tol ? Math.round(-sisa) : 0 };
+    return { toko: t(r.penerima, 60), p, i: im, o, b: bTr, bps: bPs, sisa: sisa > tol ? Math.round(sisa) : 0, sisa_ket: t(sisaKet, 120), kurang: sisa < -tol ? Math.round(-sisa) : 0 };
+  }
+  // Bukti impor biasanya hanya transfer (tanpa rincian barang): tampilkan pengajuan impor yang menunggu dibayar untuk dicentang.
+  function pilihImpor(r: Any, belum: Any) {
+    const calon = ((belum && belum.i) || []).slice(0, 8).map((x: Any) => ({ no: x.no, n: x.n, q: Number(x.q), s: x.s, h: Number(x.h) || 0 }));
+    return calon.length ? { toko: t(r.penerima, 60), p: [], i: [], o: [], b: [], bps: [], sisa: 0, sisa_ket: '', kurang: 0, calon, pilih: [] } : null;
+  }
+  // total bukti dibagi ke pengajuan impor yang dicentang, sebanding perkiraan harga x qty
+  function hitungImpor(rc: Any, nominal: number) {
+    const dipilih = rc.calon.filter((x: Any) => rc.pilih.indexOf(x.no) > -1);
+    const bobot = dipilih.map((x: Any) => (x.h > 0 ? x.h * x.q : 0));
+    const jb = bobot.reduce((a: number, x: number) => a + x, 0);
+    let pakai = 0;
+    rc.i = dipilih.map((x: Any, k: number) => {
+      const v = k === dipilih.length - 1 ? nominal - pakai : Math.round(nominal * (jb > 0 ? bobot[k] / jb : 1 / dipilih.length));
+      pakai += v; return { no: x.no, n: x.n, q: x.q, s: x.s, t: v, nota: '' };
+    });
+    return rc;
+  }
+  function pindahValid(pd: Any, nama: string) {
+    if (!pd || typeof pd !== 'object') return null;
+    const ke = AKUN.indexOf(String(pd.ke)) > -1 ? String(pd.ke) : '';
+    let dari = AKUN.indexOf(String(pd.dari)) > -1 ? String(pd.dari) : '';
+    if (!ke) return null;
+    if (!dari) dari = ke === 'Rekening Belanja' ? 'Rekening PT' : akunBawaan(nama, 0);
+    if (dari === ke) dari = '';
+    return { dari, ke, biaya: Math.max(0, Math.round(Number(pd.biaya) || 0)) };
   }
   function teksRencana(rc: Any) {
     let h = '';
+    (rc.i || []).forEach((x: Any) => { h += '\n• 🌏 ' + (x.nota && x.nota.toLowerCase() !== String(x.n).toLowerCase() ? esc(x.nota) + ' → ' : '') + '<b>' + esc(x.no) + ' ' + esc(x.n) + '</b> · ' + x.q + ' ' + esc(x.s) + ' · ' + rp(x.t); });
     rc.p.forEach((x: Any) => { h += '\n• ' + (x.nota && x.nota.toLowerCase() !== String(x.n).toLowerCase() ? esc(x.nota) + ' → ' : '') + '<b>' + esc(x.no) + ' ' + esc(x.n) + '</b> · ' + x.q + ' ' + esc(x.s) + ' · ' + rp(x.t); });
     rc.o.forEach((x: Any) => { h += '\n• ' + (x.nota ? esc(x.nota) + ' → ' : '') + '<b>PO ' + esc(x.no) + ' ' + esc(x.sup) + '</b> · ' + rp(x.tot); });
     (rc.bps || []).forEach((x: Any) => { h += '\n• ' + esc(x.nota || '') + ' → <b>' + esc(x.sistem) + '</b> · ' + rp(x.v) + ' <i>(sudah tercatat, ' + esc(rc.b.join(', ')) + ')</i>'; });
@@ -328,6 +382,20 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
         return;
       }
     }
+    // pindah dana antar akun Moscow (PT -> Belanja, Belanja -> ShopeePay / Kas): dicatat sebagai Pindah, bukan pengeluaran
+    const pd = pindahValid(r.pindah, nama);
+    if (pd && nominal) {
+      const c = await sb.rpc('bb_cocok_pindah', { p_nominal: nominal, p_tanggal: tanggal, p_dari: pd.dari, p_ke: pd.ke });
+      const cand = Array.isArray(c.data) && c.data[0];
+      if (cand) {
+        await sb.rpc('bb_tempel', { p_id: id, p_nos: cand.no });
+        await tampil(b, '🔁 <b>' + esc(nama) + '</b> · pindah dana ' + rp(nominal) + ' · ' + tglId(tanggal) + '\n' + teksCocok(cand));
+        return;
+      }
+      b = await ubah(id, { baca: { ...r, pindah: pd }, akun: pd.dari || null, kategori: 'Pindah dana',
+        keterangan: t(pd.ke === 'ShopeePay' ? 'Top up ShopeePay' : pd.ke === 'Rekening Belanja' ? 'Dana masuk rekening belanja' : 'Pindah dana ke ' + pd.ke, 150) });
+      await tampil(b); return;
+    }
     // cocokkan dengan accounting
     if (nominal) {
       const c = await sb.rpc('bb_cocok', { p_nominal: nominal, p_tanggal: tanggal, p_pengirim: nama });
@@ -342,6 +410,11 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     if (nominal) {
       const rc = rencanaBayar(r, belum, items, nominal);
       if (rc) { b = await ubah(id, { baca: { ...r, rencana: rc } }); await tampil(b); return; }
+      // transfer impor tanpa rincian barang: centang pengajuan impor yang dibayar
+      if ((nama === 'Mike' || kategori === 'Pembelian barang dagang / impor') && !r.belum_bayar) {
+        const ri = pilihImpor(r, belum);
+        if (ri) { b = await ubah(id, { baca: { ...r, rencana: ri } }); await tampil(b); return; }
+      }
     }
     // cocokkan ke rincian barang yang dibayar lewat aplikasi (satu screenshot bisa berisi beberapa barang dari beberapa transaksi)
     if (nominal && items.length) {
@@ -414,7 +487,8 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     if (sisa.length >= 3 && !ak) isi.keterangan = sisa;
     if (!Object.keys(isi).length) { await api('sendMessage', { chat_id: m.chat.id, reply_to_message_id: m.message_id, text: 'Tidak ada yang bisa diubah. Contoh: 150000 / 03/11 / listrik ruko / cash' }); return; }
     // nominal diubah: rencana bayar dari AI tidak berlaku lagi (dicatat biasa / bayar lewat aplikasi)
-    if (isi.nominal && b.baca && b.baca.rencana && Number(isi.nominal) !== Number(b.nominal)) isi.baca = { ...b.baca, rencana: null };
+    if (isi.nominal && b.baca && b.baca.rencana && Number(isi.nominal) !== Number(b.nominal))
+      isi.baca = { ...b.baca, rencana: b.baca.rencana.calon ? hitungImpor(b.baca.rencana, Number(isi.nominal)) : null };
     const baru = await ubah(id, isi);
     await tampil(baru);
     await api('sendMessage', { chat_id: m.chat.id, reply_to_message_id: m.message_id, text: '✏️ Diperbarui. Cek kartu di atas lalu tekan ✅ Catat.' });
@@ -433,6 +507,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     if (op === 'p') {
       const rc = b.baca && b.baca.rencana;
       if (!rc) return jawab('Tidak ada pengajuan yang cocok.');
+      if (rc.calon && !rc.i.length) return jawab('Centang dulu pengajuan impor yang dibayar.', true);
       if (rc.kurang) return jawab('Total pengajuan lebih besar dari nota. Cek dulu atau bayar lewat aplikasi.', true);
       const r = await sb.rpc('bb_bayar', { p_id: id, p_oleh: oleh });
       if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal menyimpan.'), true);
@@ -440,6 +515,40 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       await tampil(b, '✅ <b>Sudah dibayar</b> oleh ' + esc(oleh) + ' · ' + esc(b.akun) + ' · ' + tglId(b.tanggal) + '\n💸 ' + rp(b.nominal) + teksRencana(rc) +
         '\n\n📒 Accounting: ' + esc((r.data.trs || []).join(', ')) + '\n📎 Bukti dilampirkan. Staf: terima barangnya di form masing-masing.');
       return jawab('Tercatat dibayar: ' + (r.data.trs || []).join(', '));
+    }
+    if (op === 'I') {
+      const rc = b.baca && b.baca.rencana; if (!rc || !rc.calon) return jawab('Tidak ada pilihan impor.');
+      const x = rc.calon[Number(p[3])]; if (!x) return jawab('Pilihan tidak dikenal.');
+      const k = rc.pilih.indexOf(x.no); if (k > -1) rc.pilih.splice(k, 1); else rc.pilih.push(x.no);
+      const baru = await ubah(id, { baca: { ...b.baca, rencana: hitungImpor(rc, Number(b.nominal) || 0) } });
+      await tampil(baru); return jawab((k > -1 ? 'Batal centang: ' : 'Dicentang: ') + x.no);
+    }
+    if (op === 'P') {
+      const pd = b.baca && b.baca.pindah; if (!pd) return jawab('Bukti ini bukan pindah dana.');
+      const r = await sb.rpc('bb_catat_pindah', { p_id: id, p_oleh: oleh });
+      if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal mencatat.'), true);
+      await tampil(b, '🔁 <b>Pindah dana dicatat ' + esc(r.data.no) + '</b> oleh ' + esc(oleh) + '\n💸 ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n🏦 ' + esc(pd.dari) + ' → ' + esc(pd.ke) +
+        (r.data.biaya ? '\n🧾 Biaya admin ' + rp(pd.biaya) + ' (' + esc(r.data.biaya) + ')' : '') + '\n📎 Bukti dilampirkan.');
+      return jawab('Tercatat: ' + r.data.no);
+    }
+    if (op === 'd' || op === 'e') {
+      const rows: Any[] = [];
+      AKUN.forEach((x, i) => { if (i % 2 === 0) rows.push([]); rows[rows.length - 1].push({ text: x, callback_data: 'b|' + id + '|' + (op === 'd' ? 'D' : 'E') + '|' + i }); });
+      rows.push([{ text: '↩️ Kembali', callback_data: 'b|' + id + '|m' }]);
+      await api('editMessageReplyMarkup', { chat_id: b.chat, message_id: b.robot_msg, reply_markup: { inline_keyboard: rows } });
+      return jawab(op === 'd' ? 'Pilih akun asal' : 'Pilih akun tujuan');
+    }
+    if (op === 'D' || op === 'E') {
+      const v = AKUN[Number(p[3])]; if (!v || !(b.baca && b.baca.pindah)) return jawab('Pilihan tidak dikenal.');
+      const pd = { ...b.baca.pindah, [op === 'D' ? 'dari' : 'ke']: v };
+      if (pd.dari === pd.ke) return jawab('Akun asal dan tujuan tidak boleh sama.', true);
+      const baru = await ubah(id, { baca: { ...b.baca, pindah: pd }, akun: pd.dari || null });
+      await tampil(baru); return jawab((op === 'D' ? 'Dari: ' : 'Ke: ') + v);
+    }
+    if (op === 'g') {
+      const kat = b.baca && KATEGORI.indexOf(String(b.baca.kategori)) > -1 ? String(b.baca.kategori) : 'Biaya lain-lain';
+      const baru = await ubah(id, { baca: { ...b.baca, pindah: null }, kategori: kat });
+      await tampil(baru); return jawab('Dijadikan pengeluaran. Cek lalu tekan ✅ Catat.');
     }
     if (op === 'c') {
       const c = b.nominal ? await sb.rpc('bb_cocok', { p_nominal: b.nominal, p_tanggal: b.tanggal, p_pengirim: b.pengirim }) : { data: [] };
@@ -526,7 +635,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     const belum = (await sb.rpc('bb_belum_bayar')).data || { p: [], o: [] };
     const r = await baca({ data, mime: b.file_jenis === 'pdf' ? 'application/pdf' : 'image/jpeg', teks: b.caption || '', tglPesan, daftar: items, padanan: await padananUntuk(items), belum });
     const nominal = Math.round(Number(r.nominal) || 0);
-    return { ok: true, nominal, sistem: r.sistem, rencana: nominal ? rencanaBayar(r, belum, items, nominal) : null,
+    return { ok: true, nominal, sistem: r.sistem, pindah: pindahValid(r.pindah, b.pengirim || ''), rencana: nominal ? rencanaBayar(r, belum, items, nominal) : null,
       hasil: nominal && items.length ? cocokBarang(r, items, nominal, b.caption || '') : null };
   }
 
