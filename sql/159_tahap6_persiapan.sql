@@ -5,3 +5,5 @@
 -- * _gj_angka(v, label) = GJ_int_; gaji_staf_ubah(p) = gjStafUbah (tambah / ubah / resign / aktif) langsung di tabel gaji_staf;
 --   gaji_staf_simpan(p, ringkas) = gaji_staf_ubah + riwayat di md_aksi (status selesai/gagal, bukan antrean).
 -- Definisi lengkap: pg_get_functiondef.
+-- * _md_aksi_segarkan() + trigger md_aksi_segarkan (after insert, fungsi = 'segarkan'): permintaan hitung ulang langsung
+--   ditandai selesai; potret dihitung robot Supabase (hitung-potret tiap 10 menit), tidak menunggu Apps Script lagi.
