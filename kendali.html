@@ -73,6 +73,7 @@
   .aj .tombol .tbl { flex:1 1 140px; justify-content:center; }
   .aj label { font-size:13px; font-weight:600; color:var(--abu); }
   @media (max-width:520px) { .anak { grid-template-columns:92px 1fr; } .margin-laba { margin-left:104px; } }
+  #saldoAkun .mn { color:var(--merah); }
 </style>
 </head>
 <body>
@@ -87,6 +88,7 @@
     </div>
     <p class="tl" id="dibuat"></p>
     <div id="isiLaporan"><div class="ksg">Memuat laporan…</div></div>
+    <div id="saldoAkun"></div>
     <div class="msg tunggu">Halaman ini hanya untuk melihat. Pembayaran impor, ubah harga, dan setujui kenaikan harga masih lewat Kendali Bisnis yang lama.</div>
   </section>
   <section data-bagian="acc">
@@ -116,6 +118,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="moscow.js?v=16"></script>
 <script src="beranda2.js?v=7"></script>
+<script src="akun.js?v=5"></script>
 <script>
 (function () {
   var M = Moscow, sb = M.sb, esc = M.esc;
@@ -150,7 +153,7 @@
 
   // ======================= BERANDA (tampilan sama dengan Beranda Master Data, hanya melihat) =======================
   var KB = { bulan: '', cache: {}, md: null, email: '', nama: '', namaTim: undefined };
-  function muatSemua() { KB.cache = {}; KB.md = null; gambarBeranda(); muatLaporan(); muatAcc(); barang = null; if (M.aktif() === 'hpp') muatHpp(); }
+  function muatSemua() { KB.cache = {}; KB.md = null; SALDO = {}; gambarBeranda(); muatLaporan(); muatAcc(); barang = null; if (M.aktif() === 'hpp') muatHpp(); }
   function namaBln(b) { var p = String(b || '').split('-'); return (NAMA_BULAN[Number(p[1]) - 1] || '') + ' ' + p[0]; }
   function tindakanKB() {
     var md = KB.md || {}, d = md.beranda || {}, r = md.ringkasan || {}, L = [];
@@ -243,6 +246,36 @@
       return '<tr><td>' + esc(x.n) + '<small>' + (x.arah === 'Masuk' ? 'Uang masuk' : 'Uang keluar') + '</small></td><td class="r angka">' + rp(x.v) + '</td></tr>'; }).join('') + '</tbody></table></div>';
     if ((d.peringatan || []).length) h += '<div class="cd"><h3>Perlu dicek</h3>' + d.peringatan.map(function (x) { return '<div class="msg w" style="margin:0">' + esc(typeof x === 'string' ? x : (x.n || JSON.stringify(x))) + '</div>'; }).join('') + '</div>';
     $('isiLaporan').innerHTML = h;
+    gambarSaldo(d.bulan);
+  }
+
+  // ======================= SALDO PER AKUN (rumus sama dengan Master Data > Accounting > Laporan bulanan) =======================
+  var SALDO = {}, UTAMA = ['Rekening PT', 'Rekening Belanja', 'ShopeePay', 'Kas Tunai'];
+  async function gambarSaldo(bulan) {
+    var el = $('saldoAkun'); if (!el) return;
+    if (!window.Akunting) { el.innerHTML = ''; return; }
+    if (!SALDO[bulan]) {
+      el.innerHTML = '<div class="cd"><div class="ksg">Menghitung saldo akun…</div></div>';
+      try { SALDO[bulan] = await window.Akunting.akuntingLaporan(sb, { bulan: bulan }); } catch (e) { SALDO[bulan] = { galat: e.message }; }
+    }
+    if (laporan[posisi] && laporan[posisi].bulan !== bulan) return;
+    var d = SALDO[bulan];
+    if (!d || d.galat || !d.akun) { el.innerHTML = '<div class="cd"><div class="msg w" style="margin:0">Saldo akun belum bisa dihitung' + (d && d.galat ? ': ' + esc(d.galat) : '.') + '</div></div>'; return; }
+    var ini = bulan === new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 7);
+    var naik = function (a) { var v = Math.round(a.akhir - a.awal); return v ? '<span class="' + (v < 0 ? 'mn' : '') + '">' + (v > 0 ? '+' : '−') + rp(Math.abs(v)).replace('−', '') + '</span>' : '–'; };
+    var baris = function (a) {
+      return '<tr><td><b>' + esc(a.n) + '</b><small>Masuk ' + rp(a.masuk) + ' · keluar ' + rp(a.keluar) + (a.pindah ? ' · pindah ' + (a.pindah > 0 ? '+' : '') + rp(a.pindah) : '') + '</small></td>' +
+        '<td class="r angka">' + rp(a.awal) + '</td><td class="r angka">' + naik(a) + '</td><td class="r angka' + (a.akhir < 0 ? ' mn' : '') + '"><b>' + rp(a.akhir) + '</b></td></tr>';
+    };
+    var utama = UTAMA.map(function (n) { return d.akun.filter(function (a) { return a.n === n; })[0]; }).filter(Boolean);
+    var lain = d.akun.filter(function (a) { return UTAMA.indexOf(a.n) === -1 && (a.awal || a.akhir || a.masuk || a.keluar || a.pindah); });
+    var kepala = '<thead><tr><th>Akun</th><th class="r">Awal bulan</th><th class="r">Naik / turun</th><th class="r">' + (ini ? 'Saat ini' : 'Akhir bulan') + '</th></tr></thead>';
+    var h = '<div class="cd" style="margin-top:16px"><div class="kpl"><h3>Saldo per akun</h3><span class="sb">' + esc(namaBulan(bulan)) + (ini ? ' · sampai hari ini' : '') + '</span></div>' +
+      '<div class="gulir"><table class="tabel">' + kepala + '<tbody>' + utama.map(baris).join('') + '</tbody></table></div>';
+    if (lain.length) h += '<details style="margin-top:10px"><summary class="sb" style="cursor:pointer">Akun lain: dana marketplace belum cair, kas toko, setoran consignment (' + lain.length + ')</summary>' +
+      '<div class="gulir"><table class="tabel">' + kepala + '<tbody>' + lain.map(baris).join('') + '</tbody></table></div></details>';
+    h += '<p class="sb">Naik / turun = saldo akhir − saldo awal bulan. Pindah = uang dipindah antar akun Moscow (bukan pemasukan / pengeluaran). Saldo minus berarti ada uang masuk atau pindah dana yang belum dicatat.</p></div>';
+    el.innerHTML = h;
   }
 
   async function muatHpp() {
