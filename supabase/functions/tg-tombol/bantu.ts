@@ -12,7 +12,8 @@ const PANDUAN = 'Cara kerja robot Bukti Bayar Moscow:\n' +
   '- Kirim foto / PDF bukti bayar (transfer, nota, struk, invoice) ke grup. Robot membaca nominal, tanggal, penerima, kategori, lalu mencocokkan dengan accounting.\n' +
   '- Kalau sudah tercatat (dari aplikasi / bukti lain), bukti hanya DITEMPEL ke transaksi itu, tidak dicatat dua kali.\n' +
   '- Kalau belum tercatat, robot membuat kartu dengan tombol: ✅ Catat (simpan ke accounting), ✏️ Ubah (balas kartu dengan nominal / keterangan yang benar), 🏦 Akun (ganti rekening asal), 🏷️ Kategori, ❌ Bukan (bukan pengeluaran, tidak dicatat). Tombol hanya bisa ditekan pengirim bukti.\n' +
-  '- Rekening bawaan: Junior = Rekening Belanja; Viory = ShopeePay (transfer bank ditanyakan); Mike = Rekening Belanja (>= Rp10 juta ditanya Rekening PT atau Belanja). Kalau beda, tulis di caption, mis. "tf PT", "cash", "shopeepay", "saldo penjual".\n' +
+  '- Rekening bawaan: Junior = Rekening Belanja; Viory = ShopeePay (transfer bank ditanyakan); Mike = Rekening Belanja (>= Rp10 juta ditanya Rekening PT atau Belanja). Kalau beda, tulis di caption, mis. "tf PT", "cash", "shopeepay", "saldo penjual". "Kas kantor" = Rekening Belanja.\n' +
+  '- Untuk mengubah: tekan ✏️ Ubah lalu BALAS pesan robot (atau kirim teks dalam 15 menit). Bukti yang sudah tercatat (✅ Dicatat) juga bisa diubah dengan cara ini; robot langsung membetulkan transaksinya.\n' +
   '- Bukti transfer + invoice / nota yang dikirim bersamaan (maks 30 menit, nominal sama, selisih biaya transfer s.d. Rp10.000 boleh) = SATU pembayaran: yang dicatat bukti transfernya, invoice jadi lampiran.\n' +
   '- Invoice / tagihan yang belum dibayar jangan dicatat dulu; kirim bukti transfernya saat sudah dibayar.\n' +
   '- Belanja barang dari pengajuan (Viory / Mike): bayar lewat aplikasi (Purchasing / PO), bukti ditempel otomatis. Kalau robot menunggu (⏳), input dulu di aplikasi atau tekan ✅ Catat.\n' +

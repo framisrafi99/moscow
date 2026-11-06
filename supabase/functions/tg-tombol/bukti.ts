@@ -49,6 +49,8 @@ function pembayarDari(caption: string, atasNama: string) {
 function akunDariTeks(s: string) {
   s = ' ' + s.toLowerCase() + ' ';
   if (/(kas|cash|tunai) ?toko/.test(s)) return 'Kas Toko Offline';
+  // Mike menyebut Rekening Belanja "kas kantor" / "rekening kantor" (dikonfirmasi manajemen 6 Nov 2026)
+  if (/(kas|rek(ening)?|uang|dana) ?kantor/.test(s)) return 'Rekening Belanja';
   if (/rek(ening)?\.? ?pt\b|\bpt\b/.test(s)) return 'Rekening PT';
   if (/saldo ?penjual|saldo ?toko|dana ?shopee|seller ?balance/.test(s)) return /tiktok|tokopedia|toped/.test(s) ? 'Dana Tokopedia/TikTok (belum cair)' : 'Dana Shopee (belum cair)';
   if (/shopee ?pay|\bspay\b/.test(s)) return 'ShopeePay';
@@ -578,6 +580,13 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       const a = await sementara('bu|' + chat.id + '|' + m.reply_to_message.message_id);
       if (a && String(dari.id) === a.uid) { await terapkanUbah(a.id, teks, m); return true; }
     }
+    // teks biasa (bukan balasan) dari orang yang baru menekan ✏️ Ubah (maks 15 menit): dianggap jawaban ubah
+    if (!m.reply_to_message && teks && !((m.photo && m.photo.length) || m.document)) {
+      const bu = await sb.from('tg_sementara').select('kunci,data,kedaluwarsa').like('kunci', 'bu|' + chat.id + '|%')
+        .gte('kedaluwarsa', new Date(Date.now() + 6 * 3600e3 - 15 * 60e3).toISOString()).order('kedaluwarsa', { ascending: false }).limit(5);
+      const a = (bu.data || []).filter((x: Any) => x.data && String(x.data.uid) === String(dari.id))[0];
+      if (a) { await terapkanUbah(Number(a.data.id), teks, m); await sb.from('tg_sementara').delete().eq('kunci', a.kunci); return true; }
+    }
     // pertanyaan / kebingungan (bukan bukti): robot menjelaskan dengan bahasa sederhana
     const adaFile = (m.photo && m.photo.length) || m.document, keRobot = !!(m.reply_to_message && m.reply_to_message.from && m.reply_to_message.from.is_bot);
     if (!adaFile && teks && (keRobot || teks.indexOf('?') > -1 || !adaNominal(teks))) {
@@ -589,7 +598,8 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
   }
 
   async function terapkanUbah(id: number, teks: string, m: Any) {
-    const b = await ambil(id); if (!b || ['dicatat', 'cocok', 'sama', 'bukan'].indexOf(b.status) > -1) return;
+    const b = await ambil(id); if (!b || ['sama', 'bukan'].indexOf(b.status) > -1) return;
+    if (b.status === 'dicatat' || b.status === 'cocok') return ubahTercatat(b, teks, m);
     const isi: Any = {};
     let sisa = teks;
     // "dibayar Junior" -> pembayar diganti; akun ikut bawaan pembayar kalau belum dipilih
@@ -618,6 +628,43 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     const baru = await ubah(id, isi);
     await tampil(baru);
     await api('sendMessage', { chat_id: m.chat.id, reply_to_message_id: m.message_id, text: '✏️ Diperbarui. Cek kartu di atas lalu tekan ✅ Catat.' });
+  }
+
+  // ✏️ Ubah pada bukti yang SUDAH dicatat: langsung membetulkan transaksi accounting-nya (hanya catatan dari Telegram, bulan berjalan)
+  async function ubahTercatat(b: Any, teks: string, m: Any) {
+    const balasU = (x: string) => api('sendMessage', { chat_id: m.chat.id, reply_to_message_id: m.message_id, parse_mode: 'HTML', text: x });
+    const nos = String(b.acc_no || '').split(',').map((x) => x.trim()).filter(Boolean);
+    if (nos.length !== 1) return balasU('Bukti ini tertempel ke beberapa transaksi (' + esc(nos.join(', ')) + '). Laporkan koreksinya di grup, manajemen Moscow Supplies yang membetulkan.');
+    const r0 = await sb.from('acc_log').select('no,tanggal,jenis,akun,nominal,keterangan,pengisi,status').eq('no', nos[0]).limit(1);
+    const a = r0.data && r0.data[0];
+    if (!a || a.status !== 'Aktif') return balasU('Transaksi ' + esc(nos[0]) + ' tidak aktif. Tidak ada yang diubah.');
+    if (!/^telegram:/.test(String(a.pengisi || '')) || a.jenis !== 'Keluar' || String(a.tanggal).slice(0, 7) !== hariWita().slice(0, 7))
+      return balasU(esc(nos[0]) + ' dicatat dari aplikasi / bulan lalu, jadi tidak bisa diubah dari Telegram. Tulis koreksinya di grup, manajemen Moscow Supplies yang membetulkan.');
+    const isi: Any = {}; let sisa = teks;
+    const d = /(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?/.exec(sisa);
+    if (d) {
+      const y = d[3] ? (d[3].length === 2 ? '20' + d[3] : d[3]) : hariWita().slice(0, 4);
+      const tg = y + '-' + ('0' + d[2]).slice(-2) + '-' + ('0' + d[1]).slice(-2);
+      if (!isNaN(Date.parse(tg)) && tg <= hariWita() && tg.slice(0, 7) === hariWita().slice(0, 7)) isi.tanggal = tg;
+      sisa = sisa.replace(d[0], ' ');
+    }
+    const n = adaNominal(sisa) ? angka(sisa) : null;
+    if (n) { isi.nominal = n; sisa = sisa.replace(/rp\.?\s*/ig, '').replace(/\d[\d.,]*\s*(k|rb|ribu|jt|juta)?\b/i, ' '); }
+    const ak = akunDariTeks(sisa);
+    if (ak && ak !== a.akun) isi.akun = ak;
+    const ket = t(sisa.replace(/[,;]+/g, ' ').replace(/\b(sumber|dana|dari|pakai|via|bayar|dibayar)\b/ig, ' '), 150);
+    if (!ak && ket.length >= 3) isi.keterangan = t(ket + ' [Telegram: ' + (b.pengirim || '') + ']', 200);
+    if (!Object.keys(isi).length) {
+      return balasU(ak ? '👍 Sudah benar: ' + esc(nos[0]) + ' tercatat dari <b>' + esc(a.akun) + '</b>' + (/kantor/i.test(teks) ? ' (kas kantor = Rekening Belanja)' : '') + '. Tidak ada yang diubah.'
+        : 'Tidak ada yang bisa diubah. Contoh: 150000 / 03/11 / listrik ruko / Rekening PT / cash');
+    }
+    const u = await sb.from('acc_log').update(isi).eq('no', nos[0]).eq('status', 'Aktif');
+    if (u.error) return balasU('⚠️ Gagal mengubah ' + esc(nos[0]) + '. Coba lagi atau laporkan di grup.');
+    const ib: Any = {}; ['tanggal', 'nominal', 'akun', 'keterangan'].forEach((k) => { if (isi[k] != null) ib[k] = isi[k]; });
+    const baru = await ubah(b.id, ib);
+    const oleh = String(a.pengisi || '').replace(/^telegram:\s*/, '');
+    await tampil(baru, '✅ <b>Dicatat ' + esc(nos[0]) + '</b> oleh ' + esc(oleh) + ' (diubah)\n💸 ' + rp(baru.nominal) + ' · ' + tglId(baru.tanggal) + ' · ' + esc(baru.akun) + '\n📝 ' + esc(baru.keterangan) + ' · ' + esc(baru.kategori));
+    return balasU('✏️ ' + esc(nos[0]) + ' diperbarui: ' + Object.keys(isi).map((k) => k === 'nominal' ? rp(isi[k]) : k === 'tanggal' ? tglId(isi[k]) : esc(isi[k])).join(' · '));
   }
 
   // ---------- tombol ----------
