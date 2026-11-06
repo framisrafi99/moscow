@@ -110,9 +110,50 @@
       '<p class="sb" style="margin:6px 0 0">Ongkir di sini dibagi otomatis ke barang terpilih sesuai nilainya, jadi harga satuan sudah termasuk ongkir. Kalau ongkir sudah dimasukkan ke total tiap barang, kosongkan saja.</p>' +
       '<div class="tot" id="puTot">Total ' + rp(total()) + '</div>' +
       '<div class="aksi-baris"><button type="button" class="tbl pri" data-pa="bayar">Sudah dibelanjakan &amp; dibayar</button></div>' +
+      kotakTercatat() +
       '<details style="margin-top:10px"><summary class="sb" style="cursor:pointer">Tolak barang terpilih</summary><div class="mini"><label style="grid-column:1/-1">Alasan penolakan (wajib)<input class="isian" id="puCat" maxlength="300"></label></div>' +
       '<div class="aksi-baris"><button type="button" class="tbl mer" data-pa="tolak">Tolak terpilih</button></div></details></div>';
     return h;
+  }
+
+  // Sudah dibayar orang lain (Junior / Mike / manajemen) dan sudah tercatat di accounting: cukup ditautkan, tidak dicatat dobel.
+  function kotakTercatat() {
+    var T = S.TC, pilih = S.TCP || '';
+    var isi = !T ? '<p class="sb">Memuat transaksi…</p>' : !T.length ? '<p class="sb">Tidak ada transaksi pembelian 45 hari terakhir.</p>' :
+      '<label style="display:block">Transaksi accounting yang sudah dibayar<select class="isian" id="puTc"><option value="">Pilih transaksi…</option>' +
+      T.map(function (x) { return '<option value="' + esc(x.no) + '"' + (x.no === pilih ? ' selected' : '') + '>' + esc(tgl(x.t) + ' · ' + rp(x.v) + ' · ' + x.akun + ' · ' + x.oleh + ' · ' + x.ket) + '</option>'; }).join('') + '</select></label>';
+    var x = T && T.filter(function (y) { return y.no === pilih; })[0];
+    return '<details id="puTcBox" style="margin-top:10px"' + (S.TCB ? ' open' : '') + '><summary class="sb" style="cursor:pointer;font-weight:700">Sudah dibayar Junior / Mike (sudah tercatat di accounting)</summary>' +
+      '<p class="sb" style="margin:6px 0">Pakai ini kalau barang terpilih sudah dibayar orang lain dan uang keluarnya sudah tercatat (dari Telegram, WA, atau mutasi bank). Centang barangnya, isi qty &amp; total di atas, pilih transaksinya, lalu tekan Tautkan. Status jadi dibayar tanpa uang keluar baru.</p>' +
+      isi + (x ? '<p class="sb" style="margin:6px 0 0">' + esc(x.no) + ' · ' + esc(x.kat || '') + ' · dibayar ' + esc(x.oleh) + '<br>' + esc(x.ket) + '</p>' : '') +
+      '<div class="aksi-baris"><button type="button" class="tbl" data-pa="tautkan">Tautkan ke transaksi ini</button></div></details>';
+  }
+  async function muatTercatat() {
+    if (S.TC || S.TCmuat) return; S.TCmuat = true;
+    var r = await S.sb.rpc('plx_tercatat_daftar');
+    S.TCmuat = false; S.TC = r.data && r.data.ok ? r.data.data || [] : [];
+    simpanForm(); gambar();
+  }
+  function tautkan(bt) {
+    simpanForm();
+    var L = terpilih(), f0 = S.IN.__f, toko = String(f0.toko || '').trim(), items = [], err = '', tr = S.TCP || '';
+    var x = (S.TC || []).filter(function (y) { return y.no === tr; })[0];
+    if (!L.length) { pesan('bad', 'Centang barang yang sudah dibayar.'); return; }
+    if (!x) { pesan('bad', 'Pilih transaksi accounting yang sudah dibayar.'); return; }
+    var R = rinciBayar();
+    L.forEach(function (a) {
+      if (err) return;
+      var v = S.IN[a.no] || {}, qq = angka(v.q !== undefined ? v.q : qOf(a)), al = String(v.a || '').trim();
+      if (!(qq > 0)) err = 'Isi qty dibeli untuk ' + a.n + '.';
+      else if (!(totalBarang(a) > 0)) err = 'Isi total yang dibayar untuk ' + a.n + '.';
+      else if (((a.dobel && a.dobel.length) || S.PERLU[a.no]) && al.length < 5) err = 'Isi alasan belanja lagi untuk ' + a.n + ' (minimal 5 huruf).';
+      items.push({ no: a.no, q: qq, t: R[a.no], alasan: al });
+    });
+    if (err) { pesan('bad', err); return; }
+    if (!window.confirm('Tautkan ' + items.length + ' barang ke ' + x.no + ' (' + rp(x.v) + ', dibayar ' + x.oleh + ')? Tidak ada uang keluar baru di accounting.')) return;
+    jalan(bt, 'plx_bayar_tercatat', { p_tr: x.no, p_toko: toko, p_nama: S.nama, p_items: items, p_token: x.no + '|' + items.map(function (i) { return i.no; }).join(',') }, function () {
+      L.forEach(function (a) { delete S.PIL[a.no]; delete S.IN[a.no]; delete S.PERLU[a.no]; }); S.TCP = ''; S.TC = null; S.TCB = false;
+    });
   }
 
   function isiAcc(D) {
@@ -270,6 +311,7 @@
       if (a === 'muat') { e.preventDefault(); simpanForm(); S.pesan = null; S.D = null; gambar(); return; }
       if (a === 'bayar') bayar(b);
       else if (a === 'tolak') tolak(b);
+      else if (a === 'tautkan') tautkan(b);
       else if (a === 'bayarpo') bayarPo(b);
       else if (a === 'kq') { var kn = b.getAttribute('data-no'); S.KQ[kn] = !S.KQ[kn]; gambar(); }
       else if (a === 'kqsimpan') koreksi(b);
@@ -277,8 +319,12 @@
     el.addEventListener('change', function (e) {
       var t = e.target, no = t.getAttribute && t.getAttribute('data-pc');
       if (no) { simpanForm(); S.PIL[no] = t.checked; gambar(); return; }
+      if (t.id === 'puTc') { S.TCP = t.value; simpanForm(); gambar(); return; }
       if (t.id === 'puToko' || t.id === 'puBy' || t.id === 'puTg' || t.id === 'puOng') simpanForm();
     });
+    el.addEventListener('toggle', function (e) {
+      if (e.target && e.target.id === 'puTcBox') { S.TCB = e.target.open; if (S.TCB) muatTercatat(); }
+    }, true);
     el.addEventListener('input', function (e) {
       var t = e.target;
       if (t.id === 'puOng') { simpanForm(); segarHarga(); return; }
