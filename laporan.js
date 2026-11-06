@@ -58,6 +58,7 @@
     '.lp-pie li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lp-pie li b{font-variant-numeric:tabular-nums;font-weight:700}' +
     '.lp-pie li em{font-style:normal;color:var(--abu);font-weight:400;margin-left:4px}' +
     '.lp-pie .ket{font-size:11px;color:var(--abu);margin:6px 0 0}' +
+    '.lp-rk small{display:block;font-size:11px;color:#6B7380;font-weight:400;margin-top:1px}' +
     '.lp-ttp{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-top:14px;align-items:end}' +
     '.lp-rk{width:100%;border-collapse:collapse;font-size:12.5px}.lp-rk td{padding:4px 6px;border-bottom:1px solid var(--garis2)}.lp-rk td:last-child{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}' +
     '.lp-rk caption{text-align:left;font-weight:800;color:#1F3A5F;font-size:13px;padding:0 0 4px}.lp-rk tr.t td{font-weight:800;border-top:2px solid #1F3A5F;border-bottom:0;background:#F3F5F8}' +
@@ -170,7 +171,8 @@
   }
 
   function bagian2(D, H) {
-    var h = '<div class="cd lp-sec" id="lp2"><h3><span class="no">2</span>Pengeluaran per sumber dana</h3>';
+    var h = '<div class="cd lp-sec" id="lp2"><h3><span class="no">2</span>Pengeluaran harian per sumber dana</h3>' +
+      '<p class="lp-cat">Bagian ini hanya rekening belanja harian (Rekening Belanja, ShopeePay, Kas Tunai) beserta top up masuknya. Rincian biaya dari SEMUA rekening (termasuk Rekening PT dan saldo marketplace) ada di bagian 9.</p>';
     var ring = D.keluar.map(function (a) { return tr([esc(a.akun), fmt(a.list.length) + ' transaksi', rp(jml(a.topup, function (x) { return x.v; })), rp(a.total)], [1, 2, 3]); });
     ring.push(tr(['TOTAL', '', rp(jml(D.keluar, function (a) { return jml(a.topup, function (x) { return x.v; }); })), rp(H.keluar)], [2, 3], 'tot'));
     h += tabel(['Sumber dana', 'Jumlah', 'Top up masuk', 'Uang keluar'], ring, [1, 2, 3]);
@@ -300,7 +302,7 @@
     b.push(tr(['<b>Toko Offline</b>', rp(H.offl.bersih), '–', rp(H.offl.bersih)], [1, 2, 3], 'g'));
     b.push(tr(['<b>Reseller (dibayar)</b>' + (H.resBelum ? '<small>belum ditransfer reseller, tidak dihitung: ' + rp(H.resBelum) + '</small>' : ''), rp(H.res), '–', rp(H.res)], [1, 2, 3], 'g'));
     b.push(tr(['TOTAL PENERIMAAN', '', '', rp(H.terima)], [3], 'tot'));
-    b.push(tr(['− Biaya operasional Moscow' + (H.gajiAcc || H.potAcc ? '<small>tanpa ' + [H.gajiAcc ? 'gaji yang tercatat di Accounting' : '', H.potAcc ? 'potongan platform ' + rp(H.potAcc) + ' (sudah terpotong dari dana cair)' : ''].filter(Boolean).join(' dan ') + '</small>' : ''), '', '', rp(-H.op)], [3]));
+    b.push(tr(['− Biaya operasional lain (rincian di bagian 9)' + (H.gajiAcc || H.potAcc ? '<small>tanpa ' + [H.gajiAcc ? 'gaji yang tercatat di Accounting' : '', H.potAcc ? 'potongan platform ' + rp(H.potAcc) + ' (sudah terpotong dari dana cair)' : ''].filter(Boolean).join(' dan ') + '</small>' : ''), '', '', rp(-H.op)], [3]));
     b.push(tr(['− Gaji &amp; payroll<small>' + (H.G.n ? 'total biaya PT, ' + fmt(H.G.n) + ' orang (bagian 3)' : H.gajiAcc ? 'dari Accounting (payroll bulan ini belum diisi)' : 'payroll bulan ini belum diisi') + '</small>', '', '', H.gaji ? rp(-H.gaji) : '–'], [3]));
     b.push(tr(['PENERIMAAN BERSIH setelah biaya operasional &amp; gaji', '', '', rp(H.bersihOp)], [3], 'tot'));
     b.push(tr(['− Pembelian barang & bahan', '', '', rp(-H.beli)], [3]));
@@ -367,6 +369,7 @@
     D._rinci = {
       grup: grup, ada: T.length > 0,
       op: jml(op, function (x) { return x.v; }), gaji: jml(gaji, function (x) { return x.v; }), pot: jml(pot, function (x) { return x.v; }),
+      lain: op.filter(function (x) { return gaji.indexOf(x) < 0 && pot.indexOf(x) < 0; }).sort(function (a, b) { return a.kat.localeCompare(b.kat) || String(a.t).localeCompare(String(b.t)); }),
       pajak: keluar.filter(function (x) { return /^Pajak/i.test(x.kat) && /\(belum cair\)/i.test(x.akun); }),
       masuk: T.filter(function (x) { return x.j === 'Masuk' && !sesuai(x); }),
       sesuai: T.filter(sesuai)
@@ -384,11 +387,18 @@
       b.push(tr(['Subtotal ' + esc(g.kel), fmt(g.n), rp(g.v)], [1, 2], 'sub'));
     });
     h += tabel(['Kategori', 'Transaksi', 'Nominal'], b, [1, 2]);
-    h += '<p class="lp-cat" style="font-weight:800;color:var(--teks2);font-size:14px;margin-top:14px">Asal angka "Biaya operasional Moscow" di bagian 6</p>' +
+    h += '<p class="lp-cat" style="font-weight:800;color:var(--teks2);font-size:14px;margin-top:14px">Asal angka "Biaya operasional lain" di Ringkasan &amp; bagian 6</p>' +
       tabel(['', 'Nominal'], [tr(['Total biaya operasional (semua kategori di atas)', rp(R.op)], [1]),
         tr(['− Gaji &amp; bonus bagi hasil<small>ditampilkan terpisah sebagai "Gaji &amp; payroll" (bagian 3)</small>', rp(-R.gaji)], [1]),
         tr(['− Potongan platform marketplace<small>sudah terpotong dari dana cair Shopee / TikTok Shop / Lazada (bagian 6)</small>', rp(-R.pot)], [1]),
-        tr(['= Biaya operasional Moscow', rp(R.op - R.gaji - R.pot)], [1], 'tot')], [1]);
+        tr(['= Biaya operasional lain', rp(R.op - R.gaji - R.pot)], [1], 'tot')], [1]);
+    if (R.lain.length) {
+      var KL = {}, uk = []; R.lain.forEach(function (x) { if (!KL[x.kat]) { KL[x.kat] = { k: x.kat, v: 0, n: 0 }; uk.push(KL[x.kat]); } KL[x.kat].v += Number(x.v) || 0; KL[x.kat].n++; });
+      uk.sort(function (a, b) { return b.v - a.v; });
+      h += tabel(['Isi "Biaya operasional lain" per kategori', 'Transaksi', 'Nominal'], uk.map(function (k) { return tr([esc(k.k), fmt(k.n), rp(k.v)], [1, 2]); }).concat([tr(['Total', fmt(R.lain.length), rp(R.op - R.gaji - R.pot)], [1, 2], 'tot')]), [1, 2]) +
+        '<details class="lp-rinci"><summary>Daftar ' + fmt(R.lain.length) + ' transaksi biaya operasional lain ›</summary>' +
+        tabel(['Tanggal', 'No', 'Kategori', 'Keterangan', 'Dibayar dari', 'Nominal'], R.lain.map(function (x) { return tr([tgl(x.t), esc(x.no), esc(x.kat), esc(x.ket || '-'), esc(x.akun), rp(x.v)], [5]); }), [5]) + '</details>';
+    }
     if (R.pajak.length) h += '<p class="lp-cat" style="font-weight:800;color:var(--teks2);font-size:14px;margin-top:14px">Pajak yang dipotong marketplace (PPh 22)</p>' +
       tabel(['Tanggal', 'No', 'Keterangan', 'Nominal'], R.pajak.map(function (x) { return tr([tgl(x.t), esc(x.no), esc(x.ket), rp(x.v)], [3]); }), [3]) +
       '<p class="lp-cat">Bukti potong diunduh dari Seller Center masing-masing marketplace.</p>';
@@ -445,32 +455,37 @@
     var gOmzet = O.official.map(function (x) { return { n: NAMA_PF[x.pf], v: x.v }; })
       .concat(H.cons.map(function (x) { return { n: x.toko, v: x.bersih }; }))
       .concat([{ n: 'Toko Offline', v: H.offl.bersih }, { n: 'Reseller', v: H.res + H.resBelum }]);
-    var kat = {}; (D.keluar || []).forEach(function (a) { (a.kat || []).forEach(function (k) { kat[k.k] = (kat[k.k] || 0) + (Number(k.v) || 0); }); });
+    var R = rinci(D), kat = {}, totKeluar = 0;
+    if (R.ada) R.grup.forEach(function (g) { if (g.kel === 'Di luar laba rugi') return; totKeluar += g.v; g.kat.forEach(function (k) { kat[k.k] = (kat[k.k] || 0) + k.v; }); });
+    else (D.keluar || []).forEach(function (a) { (a.kat || []).forEach(function (k) { kat[k.k] = (kat[k.k] || 0) + (Number(k.v) || 0); }); });
     var gKeluar = Object.keys(kat).map(function (k) { return { n: k, v: kat[k] }; });
     var gTerima = [{ n: 'Marketplace (dana cair)', v: H.offTerima }, { n: 'Setoran consignment', v: H.moscow || 0 }, { n: 'Toko Offline', v: H.offl.bersih }, { n: 'Reseller (sudah dibayar)', v: H.res }];
     var profit = H.bersihSemua;
     var gProfit = [{ n: 'Biaya operasional', v: H.op, w: '#6C8EBF' }, { n: 'Gaji & payroll', v: H.gaji, w: '#E9A23B' }, { n: 'Pembelian barang & bahan', v: H.beli, w: '#C8553D' }, { n: 'Profit bersih', v: profit, w: '#2A9D8F' }];
-    var isi = ['Omzet', 'Pengeluaran per sumber dana', 'Gaji & payroll', 'Pemakaian bahan baku, botol, stiker & packaging', 'Sisa stok produk & produk yang bertambah', 'Penerimaan bersih', 'Aset barang per lokasi', 'Bagi hasil produk Kenka', 'Rincian biaya per kategori (semua rekening)', 'Saldo rekening & piutang'];
+    var isi = ['Omzet', 'Pengeluaran harian per sumber dana', 'Gaji & payroll', 'Pemakaian bahan baku, botol, stiker & packaging', 'Sisa stok produk & produk yang bertambah', 'Penerimaan bersih', 'Aset barang per lokasi', 'Bagi hasil produk Kenka', 'Rincian biaya per kategori (semua rekening)', 'Saldo rekening & piutang'];
     return '<div class="lp-sampul">' +
       '<div class="lp-kop"><img src="logo-warna.png" alt="Moscow Supplies"><div class="pt"><b>PT. TOENTOENAN LANGKAH ELOHIM</b>Moscow Supplies<br>Jl. Raya Kerobokan No. 8, Kuta Utara, Badung, Bali</div></div>' +
       '<div class="lp-jdl"><h1>Laporan Keuangan Bulanan</h1><p>Periode ' + tgl(D.dari) + ' – ' + tgl(D.sampai) + (D.berjalan ? ' (bulan berjalan)' : '') + ' · disiapkan oleh manajemen Moscow Supplies untuk konsultan pajak</p></div>' +
       '<div class="lp-kp">' +
       '<div style="--w:#1F3A5F"><span>Omzet</span><b>' + rp(H.omzet) + '</b><small>semua saluran penjualan</small></div>' +
-      '<div style="--w:#C8553D"><span>Uang keluar</span><b>' + rp(H.keluar) + '</b><small>Rekening Belanja, ShopeePay, Kas Tunai</small></div>' +
+      (R.ada ? '<div style="--w:#C8553D"><span>Total pengeluaran</span><b>' + rp(totKeluar) + '</b><small>biaya operasional + pembelian, semua rekening (bagian 9)</small></div>'
+        : '<div style="--w:#C8553D"><span>Uang keluar</span><b>' + rp(H.keluar) + '</b><small>Rekening Belanja, ShopeePay, Kas Tunai</small></div>') +
       '<div style="--w:#6C8EBF"><span>Total penerimaan</span><b>' + rp(H.terima) + '</b><small>setelah potongan platform & bagian toko</small></div>' +
       '<div style="--w:#2A9D8F"><span>Profit bersih</span><b>' + rp(profit) + '</b><small>setelah biaya operasional, gaji & pembelian</small></div></div>' +
       '<div class="lp-pie">' +
       donat('Omzet per saluran', gOmzet, ['Omzet', jt(H.omzet)]) +
-      donat('Uang keluar per kategori', gKeluar, ['Uang keluar', jt(H.keluar)]) +
+      donat(R.ada ? 'Pengeluaran per kategori (semua rekening)' : 'Uang keluar per kategori', gKeluar, R.ada ? ['Pengeluaran', jt(totKeluar)] : ['Uang keluar', jt(H.keluar)]) +
       donat('Total penerimaan per sumber', gTerima, ['Penerimaan', jt(H.terima)]) +
       donat('Penggunaan total penerimaan', gProfit, ['Profit bersih', jt(profit)], profit < 0 ? 'Biaya melebihi penerimaan sebesar ' + rp(-profit) + '.' : 'Profit bersih = total penerimaan − biaya operasional − gaji & payroll − pembelian barang & bahan.') +
       '</div>' +
-      '<div class="lp-ttp"><table class="lp-rk"><caption>Ringkasan arus uang</caption>' +
-      '<tr><td>Total penerimaan</td><td>' + rp(H.terima) + '</td></tr>' +
-      '<tr><td>− Biaya operasional</td><td>' + rp(-H.op) + '</td></tr>' +
-      '<tr><td>− Gaji &amp; payroll</td><td>' + rp(-H.gaji) + '</td></tr>' +
-      '<tr><td>− Pembelian barang &amp; bahan</td><td>' + rp(-H.beli) + '</td></tr>' +
-      '<tr class="t"><td>Profit bersih</td><td>' + rp(profit) + '</td></tr></table>' +
+      '<div class="lp-ttp"><div><table class="lp-rk"><caption>Ringkasan arus uang (rincian ada di bagian yang disebut)</caption>' +
+      '<tr><td>Omzet semua saluran <small>(bagian 1)</small></td><td>' + rp(H.omzet) + '</td></tr>' +
+      '<tr><td>Total penerimaan <small>(bagian 6: dana cair marketplace setelah potongan platform' + (R.ada ? ' ' + rp(R.pot) : '') + ', setoran consignment, toko offline, reseller)</small></td><td>' + rp(H.terima) + '</td></tr>' +
+      '<tr><td>− Biaya operasional lain <small>(bagian 9: di luar gaji dan di luar potongan platform)</small></td><td>' + rp(-H.op) + '</td></tr>' +
+      '<tr><td>− Gaji &amp; payroll <small>(bagian 3: gaji kotor + BPJS ditanggung PT, termasuk bonus bagi hasil Kenka)</small></td><td>' + rp(-H.gaji) + '</td></tr>' +
+      '<tr><td>− Pembelian barang &amp; bahan <small>(bagian 9)</small></td><td>' + rp(-H.beli) + '</td></tr>' +
+      '<tr class="t"><td>Profit bersih (basis kas)</td><td>' + rp(profit) + '</td></tr></table>' +
+      (R.ada ? '<p class="lp-cat">Total biaya operasional semua kategori ' + rp(R.op) + ' = gaji &amp; bonus ' + rp(R.gaji) + ' + potongan platform ' + rp(R.pot) + ' (sudah terpotong dari dana cair, tidak dikurangkan lagi) + biaya operasional lain ' + rp(R.op - R.gaji - R.pot) + '.</p>' : '') + '</div>' +
       '<div class="lp-ttd">Badung, ' + tgl(D.hari) + '<div class="gs"></div><b>manajemen Moscow Supplies</b></div></div>' +
       '<div class="lp-isi"><h4>Isi laporan</h4>' + isi.map(function (t, i) { return '<div>' + (i + 1) + '. ' + esc(t) + '</div>'; }).join('') + '</div>' +
       '</div>';
@@ -672,7 +687,7 @@
       try {
         tambah('Ringkasan', [['Laporan bulanan Moscow Supplies (PT. Toentoenan Langkah Elohim)'], ['Bulan', nb], ['Periode', D.dari + ' s/d ' + D.sampai], [],
           ['Omzet (semua saluran)', H.omzet], ['Uang keluar (Rekening Belanja, ShopeePay, Kas Tunai)', H.keluar], ['Total penerimaan', H.terima],
-          ['Biaya operasional (tanpa gaji)', H.op], ['Gaji & payroll (total biaya PT)', H.gaji], ['Penerimaan bersih setelah biaya operasional & gaji', H.bersihOp], ['Pembelian barang & bahan', H.beli], ['Setelah biaya operasional & pembelian', H.bersihSemua]], [52, 22]);
+          ['Biaya operasional lain (di luar gaji & potongan platform; rincian sheet 9)', H.op], ['Gaji & payroll (total biaya PT, sheet 3)', H.gaji], ['Penerimaan bersih setelah biaya operasional & gaji', H.bersihOp], ['Pembelian barang & bahan', H.beli], ['Setelah biaya operasional & pembelian', H.bersihSemua]], [52, 22]);
         var o = [['Kelompok', 'Saluran', 'Pesanan / penjualan', 'Pcs', 'Retur', 'Omzet bersih', 'Keterangan']];
         D.omzet.official.forEach(function (x) { o.push(['Official', NAMA_PF[x.pf], x.psn, x.pcs, -x.ret, x.v, x.akhir ? 'data s/d ' + x.akhir : 'belum ada file']); });
         H.cons.forEach(function (x) { o.push(['Consignment', x.toko, x.jual, x.pcs, -x.retur, x.bersih, 'penjualan dilaporkan staf']); });
@@ -709,7 +724,7 @@
         D.omzet.official.forEach(function (x) { var d = danaOff(D, x.pf); t5.push(['Official ' + NAMA_PF[x.pf], x.v, d ? (Number(d.cair) || 0) - x.v : '', d ? Number(d.cair) || 0 : x.v, d ? 'dana cair dari laporan platform; biaya platform ' + d.biaya : 'laporan dana cair belum diupload']); });
         (H.P.bh || []).forEach(function (t) { t5.push([t.toko, t.penjualan || t.omzet || 0, -(t.potongan || 0), t.moscow || 0, 'modal HPP ' + (t.hpp || 0) + ' + biaya ditalangi ' + jml(t.biaya, function (x) { return x.nom; }) + ' + bagian profit Moscow ' + (100 - (t.persen || 0)) + '% ' + (t.moscowBagian || 0)]); });
         t5.push(['Toko Offline', H.offl.bersih, '', H.offl.bersih, ''], ['Reseller (dibayar)', H.res, '', H.res, ''], [], ['TOTAL PENERIMAAN', '', '', H.terima],
-          ['Biaya operasional (tanpa gaji)', '', '', -H.op], ['Gaji & payroll (total biaya PT)', '', '', -H.gaji], ['PENERIMAAN BERSIH setelah biaya operasional & gaji', '', '', H.bersihOp], ['Pembelian barang & bahan', '', '', -H.beli], ['Setelah biaya operasional, gaji & pembelian', '', '', H.bersihSemua], [], ['Pengeluaran per kelompok']);
+          ['Biaya operasional lain (di luar gaji & potongan platform; sheet 9)', '', '', -H.op], ['Gaji & payroll (total biaya PT)', '', '', -H.gaji], ['PENERIMAAN BERSIH setelah biaya operasional & gaji', '', '', H.bersihOp], ['Pembelian barang & bahan', '', '', -H.beli], ['Setelah biaya operasional, gaji & pembelian', '', '', H.bersihSemua], [], ['Pengeluaran per kelompok']);
         (D.kelompok || []).forEach(function (x) { t5.push([x.kel, '', '', x.v, (x.det || []).join(', ')]); });
         if ((D.dana || []).length) { t5.push([], ['Dana cair marketplace', 'Pendapatan', 'Biaya platform', 'Dana cair', 'Platform']); D.dana.forEach(function (x) { t5.push([x.toko, x.pend, x.biaya, x.cair, x.pf]); }); }
         tambah('6 Penerimaan bersih', t5, [44, 16, 18, 18, 50]);
@@ -735,8 +750,10 @@
         if (R9.ada) {
           var k9 = [['Kelompok', 'Kategori', 'Transaksi', 'Nominal']];
           R9.grup.forEach(function (g) { g.kat.forEach(function (k) { k9.push([g.kel, k.k, k.n, k.v]); }); k9.push(['Subtotal ' + g.kel, '', g.n, g.v]); });
-          k9.push([], ['Asal angka "Biaya operasional Moscow" (bagian 6)'], ['Total biaya operasional', '', '', R9.op], ['− Gaji & bonus bagi hasil (bagian 3)', '', '', -R9.gaji],
-            ['− Potongan platform marketplace (sudah terpotong dari dana cair)', '', '', -R9.pot], ['= Biaya operasional Moscow', '', '', R9.op - R9.gaji - R9.pot], [], ['RINCIAN TRANSAKSI'],
+          k9.push([], ['Asal angka "Biaya operasional lain" (Ringkasan & sheet 6)'], ['Total biaya operasional', '', '', R9.op], ['− Gaji & bonus bagi hasil (bagian 3)', '', '', -R9.gaji],
+            ['− Potongan platform marketplace (sudah terpotong dari dana cair)', '', '', -R9.pot], ['= Biaya operasional lain', '', '', R9.op - R9.gaji - R9.pot], []);
+          if (R9.lain.length) { k9.push(['TRANSAKSI BIAYA OPERASIONAL LAIN (' + R9.lain.length + ')'], ['Tanggal', 'No', 'Kategori', 'Keterangan', 'Dibayar dari', 'Nominal']); R9.lain.forEach(function (x) { k9.push([x.t, x.no, x.kat, x.ket, x.akun, Number(x.v) || 0]); }); k9.push(['Total', '', '', '', '', R9.op - R9.gaji - R9.pot], []); }
+          k9.push(['SEMUA TRANSAKSI PER KATEGORI'],
             ['Kelompok', 'Kategori', 'Tanggal', 'No', 'Keterangan', 'Dibayar dari', 'Nominal']);
           R9.grup.forEach(function (g) { g.kat.forEach(function (k) { k.L.forEach(function (x) { k9.push([g.kel, k.k, x.t, x.no, x.ket, x.akun, Number(x.v) || 0]); }); }); });
           if (R9.pajak.length) { k9.push([], ['PAJAK YANG DIPOTONG MARKETPLACE (PPh 22)'], ['Tanggal', 'No', 'Keterangan', 'Nominal']); R9.pajak.forEach(function (x) { k9.push([x.t, x.no, x.ket, Number(x.v) || 0]); }); }
