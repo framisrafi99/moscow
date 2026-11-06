@@ -229,6 +229,7 @@ Deno.serve(async (req) => {
     if (isi && isi.uji) return json(await bukti.uji(Number(isi.uji)));
     if (isi && isi.pengingat) return json(await bukti.pengingat());
     if (isi && isi.tanya) return json(await bukti.tanyaKirim(isi.tanya));
+    if (isi && isi.kartu) return json(await bukti.kartuTeks(Number(isi.kartu.id), String(isi.kartu.teks || '')));
     if (isi && isi.umumkan) return json(await bukti.umumkan(String(isi.umumkan), isi.sematkan !== false));
     const a =await bukti.periksaTunggu(), n = await bukti.bacaUlang();
     return json({ ok: true, ...a, bacaUlang: n });

@@ -122,7 +122,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       'jenis_bayar: transfer_bank = transfer / m-banking / virtual account / QRIS dari rekening bank; shopeepay = pesanan Shopee / saldo ShopeePay (kecuali terlihat dibayar dengan transfer bank / VA); ' +
       'tunai = nota / struk tanpa info pembayaran non-tunai atau tertulis cash; "" kalau tidak jelas. atas_nama = nama PENGIRIM uang (bukan penerima). ' +
       'Aturan: bukti=true kalau ini bukti pembayaran / nota / struk / transfer / pesanan yang sudah dibayar, atau pesan teks yang melaporkan pengeluaran. ' +
-      'belum_bayar=true kalau ini pesanan / invoice / sales order / COD / tagihan yang belum lunas. ' +
+      'belum_bayar=true kalau ini pesanan / invoice / commercial invoice / sales order / COD / tagihan yang belum lunas (dokumen dari penjual, bukan bukti transfer). ' +
       'nominal = total yang benar-benar dibayar (termasuk ongkir & biaya admin), bukan harga satuan; kalau ada beberapa pesanan, jumlahkan semuanya. ' +
       'barang = daftar barang / pesanan yang terlihat (maks 10) dengan total masing-masing; kosongkan [] kalau tidak ada rincian. ' +
       'sumber: rekening BCA 613-0358401 atau 613-0**-**01 = Rekening Belanja; rekening 770-0875355 atau TOENTOENAN LANGKAH ELOHI = Rekening PT; ' +
@@ -345,6 +345,22 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     return h;
   }
 
+  // ---------- invoice + bukti transfer yang dikirim bersamaan = satu pembayaran ----------
+  // Pasangan: pengirim sama, maks 30 menit, nominal sama (±1%), satu invoice / tagihan (belum_bayar) dan satu bukti bayar.
+  async function saudara(id: number, uid: string, nominal: number, invoice: boolean) {
+    const r = await sb.from('bb_bukti').select('*').eq('uid', uid).neq('id', id).gte('waktu', new Date(Date.now() - 30 * 60e3).toISOString())
+      .gte('nominal', Math.floor(nominal * 0.99)).lte('nominal', Math.ceil(nominal * 1.01)).not('status', 'in', '(gagal,bukan,sama)').order('id', { ascending: false }).limit(5);
+    return (r.data || []).filter((x: Any) => x.baca && !!x.baca.belum_bayar !== invoice && !x.baca.lampiran_untuk)[0] || null;
+  }
+  // bukti yang sudah tercatat: lampiran (invoice) ikut ditautkan ke transaksi accounting yang sama
+  async function tempelLampiran(b: Any, nos: Any) {
+    const L = b && b.baca && Array.isArray(b.baca.lampiran) ? b.baca.lampiran : [];
+    const N = (Array.isArray(nos) ? nos : String(nos || '').split(',')).map((x: Any) => String(x).trim()).filter(Boolean);
+    if (!N.length) return;
+    for (const lid of L) await sb.rpc('bb_tempel', { p_id: Number(lid), p_nos: N });
+  }
+  function noDari(acc: Any): string[] { return String(acc || '').split(',').map((x) => x.trim()).filter(Boolean); }
+
   // ---------- proses satu bukti ----------
   async function proses(m: Any) {
     const chat = m.chat, dari = m.from || {}, uid = String(dari.id);
@@ -408,13 +424,46 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
 
     // bukti kembar (foto yang sama dikirim dua kali)
     if (nominal) {
-      const q = sb.from('bb_bukti').select('id,acc_no,status,pengirim,tanggal').neq('id', id).not('status', 'in', '(gagal,bukan)').gte('waktu', new Date(Date.now() - 20 * 86400e3).toISOString());
-      const kemb = r.ref ? await q.contains('baca', { ref: r.ref }).limit(1) : await q.eq('nominal', nominal).eq('tanggal', tanggal).eq('uid', uid).limit(1);
-      const k = kemb.data && kemb.data[0];
+      const q = sb.from('bb_bukti').select('id,acc_no,status,pengirim,tanggal,baca').neq('id', id).not('status', 'in', '(gagal,bukan)').gte('waktu', new Date(Date.now() - 20 * 86400e3).toISOString());
+      const kemb = r.ref ? await q.contains('baca', { ref: r.ref }).limit(5) : await q.eq('nominal', nominal).eq('tanggal', tanggal).eq('uid', uid).limit(5);
+      // invoice dan bukti transfernya bukan kembar (dipasangkan di bawah)
+      const k = (kemb.data || []).filter((x: Any) => !!(x.baca && x.baca.belum_bayar) === !!r.belum_bayar)[0];
       if (k) {
         await ubah(id, { status: 'sama', acc_no: k.acc_no, catatan: 'Sama dengan bukti #' + k.id });
         await tampil(b, '📎 Bukti ini sama dengan yang sudah dikirim sebelumnya' + (k.acc_no ? ' (' + esc(k.acc_no) + ')' : '') + '. Tidak dicatat lagi.');
         return;
+      }
+    }
+    // invoice + bukti transfer dikirim bersamaan (album / berurutan): satu pembayaran, dicatat sekali, keduanya dilampirkan
+    if (nominal) {
+      const inv = !!r.belum_bayar, sib = await saudara(id, uid, nominal, inv);
+      if (sib) {
+        const nosSib = noDari(sib.acc_no);
+        if (inv) {
+          if (nosSib.length) await sb.rpc('bb_tempel', { p_id: id, p_nos: nosSib });
+          else await ubah(id, { status: 'sama', catatan: 'Invoice untuk bukti transfer #' + sib.id });
+          b = await ubah(id, { baca: { ...r, lampiran_untuk: sib.id } });
+          const sib2 = await ubah(sib.id, { baca: { ...sib.baca, lampiran: ((sib.baca && sib.baca.lampiran) || []).concat([id]) } });
+          if (!nosSib.length && ['usul', 'tunggu'].indexOf(sib2.status) > -1) await tampil(sib2);
+          await tampil(b, '📎 <b>Invoice dari ' + esc(nama) + '</b> · ' + rp(nominal) + (r.penerima ? ' · ' + esc(t(r.penerima, 60)) : '') + '\n' + (nosSib.length
+            ? '✅ Pembayarannya sudah tercatat: ' + esc(nosSib.join(', ')) + '. Invoice dilampirkan, tidak dicatat lagi.'
+            : 'Dilampirkan ke bukti transfer yang dikirim bersamaan, tidak dicatat terpisah. Lanjutkan dari kartu bukti transfer.'));
+          return;
+        }
+        if (nosSib.length) {
+          // invoice terlanjur dicatat: bukti transfer ditempel ke transaksi yang sama; tanggal ikut tanggal bayar (bulan berjalan saja)
+          await sb.rpc('bb_tempel', { p_id: id, p_nos: nosSib });
+          if (tanggal.slice(0, 7) === hariWita().slice(0, 7)) await sb.from('acc_log').update({ tanggal }).in('no', nosSib).eq('status', 'Aktif');
+          b = await ubah(id, { baca: { ...r, lampiran: [sib.id] } });
+          await ubah(sib.id, { baca: { ...sib.baca, lampiran_untuk: id } });
+          await tampil(b, '🧾 <b>' + esc(nama) + '</b> · ' + rp(nominal) + ' · ' + tglId(tanggal) + '\n✅ <b>Sudah tercatat</b> — ' + esc(nosSib.join(', ')) +
+            ' (dari invoice yang dikirim bersamaan).\n📎 Bukti transfer dan invoice dilampirkan, tidak dicatat dua kali.');
+          return;
+        }
+        await ubah(sib.id, { status: 'sama', catatan: 'Invoice untuk bukti transfer #' + id, baca: { ...sib.baca, lampiran_untuk: id } });
+        await tampil(sib, '📎 <b>Invoice dari ' + esc(sib.pengirim) + '</b> · ' + rp(sib.nominal) + '\nDilampirkan ke bukti transfer yang dikirim bersamaan, tidak dicatat terpisah.');
+        r.lampiran = [sib.id];
+        b = await ubah(id, { baca: r, catatan: (b.catatan ? b.catatan + ' ' : '') + '📎 Invoice terlampir (bukti #' + sib.id + ').' });
       }
     }
     // pindah dana antar akun Moscow (PT -> Belanja, Belanja -> ShopeePay / Kas): dicatat sebagai Pindah, bukan pengeluaran
@@ -423,7 +472,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       const c = await sb.rpc('bb_cocok_pindah', { p_nominal: nominal, p_tanggal: tanggal, p_dari: pd.dari, p_ke: pd.ke });
       const cand = Array.isArray(c.data) && c.data[0];
       if (cand) {
-        await sb.rpc('bb_tempel', { p_id: id, p_nos: cand.no });
+        await sb.rpc('bb_tempel', { p_id: id, p_nos: cand.no }); await tempelLampiran(b, cand.no);
         await tampil(b, '🔁 <b>' + esc(nama) + '</b> · pindah dana ' + rp(nominal) + ' · ' + tglId(tanggal) + '\n' + teksCocok(cand));
         return;
       }
@@ -442,7 +491,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
           b = await ubah(id, { baca: { ...r, tandai: { tr: cand.no, toko: rc.toko, p: rc.p, cocok: cand } } });
           await tampil(b); return;
         }
-        await sb.rpc('bb_tempel', { p_id: id, p_nos: cand.no });
+        await sb.rpc('bb_tempel', { p_id: id, p_nos: cand.no }); await tempelLampiran(b, cand.no);
         await tampil(b, '🧾 <b>' + esc(nama) + '</b> · ' + rp(nominal) + ' · ' + tglId(tanggal) + '\n' + teksCocok(cand));
         return;
       }
@@ -463,7 +512,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       if (hasil) {
         const kand = hasil.kd;
         if (hasil.yakin) {
-          await sb.rpc('bb_tempel', { p_id: id, p_nos: kand.tr });
+          await sb.rpc('bb_tempel', { p_id: id, p_nos: kand.tr }); await tempelLampiran(b, kand.tr);
           await simpanPadanan(kand.pasang);
           await tampil(b, '🧾 <b>' + esc(nama) + '</b> · ' + rp(nominal) + ' · ' + tglId(tanggal) + '\n✅ <b>Sudah tercatat</b> dari belanja lewat aplikasi (nota → sistem):' + barisPasang(kand) +
             '\n= ' + rp(kand.sum) + ' (' + esc(kand.tr.join(', ')) + ')' + (kand.beda ? ' <i>(selisih ' + rp(Math.abs(kand.beda)) + ')</i>' : '') + '\n📎 Bukti dilampirkan, tidak dicatat dua kali.');
@@ -562,6 +611,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       if (rc.kurang) return jawab('Total pengajuan lebih besar dari nota. Cek dulu atau bayar lewat aplikasi.', true);
       const r = await sb.rpc('bb_bayar', { p_id: id, p_oleh: pengisi });
       if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal menyimpan.'), true);
+      await tempelLampiran(b, r.data.trs || []);
       await simpanPadanan(rc.p.map((x: Any) => ({ nota: x.nota, sistem: x.n })).concat(rc.bps || []));
       await tampil(b, '✅ <b>Sudah dibayar</b> oleh ' + esc(pengisi) + ' · ' + esc(b.akun) + ' · ' + tglId(b.tanggal) + '\n💸 ' + rp(b.nominal) + teksRencana(rc) +
         '\n\n📒 Accounting: ' + esc((r.data.trs || []).join(', ')) + '\n📎 Bukti dilampirkan. Staf: terima barangnya di form masing-masing.');
@@ -570,12 +620,13 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     if (op === 't' || op === 'n') {
       const td = b.baca && b.baca.tandai; if (!td) return jawab('Tidak ada pengajuan yang perlu ditandai.');
       if (op === 'n') {
-        await sb.rpc('bb_tempel', { p_id: id, p_nos: td.tr });
+        await sb.rpc('bb_tempel', { p_id: id, p_nos: td.tr }); await tempelLampiran(b, td.tr);
         await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n' + teksCocok(td.cocok || { no: td.tr, t: '', sumber: '', v: b.nominal }));
         return jawab('Bukti ditempel ke ' + td.tr.join(', '));
       }
       const r = await sb.rpc('bb_tandai', { p_id: id, p_oleh: pengisi });
       if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal menyimpan.'), true);
+      await tempelLampiran(b, td.tr);
       await simpanPadanan(td.p.map((x: Any) => ({ nota: x.nota, sistem: x.n })));
       let h = '✅ <b>Ditandai sudah dibayar</b> oleh ' + esc(pengisi) + ' · ' + tglId(b.tanggal) + '\n📒 Accounting: ' + esc(td.tr.join(', ')) + ' (sudah ada, tidak dicatat lagi)';
       td.p.forEach((x: Any) => { h += '\n• <b>' + esc(x.no) + ' ' + esc(x.n) + '</b> · ' + x.q + ' ' + esc(x.s) + ' · ' + rp(x.t); });
@@ -593,6 +644,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       const pd = b.baca && b.baca.pindah; if (!pd) return jawab('Bukti ini bukan pindah dana.');
       const r = await sb.rpc('bb_catat_pindah', { p_id: id, p_oleh: pengisi });
       if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal mencatat.'), true);
+      await tempelLampiran(b, r.data.no);
       await tampil(b, '🔁 <b>Pindah dana dicatat ' + esc(r.data.no) + '</b> oleh ' + esc(pengisi) + '\n💸 ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n🏦 ' + esc(pd.dari) + ' → ' + esc(pd.ke) +
         (r.data.biaya ? '\n🧾 Biaya admin ' + rp(pd.biaya) + ' (' + esc(r.data.biaya) + ')' : '') + '\n📎 Bukti dilampirkan.');
       return jawab('Tercatat: ' + r.data.no);
@@ -619,16 +671,17 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     if (op === 'c') {
       const c = b.nominal ? await sb.rpc('bb_cocok', { p_nominal: b.nominal, p_tanggal: b.tanggal, p_pengirim: b.pengirim }) : { data: [] };
       const cand = Array.isArray(c.data) && c.data[0];
-      if (cand) { await sb.rpc('bb_tempel', { p_id: id, p_nos: cand.no }); await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n' + teksCocok(cand)); return jawab('Sudah tercatat sebelumnya — bukti ditempel.'); }
+      if (cand) { await sb.rpc('bb_tempel', { p_id: id, p_nos: cand.no }); await tempelLampiran(b, cand.no); await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n' + teksCocok(cand)); return jawab('Sudah tercatat sebelumnya — bukti ditempel.'); }
       const r = await sb.rpc('bb_catat', { p_id: id, p_oleh: pengisi });
       if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal mencatat.'), true);
+      await tempelLampiran(b, r.data.no);
       await tampil(b, '✅ <b>Dicatat ' + esc(r.data.no) + '</b> oleh ' + esc(pengisi) + '\n💸 ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + ' · ' + esc(b.akun) + '\n📝 ' + esc(b.keterangan) + ' · ' + esc(b.kategori));
       return jawab('Tercatat di accounting: ' + r.data.no);
     }
     if (op === 's') {
       const kd = b.baca && b.baca.kandidat;
       if (!kd) return jawab('Tidak ada transaksi pembanding.');
-      await sb.rpc('bb_tempel', { p_id: id, p_nos: kd.tr });
+      await sb.rpc('bb_tempel', { p_id: id, p_nos: kd.tr }); await tempelLampiran(b, kd.tr);
       await simpanPadanan(kd.pasang);
       await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n✅ <b>Sudah tercatat</b> (dikonfirmasi ' + esc(oleh) + ', nota → sistem):' + barisPasang(kd) +
         '\n= ' + rp(kd.sum) + ' (' + esc(kd.tr.join(', ')) + ')\n📎 Bukti dilampirkan, tidak dicatat dua kali.');
@@ -666,7 +719,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     for (const b of r.data || []) {
       const c = await sb.rpc('bb_cocok', { p_nominal: b.nominal, p_tanggal: b.tanggal, p_pengirim: b.pengirim });
       const cand = Array.isArray(c.data) && c.data[0];
-      if (cand) { await sb.rpc('bb_tempel', { p_id: b.id, p_nos: cand.no }); await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n' + teksCocok(cand)); tempel++; continue; }
+      if (cand) { await sb.rpc('bb_tempel', { p_id: b.id, p_nos: cand.no }); await tempelLampiran(b, cand.no); await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n' + teksCocok(cand)); tempel++; continue; }
       if (Date.now() - new Date(b.waktu).getTime() > 3 * 86400e3) {
         const baru = await ubah(b.id, { status: 'usul', catatan: '⏳ Sudah 3 hari belum ada di aplikasi. Kalau memang bukan dari pengajuan, tekan ✅ Catat.' });
         await tampil(baru); tanya++;
@@ -754,5 +807,11 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     return jawab('Terima kasih, jawaban tersimpan.');
   }
 
-  return { grup, tombol, periksaTunggu, bacaUlang, uji, umumkan, pengingat, tanyaKirim, tanyaTombol };
+  // ganti teks kartu robot satu bukti (perbaikan manual oleh manajemen, lewat kunci robot)
+  async function kartuTeks(id: number, teks: string) {
+    const b = await ambil(id); if (!b || !b.robot_msg) return { ok: false };
+    await tampil(b, String(teks).slice(0, 3500)); return { ok: true };
+  }
+
+  return { grup, tombol, periksaTunggu, bacaUlang, uji, umumkan, pengingat, tanyaKirim, tanyaTombol, kartuTeks };
 }
