@@ -489,7 +489,7 @@
     baris('PENDAPATAN BERSIH', L.bersih, 'tot');
     baris('<b>Harga pokok penjualan (HPP)</b>', null, 'g');
     if (L.adaHpp) L.HJ.saluran.forEach(function (x) { if (x.hpp) baris(esc(x.s) + '<small>' + fmt(x.q - x.tanpa_q) + ' pcs × HPP produk</small>', -x.hpp); });
-    baris('− HPP barang terjual', -L.hpp, 'sub', L.adaHpp ? (L.tanpaV ? 'penjualan ' + rp(L.tanpaV) + ' belum punya HPP / kode produk, HPP-nya belum dihitung (daftar di bawah)' : 'semua barang terjual sudah punya HPP') : 'HPP barang terjual belum bisa dimuat');
+    baris('− HPP barang terjual', -L.hpp, 'sub', L.adaHpp ? (L.tanpaV ? 'termasuk penjualan barang lama / dead stock ' + rp(L.tanpaV) + ' yang tidak punya HPP (tidak dibeli ulang), HPP-nya dihitung 0 (daftar di bawah)' : 'semua barang terjual sudah punya HPP') : 'HPP barang terjual belum bisa dimuat');
     baris('LABA KOTOR', L.kotor, 'tot');
     baris('<b>Beban usaha</b>', null, 'g');
     baris('− Gaji &amp; payroll', -L.gaji, '', 'total biaya PT: gaji kotor + BPJS ditanggung PT, termasuk bonus bagi hasil Kenka (bagian 3)');
@@ -509,9 +509,9 @@
       '<li>Pembelian aset / peralatan, pindah dana antar rekening, pinjaman / piutang, dan penyesuaian saldo bank di luar laba rugi (bagian 9 &amp; 10).</li>' +
       (L.pajak ? '<li>PPh 22 yang dipotong marketplace ' + rp(L.pajak) + ' termasuk di potongan platform; bukti potongnya dapat dikreditkan (bagian 9).</li>' : '') +
       '<li>Laba bersih di atas belum dikurangi pajak penghasilan badan.</li></ul>';
-    if (L.adaHpp && L.HJ.tanpa.length) h += '<details class="lp-rinci"><summary>Barang terjual yang belum punya HPP / kode produk (' + fmt(L.HJ.tanpa.length) + ') ›</summary>' +
+    if (L.adaHpp && L.HJ.tanpa.length) h += '<details class="lp-rinci"><summary>Barang lama / dead stock terjual tanpa HPP (' + fmt(L.HJ.tanpa.length) + ') ›</summary>' +
       tabel(['Saluran', 'Kode', 'Nama di pesanan', 'Pcs', 'Penjualan'], L.HJ.tanpa.map(function (x) { return tr([esc(x.s), esc(x.k || '–'), esc(x.n), fmt(x.q), rp(x.v)], [3, 4]); }), [3, 4]) +
-      '<p class="lp-cat">Hubungkan nama produk marketplace ke kode produk (padanan) atau isi HPP produknya, supaya HPP-nya ikut terhitung.</p></details>';
+      '<p class="lp-cat">Barang ini stok lama / dead stock yang tidak dijual kembali (tidak dibeli ulang), jadi tidak punya HPP di sistem dan HPP-nya dihitung 0.</p></details>';
     return h + '</div>';
   }
   function t30(s) { s = String(s || ''); return s.length > 60 ? s.slice(0, 57) + '…' : s; }
@@ -863,7 +863,7 @@
         k11.push(['Penjualan (setelah retur)', L11.tJual, '100%', 'sama dengan omzet sheet 1'], ['− Potongan platform marketplace', -L11.potPf, '', L11.belumDana.length ? 'dana cair belum diupload: ' + L11.belumDana.join(', ') : 'penjualan − dana cair (sheet 6)'],
           ['− Bagian toko consignment', -L11.bagToko, '', L11.adaBh ? 'penjualan consignment − setoran ke Moscow' : 'bagi hasil consignment belum tersedia'], ['PENDAPATAN BERSIH', L11.bersih, pr(L11.bersih)], [], ['HARGA POKOK PENJUALAN']);
         if (L11.adaHpp) L11.HJ.saluran.forEach(function (x) { if (x.hpp) k11.push([x.s + ' (' + (x.q - x.tanpa_q) + ' pcs)', -x.hpp]); });
-        k11.push(['− HPP barang terjual', -L11.hpp, pr(-L11.hpp), L11.tanpaV ? 'penjualan ' + L11.tanpaV + ' belum punya HPP / kode produk' : ''], ['LABA KOTOR', L11.kotor, pr(L11.kotor)], [], ['BEBAN USAHA'], ['− Gaji & payroll (total biaya PT, sheet 3)', -L11.gaji]);
+        k11.push(['− HPP barang terjual', -L11.hpp, pr(-L11.hpp), L11.tanpaV ? 'termasuk penjualan barang lama / dead stock ' + Math.round(L11.tanpaV).toLocaleString('id-ID') + ' tanpa HPP (HPP dihitung 0)' : ''], ['LABA KOTOR', L11.kotor, pr(L11.kotor)], [], ['BEBAN USAHA'], ['− Gaji & payroll (total biaya PT, sheet 3)', -L11.gaji]);
         if (L11.opKat.length) L11.opKat.forEach(function (x) { k11.push(['− ' + x.n, -x.v]); }); else k11.push(['− Biaya operasional lain', -L11.opLain]);
         if (L11.vBalik) k11.push(['+ Penggantian biaya', L11.vBalik, '', L11.balik.map(function (x) { return x.no + ' ' + (x.ket || ''); }).join('; ')]);
         k11.push(['Total beban usaha', -(L11.gaji + L11.opLain - L11.vBalik), pr(-(L11.gaji + L11.opLain - L11.vBalik))], ['LABA USAHA', L11.usaha, pr(L11.usaha)]);
@@ -871,7 +871,7 @@
         k11.push(['LABA BERSIH SEBELUM PAJAK', L11.laba, pr(L11.laba)], [], ['Catatan'],
           ['Pembelian barang & bahan bulan ini ' + Math.round(L11.beli).toLocaleString('id-ID') + ' tidak dibebankan langsung (masuk persediaan); yang dibebankan HPP barang terjual.'],
           ['HPP = jumlah barang terjual × HPP produk di sistem saat laporan dibuat.'], ['Aset / peralatan, pindah dana, pinjaman / piutang dan penyesuaian saldo bank di luar laba rugi.'], ['Laba bersih belum dikurangi pajak penghasilan badan.']);
-        if (L11.adaHpp && L11.HJ.tanpa.length) { k11.push([], ['BARANG TERJUAL TANPA HPP / KODE PRODUK'], ['Saluran', 'Kode', 'Nama di pesanan', 'Pcs', 'Penjualan']); L11.HJ.tanpa.forEach(function (x) { k11.push([x.s, x.k || '', x.n, x.q, x.v]); }); }
+        if (L11.adaHpp && L11.HJ.tanpa.length) { k11.push([], ['BARANG LAMA / DEAD STOCK TERJUAL TANPA HPP (HPP dihitung 0; tidak dibeli ulang)'], ['Saluran', 'Kode', 'Nama di pesanan', 'Pcs', 'Penjualan']); L11.HJ.tanpa.forEach(function (x) { k11.push([x.s, x.k || '', x.n, x.q, x.v]); }); }
         tambah('11 Laba rugi', k11, [52, 18, 14, 60]);
       } catch (e) { alert('Gagal menyiapkan data Excel: ' + e.message); selesai(); return; }
     }
