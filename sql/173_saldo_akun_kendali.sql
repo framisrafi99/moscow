@@ -12,3 +12,6 @@ do $$ declare d text; begin
     execute replace(d, $q$values ('Kas Tunai', 1), ('Rekening Belanja', 2), ('ShopeePay', 3))$q$, $q$values ('Rekening PT', 1), ('Rekening Belanja', 2), ('ShopeePay', 3), ('Kas Tunai', 4))$q$);
   end if;
 end $$;
+-- 6 Nov 2026: saldo awal November disamakan dengan bank (rekening koran 31 Okt):
+--   kategori "Penyesuaian saldo (cocok bank)" (Masuk & Keluar, di luar laba rugi); penyesuaian Rekening PT & ShopeePay bertanggal 1 Nov (dijalankan langsung);
+--   akun baru "Rekening Danamon" (Bank, tabungan PT) saldo awal per 1 Nov dari rekening koran; ikut tampil di kartu saldo Beranda.

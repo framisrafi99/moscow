@@ -250,7 +250,7 @@
   }
 
   // ======================= SALDO PER AKUN (rumus sama dengan Master Data > Accounting > Laporan bulanan) =======================
-  var SALDO = {}, UTAMA = ['Rekening PT', 'Rekening Belanja', 'ShopeePay', 'Kas Tunai'];
+  var SALDO = {}, UTAMA = ['Rekening PT', 'Rekening Danamon', 'Rekening Belanja', 'ShopeePay', 'Kas Tunai'];
   async function gambarSaldo(bulan) {
     var el = $('saldoAkun'); if (!el) return;
     if (!window.Akunting) { el.innerHTML = ''; return; }
