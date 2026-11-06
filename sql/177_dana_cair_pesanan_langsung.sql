@@ -1,0 +1,15 @@
+-- 177 (6 Nov 2026, tahap 6 lepas Apps Script): dana_cair_simpan menulis rincian per pesanan langsung ke tabel
+-- dana_cair_pesanan (sebelumnya lewat efek_antre 'dc_pesanan' -> Apps Script -> sheet DANA_CAIR_PESANAN -> sinkron).
+-- Diterapkan dengan mengganti blok "insert into efek_antre ... 'dc_pesanan'" di dalam dana_cair_simpan menjadi:
+--
+--   delete from dana_cair_pesanan where bulan = v_bulan and toko = v_toko and platform = v_pf;
+--   insert into dana_cair_pesanan (bulan, toko, platform, no_pesanan, jenis, tanggal_pesanan, tanggal_cair, harga_produk, pengembalian_dana, dana_cair, waktu_upload, sidik)
+--   select v_bulan, v_toko, v_pf, z.no, z.j, z.tp, z.tc, z.h, z.rf, z.dc, kini,
+--          left(md5(concat_ws('|', v_bulan, v_toko, v_pf, z.no, z.j, z.tp, z.tc, z.h, z.rf, z.dc, z.o)), 16)
+--     from (select public._mp_t(e ->> 'no', 40) no, coalesce(nullif(public._mp_t(e ->> 'j', 30), ''), 'Pesanan') j,
+--                  case when (e ->> 'tp') ~ '^\d{4}-\d{2}-\d{2}$' then to_char((e ->> 'tp')::date, 'DD/MM/YYYY') else '' end tp,
+--                  case when (e ->> 'tc') ~ '^\d{4}-\d{2}-\d{2}$' then to_char((e ->> 'tc')::date, 'DD/MM/YYYY') else '' end tc,
+--                  round(public._mp_n(e ->> 'h')) h, round(public._mp_n(e ->> 'rf')) rf, round(public._mp_n(e ->> 'd')) dc, o
+--             from jsonb_array_elements(psn) with ordinality x(e, o)) z;
+--
+-- Format tanggal DD/MM/YYYY dan bulan 'YYYY-MM' sama dengan baris lama hasil sinkron sheet.
