@@ -16,7 +16,8 @@ const PANDUAN = 'Cara kerja Admin Accounting di grup Bukti Bayar Moscow:\n' +
   '- Untuk mengubah: tekan ✏️ Ubah lalu BALAS pesan Admin Accounting (atau kirim teks dalam 15 menit). Bukti yang sudah tercatat (✅ Dicatat) juga bisa diubah dengan cara ini; Admin Accounting langsung membetulkan transaksinya.\n' +
   '- Bukti transfer + invoice / nota yang dikirim bersamaan (maks 30 menit, nominal sama, selisih biaya transfer s.d. Rp10.000 boleh) = SATU pembayaran: yang dicatat bukti transfernya, invoice jadi lampiran.\n' +
   '- Invoice / tagihan yang belum dibayar jangan dicatat dulu; kirim bukti transfernya saat sudah dibayar.\n' +
-  '- Belanja barang dari pengajuan (Viory / Mike): bayar lewat aplikasi (Purchasing / PO), bukti ditempel otomatis. Kalau Admin Accounting menunggu (⏳), input dulu di aplikasi atau tekan ✅ Catat.\n' +
+  '- Pengajuan barang staf (stiker, botol, bahan baku, dll) yang dibayar Junior / Mike: kirim bukti bayar / nota ke grup, Admin Accounting otomatis mencatat dan menandai pengajuannya sudah dibayar di Purchasing (Viory tidak perlu menekan apa-apa). Viory hanya menandai barang yang ia bayar sendiri di aplikasi Purchasing.\n' +
+  '- Belanja Viory: bayar lewat aplikasi (Purchasing / PO), bukti ditempel otomatis. Kalau Admin Accounting menunggu (⏳), input dulu di aplikasi atau tekan ✅ Catat.\n' +
   '- Pindah dana antar akun Moscow (PT -> Belanja, top up ShopeePay, tarik tunai) dicatat sebagai pindah dana, bukan pengeluaran.\n' +
   '- Foto sama dikirim dua kali: Admin Accounting menandai "sama", tidak dicatat lagi.\n' +
   '- Kalau Admin Accounting salah baca: tekan ✏️ Ubah lalu balas dengan angka / keterangan yang benar, atau ❌ Bukan lalu kirim ulang foto yang lebih jelas. Kalau sudah terlanjur dicatat dan salah, laporkan di grup; manajemen Moscow Supplies (Iqbal) yang membetulkan di Master Data.';

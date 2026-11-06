@@ -512,6 +512,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
         const rc = rencanaBayar(r, belum, items, nominal);
         if (rc && rc.p.length) {
           b = await ubah(id, { baca: { ...r, tandai: { tr: cand.no, toko: rc.toko, p: rc.p, cocok: cand } } });
+          if (await otomatis(b, 't')) return;
           await tampil(b); return;
         }
         await sb.rpc('bb_tempel', { p_id: id, p_nos: cand.no }); await tempelLampiran(b, cand.no);
@@ -522,7 +523,11 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     // bukti = tindakan "sudah dibayar": barang cocok dengan pengajuan / PO yang belum dibayar -> tombol ✅ Sudah dibayar (pengirim)
     if (nominal) {
       const rc = rencanaBayar(r, belum, items, nominal);
-      if (rc) { b = await ubah(id, { baca: { ...r, rencana: rc } }); await tampil(b); return; }
+      if (rc) {
+        b = await ubah(id, { baca: { ...r, rencana: rc } });
+        if (!rc.kurang && b.akun && await otomatis(b, 'p')) return;
+        await tampil(b); return;
+      }
       // transfer impor tanpa rincian barang: centang pengajuan impor yang dibayar
       if ((nama === 'Mike' || kategori === 'Pembelian barang dagang / impor') && !r.belum_bayar) {
         const ri = pilihImpor(r, belum);
@@ -672,9 +677,19 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
   }
 
   // ---------- tombol ----------
+  // Pengajuan barang (stiker, botol, bahan baku, dll) yang dibayar Junior / Mike: Admin Accounting langsung mencatat dan menandai
+  // "sudah dibayar" di Purchasing, tanpa menunggu tombol ditekan (6 Nov 2026). Viory cukup menandai yang ia bayar sendiri.
+  async function otomatis(b: Any, op: string): Promise<boolean> {
+    const pb = b.baca && b.baca.pembayar ? String(b.baca.pembayar) : String(b.pengirim || '');
+    if (['Junior', 'Mike'].indexOf(pb) < 0 && ['Junior', 'Mike'].indexOf(String(b.pengirim || '')) < 0) return false;
+    try { await tombol({ id: '', data: 'b|' + b.id + '|' + op, from: { id: b.uid, first_name: b.pengirim } }); } catch (e) { console.error('otomatis', e); return false; }
+    const c = await ambil(b.id);
+    return !!(c && (c.status === 'dicatat' || c.status === 'cocok'));
+  }
+
   async function tombol(q: Any) {
     const p = String(q.data || '').split('|'), id = Number(p[1]), op = p[2];
-    const jawab = (s: string, alert = false) => api('answerCallbackQuery', { callback_query_id: q.id, text: s.slice(0, 195), show_alert: alert });
+    const jawab = (s: string, alert = false) => q.id ? api('answerCallbackQuery', { callback_query_id: q.id, text: s.slice(0, 195), show_alert: alert }) : Promise.resolve(null);
     const b = await ambil(id);
     if (!b) return jawab('Bukti tidak ditemukan.', true);
     const uid = String(q.from?.id || '');
