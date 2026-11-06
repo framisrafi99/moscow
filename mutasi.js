@@ -36,15 +36,15 @@
   }
 
   function isiHasil() {
-    var B = baris(), n = { cocok: 0, geser: 0, belum: 0 }, db = 0, cr = 0;
+    var B = baris(), n = { cocok: 0, geser: 0, belum: 0, gabung: 0 }, db = 0, cr = 0;
     B.forEach(function (b, i) { var c = hasilKe(i); n[c ? c.st : 'belum']++; if (b.arah === 'DB') db += b.v; else cr += b.v; });
     var L = S.C.lain || [];
     var h = '<div class="cd"><div class="kpl"><h3 style="margin:0">' + esc(S.akun) + ' · ' + tgl(S.C.dari) + ' – ' + tgl(S.C.sampai) + '</h3><span class="sb">' + B.length + ' transaksi bank</span></div>' +
       (S.M.terpotong ? '<div class="msg w">Mutasinya panjang sekali; sebagian baris mungkin belum terbaca. Upload per minggu supaya lengkap.</div>' : '') +
-      '<div class="mt-ring"><div><span class="sb">Cocok</span><b>' + n.cocok + '</b></div><div><span class="sb">Cocok, tanggal beda</span><b>' + n.geser + '</b></div>' +
+      '<div class="mt-ring"><div><span class="sb">Cocok</span><b>' + n.cocok + '</b></div><div><span class="sb">Cocok, tanggal beda</span><b>' + n.geser + '</b></div><div><span class="sb">Cocok gabungan</span><b>' + n.gabung + '</b></div>' +
       '<div><span class="sb">Belum tercatat</span><b style="color:#A12B1F">' + n.belum + '</b></div><div><span class="sb">Di accounting, tidak ada di bank</span><b>' + L.length + '</b></div></div>' +
       '<p class="sb" style="margin:0">Uang keluar ' + rp(db) + ' · uang masuk ' + rp(cr) + (S.M.saldo_awal != null ? ' · saldo awal bank ' + rp(S.M.saldo_awal) : '') + (S.M.saldo_akhir != null ? ' · saldo akhir bank ' + rp(S.M.saldo_akhir) : '') + '</p></div>';
-    var urut = B.map(function (b, i) { return i; }).sort(function (a, b) { var o = { belum: 0, geser: 1, cocok: 2 }; var ca = hasilKe(a), cb = hasilKe(b); return (o[ca ? ca.st : 'belum'] - o[cb ? cb.st : 'belum']) || a - b; });
+    var urut = B.map(function (b, i) { return i; }).sort(function (a, b) { var o = { belum: 0, gabung: 1, geser: 2, cocok: 3 }; var ca = hasilKe(a), cb = hasilKe(b); return (o[ca ? ca.st : 'belum'] - o[cb ? cb.st : 'belum']) || a - b; });
     h += '<div class="cd"><h3 style="margin-top:0">Transaksi di mutasi bank</h3>' + urut.map(function (i) { return barisMutasi(B[i], i, hasilKe(i)); }).join('') + '</div>';
     if (L.length) h += '<div class="cd"><h3 style="margin-top:0">Ada di accounting, tidak ada di mutasi</h3><p class="sb" style="margin:0 0 6px">Cek apakah rekeningnya benar, nominalnya beda, atau memang belum masuk periode mutasi ini.</p>' +
       L.map(function (x) {
@@ -55,9 +55,9 @@
   }
 
   function barisMutasi(b, i, c) {
-    var st = c ? c.st : 'belum', chip = st === 'cocok' ? '<span class="mt-chip mt-ok">Cocok</span>' : st === 'geser' ? '<span class="mt-chip mt-geser">Cocok · dicatat ' + tgl(c.tc) + '</span>' : '<span class="mt-chip mt-belum">Belum tercatat</span>';
+    var st = c ? c.st : 'belum', chip = st === 'cocok' ? '<span class="mt-chip mt-ok">Cocok</span>' : st === 'geser' ? '<span class="mt-chip mt-geser">Cocok · dicatat ' + tgl(c.tc) + '</span>' : st === 'gabung' ? '<span class="mt-chip mt-ok">Cocok gabungan</span>' : '<span class="mt-chip mt-belum">Belum tercatat</span>';
     var h = '<div class="mt-row"><div class="mt-top"><div>' + tgl(b.t) + ' · ' + chip + '<div class="mt-ket">' + esc(b.ket) + '</div>' +
-      (c && c.no ? '<div class="mt-ket">↳ <b>' + esc(c.no) + '</b> ' + esc(c.jenis === 'Pindah' ? 'Pindah dana ' + (b.arah === 'DB' ? 'ke ' : 'dari ') + (c.lawan || '') : (c.kat || '')) + ' · ' + esc(c.ket) + '</div>' : '') +
+      (c && c.st === 'gabung' ? '<div class="mt-ket">↳ ' + esc(c.ket) + '</div>' : c && c.no ? '<div class="mt-ket">↳ <b>' + esc(c.no) + '</b> ' + esc(c.jenis === 'Pindah' ? 'Pindah dana ' + (b.arah === 'DB' ? 'ke ' : 'dari ') + (c.lawan || '') : (c.kat || '')) + ' · ' + esc(c.ket) + '</div>' : '') +
       '</div><b class="' + (b.arah === 'DB' ? 'mt-db' : 'mt-cr') + '">' + (b.arah === 'DB' ? '−' : '+') + rp(b.v) + '</b></div>';
     if (st === 'belum') {
       if (!S.buka[i]) h += '<div class="aksi-baris" style="margin-top:6px"><button type="button" class="tbl kcl" data-mt="buka" data-i="' + i + '">Catat di accounting</button></div>';
@@ -98,7 +98,40 @@
     var r = await S.sb.rpc('mutasi_cocok', { p_akun: S.akun, p_rows: baris() });
     S.sibuk = '';
     if (r.error || !r.data || !r.data.ok) { pesan('bad', (r.data && r.data.pesan) || (r.error && r.error.message) || 'Gagal mencocokkan.'); return; }
-    S.C = r.data; gambar();
+    S.C = r.data; gabung(); gambar();
+  }
+  // Cocok gabungan: satu baris bank = beberapa catatan (VA dipecah per barang), atau beberapa baris bank = satu catatan (biaya admin dijumlah).
+  function selisihHari(a, b) { return Math.abs((new Date(a) - new Date(b)) / 864e5); }
+  function cariJumlah(L, target, maks) {
+    var hasil = null, n = Math.min(L.length, 24), langkah = 0;
+    (function dfs(i, sisa, pilih) {
+      if (hasil || ++langkah > 200000) return;
+      if (Math.abs(sisa) < 1 && pilih.length > 1) { hasil = pilih.slice(); return; }
+      if (sisa < 0 || i >= n || pilih.length >= maks) return;
+      pilih.push(i); dfs(i + 1, sisa - L[i].v, pilih); pilih.pop(); dfs(i + 1, sisa, pilih);
+    })(0, target, []);
+    return hasil;
+  }
+  function gabung() {
+    var B = baris(), lain = (S.C.lain || []).map(function (x) { return { no: x.no, t: x.t, arah: x.arah, v: Math.round(Number(x.v) || 0), jenis: x.jenis, kat: x.kat, ket: x.ket, pakai: false }; });
+    var belum = function () { return B.map(function (b, i) { return i; }).filter(function (i) { var c = hasilKe(i); return !c || c.st === 'belum'; }); };
+    var set = function (i, o) { var c = hasilKe(i); if (c) { for (var k in o) c[k] = o[k]; } else S.C.baris.push(Object.assign({ i: i }, o)); };
+    // 1) satu baris bank = beberapa catatan accounting
+    belum().forEach(function (i) {
+      var b = B[i], L = lain.filter(function (x) { return !x.pakai && x.arah === b.arah && x.v <= b.v && selisihHari(x.t, b.t) <= 4; }).sort(function (p, q) { return selisihHari(p.t, b.t) - selisihHari(q.t, b.t); });
+      var p = cariJumlah(L, b.v, 6); if (!p) return;
+      var dipilih = p.map(function (k) { return L[k]; }); dipilih.forEach(function (x) { x.pakai = true; });
+      set(i, { st: 'gabung', no: dipilih.map(function (x) { return x.no; }).join(', '), jenis: '', kat: '', ket: dipilih.map(function (x) { return x.no + ' ' + (x.kat || x.jenis) + ' ' + rp(x.v); }).join(' + '), tc: dipilih[0].t });
+    });
+    // 2) beberapa baris bank = satu catatan accounting (mis. biaya admin + biaya transfer dijumlah)
+    lain.filter(function (x) { return !x.pakai; }).forEach(function (x) {
+      var idx = belum().filter(function (i) { return B[i].arah === x.arah && B[i].v <= x.v && selisihHari(B[i].t, x.t) <= 4; }).sort(function (p, q) { return selisihHari(B[p].t, x.t) - selisihHari(B[q].t, x.t); });
+      var L = idx.map(function (i) { return { v: B[i].v, i: i }; });
+      var p = cariJumlah(L, x.v, 10); if (!p) return;
+      x.pakai = true;
+      p.forEach(function (k) { set(L[k].i, { st: 'gabung', no: x.no, jenis: x.jenis, kat: x.kat, ket: 'bagian dari ' + x.no + ' ' + rp(x.v) + ' · ' + (x.ket || ''), tc: x.t }); });
+    });
+    S.C.lain = (S.C.lain || []).filter(function (y) { return !lain.some(function (x) { return x.pakai && x.no === y.no; }); });
   }
   async function catat(i) {
     var b = baris()[i]; if (!b) return;
