@@ -117,6 +117,8 @@
   }
 
   // Sudah dibayar orang lain (Junior / Mike / manajemen) dan sudah tercatat di accounting: cukup ditautkan, tidak dicatat dobel.
+  // 'Dibayar Viory · ...' adalah penanda sistem; kalau yang membayar Junior / Mike, tampilkan pembayar sebenarnya.
+  function refTampil(r) { r = String(r || ''); var m = / · dibayar ([^(·]+?) \(/.exec(r); return m ? r.replace(/^Dibayar Viory/, 'Dibayar ' + m[1]).replace(/ · dibayar [^(·]+? \(([^)]*)\)/, ' · $1') : r; }
   function kotakTercatat() {
     var T = S.TC, pilih = S.TCP || '';
     var isi = !T ? '<p class="sb">Memuat transaksi…</p>' : !T.length ? '<p class="sb">Tidak ada transaksi pembelian 45 hari terakhir.</p>' :
@@ -167,7 +169,7 @@
       var bisa = /^Dibayar Viory/.test(a.ref || ''), buka = S.KQ[a.no];
       var kor = String(a.cp || '').split(' | ').filter(function (t) { return /^Koreksi qty/.test(t); });
       return '<div class="row"><div class="n"><b>' + esc(a.n) + '</b><div class="sb">' + esc(a.no) + ' · ' + esc(a.wk) + ' · ' + esc(a.bg) + ' · ' + esc(a.pg) + '</div>' +
-        (a.ref ? '<div class="sb">' + esc(a.ref) + (a.wt ? ' · diterima ' + esc(a.wt) : '') + '</div>' : '') +
+        (a.ref ? '<div class="sb">' + esc(refTampil(a.ref)) + (a.wt ? ' · diterima ' + esc(a.wt) : '') + '</div>' : '') +
         (kor.length ? '<div class="sb">' + kor.map(esc).join('<br>') + '</div>' : '') +
         (bisa ? '<div class="aksi-baris" style="margin-top:6px"><button type="button" class="tbl kcl" data-pa="kq" data-no="' + esc(a.no) + '">' + (buka ? 'Tutup koreksi' : 'Koreksi qty dibeli') + '</button></div>'
           : '<div class="sb">Koreksi qty barang ini oleh manajemen Moscow Supplies.</div>') +
@@ -186,7 +188,7 @@
     if (!R.length) return h + '<div class="cd"><div class="ksg">Tidak ada data.</div></div>';
     return h + '<div class="cd">' + R.map(function (a) {
       return '<div class="row"><div class="n"><b>' + esc(a.n) + '</b><div class="sb">' + esc(a.no) + ' · ' + esc(a.wk) + ' · ' + esc(a.bg) + ' · ' + esc(a.pg) + '</div>' +
-        (a.st === 'Dibayar' || a.st === 'Diterima' || a.st === 'Dipesan' ? '<div class="sb">' + esc(a.ref || '') + (a.wt ? ' · diterima ' + esc(a.wt) : '') + '</div>' : '') +
+        (a.st === 'Dibayar' || a.st === 'Diterima' || a.st === 'Dipesan' ? '<div class="sb">' + esc(refTampil(a.ref)) + (a.wt ? ' · diterima ' + esc(a.wt) : '') + '</div>' : '') +
         ((a.st === 'Ditolak' || a.st === 'Batal' || /BELANJA ULANG|Koreksi qty/.test(a.cp || '')) && a.cp ? '<div class="sb">Catatan: ' + esc(a.cp) + '</div>' : '') +
         '</div><div class="r">' + chip(a.st) + '<div style="margin-top:4px">' + f(qOf(a)) + ' ' + esc(a.s) + '</div></div></div>';
     }).join('') + '</div>';
