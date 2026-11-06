@@ -377,6 +377,7 @@
     return D._rinci;
   }
   function bagianRinci(D) {
+    var G9 = ringkasGaji(D.gaji || []);
     var R = rinci(D), h = '<div class="cd lp-sec" id="lp9"><h3><span class="no">9</span>Rincian biaya per kategori (semua rekening)</h3>';
     if (!R.ada) return h + '<div class="ksg">Rincian transaksi bulan ini belum bisa dimuat.</div></div>';
     h += '<p class="lp-cat">Semua uang keluar yang tercatat di accounting bulan ini, dari semua rekening dan saldo marketplace. Pindah dana antar rekening dan penyesuaian saldo bank tidak termasuk.</p>';
@@ -389,8 +390,8 @@
     h += tabel(['Kategori', 'Transaksi', 'Nominal'], b, [1, 2]);
     h += '<p class="lp-cat" style="font-weight:800;color:var(--teks2);font-size:14px;margin-top:14px">Asal angka "Biaya operasional lain" di Ringkasan &amp; bagian 6</p>' +
       tabel(['', 'Nominal'], [tr(['Total biaya operasional (semua kategori di atas)', rp(R.op)], [1]),
-        tr(['− Gaji &amp; bonus bagi hasil<small>ditampilkan terpisah sebagai "Gaji &amp; payroll" (bagian 3)</small>', rp(-R.gaji)], [1]),
-        tr(['− Potongan platform marketplace<small>sudah terpotong dari dana cair Shopee / TikTok Shop / Lazada (bagian 6)</small>', rp(-R.pot)], [1]),
+        tr(['− Gaji &amp; bonus bagi hasil<small>dicatat di accounting sebesar THP yang ditransfer. Di Ringkasan dan bagian 3 gaji dihitung bruto' + (G9.n ? ' (' + rp(G9.biaya) + ' = THP + BPJS karyawan + kasbon + BPJS ditanggung PT)' : '') + '</small>', rp(-R.gaji)], [1]),
+        tr(['− Potongan platform marketplace<small>biaya admin, iklan otomatis, komisi affiliate, ongkir & PPh 22 yang tercatat di accounting; sudah terpotong dari dana cair (bagian 6)</small>', rp(-R.pot)], [1]),
         tr(['= Biaya operasional lain', rp(R.op - R.gaji - R.pot)], [1], 'tot')], [1]);
     if (R.lain.length) {
       var KL = {}, uk = []; R.lain.forEach(function (x) { if (!KL[x.kat]) { KL[x.kat] = { k: x.kat, v: 0, n: 0 }; uk.push(KL[x.kat]); } KL[x.kat].v += Number(x.v) || 0; KL[x.kat].n++; });
@@ -480,7 +481,7 @@
       '</div>' +
       '<div class="lp-ttp"><div><table class="lp-rk"><caption>Ringkasan arus uang (rincian ada di bagian yang disebut)</caption>' +
       '<tr><td>Omzet semua saluran <small>(bagian 1)</small></td><td>' + rp(H.omzet) + '</td></tr>' +
-      '<tr><td>Total penerimaan <small>(bagian 6: dana cair marketplace setelah potongan platform' + (R.ada ? ' ' + rp(R.pot) : '') + ', setoran consignment, toko offline, reseller)</small></td><td>' + rp(H.terima) + '</td></tr>' +
+      '<tr><td>Total penerimaan <small>(bagian 6: dana cair marketplace yang sudah dipotong biaya platform, setoran consignment, toko offline, reseller)</small></td><td>' + rp(H.terima) + '</td></tr>' +
       '<tr><td>− Biaya operasional lain <small>(bagian 9: di luar gaji dan di luar potongan platform)</small></td><td>' + rp(-H.op) + '</td></tr>' +
       '<tr><td>− Gaji &amp; payroll <small>(bagian 3: gaji kotor + BPJS ditanggung PT, termasuk bonus bagi hasil Kenka)</small></td><td>' + rp(-H.gaji) + '</td></tr>' +
       '<tr><td>− Pembelian barang &amp; bahan <small>(bagian 9)</small></td><td>' + rp(-H.beli) + '</td></tr>' +
