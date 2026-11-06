@@ -12,6 +12,7 @@
   function rp(n) { n = Math.round(Number(n) || 0); return (n < 0 ? '−Rp' : 'Rp') + Math.abs(n).toLocaleString('id-ID'); }
   function tgl(d) { var p = String(d || '').slice(0, 10).split('-'); return p.length < 3 ? '' : Number(p[2]) + ' ' + BLS[Number(p[1]) - 1] + ' ' + p[0]; }
   function namaBulan(b) { var p = String(b || '').split('-'); return (BLN[Number(p[1]) - 1] || '') + ' ' + p[0]; }
+  function oleh(o) { return String(o || '').replace(/^pemilik$/i, 'manajemen Moscow Supplies'); }
   function jml(arr, f) { return (arr || []).reduce(function (t, x) { return t + (Number(f(x)) || 0); }, 0); }
 
   var CSS = '' +
@@ -182,7 +183,7 @@
       if (a.pindah.length) h += '<p class="lp-cat" style="font-weight:700;color:var(--teks2)">Pindah dana dari ' + esc(a.akun) + ' (bukan pengeluaran)</p>' +
         tabel(['Tanggal', 'No', 'Ke akun', 'Keterangan', 'Nominal'], a.pindah.map(function (t) { return tr([tgl(t.t), esc(t.no), esc(t.ke), esc(t.ket || '-'), rp(t.v)], [4]); }), [4]);
       if (a.list.length) h += '<details class="lp-rinci"><summary>Rincian ' + fmt(a.list.length) + ' transaksi ›</summary>' +
-        tabel(['Tanggal', 'No', 'Kategori', 'Keterangan', 'Dicatat oleh', 'Nominal'], a.list.map(function (t) { return tr([tgl(t.t), esc(t.no), esc(t.k || '-'), esc(t.ket || '-'), esc(t.o || '-'), rp(t.v)], [5]); }), [5]) + '</details>';
+        tabel(['Tanggal', 'No', 'Kategori', 'Keterangan', 'Dicatat oleh', 'Nominal'], a.list.map(function (t) { return tr([tgl(t.t), esc(t.no), esc(t.k || '-'), esc(t.ket || '-'), esc(oleh(t.o) || '-'), rp(t.v)], [5]); }), [5]) + '</details>';
       h += '</div>';
     });
     return h + '</div>';
@@ -682,7 +683,7 @@
         var k = [['Sumber dana', 'Jenis', 'Tanggal', 'No', 'Kategori / akun', 'Keterangan', 'Dicatat oleh', 'Nominal']];
         D.keluar.forEach(function (a) {
           a.topup.forEach(function (t) { k.push([a.akun, 'Top up masuk', t.t, t.no, 'dari ' + t.dari, t.ket || '', '', t.v]); });
-          a.list.forEach(function (t) { k.push([a.akun, 'Uang keluar', t.t, t.no, t.k || '', t.ket || '', t.o || '', t.v]); });
+          a.list.forEach(function (t) { k.push([a.akun, 'Uang keluar', t.t, t.no, t.k || '', t.ket || '', oleh(t.o), t.v]); });
           a.pindah.forEach(function (t) { k.push([a.akun, 'Pindah dana keluar', t.t, t.no, 'ke ' + t.ke, t.ket || '', '', t.v]); });
           k.push([a.akun, 'TOTAL UANG KELUAR', '', '', '', '', '', a.total], []);
         });
