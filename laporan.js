@@ -352,6 +352,7 @@
   // ======================= 9. Rincian biaya per kategori & 10. Saldo rekening / piutang (SQL 174, akun.js) =======================
   var RE_POT = /^(Biaya marketplace |Iklan TikTok Ads \(GMV Pay\)|PPh 22 dipotong (TikTok|Shopee)|Ongkir ditanggung penjual |Komisi affiliate Shopee|Isi saldo iklan otomatis Shopee|Biaya pengiriman ditanggung penjual )/i;
   var RE_GAJI = /gaji|payroll|bonus bagi hasil kenka/i;
+  function gajiPayroll(x) { return RE_GAJI.test(x.kat) && (/kenka/i.test(x.kat) || /payroll|bagi hasil/i.test(x.ket || '')); }
   var KEL_URUT = ['Biaya operasional', 'Pembelian barang & bahan', 'Di luar laba rugi'];
   function rinci(D) {
     if (D._rinci) return D._rinci;
@@ -364,8 +365,9 @@
       return { kel: kel, kat: urut, v: jml(L, function (x) { return x.v; }), n: L.length };
     }).filter(function (g) { return g.n; });
     var op = keluar.filter(function (x) { return x.kel === 'Biaya operasional'; });
-    var gaji = op.filter(function (x) { return RE_GAJI.test(x.kat); });
-    var pot = op.filter(function (x) { return !RE_GAJI.test(x.kat) && /\(belum cair\)/i.test(x.akun) && RE_POT.test(x.ket); });
+    // hanya gaji payroll & bonus bagi hasil Kenka yang diganti angka Payroll; upah harian (DW) di luar payroll tetap biaya operasional
+    var gaji = op.filter(function (x) { return gajiPayroll(x); });
+    var pot = op.filter(function (x) { return !gajiPayroll(x) && /\(belum cair\)/i.test(x.akun) && RE_POT.test(x.ket); });
     D._rinci = {
       grup: grup, ada: T.length > 0,
       op: jml(op, function (x) { return x.v; }), gaji: jml(gaji, function (x) { return x.v; }), pot: jml(pot, function (x) { return x.v; }),
