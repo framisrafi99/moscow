@@ -8,18 +8,18 @@ function t(v: unknown, n = 200) { return String(v ?? '').replace(/[\r\n\t]+/g, '
 function esc(s: unknown) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 const RE_TANYA = /\?|\b(kok|kenapa|mengapa|gimana|bagaimana|gmn|knp|maksudnya|apa(kah)?|bisa(kah)?|tolong|bingung|salah|keliru|dobel|double|belum|kurang|harusnya|seharusnya|robot|bot|cara)\b/i;
 
-const PANDUAN = 'Cara kerja robot Bukti Bayar Moscow:\n' +
-  '- Kirim foto / PDF bukti bayar (transfer, nota, struk, invoice) ke grup. Robot membaca nominal, tanggal, penerima, kategori, lalu mencocokkan dengan accounting.\n' +
+const PANDUAN = 'Cara kerja Admin Accounting di grup Bukti Bayar Moscow:\n' +
+  '- Kirim foto / PDF bukti bayar (transfer, nota, struk, invoice) ke grup. Admin Accounting membaca nominal, tanggal, penerima, kategori, lalu mencocokkan dengan accounting.\n' +
   '- Kalau sudah tercatat (dari aplikasi / bukti lain), bukti hanya DITEMPEL ke transaksi itu, tidak dicatat dua kali.\n' +
-  '- Kalau belum tercatat, robot membuat kartu dengan tombol: ✅ Catat (simpan ke accounting), ✏️ Ubah (balas kartu dengan nominal / keterangan yang benar), 🏦 Akun (ganti rekening asal), 🏷️ Kategori, ❌ Bukan (bukan pengeluaran, tidak dicatat). Tombol hanya bisa ditekan pengirim bukti.\n' +
+  '- Kalau belum tercatat, Admin Accounting membuat kartu dengan tombol: ✅ Catat (simpan ke accounting), ✏️ Ubah (balas kartu dengan nominal / keterangan yang benar), 🏦 Akun (ganti rekening asal), 🏷️ Kategori, ❌ Bukan (bukan pengeluaran, tidak dicatat). Tombol hanya bisa ditekan pengirim bukti.\n' +
   '- Rekening bawaan: Junior = Rekening Belanja; Viory = ShopeePay (transfer bank ditanyakan); Mike = Rekening Belanja (>= Rp10 juta ditanya Rekening PT atau Belanja). Kalau beda, tulis di caption, mis. "tf PT", "cash", "shopeepay", "saldo penjual". Bukti transfer / virtual account (VA) dari bank = rekening bank (Rekening Belanja atau Rekening PT), bukan kas tunai.\n' +
-  '- Untuk mengubah: tekan ✏️ Ubah lalu BALAS pesan robot (atau kirim teks dalam 15 menit). Bukti yang sudah tercatat (✅ Dicatat) juga bisa diubah dengan cara ini; robot langsung membetulkan transaksinya.\n' +
+  '- Untuk mengubah: tekan ✏️ Ubah lalu BALAS pesan Admin Accounting (atau kirim teks dalam 15 menit). Bukti yang sudah tercatat (✅ Dicatat) juga bisa diubah dengan cara ini; Admin Accounting langsung membetulkan transaksinya.\n' +
   '- Bukti transfer + invoice / nota yang dikirim bersamaan (maks 30 menit, nominal sama, selisih biaya transfer s.d. Rp10.000 boleh) = SATU pembayaran: yang dicatat bukti transfernya, invoice jadi lampiran.\n' +
   '- Invoice / tagihan yang belum dibayar jangan dicatat dulu; kirim bukti transfernya saat sudah dibayar.\n' +
-  '- Belanja barang dari pengajuan (Viory / Mike): bayar lewat aplikasi (Purchasing / PO), bukti ditempel otomatis. Kalau robot menunggu (⏳), input dulu di aplikasi atau tekan ✅ Catat.\n' +
+  '- Belanja barang dari pengajuan (Viory / Mike): bayar lewat aplikasi (Purchasing / PO), bukti ditempel otomatis. Kalau Admin Accounting menunggu (⏳), input dulu di aplikasi atau tekan ✅ Catat.\n' +
   '- Pindah dana antar akun Moscow (PT -> Belanja, top up ShopeePay, tarik tunai) dicatat sebagai pindah dana, bukan pengeluaran.\n' +
-  '- Foto sama dikirim dua kali: robot menandai "sama", tidak dicatat lagi.\n' +
-  '- Kalau robot salah baca: tekan ✏️ Ubah lalu balas dengan angka / keterangan yang benar, atau ❌ Bukan lalu kirim ulang foto yang lebih jelas. Kalau sudah terlanjur dicatat dan salah, laporkan di grup; manajemen Moscow Supplies (Iqbal) yang membetulkan di Master Data.';
+  '- Foto sama dikirim dua kali: Admin Accounting menandai "sama", tidak dicatat lagi.\n' +
+  '- Kalau Admin Accounting salah baca: tekan ✏️ Ubah lalu balas dengan angka / keterangan yang benar, atau ❌ Bukan lalu kirim ulang foto yang lebih jelas. Kalau sudah terlanjur dicatat dan salah, laporkan di grup; manajemen Moscow Supplies (Iqbal) yang membetulkan di Master Data.';
 
 export function buatBantu(sb: Any, api: (m: string, isi: Any) => Promise<Any>) {
   function perluJawab(m: Any, teks: string, keRobot: boolean) {
@@ -44,15 +44,15 @@ export function buatBantu(sb: Any, api: (m: string, isi: Any) => Promise<Any>) {
   async function tanyaAI(nama: string, teks: string, isi: Any, teksRobot: string) {
     const kunci = (Deno.env.get('ANTHROPIC_API_KEY') || '').trim();
     if (!kunci) return '';
-    const perintah = 'Kamu robot grup Telegram "Bukti Bayar Moscow" milik Moscow Supplies (Bali). Sekarang masa transisi: anggota (Mike, Junior, Viory, Daffa) baru belajar memakai robot. ' +
+    const perintah = 'Kamu "Admin Accounting" Moscow Supplies (Bali) di grup Telegram "Bukti Bayar Moscow". Sebut dirimu Admin Accounting, jangan pernah menyebut diri robot / bot / AI. Sekarang masa transisi: anggota (Mike, Junior, Viory, Daffa) baru belajar melapor lewat grup ini. ' +
       'Jawab pertanyaan / kebingungan ' + nama + ' dengan bahasa Indonesia yang sederhana, ramah, singkat (maks 7 baris), tanpa istilah teknis. ' +
-      'Jelaskan apa yang SUDAH dicatat robot dari laporannya (nominal, tanggal, akun, kategori, nomor transaksi TR) berdasarkan data di bawah saja; jangan mengarang. ' +
+      'Jelaskan apa yang SUDAH dicatat Admin Accounting dari laporannya (nominal, tanggal, akun, kategori, nomor transaksi TR) berdasarkan data di bawah saja; jangan mengarang. ' +
       'Kalau ada kekeliruan, akui dengan jujur, jelaskan penyebabnya kalau terlihat dari data, dan beri langkah yang jelas (tombol mana yang ditekan, atau apa yang dikirim / ditulis). ' +
       'Kamu TIDAK bisa mengubah data lewat obrolan; kalau perlu dibetulkan setelah tercatat, katakan manajemen Moscow Supplies akan membetulkannya. ' +
       'Jangan memanggil "Bapak". Format: teks biasa, boleh pakai tanda • untuk langkah. Jangan pakai markdown (*, #).\n\n' + PANDUAN + '\n\n' +
-      (teksRobot ? 'Pesan robot yang dibalas:\n' + t(teksRobot, 1500) + '\n\n' : '') +
+      (teksRobot ? 'Pesan Admin Accounting yang dibalas:\n' + t(teksRobot, 1500) + '\n\n' : '') +
       'Data (JSON):\n' + JSON.stringify(isi).slice(0, 9000) + '\n\nPesan ' + nama + ': "' + t(teks, 600) + '"\n\n' +
-      'Kalau pesan ini ternyata bukan pertanyaan / bukan untuk robot (obrolan biasa antar anggota), jawab persis: -';
+      'Kalau pesan ini ternyata bukan pertanyaan / bukan untuk Admin Accounting (obrolan biasa antar anggota), jawab persis: -';
     try {
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST', headers: { 'x-api-key': kunci, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
@@ -72,7 +72,7 @@ export function buatBantu(sb: Any, api: (m: string, isi: Any) => Promise<Any>) {
     const j = await tanyaAI(nama, teks, isi, keRobot ? String(rt.text || rt.caption || '') : '');
     if (!j) return false;
     if (j === '-') return true;
-    await api('sendMessage', { chat_id: chat.id, reply_to_message_id: m.message_id, text: '🤖 ' + esc(j).slice(0, 3900), parse_mode: 'HTML', disable_web_page_preview: true });
+    await api('sendMessage', { chat_id: chat.id, reply_to_message_id: m.message_id, text: esc(j).slice(0, 3900), parse_mode: 'HTML', disable_web_page_preview: true });
     await sb.from('bb_obrolan').insert({ uid: String(dari.id), nama, tanya: t(teks, 1000), jawab: t(j, 2000), bukti: isi.fokus ? Number(String(isi.fokus.bukti).slice(1)) : null });
     return true;
   }

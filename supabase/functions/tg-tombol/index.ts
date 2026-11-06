@@ -136,7 +136,7 @@ async function tekan(q: any, upd: number) {
   });
   if (r && r.ok && r.result) {
     await simpanSementara('al|' + r.result.chat.id + '|' + r.result.message_id, { id: x.id, uid: String(dari.id), peran: p }, 6 * 3600e3);
-    return jawab(q, 'Tulis alasan penolakan dengan membalas pesan robot.');
+    return jawab(q, 'Tulis alasan penolakan dengan membalas pesan Admin Accounting.');
   }
   return jawab(q, 'Gagal meminta alasan. Coba lagi atau tolak lewat Master Data.', true);
 }
@@ -152,14 +152,14 @@ async function pesan(m: any, upd: number) {
   if (chat.type === 'group' || chat.type === 'supergroup') { if (await bukti.grup(m)) return; }
   if (!teks) return;
   if (chat.type === 'private' && /^\/daftar\b/i.test(teks)) return daftar(m, teks);
-  if (chat.type === 'private' && /^\/start\b/i.test(teks)) return balas(chat.id, m.message_id, 'Halo! Ini robot pemberitahuan Moscow Supplies. ACC dilakukan lewat tombol di grup pemberitahuan.');
+  if (chat.type === 'private' && /^\/start\b/i.test(teks)) return balas(chat.id, m.message_id, 'Halo! Ini Admin Accounting Moscow Supplies. ACC dilakukan lewat tombol di grup pemberitahuan.');
   const rt = m.reply_to_message;
   if (!rt) return;
   const k = 'al|' + chat.id + '|' + rt.message_id, a = await sementara(k);
   if (!a || String(dari.id) !== a.uid) return;
   const p = await peran(dari.id);
   if (!p || p !== a.peran) return;
-  if (teks.length < 3) return balas(chat.id, m.message_id, 'Alasan terlalu pendek (minimal 3 huruf). Balas lagi pesan robot di atas.');
+  if (teks.length < 3) return balas(chat.id, m.message_id, 'Alasan terlalu pendek (minimal 3 huruf). Balas lagi pesan Admin Accounting di atas.');
   await sb.from('tg_sementara').delete().eq('kunci', k);
   const x = await cari(a.id);
   if (!x) return;
@@ -230,6 +230,7 @@ Deno.serve(async (req) => {
     if (isi && isi.pengingat) return json(await bukti.pengingat());
     if (isi && isi.tanya) return json(await bukti.tanyaKirim(isi.tanya));
     if (isi && isi.kartu) return json(await bukti.kartuTeks(Number(isi.kartu.id), String(isi.kartu.teks || '')));
+    if (isi && isi.nama_bot) return json(await api('setMyName', { name: String(isi.nama_bot).slice(0, 64) }));
     if (isi && isi.umumkan) return json(await bukti.umumkan(String(isi.umumkan), isi.sematkan !== false, Number(isi.balas) || 0));
     const a =await bukti.periksaTunggu(), n = await bukti.bacaUlang();
     return json({ ok: true, ...a, bacaUlang: n });

@@ -395,7 +395,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     const ins = await sb.from('bb_bukti').insert({ chat: String(chat.id), msg: m.message_id, uid, pengirim: nama, file_id: fileId || null, file_jenis: jenis, caption: teks || null, status: 'baru' }).select('id').single();
     if (ins.error) { console.error('bb insert', ins.error); return; }
     const id = ins.data.id;
-    const tunggu = await api('sendMessage', { chat_id: chat.id, reply_to_message_id: m.message_id, text: '⏳ Membaca bukti…' + (terdaftar ? '' : '\n<i>Ketik /saya NAMA sekali (Junior / Mike / Viory / Daffa / Ronny / Iqbal) supaya robot mengenali kamu.</i>'), parse_mode: 'HTML' });
+    const tunggu = await api('sendMessage', { chat_id: chat.id, reply_to_message_id: m.message_id, text: '⏳ Membaca bukti…' + (terdaftar ? '' : '\n<i>Ketik /saya NAMA sekali (Junior / Mike / Viory / Daffa / Ronny / Iqbal) supaya Admin Accounting mengenali kamu.</i>'), parse_mode: 'HTML' });
     const robotMsg = tunggu && tunggu.ok ? tunggu.result.message_id : null;
     await sb.from('bb_bukti').update({ robot_msg: robotMsg }).eq('id', id);
 
@@ -419,8 +419,8 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     const belum = (await sb.rpc('bb_belum_bayar')).data || { p: [], o: [] };
     const r = await baca({ data, mime, teks, tglPesan, daftar: items, padanan: await padananUntuk(items), belum });
     if (r.galat) {
-      const p = r.galat === 'kunci' ? '⚠️ Robot belum bisa membaca bukti: kunci AI belum dipasang di server. Bukti tersimpan, nanti dibaca ulang.' : (m.ulang ? '⚠️ Bukti tetap belum terbaca setelah dibaca ulang. Kirim ulang fotonya (lebih jelas / dipotong), atau tulis nominal + keterangannya sebagai teks.'
-        : '⚠️ Bukti belum terbaca (' + esc(r.pesan || 'AI') + '). Robot akan membaca ulang otomatis dalam 1 jam, atau kirim ulang sekarang.');
+      const p = r.galat === 'kunci' ? '⚠️ Admin Accounting belum bisa membaca bukti: kunci AI belum dipasang di server. Bukti tersimpan, nanti dibaca ulang.' : (m.ulang ? '⚠️ Bukti tetap belum terbaca setelah dibaca ulang. Kirim ulang fotonya (lebih jelas / dipotong), atau tulis nominal + keterangannya sebagai teks.'
+        : '⚠️ Bukti belum terbaca (' + esc(r.pesan || 'AI') + '). Admin Accounting akan membaca ulang otomatis dalam 1 jam, atau kirim ulang sekarang.');
       await ubah(id, { status: 'gagal', catatan: p }); await tampil({ chat: String(chat.id), robot_msg: robotMsg }, p); return;
     }
     let nominal = Math.round(Number(r.nominal) || 0) || (teks ? angka(teks) || 0 : 0);
@@ -568,7 +568,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       await sb.from('bb_anggota').upsert({ uid: String(dari.id), nama: nm, nama_tg: t([dari.first_name, dari.last_name].join(' '), 60), waktu: new Date().toISOString() });
       const ab = akunBawaan(nm, 0);
       await api('sendMessage', { chat_id: chat.id, reply_to_message_id: m.message_id, parse_mode: 'HTML', text: '✅ Kamu terdaftar sebagai <b>' + nm + '</b>.' +
-        (ab ? ' Akun bayar bawaan: <b>' + ab + '</b>' + (nm === 'Mike' ? ' (nominal besar: robot menanyakan Rekening PT atau Rekening Belanja)' : '') + '. Kalau beda, tulis di caption (mis. "cash", "shopee", "tf PT").'
+        (ab ? ' Akun bayar bawaan: <b>' + ab + '</b>' + (nm === 'Mike' ? ' (nominal besar: Admin Accounting menanyakan Rekening PT atau Rekening Belanja)' : '') + '. Kalau beda, tulis di caption (mis. "cash", "shopee", "tf PT").'
           : ' Setiap kirim bukti, <b>tulis saluran bayarnya</b> di caption (mis. "kas", "shopee", "tf belanja").') });
       return true;
     }
@@ -787,7 +787,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
         text: '✏️ <b>Balas pesan ini</b> dengan yang mau diubah: nominal, tanggal, keterangan, atau akun.\nContoh: <code>150000 03/11 listrik ruko</code> atau <code>cash</code>',
         reply_markup: { force_reply: true, selective: true, input_field_placeholder: 'mis. 150000 03/11 listrik ruko' } });
       if (r && r.ok) await sb.from('tg_sementara').upsert({ kunci: 'bu|' + b.chat + '|' + r.result.message_id, data: { id, uid }, kedaluwarsa: new Date(Date.now() + 6 * 3600e3).toISOString() }, { onConflict: 'kunci' });
-      return jawab('Balas pesan robot dengan perubahannya.');
+      return jawab('Balas pesan Admin Accounting dengan perubahannya.');
     }
     return jawab('Tombol tidak dikenal.');
   }
