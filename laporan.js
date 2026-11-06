@@ -346,6 +346,82 @@
     return h + '</div>';
   }
 
+  // ======================= 9. Rincian biaya per kategori & 10. Saldo rekening / piutang (SQL 174, akun.js) =======================
+  var RE_POT = /^(Biaya marketplace |Iklan TikTok Ads \(GMV Pay\)|PPh 22 dipotong (TikTok|Shopee)|Ongkir ditanggung penjual |Komisi affiliate Shopee|Isi saldo iklan otomatis Shopee|Biaya pengiriman ditanggung penjual )/i;
+  var RE_GAJI = /gaji|payroll|bonus bagi hasil kenka/i;
+  var KEL_URUT = ['Biaya operasional', 'Pembelian barang & bahan', 'Di luar laba rugi'];
+  function rinci(D) {
+    if (D._rinci) return D._rinci;
+    var T = (D.rinci && D.rinci.trx) || [], sesuai = function (x) { return /^Penyesuaian saldo/i.test(x.kat); };
+    var keluar = T.filter(function (x) { return x.j === 'Keluar' && !sesuai(x); });
+    var grup = KEL_URUT.concat(keluar.map(function (x) { return x.kel || 'Lainnya'; }).filter(function (k, i, a) { return KEL_URUT.indexOf(k) < 0 && a.indexOf(k) === i; })).map(function (kel) {
+      var L = keluar.filter(function (x) { return (x.kel || 'Lainnya') === kel; }), K = {}, urut = [];
+      L.forEach(function (x) { var k = x.kat || '(tanpa kategori)'; if (!K[k]) { K[k] = { k: k, n: 0, v: 0, L: [] }; urut.push(K[k]); } K[k].n++; K[k].v += Number(x.v) || 0; K[k].L.push(x); });
+      urut.sort(function (a, b) { return b.v - a.v; });
+      return { kel: kel, kat: urut, v: jml(L, function (x) { return x.v; }), n: L.length };
+    }).filter(function (g) { return g.n; });
+    var op = keluar.filter(function (x) { return x.kel === 'Biaya operasional'; });
+    var gaji = op.filter(function (x) { return RE_GAJI.test(x.kat); });
+    var pot = op.filter(function (x) { return !RE_GAJI.test(x.kat) && /\(belum cair\)/i.test(x.akun) && RE_POT.test(x.ket); });
+    D._rinci = {
+      grup: grup, ada: T.length > 0,
+      op: jml(op, function (x) { return x.v; }), gaji: jml(gaji, function (x) { return x.v; }), pot: jml(pot, function (x) { return x.v; }),
+      pajak: keluar.filter(function (x) { return /^Pajak/i.test(x.kat) && /\(belum cair\)/i.test(x.akun); }),
+      masuk: T.filter(function (x) { return x.j === 'Masuk' && !sesuai(x); }),
+      sesuai: T.filter(sesuai)
+    };
+    return D._rinci;
+  }
+  function bagianRinci(D) {
+    var R = rinci(D), h = '<div class="cd lp-sec" id="lp9"><h3><span class="no">9</span>Rincian biaya per kategori (semua rekening)</h3>';
+    if (!R.ada) return h + '<div class="ksg">Rincian transaksi bulan ini belum bisa dimuat.</div></div>';
+    h += '<p class="lp-cat">Semua uang keluar yang tercatat di accounting bulan ini, dari semua rekening dan saldo marketplace. Pindah dana antar rekening dan penyesuaian saldo bank tidak termasuk.</p>';
+    var b = [];
+    R.grup.forEach(function (g) {
+      b.push(tr(['<b>' + esc(g.kel) + '</b>', '', ''], [1, 2], 'g'));
+      g.kat.forEach(function (k) { b.push(tr([esc(k.k), fmt(k.n), rp(k.v)], [1, 2])); });
+      b.push(tr(['Subtotal ' + esc(g.kel), fmt(g.n), rp(g.v)], [1, 2], 'sub'));
+    });
+    h += tabel(['Kategori', 'Transaksi', 'Nominal'], b, [1, 2]);
+    h += '<p class="lp-cat" style="font-weight:800;color:var(--teks2);font-size:14px;margin-top:14px">Asal angka "Biaya operasional Moscow" di bagian 6</p>' +
+      tabel(['', 'Nominal'], [tr(['Total biaya operasional (semua kategori di atas)', rp(R.op)], [1]),
+        tr(['− Gaji &amp; bonus bagi hasil<small>ditampilkan terpisah sebagai "Gaji &amp; payroll" (bagian 3)</small>', rp(-R.gaji)], [1]),
+        tr(['− Potongan platform marketplace<small>sudah terpotong dari dana cair Shopee / TikTok Shop / Lazada (bagian 6)</small>', rp(-R.pot)], [1]),
+        tr(['= Biaya operasional Moscow', rp(R.op - R.gaji - R.pot)], [1], 'tot')], [1]);
+    if (R.pajak.length) h += '<p class="lp-cat" style="font-weight:800;color:var(--teks2);font-size:14px;margin-top:14px">Pajak yang dipotong marketplace (PPh 22)</p>' +
+      tabel(['Tanggal', 'No', 'Keterangan', 'Nominal'], R.pajak.map(function (x) { return tr([tgl(x.t), esc(x.no), esc(x.ket), rp(x.v)], [3]); }), [3]) +
+      '<p class="lp-cat">Bukti potong diunduh dari Seller Center masing-masing marketplace.</p>';
+    if (R.masuk.length) h += '<p class="lp-cat" style="font-weight:800;color:var(--teks2);font-size:14px;margin-top:14px">Pemasukan yang dicatat manual</p>' +
+      tabel(['Tanggal', 'No', 'Kategori', 'Keterangan', 'Masuk ke', 'Nominal'], R.masuk.map(function (x) { return tr([tgl(x.t), esc(x.no), esc(x.kat), esc(x.ket), esc(x.akun), rp(x.v)], [5]); }), [5]);
+    R.grup.forEach(function (g) {
+      g.kat.forEach(function (k) {
+        h += '<details class="lp-rinci"><summary>' + esc(g.kel) + ' · ' + esc(k.k) + ': ' + fmt(k.n) + ' transaksi · ' + rp(k.v) + ' ›</summary>' +
+          tabel(['Tanggal', 'No', 'Keterangan', 'Dibayar dari', 'Nominal'], k.L.map(function (x) { return tr([tgl(x.t), esc(x.no), esc(x.ket || '-'), esc(x.akun), rp(x.v)], [4]); }), [4]) + '</details>';
+      });
+    });
+    return h + '</div>';
+  }
+  var JENIS_AKUN = [['Bank', 'Rekening bank'], ['Kas', 'Kas tunai'], ['Marketplace', 'Saldo marketplace & e-wallet'], ['Piutang', 'Piutang (uang PT di pihak lain)']];
+  function bagianSaldo(D) {
+    var A = (D.saldo && D.saldo.akun) || [], h = '<div class="cd lp-sec" id="lp10"><h3><span class="no">10</span>Saldo rekening &amp; piutang</h3>';
+    if (!A.length) return h + '<div class="ksg">Saldo akun belum bisa dihitung.</div></div>';
+    h += '<p class="lp-cat">Saldo ' + (D.berjalan ? 'sampai hari ini' : 'akhir bulan') + ' per akun. Pindah = perpindahan uang antar akun milik PT (bukan pemasukan / pengeluaran).</p>';
+    var b = [], ada = function (a) { return Math.round(a.awal) || Math.round(a.akhir) || Math.round(a.masuk) || Math.round(a.keluar) || Math.round(a.pindah); };
+    JENIS_AKUN.concat([['', 'Lainnya']]).forEach(function (jn) {
+      var L = A.filter(function (a) { return ada(a) && (jn[0] ? a.j === jn[0] : !JENIS_AKUN.some(function (x) { return x[0] === a.j; })); });
+      if (!L.length) return;
+      b.push(tr(['<b>' + esc(jn[1]) + '</b>', '', '', '', '', ''], [1, 2, 3, 4, 5], 'g'));
+      L.forEach(function (a) { b.push(tr([esc(a.n), rp(a.awal), rp(a.masuk), rp(-a.keluar), a.pindah ? (a.pindah > 0 ? '+' : '') + rp(a.pindah) : '–', '<b>' + rp(a.akhir) + '</b>'], [1, 2, 3, 4, 5])); });
+      b.push(tr(['Subtotal', rp(jml(L, function (a) { return a.awal; })), rp(jml(L, function (a) { return a.masuk; })), rp(-jml(L, function (a) { return a.keluar; })), rp(jml(L, function (a) { return a.pindah; })), rp(jml(L, function (a) { return a.akhir; }))], [1, 2, 3, 4, 5], 'sub'));
+    });
+    h += tabel(['Akun', 'Saldo awal', 'Masuk', 'Keluar', 'Pindah', 'Saldo akhir'], b, [1, 2, 3, 4, 5]);
+    var S2 = rinci(D).sesuai;
+    if (S2.length) h += '<p class="lp-cat" style="font-weight:800;color:var(--teks2);font-size:14px;margin-top:14px">Penyesuaian saldo agar sama dengan rekening koran / saldo asli</p>' +
+      tabel(['Tanggal', 'No', 'Akun', 'Keterangan', 'Nominal'], S2.map(function (x) { return tr([tgl(x.t), esc(x.no), esc(x.akun), esc(x.ket), rp(x.j === 'Keluar' ? -x.v : x.v)], [4]); }), [4]) +
+      '<p class="lp-cat">Penyesuaian saldo dicatat di luar laba rugi: tidak menambah atau mengurangi laba.</p>';
+    return h + '</div>';
+  }
+
   var WARNA = ['#1F3A5F', '#2A9D8F', '#E9A23B', '#6C8EBF', '#C8553D', '#8AA05B', '#9AA3AE'];
   function jt(v) { v = Number(v) || 0; return (v < 0 ? '−' : '') + 'Rp' + (Math.abs(v) / 1e6).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + ' jt'; }
   // Grafik donat (SVG, ikut tercetak). items: [{n, v}]; maks 6 irisan, sisanya "Lainnya".
@@ -373,7 +449,7 @@
     var gTerima = [{ n: 'Marketplace (dana cair)', v: H.offTerima }, { n: 'Setoran consignment', v: H.moscow || 0 }, { n: 'Toko Offline', v: H.offl.bersih }, { n: 'Reseller (sudah dibayar)', v: H.res }];
     var profit = H.bersihSemua;
     var gProfit = [{ n: 'Biaya operasional', v: H.op, w: '#6C8EBF' }, { n: 'Gaji & payroll', v: H.gaji, w: '#E9A23B' }, { n: 'Pembelian barang & bahan', v: H.beli, w: '#C8553D' }, { n: 'Profit bersih', v: profit, w: '#2A9D8F' }];
-    var isi = ['Omzet', 'Pengeluaran per sumber dana', 'Gaji & payroll', 'Pemakaian bahan baku, botol, stiker & packaging', 'Sisa stok produk & produk yang bertambah', 'Penerimaan bersih', 'Aset barang per lokasi', 'Bagi hasil produk Kenka'];
+    var isi = ['Omzet', 'Pengeluaran per sumber dana', 'Gaji & payroll', 'Pemakaian bahan baku, botol, stiker & packaging', 'Sisa stok produk & produk yang bertambah', 'Penerimaan bersih', 'Aset barang per lokasi', 'Bagi hasil produk Kenka', 'Rincian biaya per kategori (semua rekening)', 'Saldo rekening & piutang'];
     return '<div class="lp-sampul">' +
       '<div class="lp-kop"><img src="logo-warna.png" alt="Moscow Supplies"><div class="pt"><b>PT. TOENTOENAN LANGKAH ELOHIM</b>Moscow Supplies<br>Jl. Raya Kerobokan No. 8, Kuta Utara, Badung, Bali</div></div>' +
       '<div class="lp-jdl"><h1>Laporan Keuangan Bulanan</h1><p>Periode ' + tgl(D.dari) + ' – ' + tgl(D.sampai) + (D.berjalan ? ' (bulan berjalan)' : '') + ' · disiapkan oleh manajemen Moscow Supplies untuk konsultan pajak</p></div>' +
@@ -412,7 +488,7 @@
     if (D.arsip) h += '<p class="lp-cat lp-layar" style="margin:-6px 0 12px">Arsip posisi akhir bulan dibuat ' + esc(String(D.arsip.dibuat || '').slice(0, 16).replace('T', ' ')) + (D.arsip.oleh ? ' oleh ' + esc(D.arsip.oleh) : '') + '.</p>';
     else if (D.berjalan) h += '<p class="lp-cat lp-layar" style="margin:-6px 0 12px">Sisa stok dan aset per lokasi di bawah adalah posisi saat ini. Pada tanggal terakhir bulan (setelah hitung fisik), tekan "Arsipkan posisi akhir bulan" supaya laporan ' + esc(namaBulan(D.bulan)) + ' tetap bisa dibuka bulan depan.</p>';
     h += sampul(D, H);
-    h += bagian1(D, H) + bagian2(D, H) + bagianGaji(D, H) + bagian3(D) + bagian4(D, H) + bagian5(D, H) + bagian6(D, H) + bagianKenka(D);
+    h += bagian1(D, H) + bagian2(D, H) + bagianGaji(D, H) + bagian3(D) + bagian4(D, H) + bagian5(D, H) + bagian6(D, H) + bagianKenka(D) + bagianRinci(D) + bagianSaldo(D);
     h += '<p class="lp-cat lp-print-only">Dicetak dari Master Data Moscow Supplies, ' + tgl(D.hari) + '.</p>';
     el.innerHTML = h;
     var q = function (i) { return el.querySelector('#' + i); };
@@ -449,6 +525,11 @@
         if (tk.length) { r.data.bh = tk; r.data.bhLangsung = true; }
       } catch (e) { }
     }
+    // Rincian semua transaksi accounting bulan itu (SQL 174) dan saldo per akun (akun.js, rumus sama dengan Accounting).
+    if (!r.error && r.data) {
+      try { var rc = await opsi.sb.rpc('laporan_pajak_rinci', { p_bulan: r.data.bulan }); r.data.rinci = rc.error ? null : rc.data; } catch (e) { r.data.rinci = null; }
+      try { r.data.saldo = window.Akunting ? await window.Akunting.akuntingLaporan(opsi.sb, { bulan: r.data.bulan }) : null; } catch (e) { r.data.saldo = null; }
+    }
     // Bagi hasil produk Kenka (SQL 133): invoice yang sudah terbit untuk bulan itu.
     if (!r.error && r.data) {
       try { var kh = await opsi.sb.rpc('kenka_bh_data', { p_bulan: r.data.bulan }); r.data.kenka = kh.error || !kh.data || kh.data.ok === false ? null : { terbit: kh.data.terbit || null }; } catch (e) { r.data.kenka = null; }
@@ -478,12 +559,116 @@
     s.onload = function () { cb(); }; s.onerror = gagal;
     document.head.appendChild(s);
   }
+  // ---------- Excel resmi (ExcelJS: kop, logo, format rupiah); kalau ExcelJS gagal dimuat, pakai SheetJS polos ----------
+  function muatSkrip(srcs) {
+    return new Promise(function (ok, gagal) {
+      var i = 0;
+      (function coba() {
+        if (i >= srcs.length) { gagal(new Error('skrip gagal dimuat')); return; }
+        var s = document.createElement('script'); s.src = srcs[i++]; s.onload = function () { ok(); }; s.onerror = function () { s.remove(); coba(); };
+        document.head.appendChild(s);
+      })();
+    });
+  }
+  function muatExcelJs() {
+    if (window.ExcelJS) return Promise.resolve();
+    return muatSkrip(['https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js', 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js']);
+  }
+  function logoBase64() {
+    return fetch('logo-warna.png').then(function (r) { if (!r.ok) throw new Error('logo'); return r.blob(); }).then(function (b) {
+      return new Promise(function (ok) { var f = new FileReader(); f.onload = function () { ok(String(f.result)); }; f.onerror = function () { ok(''); }; f.readAsDataURL(b); });
+    }).catch(function () { return ''; });
+  }
+  var NAVY = 'FF1F3A5F', ABU = 'FF6B7380';
+  function unduhBlob(blob, nama) {
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nama; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }
+  async function tulisExcel(D, H, L, nb) {
+    await muatExcelJs();
+    var logo = await logoBase64();
+    var wb = new ExcelJS.Workbook(); wb.creator = 'manajemen Moscow Supplies'; wb.created = new Date();
+    var idLogo = logo ? wb.addImage({ base64: logo, extension: 'png' }) : null;
+    var tipis = { style: 'thin', color: { argb: 'FFD9DEE5' } };
+    var kaki = '&L&8Moscow Supplies · PT. Toentoenan Langkah Elohim · Laporan ' + nb + '&R&8Halaman &P dari &N';
+    var opsiLembar = function () { return { pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.6, header: 0.2, footer: 0.3 } }, headerFooter: { oddFooter: kaki } }; };
+    var kop = function (ws, judul, lebarKolom) {
+      var n = Math.max(lebarKolom, 4);
+      if (idLogo !== null) ws.addImage(idLogo, { tl: { col: 0, row: 0 }, ext: { width: 154, height: 55 } });
+      ws.getRow(1).height = 22; ws.getRow(2).height = 22; ws.getRow(3).height = 16;
+      var c = ws.getCell(1, n); c.value = 'PT. TOENTOENAN LANGKAH ELOHIM'; c.font = { name: 'Arial', size: 12, bold: true, color: { argb: NAVY } }; c.alignment = { horizontal: 'right' };
+      c = ws.getCell(2, n); c.value = 'Moscow Supplies · Jl. Raya Kerobokan No. 8, Kuta Utara, Badung, Bali'; c.font = { name: 'Arial', size: 9, color: { argb: ABU } }; c.alignment = { horizontal: 'right' };
+      for (var k = 1; k <= n; k++) ws.getCell(4, k).border = { top: { style: 'double', color: { argb: NAVY } } };
+      c = ws.getCell(5, 1); c.value = judul; c.font = { name: 'Arial', size: 13, bold: true, color: { argb: NAVY } };
+      c = ws.getCell(6, 1); c.value = 'Periode ' + tgl(D.dari) + ' – ' + tgl(D.sampai) + (D.berjalan ? ' (bulan berjalan)' : '') + ' · disiapkan oleh manajemen Moscow Supplies untuk konsultan pajak'; c.font = { name: 'Arial', size: 9, italic: true, color: { argb: ABU } };
+      return 8;
+    };
+    // Sampul
+    var sp = wb.addWorksheet('Sampul', opsiLembar());
+    sp.columns = [{ width: 48 }, { width: 24 }, { width: 4 }, { width: 30 }];
+    var r0 = kop(sp, 'Laporan Keuangan Bulanan · ' + nb, 4);
+    var kv = [['Omzet (semua saluran)', H.omzet], ['Total penerimaan (setelah potongan platform & bagian toko)', H.terima], ['Biaya operasional', H.op], ['Gaji & payroll (total biaya PT)', H.gaji], ['Pembelian barang & bahan', H.beli], ['Profit bersih', H.bersihSemua]];
+    var c0 = sp.getCell(r0, 1); c0.value = 'Ringkasan'; c0.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+    [1, 2].forEach(function (k) { sp.getCell(r0, k).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }; });
+    kv.forEach(function (x, i) {
+      var rr = r0 + 1 + i, a = sp.getCell(rr, 1), b = sp.getCell(rr, 2), akhir = i === kv.length - 1;
+      a.value = x[0]; b.value = Math.round(Number(x[1]) || 0); b.numFmt = '"Rp "#,##0;-"Rp "#,##0;"–"';
+      a.font = b.font = { name: 'Arial', size: 10, bold: akhir }; a.border = b.border = { bottom: tipis };
+      if (akhir) a.fill = b.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EEF5' } };
+    });
+    var ri = r0 + kv.length + 3;
+    sp.getCell(ri, 1).value = 'Isi laporan'; sp.getCell(ri, 1).font = { name: 'Arial', size: 11, bold: true, color: { argb: NAVY } };
+    L.forEach(function (x, i) { var c = sp.getCell(ri + 1 + i, 1); c.value = 'Sheet "' + x.nama + '"' + (x.judul ? ' — ' + x.judul : ''); c.font = { name: 'Arial', size: 10 }; });
+    var ti = ri + L.length + 3;
+    sp.getCell(ti, 4).value = 'Badung, ' + tgl(D.hari); sp.getCell(ti, 4).font = { name: 'Arial', size: 10 };
+    sp.getCell(ti + 4, 4).value = 'manajemen Moscow Supplies'; sp.getCell(ti + 4, 4).font = { name: 'Arial', size: 10, bold: true };
+    sp.getCell(ti + 4, 4).border = { top: { style: 'thin', color: { argb: 'FF1F2937' } } };
+    // Lembar data
+    var tebal = /^(TOTAL|Subtotal|Total|PENERIMAAN|Setelah|=)/;
+    L.forEach(function (x) {
+      var aoa = x.aoa, nk = Math.max.apply(null, aoa.map(function (r) { return r.length; }).concat([2]));
+      var ws = wb.addWorksheet(x.nama.slice(0, 31), opsiLembar());
+      ws.columns = (x.lebar.length ? x.lebar : aoa[0].map(function () { return 16; })).map(function (w) { return { width: Math.max(8, w) }; });
+      var mulai = kop(ws, x.judul || x.nama, nk);
+      aoa.forEach(function (row, i) {
+        var rr = mulai + i, kepala = i === x.kepala, tb = !kepala && typeof row[0] === 'string' && tebal.test(row[0]);
+        row.forEach(function (v, k) {
+          var c = ws.getCell(rr, k + 1);
+          if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) { var p = v.split('-'); c.value = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); c.numFmt = 'dd/mm/yyyy'; }
+          else if (typeof v === 'number' && isFinite(v)) { c.value = Math.round(v * 100) / 100; c.numFmt = Math.round(v) === v ? '#,##0;-#,##0;"–"' : '#,##0.00'; }
+          else c.value = v === undefined ? null : v;
+          c.font = { name: 'Arial', size: 9.5, bold: kepala || tb, color: kepala ? { argb: 'FFFFFFFF' } : undefined };
+          if (kepala) { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }; c.alignment = { vertical: 'middle', wrapText: true }; }
+          else { c.border = { bottom: tipis }; if (typeof v === 'string' && v.length > 40) c.alignment = { wrapText: true, vertical: 'top' }; else c.alignment = { vertical: 'top' }; }
+          if (tb) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F4F8' } };
+        });
+      });
+      if (x.kepala >= 0) ws.views = [{ state: 'frozen', ySplit: mulai + x.kepala }];
+    });
+    var buf = await wb.xlsx.writeBuffer();
+    unduhBlob(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'Laporan Moscow Supplies ' + nb + '.xlsx');
+  }
+  function tulisXlsxPolos(L, nb) {
+    return new Promise(function (ok, gagal) {
+      muatXlsx(function () {
+        try {
+          var wb = XLSX.utils.book_new();
+          L.forEach(function (x) { var ws = XLSX.utils.aoa_to_sheet([['PT. Toentoenan Langkah Elohim (Moscow Supplies)'], [x.judul || x.nama], []].concat(x.aoa)); ws['!cols'] = x.lebar.map(function (w) { return { wch: w }; }); XLSX.utils.book_append_sheet(wb, ws, x.nama.slice(0, 31)); });
+          XLSX.writeFile(wb, 'Laporan Moscow Supplies ' + nb + '.xlsx'); ok();
+        } catch (e) { gagal(e); }
+      }, function () { gagal(new Error('Gagal memuat pembuat Excel. Periksa internet lalu coba lagi.')); });
+    });
+  }
   function excel(D, H, tombol) {
     tombol.disabled = true; tombol.textContent = 'Menyiapkan…';
-    muatXlsx(function () {
+    var nb = namaBulan(D.bulan), L = [];
+    var JUDUL = { 'Ringkasan': 'Ringkasan', '1 Omzet': '1. Omzet per saluran', '2 Pengeluaran': '2. Pengeluaran per sumber dana', '3 Gaji': '3. Gaji & payroll (bruto per karyawan)', '4 Pemakaian': '4. Pemakaian bahan baku, botol, stiker & packaging',
+      '5 Stok': '5. Sisa stok produk & produk yang bertambah', '6 Penerimaan bersih': '6. Penerimaan bersih', '7 Aset per lokasi': '7. Aset barang per lokasi', '8 Bagi hasil Kenka': '8. Bagi hasil produk Kenka',
+      '9 Rincian biaya': '9. Rincian biaya per kategori (semua rekening)', '10 Saldo & piutang': '10. Saldo rekening & piutang' };
+    var tambah = function (nama, aoa, lebar, kepala) { L.push({ nama: nama, judul: JUDUL[nama] || nama, aoa: aoa, lebar: lebar || [], kepala: kepala == null ? (nama === 'Ringkasan' ? -1 : nama === '3 Gaji' ? 1 : 0) : kepala }); };
+    var selesai = function () { tombol.disabled = false; tombol.textContent = 'Unduh Excel'; };
+    {
       try {
-        var wb = XLSX.utils.book_new(), nb = namaBulan(D.bulan);
-        var tambah = function (nama, aoa, lebar) { var ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = (lebar || []).map(function (w) { return { wch: w }; }); XLSX.utils.book_append_sheet(wb, ws, nama); };
         tambah('Ringkasan', [['Laporan bulanan Moscow Supplies (PT. Toentoenan Langkah Elohim)'], ['Bulan', nb], ['Periode', D.dari + ' s/d ' + D.sampai], [],
           ['Omzet (semua saluran)', H.omzet], ['Uang keluar (Rekening Belanja, ShopeePay, Kas Tunai)', H.keluar], ['Total penerimaan', H.terima],
           ['Biaya operasional (tanpa gaji)', H.op], ['Gaji & payroll (total biaya PT)', H.gaji], ['Penerimaan bersih setelah biaya operasional & gaji', H.bersihOp], ['Pembelian barang & bahan', H.beli], ['Setelah biaya operasional & pembelian', H.bersihSemua]], [52, 22]);
@@ -536,10 +721,43 @@
           });
         } else t6.push(['Posisi stok per lokasi tidak tersedia (arsip akhir bulan belum dibuat)']);
         tambah('7 Aset per lokasi', t6, [22, 12, 40, 10, 12, 16]);
-        XLSX.writeFile(wb, 'Laporan Moscow Supplies ' + nb + '.xlsx');
-      } catch (e) { alert('Gagal membuat Excel: ' + e.message); }
-      tombol.disabled = false; tombol.textContent = 'Unduh Excel';
-    }, function () { tombol.disabled = false; tombol.textContent = 'Unduh Excel'; alert('Gagal memuat pembuat Excel. Periksa internet lalu coba lagi.'); });
+        // 8. Bagi hasil Kenka
+        var T8 = D.kenka && D.kenka.terbit;
+        if (T8) {
+          var X8 = T8.data || {}, k8 = [['Saluran', 'Pcs', 'Penjualan', 'HPP', 'Potongan & bagian toko', 'Margin', 'Mike', 'Junior']];
+          (X8.saluran || []).forEach(function (x) { k8.push([x.n, x.q, x.v, x.h, (x.pot || 0) + (x.bt || 0), x.m, x.mk, x.jn]); });
+          var t8 = X8.tot || {}; k8.push(['TOTAL', t8.q, t8.v, t8.h, (t8.pot || 0) + (t8.bt || 0), t8.m, T8.total_mike, T8.total_junior], [], ['Invoice ' + T8.no + ', dibayar dari Rekening PT tanggal ' + T8.tanggal + ', kategori "Bonus bagi hasil Kenka".']);
+          tambah('8 Bagi hasil Kenka', k8, [30, 8, 16, 16, 20, 16, 16, 16]);
+        }
+        // 9. Rincian biaya per kategori (semua rekening)
+        var R9 = rinci(D);
+        if (R9.ada) {
+          var k9 = [['Kelompok', 'Kategori', 'Transaksi', 'Nominal']];
+          R9.grup.forEach(function (g) { g.kat.forEach(function (k) { k9.push([g.kel, k.k, k.n, k.v]); }); k9.push(['Subtotal ' + g.kel, '', g.n, g.v]); });
+          k9.push([], ['Asal angka "Biaya operasional Moscow" (bagian 6)'], ['Total biaya operasional', '', '', R9.op], ['− Gaji & bonus bagi hasil (bagian 3)', '', '', -R9.gaji],
+            ['− Potongan platform marketplace (sudah terpotong dari dana cair)', '', '', -R9.pot], ['= Biaya operasional Moscow', '', '', R9.op - R9.gaji - R9.pot], [], ['RINCIAN TRANSAKSI'],
+            ['Kelompok', 'Kategori', 'Tanggal', 'No', 'Keterangan', 'Dibayar dari', 'Nominal']);
+          R9.grup.forEach(function (g) { g.kat.forEach(function (k) { k.L.forEach(function (x) { k9.push([g.kel, k.k, x.t, x.no, x.ket, x.akun, Number(x.v) || 0]); }); }); });
+          if (R9.pajak.length) { k9.push([], ['PAJAK YANG DIPOTONG MARKETPLACE (PPh 22)'], ['Tanggal', 'No', 'Keterangan', 'Nominal']); R9.pajak.forEach(function (x) { k9.push([x.t, x.no, x.ket, Number(x.v) || 0]); }); }
+          if (R9.masuk.length) { k9.push([], ['PEMASUKAN YANG DICATAT MANUAL'], ['Tanggal', 'No', 'Kategori', 'Keterangan', 'Masuk ke', 'Nominal']); R9.masuk.forEach(function (x) { k9.push([x.t, x.no, x.kat, x.ket, x.akun, Number(x.v) || 0]); }); }
+          tambah('9 Rincian biaya', k9, [26, 28, 12, 16, 60, 30, 16]);
+        }
+        // 10. Saldo rekening & piutang
+        var A10 = (D.saldo && D.saldo.akun) || [];
+        if (A10.length) {
+          var k10 = [['Akun', 'Jenis', 'Saldo awal', 'Masuk', 'Keluar', 'Pindah', 'Saldo akhir']];
+          A10.filter(function (a) { return Math.round(a.awal) || Math.round(a.akhir) || Math.round(a.masuk) || Math.round(a.keluar) || Math.round(a.pindah); })
+            .forEach(function (a) { k10.push([a.n, a.j, Math.round(a.awal), Math.round(a.masuk), -Math.round(a.keluar), Math.round(a.pindah), Math.round(a.akhir)]); });
+          var S10 = rinci(D).sesuai;
+          if (S10.length) { k10.push([], ['PENYESUAIAN SALDO (cocok rekening koran / saldo asli, di luar laba rugi)'], ['Tanggal', 'No', 'Akun', 'Keterangan', 'Nominal']); S10.forEach(function (x) { k10.push([x.t, x.no, x.akun, x.ket, x.j === 'Keluar' ? -x.v : Number(x.v)]); }); }
+          tambah('10 Saldo & piutang', k10, [40, 14, 18, 18, 18, 18, 18]);
+        }
+      } catch (e) { alert('Gagal menyiapkan data Excel: ' + e.message); selesai(); return; }
+    }
+    tulisExcel(D, H, L, nb).then(selesai, function (e) {
+      console.warn('Excel resmi gagal, pakai Excel polos', e);
+      tulisXlsxPolos(L, nb).then(selesai, function (e2) { alert(e2.message); selesai(); });
+    });
   }
 
   window.LaporanPajak = { gambar: gambar, segarkan: function (el, opsi) { S.data = null; gambar(el, opsi); } };
