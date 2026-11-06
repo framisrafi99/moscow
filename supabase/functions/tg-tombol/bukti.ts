@@ -49,8 +49,6 @@ function pembayarDari(caption: string, atasNama: string) {
 function akunDariTeks(s: string) {
   s = ' ' + s.toLowerCase() + ' ';
   if (/(kas|cash|tunai) ?toko/.test(s)) return 'Kas Toko Offline';
-  // Mike menyebut Rekening Belanja "kas kantor" / "rekening kantor" (dikonfirmasi manajemen 6 Nov 2026)
-  if (/(kas|rek(ening)?|uang|dana) ?kantor/.test(s)) return 'Rekening Belanja';
   if (/rek(ening)?\.? ?pt\b|\bpt\b/.test(s)) return 'Rekening PT';
   if (/saldo ?penjual|saldo ?toko|dana ?shopee|seller ?balance/.test(s)) return /tiktok|tokopedia|toped/.test(s) ? 'Dana Tokopedia/TikTok (belum cair)' : 'Dana Shopee (belum cair)';
   if (/shopee ?pay|\bspay\b/.test(s)) return 'ShopeePay';
@@ -651,11 +649,17 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     const n = adaNominal(sisa) ? angka(sisa) : null;
     if (n) { isi.nominal = n; sisa = sisa.replace(/rp\.?\s*/ig, '').replace(/\d[\d.,]*\s*(k|rb|ribu|jt|juta)?\b/i, ' '); }
     const ak = akunDariTeks(sisa);
+    // bukti transfer / VA dari bank tidak mungkin dibayar tunai: rekening tidak diganti ke kas, robot menjelaskan
+    const bank = !!(b.baca && (b.baca.jenis_bayar === 'transfer_bank' || b.baca.dokumen === 'transfer'));
+    if (ak && bank && /^Kas /.test(ak) && /^Rekening /.test(String(a.akun))) {
+      return balasU('Bukti ' + esc(nos[0]) + ' adalah pembayaran transfer / virtual account dari bank, jadi tetap tercatat dari <b>' + esc(a.akun) + '</b>, bukan kas. ' +
+        'Kalau memang dibayar dari rekening lain, tulis nama rekeningnya, mis. "Rekening PT".');
+    }
     if (ak && ak !== a.akun) isi.akun = ak;
     const ket = t(sisa.replace(/[,;]+/g, ' ').replace(/\b(sumber|dana|dari|pakai|via|bayar|dibayar)\b/ig, ' '), 150);
     if (!ak && ket.length >= 3) isi.keterangan = t(ket + ' [Telegram: ' + (b.pengirim || '') + ']', 200);
     if (!Object.keys(isi).length) {
-      return balasU(ak ? '👍 Sudah benar: ' + esc(nos[0]) + ' tercatat dari <b>' + esc(a.akun) + '</b>' + (/kantor/i.test(teks) ? ' (kas kantor = Rekening Belanja)' : '') + '. Tidak ada yang diubah.'
+      return balasU(ak ? '👍 Sudah benar: ' + esc(nos[0]) + ' tercatat dari <b>' + esc(a.akun) + '</b>. Tidak ada yang diubah.'
         : 'Tidak ada yang bisa diubah. Contoh: 150000 / 03/11 / listrik ruko / Rekening PT / cash');
     }
     const u = await sb.from('acc_log').update(isi).eq('no', nos[0]).eq('status', 'Aktif');
