@@ -18,7 +18,7 @@
     menu: [
       { k: 'beranda', nm: 'Beranda' }, { k: 'setuju', nm: 'Persetujuan' },
       { k: 'produksi', nm: 'Produksi' }, { k: 'gudang', nm: 'Gudang Utama', pendek: 'Gudang' }, { k: 'purch', nm: 'Purchasing' },
-      { k: 'jual', nm: 'Penjualan' }, { k: 'upload', nm: 'Upload laporan', ik: 'nota' }, { k: 'uang', nm: 'Accounting' }, { k: 'laporan', nm: 'Laporan', ik: 'laporan' }, { k: 'riwayat', nm: 'Riwayat' }, { k: 'atur', nm: 'Pengaturan' },
+      { k: 'jual', nm: 'Penjualan' }, { k: 'upload', nm: 'Upload laporan', ik: 'nota' }, { k: 'uang', nm: 'Accounting' }, { k: 'laporan', nm: 'Laporan', ik: 'laporan' }, { k: 'riwayat', nm: 'Riwayat' }, { k: 'jaga', nm: 'Penjaga sistem', ik: 'laporan' }, { k: 'atur', nm: 'Pengaturan' },
       { grup: 'MASTER DATA' },
       { k: 'mdproduk', nm: 'Produk', ik: 'produk', bagian: 'atur', judul: 'Produk · edit barang & HPP' },
       { k: 'mdpemasok', nm: 'Pemasok', ik: 'pemasok', bagian: 'purch', judul: 'Pemasok · pembelian per supplier' },
@@ -48,7 +48,7 @@
     pindah: function (k, m) { document.documentElement.classList.toggle('m-bx', k === 'beranda');
       if (k === 'mdproduk' || k === 'mdpelanggan') { AT.bagian = k === 'mdproduk' ? 'brg' : 'pel'; if (!AT.mulai) { AT.mulai = true; muatAtur(); } else gambarAtur(); }
       if (k === 'mdpemasok') { P.bagian = 'beli'; gambarPurch(); }
-      if (k === 'upload') gambarUpload(); if (k === 'laporan' && window.LaporanPajak && !LaporanPajak.dimuat) { LaporanPajak.dimuat = true; LaporanPajak.gambar($('bLaporan'), { sb: sb }); } if ($('lamaJudul')) $('lamaJudul').textContent = m.nm + ' masih di Master Data lama'; if (k === 'jual' && !J.mulai) { J.mulai = true; siapJual(); } if (k === 'riwayat' && !RW.mulai) { RW.mulai = true; siapRiwayat(); } if (k === 'atur' && !AT.mulai) { AT.mulai = true; muatAtur(); } },
+      if (k === 'upload') gambarUpload(); if (k === 'laporan' && window.LaporanPajak && !LaporanPajak.dimuat) { LaporanPajak.dimuat = true; LaporanPajak.gambar($('bLaporan'), { sb: sb }); } if ($('lamaJudul')) $('lamaJudul').textContent = m.nm + ' masih di Master Data lama'; if (k === 'jual' && !J.mulai) { J.mulai = true; siapJual(); } if (k === 'riwayat' && !RW.mulai) { RW.mulai = true; siapRiwayat(); } if (k === 'atur' && !AT.mulai) { AT.mulai = true; muatAtur(); } if (k === 'jaga' && window.PenjagaSistem) window.PenjagaSistem.gambar($('bJaga'), { sb: sb }); },
     siap: function (ctx) {
       D.email = String((ctx && ctx.email) || '').toLowerCase();
       var um = (ctx && ctx.sesi && ctx.sesi.user && ctx.sesi.user.user_metadata) || {}; D.nama = um.full_name || um.name || '';
