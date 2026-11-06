@@ -15,7 +15,7 @@ import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
-const AKUN = ['Rekening Belanja', 'ShopeePay', 'Kas Tunai', 'Rekening PT', 'Kas Toko Offline'];
+const AKUN = ['Rekening Belanja', 'ShopeePay', 'Kas Tunai', 'Rekening PT', 'Kas Toko Offline', 'Dana Shopee (belum cair)', 'Dana Tokopedia/TikTok (belum cair)'];
 const KATEGORI = ['Pembelian bahan baku', 'Botol, stiker & kemasan', 'Pembelian barang dagang / impor', 'Ongkos kirim & ekspedisi', 'Listrik, air & internet',
   'Gaji & upah', 'Sewa tempat', 'Iklan & promosi', 'Perlengkapan & ATK', 'Transportasi & bensin', 'Pajak & perizinan', 'Pembelian aset / peralatan',
   'Biaya admin marketplace', 'Bayar pinjaman', 'Biaya lain-lain'];
@@ -49,6 +49,7 @@ function akunDariTeks(s: string) {
   s = ' ' + s.toLowerCase() + ' ';
   if (/(kas|cash|tunai) ?toko/.test(s)) return 'Kas Toko Offline';
   if (/rek(ening)?\.? ?pt\b|\bpt\b/.test(s)) return 'Rekening PT';
+  if (/saldo ?penjual|saldo ?toko|dana ?shopee|seller ?balance/.test(s)) return /tiktok|tokopedia|toped/.test(s) ? 'Dana Tokopedia/TikTok (belum cair)' : 'Dana Shopee (belum cair)';
   if (/shopee ?pay|\bspay\b/.test(s)) return 'ShopeePay';
   if (/\b(cash|tunai|kas)\b/.test(s)) return 'Kas Tunai';
   if (/rek(ening)?\.? ?belanja|\btf\b|transfer|\bbca\b/.test(s)) return 'Rekening Belanja';
@@ -116,7 +117,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       'Jawab HANYA dengan JSON (tanpa teks lain):\n' +
       '{"bukti":true|false, "belum_bayar":true|false, "nominal":angka total yang dibayar (rupiah, bulat), "tanggal":"YYYY-MM-DD" atau null, ' +
       '"penerima":"toko / penerima", "ringkasan":"apa yang dibayar, singkat, maks 110 huruf, bahasa Indonesia", "kategori":"salah satu kategori", ' +
-      '"sumber":"Rekening Belanja|Rekening PT|ShopeePay|Kas Tunai|" , "ref":"nomor referensi / no pesanan atau \\"\\"", "barang":[{"nama":"nama barang","total":angka}], "sistem":[{"kode":"B1|P1|I1|O1","nota":"nama barang di bukti","total":angka}], "pindah":null atau {"dari":"akun asal","ke":"akun tujuan","biaya":angka biaya admin}, ' +
+      '"sumber":"Rekening Belanja|Rekening PT|ShopeePay|Kas Tunai|Dana Shopee (belum cair)|Dana Tokopedia/TikTok (belum cair)|" , "ref":"nomor referensi / no pesanan atau \\"\\"", "barang":[{"nama":"nama barang","total":angka}], "sistem":[{"kode":"B1|P1|I1|O1","nota":"nama barang di bukti","total":angka}], "pindah":null atau {"dari":"akun asal","ke":"akun tujuan","biaya":angka biaya admin}, ' +
       '"jenis_bayar":"transfer_bank|shopeepay|tunai|lainnya|", "atas_nama":"nama pemilik rekening / akun yang MEMBAYAR (pengirim uang) kalau terlihat, atau \\"\\"", "yakin":0-1}\n' +
       'jenis_bayar: transfer_bank = transfer / m-banking / virtual account / QRIS dari rekening bank; shopeepay = pesanan Shopee / saldo ShopeePay (kecuali terlihat dibayar dengan transfer bank / VA); ' +
       'tunai = nota / struk tanpa info pembayaran non-tunai atau tertulis cash; "" kalau tidak jelas. atas_nama = nama PENGIRIM uang (bukan penerima). ' +
@@ -125,13 +126,15 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       'nominal = total yang benar-benar dibayar (termasuk ongkir & biaya admin), bukan harga satuan; kalau ada beberapa pesanan, jumlahkan semuanya. ' +
       'barang = daftar barang / pesanan yang terlihat (maks 10) dengan total masing-masing; kosongkan [] kalau tidak ada rincian. ' +
       'sumber: rekening BCA 613-0358401 atau 613-0**-**01 = Rekening Belanja; rekening 770-0875355 atau TOENTOENAN LANGKAH ELOHI = Rekening PT; ' +
-      'Saldo ShopeePay / ShopeePay = ShopeePay; kalau tidak terlihat isi "". ' +
+      'Saldo ShopeePay / ShopeePay = ShopeePay; Metode Pembayaran "Saldo Penjual" di Shopee Seller Centre (saldo toko Moscow Supplies) = Dana Shopee (belum cair); ' +
+      'dibayar dari saldo toko / saldo penjual TikTok Shop atau Tokopedia = Dana Tokopedia/TikTok (belum cair); kalau tidak terlihat isi "". ' +
+      'Isi saldo / top up iklan (Iklan Shopee, Iklan Eksternal Shopee / Meta, TikTok Ads) = kategori Iklan & promosi dan BUKAN pindah dana; nominal = Total Pembayaran (termasuk PPN). ' +
       'kategori pilih tepat salah satu: ' + KATEGORI.join(' | ') + '. ' +
       'Contoh: listrik/token PLN/air/wifi = Listrik, air & internet; servis AC/konsumsi/uang operasional = Biaya lain-lain; botol/stiker/kemasan/plastik = Botol, stiker & kemasan; ' +
       'bahan kimia/cat sablon/lem = Pembelian bahan baku; gaji DW/upah = Gaji & upah; ongkir/grab/kargo = Ongkos kirim & ekspedisi.\n' +
       'pindah = isi HANYA kalau uang dipindahkan ANTAR akun milik Moscow sendiri (bukan bayar ke orang / toko lain). Akun Moscow: ' +
       'Rekening PT (BCA 770-0875355, a.n. TOENTOENAN LANGKAH ELOHIM), Rekening Belanja (BCA 613-0358401 / 613-0**-**01), ShopeePay (top up / isi saldo ShopeePay), ' +
-      'Kas Tunai (kas kantor / tarik tunai), Kas Toko Offline. Contoh: transfer PT -> rekening belanja = {"dari":"Rekening PT","ke":"Rekening Belanja"}; ' +
+      'Kas Tunai (kas kantor / tarik tunai), Kas Toko Offline, Dana Shopee (belum cair) (saldo penjual Shopee), Dana Tokopedia/TikTok (belum cair). Penarikan saldo penjual ke rekening = pindah dari akun Dana itu. Contoh: transfer PT -> rekening belanja = {"dari":"Rekening PT","ke":"Rekening Belanja"}; ' +
       'top up ShopeePay dari BCA = {"dari":"Rekening Belanja","ke":"ShopeePay"}; tarik tunai untuk kas kantor = {"dari":"Rekening Belanja","ke":"Kas Tunai"}. ' +
       'Untuk pindah: nominal = jumlah yang dipindahkan TANPA biaya admin, biaya = biaya admin / biaya transfer (0 kalau tidak ada); kalau akun asal tidak terlihat isi "dari":"". Selain itu "pindah":null.' +
       ((daftar || bp || bi || bo) ?'\n\nNama barang di sistem bisa berbeda dengan nama di toko / nota.' +
@@ -208,7 +211,8 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     let rows: Any[];
     const atas = r.kandidat ? [[{ text: '📎 Sudah tercatat', callback_data: 'b|' + id + '|s' }]] : [];
     if (!b.akun) {
-      rows = [AKUN.slice(0, 3).map((a, i) => ({ text: a, callback_data: 'b|' + id + '|A|' + i })), AKUN.slice(3).map((a, i) => ({ text: a, callback_data: 'b|' + id + '|A|' + (i + 3) })),
+      rows = [AKUN.slice(0, 3).map((a, i) => ({ text: a, callback_data: 'b|' + id + '|A|' + i })), AKUN.slice(3, 5).map((a, i) => ({ text: a, callback_data: 'b|' + id + '|A|' + (i + 3) })),
+        [{ text: 'Saldo Shopee', callback_data: 'b|' + id + '|A|5' }, { text: 'Saldo TikTok/Tokopedia', callback_data: 'b|' + id + '|A|6' }],
         [{ text: '✏️ Ubah', callback_data: 'b|' + id + '|u' }, { text: '❌ Bukan', callback_data: 'b|' + id + '|x' }]];
     } else if (r.rencana) {
       const rc = r.rencana, centang = rc.calon ? rc.calon.map((x: Any, k: number) => [{ text: (rc.pilih.indexOf(x.no) > -1 ? '☑️ ' : '⬜ ') + t(x.no + ' ' + x.n, 44), callback_data: 'b|' + id + '|I|' + k }]) : [];
