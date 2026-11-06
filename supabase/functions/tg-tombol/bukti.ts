@@ -12,6 +12,7 @@
 // Perintah grup: /grup_bukti (manajemen, sekali) · /saya NAMA (tiap anggota, sekali)
 // =====================================================================
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
+import { buatBantu } from './bantu.ts';
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -95,6 +96,7 @@ function cariBarang(items: Any[], target: number, namaBukti: string[]) {
 }
 
 export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, TOKEN: string, peran: (uid: unknown) => Promise<string>) {
+  const bantu = buatBantu(sb, api);
   async function atur(kunci: string) { const r = await sb.from('bb_atur').select('nilai').eq('kunci', kunci).maybeSingle(); return r.data ? r.data.nilai : null; }
   async function anggota(uid: string) { const r = await sb.from('bb_anggota').select('nama').eq('uid', uid).maybeSingle(); return r.data ? String(r.data.nama) : ''; }
   async function sementara(k: string) {
@@ -576,7 +578,13 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       const a = await sementara('bu|' + chat.id + '|' + m.reply_to_message.message_id);
       if (a && String(dari.id) === a.uid) { await terapkanUbah(a.id, teks, m); return true; }
     }
-    if ((m.photo && m.photo.length) || m.document || (teks && adaNominal(teks))) { await proses(m); return true; }
+    // pertanyaan / kebingungan (bukan bukti): robot menjelaskan dengan bahasa sederhana
+    const adaFile = (m.photo && m.photo.length) || m.document, keRobot = !!(m.reply_to_message && m.reply_to_message.from && m.reply_to_message.from.is_bot);
+    if (!adaFile && teks && (keRobot || teks.indexOf('?') > -1 || !adaNominal(teks))) {
+      const nm = (await anggota(String(dari.id))) || t([dari.first_name, dari.last_name].join(' '), 40) || 'Anggota';
+      if (await bantu.jawab(m, nm)) return true;
+    }
+    if (adaFile || (teks && adaNominal(teks))) { await proses(m); return true; }
     return true;
   }
 
