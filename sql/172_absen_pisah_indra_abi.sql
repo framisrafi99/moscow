@@ -1,5 +1,5 @@
--- 172 (6 Nov 2026): akun Google Abi (abyasapande05) sempat tertaut ke staf "I Made Indra Dharmawan" sejak persetujuan 3 Nov
--- (absen_daftar_putus menimpa email lewat on conflict (nama)). Dipisah: Indra kembali ke indradhrmma@gmail.com,
+-- 172 (6 Nov 2026): akun Google Abi sempat tertaut ke staf "I Made Indra Dharmawan" sejak persetujuan 3 Nov
+-- (absen_daftar_putus menimpa email lewat on conflict (nama)). Dipisah: Indra kembali ke akun Google-nya sendiri,
 -- Abi mendapat baris staf sendiri; absen 4-5 Nov (foto dari akun Abi) dipindah ke Abi.
 -- Pencegahan: persetujuan pendaftaran ditolak kalau nama staf sudah tertaut ke akun Google lain.
 -- (Perbaikan data dijalankan langsung di database; di sini hanya pencegahannya.)
