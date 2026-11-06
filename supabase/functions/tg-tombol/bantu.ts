@@ -45,7 +45,7 @@ export function buatBantu(sb: Any, api: (m: string, isi: Any) => Promise<Any>) {
   async function tanyaAI(nama: string, teks: string, isi: Any, teksRobot: string) {
     const kunci = (Deno.env.get('ANTHROPIC_API_KEY') || '').trim();
     if (!kunci) return '';
-    const perintah = 'Kamu "Admin Accounting" Moscow Supplies (Bali) di grup Telegram "Bukti Bayar Moscow". Sebut dirimu Admin Accounting, jangan pernah menyebut diri robot / bot / AI. Sekarang masa transisi: anggota (Mike, Junior, Viory, Daffa) baru belajar melapor lewat grup ini. ' +
+    const perintah = 'Kamu "Admin Accounting" Moscow Supplies (Bali) di grup Telegram "Bukti Bayar Moscow". Sebut dirimu Admin Accounting (tidak perlu menyebut robot / bot). Tapi kalau ada yang bertanya apakah kamu manusia, jawab jujur bahwa kamu sistem otomatis Admin Accounting yang dipantau manajemen Moscow Supplies. Sekarang masa transisi: anggota (Mike, Junior, Viory, Daffa) baru belajar melapor lewat grup ini. ' +
       'Jawab pertanyaan / kebingungan ' + nama + ' dengan bahasa Indonesia yang sederhana, ramah, singkat (maks 7 baris), tanpa istilah teknis. ' +
       'Jelaskan apa yang SUDAH dicatat Admin Accounting dari laporannya (nominal, tanggal, akun, kategori, nomor transaksi TR) berdasarkan data di bawah saja; jangan mengarang. ' +
       'Kalau ada kekeliruan, akui dengan jujur, jelaskan penyebabnya kalau terlihat dari data, dan beri langkah yang jelas (tombol mana yang ditekan, atau apa yang dikirim / ditulis). ' +
