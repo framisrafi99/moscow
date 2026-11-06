@@ -118,9 +118,11 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       '{"bukti":true|false, "belum_bayar":true|false, "nominal":angka total yang dibayar (rupiah, bulat), "tanggal":"YYYY-MM-DD" atau null, ' +
       '"penerima":"toko / penerima", "ringkasan":"apa yang dibayar, singkat, maks 110 huruf, bahasa Indonesia", "kategori":"salah satu kategori", ' +
       '"sumber":"Rekening Belanja|Rekening PT|ShopeePay|Kas Tunai|Dana Shopee (belum cair)|Dana Tokopedia/TikTok (belum cair)|" , "ref":"nomor referensi / no pesanan atau \\"\\"", "barang":[{"nama":"nama barang","total":angka}], "sistem":[{"kode":"B1|P1|I1|O1","nota":"nama barang di bukti","total":angka}], "pindah":null atau {"dari":"akun asal","ke":"akun tujuan","biaya":angka biaya admin}, ' +
-      '"jenis_bayar":"transfer_bank|shopeepay|tunai|lainnya|", "atas_nama":"nama pemilik rekening / akun yang MEMBAYAR (pengirim uang) kalau terlihat, atau \\"\\"", "yakin":0-1}\n' +
+      '"jenis_bayar":"transfer_bank|shopeepay|tunai|lainnya|", "dokumen":"transfer|invoice|nota|lainnya", "atas_nama":"nama pemilik rekening / akun yang MEMBAYAR (pengirim uang) kalau terlihat, atau \\"\\"", "yakin":0-1}\n' +
       'jenis_bayar: transfer_bank = transfer / m-banking / virtual account / QRIS dari rekening bank; shopeepay = pesanan Shopee / saldo ShopeePay (kecuali terlihat dibayar dengan transfer bank / VA); ' +
-      'tunai = nota / struk tanpa info pembayaran non-tunai atau tertulis cash; "" kalau tidak jelas. atas_nama = nama PENGIRIM uang (bukan penerima). ' +
+      'tunai = nota / struk tanpa info pembayaran non-tunai atau tertulis cash; "" kalau tidak jelas. ' +
+      'dokumen: transfer = bukti transfer / m-banking / BI-FAST / VA / QRIS dari aplikasi bank (ada rekening pengirim & penerima); invoice = invoice / tagihan / commercial invoice / sales order dari penjual (lunas atau belum); ' +
+      'nota = nota / struk / kwitansi / faktur toko; lainnya = selain itu (pesanan marketplace, pesan teks, dll). atas_nama = nama PENGIRIM uang (bukan penerima). ' +
       'Aturan: bukti=true kalau ini bukti pembayaran / nota / struk / transfer / pesanan yang sudah dibayar, atau pesan teks yang melaporkan pengeluaran. ' +
       'belum_bayar=true kalau ini pesanan / invoice / commercial invoice / sales order / COD / tagihan yang belum lunas (dokumen dari penjual, bukan bukti transfer). ' +
       'nominal = total yang benar-benar dibayar (termasuk ongkir & biaya admin), bukan harga satuan; kalau ada beberapa pesanan, jumlahkan semuanya. ' +
@@ -347,10 +349,22 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
 
   // ---------- invoice + bukti transfer yang dikirim bersamaan = satu pembayaran ----------
   // Pasangan: pengirim sama, maks 30 menit, nominal sama (±1%), satu invoice / tagihan (belum_bayar) dan satu bukti bayar.
+  // invoice / nota dari penjual vs bukti transfer dari bank
+  function adalahInvoice(r: Any): boolean { return !!(r && (r.belum_bayar || r.dokumen === 'invoice' || r.dokumen === 'nota')); }
+  function adalahTransfer(r: Any): boolean { return !!(r && !r.belum_bayar && (r.dokumen === 'transfer' || (!r.dokumen && r.jenis_bayar === 'transfer_bank'))); }
+  // nominal transfer boleh lebih besar dari invoice sebesar biaya transfer (maks Rp10.000), atau beda <= 1%
+  function nominalPas(tf: number, inv: number): boolean { const d = tf - inv; return Math.abs(d) <= Math.max(1, inv * 0.01) || (d >= 0 && d <= 10000); }
   async function saudara(id: number, uid: string, nominal: number, invoice: boolean) {
     const r = await sb.from('bb_bukti').select('*').eq('uid', uid).neq('id', id).gte('waktu', new Date(Date.now() - 30 * 60e3).toISOString())
-      .gte('nominal', Math.floor(nominal * 0.99)).lte('nominal', Math.ceil(nominal * 1.01)).not('status', 'in', '(gagal,bukan,sama)').order('id', { ascending: false }).limit(5);
-    return (r.data || []).filter((x: Any) => x.baca && !!x.baca.belum_bayar !== invoice && !x.baca.lampiran_untuk)[0] || null;
+      .gte('nominal', Math.floor(nominal * 0.99) - 10000).lte('nominal', Math.ceil(nominal * 1.01) + 10000).not('status', 'in', '(gagal,bukan,sama)').order('id', { ascending: false }).limit(8);
+    return (r.data || []).filter((x: Any) => x.baca && !x.baca.lampiran_untuk && !x.baca.pindah &&
+      (invoice ? adalahTransfer(x.baca) && nominalPas(Number(x.nominal), nominal) : adalahInvoice(x.baca) && nominalPas(nominal, Number(x.nominal))))[0] || null;
+  }
+  // keterangan dari invoice (barang / tujuan) + penerima transfer; nominal & tanggal tetap dari bukti transfer
+  function ketGabung(inv: Any, tf: Any, nama: string, nominal: number, invNom: number): string {
+    const a = String((inv && inv.ringkasan) || '').trim(), pen = String((tf && tf.penerima) || (inv && inv.penerima) || '').trim();
+    const biaya = nominal - invNom > 0 && nominal - invNom <= 10000 ? ' + biaya transfer ' + rp(nominal - invNom).replace(/<[^>]+>/g, '') : '';
+    return t((a || 'Pembayaran invoice') + biaya + (pen ? ', transfer ke ' + pen : '') + ' [Telegram: ' + nama + ']', 200);
   }
   // bukti yang sudah tercatat: lampiran (invoice) ikut ditautkan ke transaksi accounting yang sama
   async function tempelLampiran(b: Any, nos: Any) {
@@ -410,7 +424,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     let nominal = Math.round(Number(r.nominal) || 0) || (teks ? angka(teks) || 0 : 0);
     const tanggal = /^\d{4}-\d{2}-\d{2}$/.test(String(r.tanggal || '')) && String(r.tanggal) <= tglPesan ? String(r.tanggal) : tglPesan;
     if (nominal < 0) nominal = 0;
-    const kategori = KATEGORI.indexOf(String(r.kategori)) > -1 ? String(r.kategori) : 'Biaya lain-lain';
+    let kategori = KATEGORI.indexOf(String(r.kategori)) > -1 ? String(r.kategori) : 'Biaya lain-lain';
     // siapa yang membayar (bisa beda dengan pengirim bukti, mis. Viory meneruskan bukti transfer Junior)
     const pembayar = pembayarDari(teks, String(r.atas_nama || '')) || nama;
     r.pembayar = pembayar;
@@ -427,7 +441,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       const q = sb.from('bb_bukti').select('id,acc_no,status,pengirim,tanggal,baca').neq('id', id).not('status', 'in', '(gagal,bukan)').gte('waktu', new Date(Date.now() - 20 * 86400e3).toISOString());
       const kemb = r.ref ? await q.contains('baca', { ref: r.ref }).limit(5) : await q.eq('nominal', nominal).eq('tanggal', tanggal).eq('uid', uid).limit(5);
       // invoice dan bukti transfernya bukan kembar (dipasangkan di bawah)
-      const k = (kemb.data || []).filter((x: Any) => !!(x.baca && x.baca.belum_bayar) === !!r.belum_bayar)[0];
+      const k = (kemb.data || []).filter((x: Any) => adalahInvoice(x.baca) === adalahInvoice(r))[0];
       if (k) {
         await ubah(id, { status: 'sama', acc_no: k.acc_no, catatan: 'Sama dengan bukti #' + k.id });
         await tampil(b, '📎 Bukti ini sama dengan yang sudah dikirim sebelumnya' + (k.acc_no ? ' (' + esc(k.acc_no) + ')' : '') + '. Tidak dicatat lagi.');
@@ -436,11 +450,15 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     }
     // invoice + bukti transfer dikirim bersamaan (album / berurutan): satu pembayaran, dicatat sekali, keduanya dilampirkan
     if (nominal) {
-      const inv = !!r.belum_bayar, sib = await saudara(id, uid, nominal, inv);
+      const inv = adalahInvoice(r) && !adalahTransfer(r), sib = (inv || adalahTransfer(r)) ? await saudara(id, uid, nominal, inv) : null;
       if (sib) {
         const nosSib = noDari(sib.acc_no);
         if (inv) {
-          if (nosSib.length) await sb.rpc('bb_tempel', { p_id: id, p_nos: nosSib });
+          if (nosSib.length) {
+            await sb.rpc('bb_tempel', { p_id: id, p_nos: nosSib });
+            if (nosSib.length === 1) await sb.from('acc_log').update({ keterangan: ketGabung(r, sib.baca, sib.pengirim || nama, Number(sib.nominal), nominal) })
+              .eq('no', nosSib[0]).eq('status', 'Aktif').like('pengisi', 'telegram:%');
+          }
           else await ubah(id, { status: 'sama', catatan: 'Invoice untuk bukti transfer #' + sib.id });
           b = await ubah(id, { baca: { ...r, lampiran_untuk: sib.id } });
           const sib2 = await ubah(sib.id, { baca: { ...sib.baca, lampiran: ((sib.baca && sib.baca.lampiran) || []).concat([id]) } });
@@ -463,7 +481,10 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
         await ubah(sib.id, { status: 'sama', catatan: 'Invoice untuk bukti transfer #' + id, baca: { ...sib.baca, lampiran_untuk: id } });
         await tampil(sib, '📎 <b>Invoice dari ' + esc(sib.pengirim) + '</b> · ' + rp(sib.nominal) + '\nDilampirkan ke bukti transfer yang dikirim bersamaan, tidak dicatat terpisah.');
         r.lampiran = [sib.id];
-        b = await ubah(id, { baca: r, catatan: (b.catatan ? b.catatan + ' ' : '') + '📎 Invoice terlampir (bukti #' + sib.id + ').' });
+        const katInv = KATEGORI.indexOf(String(sib.kategori)) > -1 && kategori === 'Biaya lain-lain' ? String(sib.kategori) : kategori;
+        kategori = katInv;
+        b = await ubah(id, { baca: r, kategori: katInv, keterangan: t(ketGabung(sib.baca, r, nama, nominal, Number(sib.nominal)).replace(/ \[Telegram: [^\]]*\]$/, ''), 150),
+          catatan: (b.catatan ? b.catatan + ' ' : '') + '📎 Invoice terlampir (bukti #' + sib.id + ').' });
       }
     }
     // pindah dana antar akun Moscow (PT -> Belanja, Belanja -> ShopeePay / Kas): dicatat sebagai Pindah, bukan pengeluaran
@@ -759,10 +780,10 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
   }
 
   // pengumuman manajemen: robot mengirim teks ke grup Bukti Bayar lalu menyematkannya (dipanggil lewat kunci robot)
-  async function umumkan(teks: string, sematkan = true) {
+  async function umumkan(teks: string, sematkan = true, balasKe = 0) {
     const g = await atur('grup');
     if (!g || !g.chat) return { ok: false, pesan: 'Grup Bukti Bayar belum diatur.' };
-    const k = await api('sendMessage', { chat_id: g.chat, text: String(teks).slice(0, 4000), disable_web_page_preview: true });
+    const k = await api('sendMessage', { chat_id: g.chat, text: String(teks).slice(0, 4000), disable_web_page_preview: true, ...(balasKe ? { reply_to_message_id: balasKe, allow_sending_without_reply: true } : {}) });
     if (!(k && k.ok)) return { ok: false, pesan: 'Kirim gagal: ' + t(k && k.description, 120) };
     if (!sematkan) return { ok: true, pesan: k.result.message_id, sematkan: false, galat: '' };
     const s = await api('pinChatMessage', { chat_id: g.chat, message_id: k.result.message_id, disable_notification: false });
