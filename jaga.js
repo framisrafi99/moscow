@@ -43,7 +43,8 @@
     if (!D) { S.el.innerHTML = h + (S.memuat ? '' : '<div class="cd"><div class="ksg">Belum dimuat.</div></div>'); return; }
     var J = D.jadwal || [], gagalJ = J.filter(function (x) { return x.gagal > 0; }), H = D.http || [], errH = H.reduce(function (t, x) { return t + x.n; }, 0);
     var A = D.antrean || {}, K = D.kapasitas || {}, L = D.log || [], akhir = L[0];
-    var masalah = gagalJ.length + (errH ? 1 : 0) + (A.antre_macet ? 1 : 0) + (A.bukti_gagal ? 1 : 0);
+    var masalah = gagalJ.length + (errH ? 1 : 0) + (A.antre_macet ? 1 : 0) + (A.bukti_gagal ? 1 : 0) + (A.potret_basi ? 1 : 0);
+    var basi = (A.potret_basi_daftar || []).map(function (x) { return esc(x.k) + ' (' + esc(x.w) + ')'; }).join(', ');
     var st = akhir && (Date.now() - new Date(akhir.waktu).getTime() < 5 * 3600e3) ? STATUS[akhir.status] || STATUS.sehat : null;
     h += '<div class="cd"><div class="jg-ring">' +
       '<div><span class="sb">Kondisi sekarang</span><b>' + (masalah ? '<span class="jg-chip jg-warn">' + masalah + ' perlu dicek</span>' : '<span class="jg-chip jg-ok">Semua berjalan</span>') + '</b></div>' +
@@ -53,7 +54,9 @@
       '<div><span class="sb">Antrean pesan macet</span><b>' + (A.antre_macet || 0) + '</b></div>' +
       '<div><span class="sb">Bukti gagal dibaca (7 hari)</span><b>' + (A.bukti_gagal || 0) + '</b></div>' +
       '<div><span class="sb">Bukti menunggu &gt; 1 hari</span><b>' + (A.bukti_tunggu || 0) + '</b></div>' +
-      '<div><span class="sb">Pertanyaan staf (24 jam)</span><b>' + (A.tanya_staf || 0) + '</b></div></div>' +
+      '<div><span class="sb">Pertanyaan staf (24 jam)</span><b>' + (A.tanya_staf || 0) + '</b></div>' +
+      '<div><span class="sb">Hasil hitung terlambat</span><b>' + (A.potret_basi || 0) + '</b></div></div>' +
+      (basi ? '<p class="sb" style="margin:0 0 4px">Belum ter-update: ' + basi + '</p>' : '') +
       '<p class="sb" style="margin:0">Diperbarui ' + jam(D.waktu) + ' · tampilan siap untuk staf: ' + (A.halaman_cache || 0) + ' dari 13</p></div>';
     // kapasitas
     var kap = [['Database (semua data aplikasi)', K.db_mb, K.db_batas_mb, ' MB'], ['File bukti (foto / PDF, ' + (K.file_n || 0) + ' file)', K.file_mb, K.file_batas_mb, ' MB'],
