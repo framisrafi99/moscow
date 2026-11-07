@@ -193,23 +193,22 @@ Deno.serve(async (req) => {
   if (jadwal && !body.sub) {
     let grup: string[][];
     if (Array.isArray(body.kunci) && body.kunci.length) {
+      // TPB punya jadwal sendiri (hitung-potret-tpb), tidak lagi ikut laporan bulan lalu (7 Nov 2026).
       grup = body.kunci.map((k) => [k]);
-      if (body.kunci.indexOf('laporan:lalu') !== -1 && body.kunci.indexOf('md:tpb') === -1) grup.push(['md:tpb']);
     } else grup = GRUP;
     const status: Record<string, string> = {};
     const antreG = grup.slice();
-    await Promise.all([0, 1, 2, 3].map(async () => {
+    // 2 kelompok bersamaan (dulu 4): satu kelompok yang lewat batas prosesor mematikan semua panggilan
+    // di mesin yang sama, jadi makin sedikit yang bersamaan makin sedikit yang ikut gagal (7 Nov 2026).
+    await Promise.all([0, 1].map(async () => {
       for (let g = antreG.shift(); g; g = antreG.shift()) {
         try {
-          // Kalau kehabisan tenaga (biasanya saat robot baru menyala), coba sekali lagi.
-          let r: Response, j: { gagal?: string[]; code?: string; pesan?: string } = {};
-          for (let coba = 0; coba < 2; coba++) {
-            r = await fetch(URL_SB + '/functions/v1/hitung-potret', { method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-moscow-robot-kunci': tanda }, body: JSON.stringify({ simpan, kunci: g, sub: true }) });
-            j = await r.json().catch(() => ({}));
-            if (r.status !== 546) break;
-          }
-          status[g.join(',')] = r!.status === 200 ? ((j.gagal && j.gagal.length) ? 'gagal: ' + j.gagal.join(',') : 'ok') : 'http ' + r!.status + ' ' + String(j.code || j.pesan || '');
+          // Tidak dicoba ulang saat kehabisan tenaga (546): coba ulang langsung menggandakan beban dan ikut menjatuhkan
+          // kelompok lain; kelompok yang gagal dihitung lagi di jadwal berikutnya (7 Nov 2026).
+          const r = await fetch(URL_SB + '/functions/v1/hitung-potret', { method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-moscow-robot-kunci': tanda }, body: JSON.stringify({ simpan, kunci: g, sub: true }) });
+          const j: { gagal?: string[]; code?: string; pesan?: string } = await r.json().catch(() => ({}));
+          status[g.join(',')] = r.status === 200 ? ((j.gagal && j.gagal.length) ? 'gagal: ' + j.gagal.join(',') : 'ok') : 'http ' + r.status + ' ' + String(j.code || j.pesan || '');
         } catch (e) { status[g.join(',')] = 'galat: ' + String((e as Error)?.message || e).slice(0, 100); }
       }
     }));
@@ -224,10 +223,9 @@ Deno.serve(async (req) => {
   (Array.isArray(body.kunci) ? body.kunci : []).forEach((k) => {
     if (/^laporan:\d{4}-\d{2}$/.test(k) && !R[k]) R[k] = async () => ({ [k]: await laporan(k.slice(8)) });
   });
-  // Rumus berat (laporan bulanan, tutup buku) tidak ikut jadwal 10 menit; tutup buku ikut jadwal laporan bulan lalu (tiap 30 menit).
+  // Rumus berat (laporan bulanan, tutup buku) tidak ikut jadwal 10 menit; masing-masing punya jadwal sendiri.
   const BERAT = ['laporan', 'laporan:lalu', 'md:tpb'];
-  let mintaAwal = Array.isArray(body.kunci) && body.kunci.length ? body.kunci.slice() : Object.keys(RUMUS).filter((k) => BERAT.indexOf(k) === -1);
-  if (jadwal && mintaAwal.indexOf('laporan:lalu') !== -1 && mintaAwal.indexOf('md:tpb') === -1) mintaAwal.push('md:tpb');
+  const mintaAwal = Array.isArray(body.kunci) && body.kunci.length ? body.kunci.slice() : Object.keys(RUMUS).filter((k) => BERAT.indexOf(k) === -1);
   const minta = mintaAwal.filter((k) => R[k]);
   const hasil: Record<string, unknown> = {}, isi: Isi = {};
   SIMPANAN = {};
