@@ -147,7 +147,7 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
 // dengan rumus yang sama), supaya satu panggilan tidak lewat batas prosesor (7 Nov 2026). Kalau tidak ada, dihitung seperti biasa.
 async function laporan(b: string) {
   let acc: unknown = null;
-  const r = await sb.from('hasil_hitung').select('data,dibuat').in('kunci', ['md:acc', 'md:acc:lalu']);
+  const r = await sb.from('hasil_hitung').select('data,dibuat').in('kunci', ['md:acc', 'md:acc:lalu']).eq('data->>bulan', b);
   // deno-lint-ignore no-explicit-any
   (r.data || []).forEach((x: any) => {
     if (x.data && x.data.ok && x.data.bulan === b && Date.now() - new Date(x.dibuat).getTime() <= 30 * 60e3) acc = x.data;
