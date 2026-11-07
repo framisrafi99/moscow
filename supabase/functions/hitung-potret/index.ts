@@ -143,7 +143,17 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
 };
 
 // laporan:<bulan> sama dengan potret Apps Script (KB_laporan_).
-async function laporan(b: string) { return await W.Dasbor.laporanBulan(sb, b); }
+// Bagian accounting memakai potret md:acc / md:acc:lalu bila bulannya sama dan umurnya <= 30 menit (dihitung jadwal 10 menit
+// dengan rumus yang sama), supaya satu panggilan tidak lewat batas prosesor (7 Nov 2026). Kalau tidak ada, dihitung seperti biasa.
+async function laporan(b: string) {
+  let acc: unknown = null;
+  const r = await sb.from('hasil_hitung').select('data,dibuat').in('kunci', ['md:acc', 'md:acc:lalu']);
+  // deno-lint-ignore no-explicit-any
+  (r.data || []).forEach((x: any) => {
+    if (x.data && x.data.ok && x.data.bulan === b && Date.now() - new Date(x.dibuat).getTime() <= 30 * 60e3) acc = x.data;
+  });
+  return await W.Dasbor.laporanBulan(sb, b, { acc });
+}
 
 // Kelompok jadwal 10 menit (rumus yang memakai data yang sama dijadikan satu, supaya tiap panggilan tetap ringan).
 const GRUP: string[][] = [

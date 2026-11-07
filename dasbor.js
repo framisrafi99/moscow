@@ -276,8 +276,11 @@
   function akhir(b) { var a = b.split('-'), d = new Date(Date.UTC(Number(a[0]), Number(a[1]), 0)).getUTCDate(); return b + '-' + (d < 10 ? '0' : '') + d; }
 
   // KB_laporan_ (file 81): laporan bulanan Kendali Bisnis.
-  async function laporanBulan(sb, bulan) {
-    var h = await Promise.all([window.Akunting.akuntingLaporan(sb, { bulan: bulan }),
+  // opsi.acc (robot hitung, 7 Nov 2026): hasil akuntingLaporan bulan itu yang sudah dihitung (potret md:acc / md:acc:lalu),
+  // supaya robot tidak menghitung accounting dua kali dalam satu panggilan (batas prosesor Edge Function).
+  async function laporanBulan(sb, bulan, opsi) {
+    var acc = opsi && opsi.acc && opsi.acc.ok && opsi.acc.bulan === bulan ? Promise.resolve(opsi.acc) : window.Akunting.akuntingLaporan(sb, { bulan: bulan });
+    var h = await Promise.all([acc,
       dsData(sb, { dari: bulan + '-01', sampai: akhir(bulan) }).then(function (v) { return v; }, function (e) { return { ok: false, pesan: e.message }; }),
       sb.from('tutup_buku').select('bulan,status').eq('bulan', bulan)]);
     var lap = h[0];
