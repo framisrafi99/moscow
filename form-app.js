@@ -27,6 +27,8 @@
       menu: [
         { k: 'isi', nm: 'Isi laporan', ik: 'produksi', l: ['#pgsT1', '#tab1'], pendek: 'Laporan' },
         { k: 'data', nm: 'Data produksi', ik: 'dasbor', l: ['#pgsT1', '#tab2'], pendek: 'Data' },
+        { k: 'kirimkp', nm: 'Kirim ke Kantor Packing', ik: 'pemasok', panel: 'pkp', pendek: 'Kirim KP' },
+        { k: 'stokgu', nm: 'Stok Gudang Utama', ik: 'gudang', panel: 'pkp', pendek: 'Stok GU' },
         { k: 'riwayat', nm: 'Riwayat', ik: 'riwayat', l: ['#pgsT1', '#tab3'] },
         { k: 'order', nm: 'Order masuk', ik: 'nota', l: ['#pgsT1', '#tab4'], pendek: 'Order' },
         { k: 'botol', nm: 'Botol, stiker & packaging', ik: 'stok', l: ['#pgsT1', '#tab5'], pendek: 'Botol & packing' },
@@ -36,9 +38,7 @@
         { k: 'kemasan', nm: 'Harga kemasan', ik: 'harga', l: ['#pgsT1', '#tabKms'] },
         { k: 'hpp', nm: 'HPP & Harga jual', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox', pendek: 'HPP' },
         { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' },
-        { k: 'lapajuan', nm: 'Laporan pengajuan (PDF)', ik: 'nota', panel: 'ajuan', pendek: 'Lap. ajuan' },
-        { grup: 'STOK BARANG JADI' },
-        { k: 'stokgu', nm: 'Stok Gudang Utama', ik: 'gudang', href: 'stok.html?lokasi=Gudang%20utama' }
+        { k: 'lapajuan', nm: 'Laporan pengajuan (PDF)', ik: 'nota', panel: 'ajuan', pendek: 'Lap. ajuan' }
       ],
       bawah: ['isi', 'data', 'order', 'botol', 'lain']
     },
@@ -1222,6 +1222,9 @@
     if (mm && mm.panel === 'ajuan') {
       el.hidden = false; C.panel = true; sec.classList.add('pk-mode'); $('muatan').hidden = true; document.documentElement.classList.remove('berbingkai');
       if (window.AjuanPdf) AjuanPdf.gambar(el, M.sb, APP);
+    } else if (mm && mm.panel === 'pkp') {
+      el.hidden = false; C.panel = true; sec.classList.add('pk-mode'); $('muatan').hidden = true; document.documentElement.classList.remove('berbingkai');
+      if (window.ProduksiKP) ProduksiKP.gambar(el, M.sb, k, { nama: C.nama, salin: salinKeSheet });
     } else if (C.panel) {
       C.panel = false; el.hidden = true; el.innerHTML = ''; sec.classList.remove('pk-mode');
     }
@@ -1376,7 +1379,7 @@
       '#p2 .tile.k,#p2 .prod .nums .k,#p2 table.tw th:nth-child(4),#p2 table.tw td:nth-child(4){display:none!important}' +
       '#pkgInfo{border:1px solid #BFE3CB;background:#EAF6EE;color:#145C34;border-radius:12px;padding:10px 12px;margin:0 0 10px;font-size:13px;line-height:1.45}';
     (dok.head || dok.body).appendChild(st);
-    var TEKS = 'Hasil produksi yang kamu laporkan <b>langsung masuk stok Gudang Utama</b>, jadi tidak ada stok yang tersisa di produksi. Cukup isi jumlah yang diproduksi hari ini. Untuk melihat stok barang jadi, buka menu <b>Stok Gudang Utama</b>.';
+    var TEKS = 'Hasil produksi yang kamu laporkan <b>langsung masuk stok Gudang Utama</b>, jadi tidak ada stok yang tersisa di produksi. Cukup isi jumlah yang diproduksi hari ini. Untuk melihat stok barang jadi, buka menu <b>Stok Gudang Utama</b>. Barang yang dibawa ke Kantor Packing dicatat di menu <b>Kirim ke Kantor Packing</b>.';
     function rapikan() {
       var cari = dok.getElementById('cari');
       if (cari && !dok.getElementById('pkgInfo')) { var d = dok.createElement('div'); d.id = 'pkgInfo'; d.innerHTML = TEKS; cari.parentNode.insertBefore(d, cari); }
