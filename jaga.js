@@ -14,6 +14,43 @@
     'hitung-potret-uji-mp': 'Uji hitung penjualan marketplace di database', 'toko-pengingat-jual': 'Pengingat lapor penjualan toko',
     'toko-lapor-rekap': 'Rekap toko yang belum lapor'
   };
+  // Daftar tindakan GM (sql/193, 7 Nov 2026): diisi Asisten GM / penjaga / Iqbal, dicentang di sini.
+  var PRIO = { 1: ['Penting', 'jg-bad'], 2: ['Minggu ini', 'jg-warn'], 3: ['Nanti', 'jg-fix'] };
+  function hariTeks(t) { if (!t) return ''; var p = String(t).split('-'); return p[2] + '/' + p[1]; }
+  function tindakan() {
+    var kini = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+    var h = '<div class="cd"><h3 style="margin-top:0">Daftar tindakan GM</h3>' +
+      '<p class="sb" style="margin:0 0 6px">Dari Asisten GM, Penjaga sistem, Penjaga bisnis, dan Audit. Ketuk <b>Selesai</b> bila sudah dikerjakan.</p>';
+    if (S.tPesan) h += '<div class="msg bad">' + esc(S.tPesan) + '</div>';
+    h += S.T.length ? S.T.map(function (x) {
+      var pr = PRIO[x.prioritas] || PRIO[2], lewat = x.tenggat && x.tenggat < kini;
+      return '<div class="jg-row"><div class="jg-top"><div><b>' + esc(x.judul) + '</b> <span class="jg-chip ' + pr[1] + '">' + pr[0] + '</span>' +
+        (x.tenggat ? ' <span class="jg-chip ' + (lewat ? 'jg-bad' : 'jg-ok') + '">' + (lewat ? 'Lewat ' : 's/d ') + hariTeks(x.tenggat) + '</span>' : '') +
+        (x.ket ? '<div class="jg-ket">' + esc(x.ket) + '</div>' : '') + '<div class="jg-ket">dari ' + esc(x.sumber) + '</div></div>' +
+        '<button type="button" class="tbl kcl" data-jgt="selesai" data-id="' + x.id + '"' + (S.tSimpan ? ' disabled' : '') + '>Selesai</button></div></div>';
+    }).join('') : '<div class="ksg">Tidak ada tindakan yang terbuka.</div>';
+    h += '<details style="margin-top:6px"><summary class="sb">Tambah tindakan</summary>' +
+      '<div style="display:grid;gap:6px;margin-top:6px"><input id="jgtJudul" maxlength="160" placeholder="Apa yang perlu dilakukan?">' +
+      '<input id="jgtKet" maxlength="400" placeholder="Keterangan (boleh kosong)">' +
+      '<div style="display:flex;gap:6px"><select id="jgtPrio"><option value="1">Penting</option><option value="2" selected>Minggu ini</option><option value="3">Nanti</option></select>' +
+      '<input id="jgtTgl" type="date"></div>' +
+      '<button type="button" class="tbl" data-jgt="tambah"' + (S.tSimpan ? ' disabled' : '') + '>Simpan tindakan</button></div></details>';
+    return h + '</div>';
+  }
+  async function aksiTindakan(b) {
+    var jenis = b.getAttribute('data-jgt'), r, baru = null;
+    var v = function (id) { var e = S.el.querySelector('#' + id); return e ? String(e.value || '').trim() : ''; };
+    if (jenis === 'tambah') {
+      if (!v('jgtJudul')) { S.tPesan = 'Tulis dulu tindakannya.'; gambar(); return; }
+      baru = { judul: v('jgtJudul').slice(0, 160), ket: v('jgtKet').slice(0, 400) || null, sumber: 'iqbal', prioritas: Number(v('jgtPrio')) || 2, tenggat: v('jgtTgl') || null };
+    }
+    S.tSimpan = true; S.tPesan = ''; gambar();
+    if (baru) r = await S.sb.from('gm_tindakan').insert(baru);
+    else r = await S.sb.from('gm_tindakan').update({ status: 'selesai', selesai_waktu: new Date().toISOString() }).eq('id', Number(b.getAttribute('data-id')));
+    S.tSimpan = false;
+    if (r && r.error) { S.tPesan = 'Gagal menyimpan: ' + r.error.message; gambar(); return; }
+    muat();
+  }
   var STATUS_B = { aman: ['✅', 'Aman', 'jg-ok'], perhatian: ['🟡', 'Perlu perhatian', 'jg-warn'], mendesak: ['⚠️', 'Mendesak', 'jg-bad'] };
   var BAGIAN_B = [['uang', '💰 Uang'], ['stok', '📦 Stok'], ['penjualan', '📈 Penjualan'], ['tindakan', '✅ Yang perlu dilakukan']];
   // Penjaga bisnis (sql/192, 7 Nov 2026): ringkasan pagi agen "Penjaga bisnis Moscow" (07.00 WITA) — uang, stok, penjualan.
@@ -43,7 +80,7 @@
     '.jg-ok{background:#E6F4EA;color:#1E6B34}.jg-fix{background:#E7F0FA;color:#1F4E7A}.jg-warn{background:#FFF4D6;color:#8A5A00}.jg-bad{background:#FDE8E6;color:#A12B1F}' +
     '.jg-row{border-top:1px solid var(--garis,#e3e6ea);padding:9px 0}.jg-row:first-child{border-top:0}.jg-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}' +
     '.jg-ket{font-size:13px;color:var(--teks2,#5b6470);margin-top:3px;word-break:break-word}';
-  var S = { el: null, sb: null, D: null, memuat: false, pesan: '' };
+  var S = { el: null, sb: null, D: null, T: [], memuat: false, pesan: '', tPesan: '', tSimpan: false };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function jam(t) { if (!t) return '–'; var d = new Date(new Date(t).getTime() + 8 * 3600e3), p = function (n) { return ('0' + n).slice(-2); }; return p(d.getUTCDate()) + '/' + p(d.getUTCMonth() + 1) + ' ' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes()); }
   function fmt(n) { return (Math.round(Number(n) * 10) / 10).toLocaleString('id-ID'); }
@@ -51,7 +88,10 @@
 
   async function muat() {
     S.memuat = true; gambar();
-    var r = await S.sb.rpc('sistem_kesehatan');
+    var h2 = await Promise.all([S.sb.rpc('sistem_kesehatan'),
+      S.sb.from('gm_tindakan').select('id,judul,ket,sumber,prioritas,tenggat,dibuat').eq('status', 'buka').order('prioritas').order('tenggat', { ascending: true, nullsFirst: false }).limit(60)]);
+    var r = h2[0];
+    S.T = (h2[1] && !h2[1].error && h2[1].data) || [];
     S.memuat = false;
     if (r.error || !r.data || !r.data.ok) { S.pesan = (r.data && r.data.pesan) || (r.error && r.error.message) || 'Gagal memuat.'; S.D = null; }
     else { S.D = r.data; S.pesan = ''; }
@@ -64,6 +104,7 @@
       '<p class="sb" style="margin:6px 0 0">Kesehatan aplikasi Moscow. Agen <b>Penjaga sistem Moscow</b> memeriksa tiap 4 jam (00.27, 04.27, 08.27, 12.27, 16.27, 20.27 WITA), memperbaiki masalah teknis, dan mencatat hasilnya di sini. Data bisnis tidak pernah diubah agen.</p></div>';
     if (S.pesan) h += '<div class="msg bad">' + esc(S.pesan) + '</div>';
     if (!D) { S.el.innerHTML = h + (S.memuat ? '' : '<div class="cd"><div class="ksg">Belum dimuat.</div></div>'); return; }
+    h += tindakan();
     var J = D.jadwal || [], gagalJ = J.filter(function (x) { return x.gagal > 0; }), H = D.http || [], errH = H.reduce(function (t, x) { return t + x.n; }, 0);
     var A = D.antrean || {}, K = D.kapasitas || {}, L = D.log || [], akhir = L[0];
     var masalah = gagalJ.length + (errH ? 1 : 0) + (A.antre_macet ? 1 : 0) + (A.bukti_gagal ? 1 : 0) + (A.potret_basi ? 1 : 0);
@@ -110,7 +151,13 @@
   window.PenjagaSistem = {
     gambar: function (el, opsi) {
       if (!document.getElementById('jgCss')) { var s = document.createElement('style'); s.id = 'jgCss'; s.textContent = CSS; document.head.appendChild(s); }
-      if (S.el !== el) { S.el = el; el.addEventListener('click', function (e) { var b = e.target.closest('[data-jg]'); if (b && !S.memuat) muat(); }); }
+      if (S.el !== el) {
+        S.el = el;
+        el.addEventListener('click', function (e) {
+          var t = e.target.closest('[data-jgt]'); if (t && !S.tSimpan) { aksiTindakan(t); return; }
+          var b = e.target.closest('[data-jg]'); if (b && !S.memuat) muat();
+        });
+      }
       S.sb = (opsi && opsi.sb) || S.sb;
       if (!S.D && !S.memuat) muat(); else gambar();
     }
