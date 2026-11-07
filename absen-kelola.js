@@ -234,7 +234,7 @@
           '<td><input type="checkbox" data-aktif="' + i + '"' + (s.id ? (s.aktif ? ' checked' : '') : '') + ' style="width:22px;height:22px" aria-label="' + esc(n) + ' ikut absen"></td></tr>';
       }).join('') + '</tbody></table></div>' +
       '<div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button type="button" class="tbl pri" id="stSimpan"' + (A.sibuk ? ' disabled' : '') + '>Simpan daftar staf</button>' +
-      '<span class="sb" style="margin:0">Centang "Absen" untuk staf yang wajib absen. Telat dihitung lewat 15 menit dari jam masuk, lembur mulai 20 menit sesudah jam pulang. Di luar hari kerja staf (mis. Sabtu WFH) tidak perlu absen dan tidak dihitung alpa.</span></div>';
+      '<span class="sb" style="margin:0">Centang "Absen" untuk staf yang wajib absen. Telat dihitung lewat 15 menit dari jam masuk, lembur dihitung sesudah 8 jam kerja (jam masuk + 8 jam). Di luar hari kerja staf (mis. Sabtu WFH) tidak perlu absen dan tidak dihitung alpa.</span></div>';
     h += '</div>';
     A._nama = nama;
     return h;

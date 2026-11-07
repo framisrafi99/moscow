@@ -5,8 +5,9 @@
    Aturan hitung (manajemen Moscow Supplies, Okt 2026):
    - Jam kerja 10.00-17.00. Gaji per menit = gaji pokok / 26 / 8 / 60.
    - Telat: toleransi 15 menit; lewat toleransi semua menit telat dipotong (gaji per menit x menit).
-   - Lembur (PP 35/2021): upah per jam = gaji pokok / 173; dihitung per hari sejak 17.20 (scan pulang
-     lewat lebih dari 20 menit), per menit; jam ke-1 1,5x, sisanya 2x. Tidak ada lembur di hari libur.
+   - Lembur (PP 35/2021): upah per jam = gaji pokok / 173; dihitung per menit sesudah 8 jam kerja
+     (7 Nov 2026: jam masuk + 8 jam; jam masuk = jadwal masuk, atau jam absen masuk kalau datang lebih siang),
+     jam ke-1 1,5x, sisanya 2x. Tidak ada lembur di hari libur.
    - Uang makan Rp 20.000 x 26 hari (tetap); alpa dipotong gaji per hari (gaji pokok / 26) + uang makan per hari.
      Izin / cuti yang disetujui tetap dibayar: kurangi angka alpa di tabel.
    Potongan alpa disimpan di kolom Telat (gaji_log belum punya kolom alpa); rinciannya di catatan.
@@ -167,8 +168,8 @@
     var per = A.per, y = +per.slice(0, 4), b = +per.slice(5, 7), jml = new Date(y, b, 0).getDate();
     var merah = tanggalMerah(), data = A.scan[namaMesin] || {}, gp = upahDari(staf);
     var perMenit = gp / ATUR.hariKerja / ATUR.jamSehari / 60, perJamLembur = gp / ATUR.pembagiLembur;
-    // Jam kerja staf ini (aplikasi Absensi); file mesin memakai bawaan 10.00–17.00. Lembur mulai 20 menit sesudah jam pulang.
-    var js = A.jamStaf[namaMesin] || {}, jMasuk = js.masuk != null ? Number(js.masuk) : ATUR.masuk, jLembur = js.pulang != null ? Number(js.pulang) + 20 : ATUR.batasLembur;
+    // Jam kerja staf ini (aplikasi Absensi); file mesin memakai bawaan 10.00–17.00. Lembur mulai sesudah 8 jam kerja (jam masuk + 8 jam).
+    var js = A.jamStaf[namaMesin] || {}, jMasuk = js.masuk != null ? Number(js.masuk) : ATUR.masuk, jLembur;
     var r = { masukHari: 0, hadir: 0, kerja: 0, alpaOtomatis: 0, telatHari: 0, telatMenit: 0, lemburHari: 0, lemburMenit: 0, lemburRp: 0, kurang: 0, libur: 0, hari: [] };
     for (var d = 1; d <= jml; d++) {
       var tg = ymd(y, b, d), dow = new Date(y, b - 1, d).getDay(), libur = A.libur.indexOf(dow) > -1 || !!merah[d] ||
@@ -194,7 +195,8 @@
       if (libur) { r.libur++; baris.ket = (baris.ket ? baris.ket + '; ' : '') + 'Hari libur (tidak dihitung lembur)'; r.hari.push(baris); continue; }
       r.hadir++;
       if (baris.masuk != null && baris.masuk > jMasuk + ATUR.toleransi) { baris.telat = baris.masuk - jMasuk; r.telatHari++; r.telatMenit += baris.telat; }
-      if (baris.pulang != null && baris.pulang > jLembur) {
+      jLembur = Math.max(baris.masuk != null ? baris.masuk : jMasuk, jMasuk) + ATUR.jamSehari * 60;
+      if (baris.pulang != null && baris.masuk != null && baris.pulang > jLembur) {
         baris.lembur = baris.pulang - jLembur; r.lemburHari++; r.lemburMenit += baris.lembur;
         r.lemburRp += perJamLembur * (1.5 * Math.min(baris.lembur, 60) / 60 + 2 * Math.max(baris.lembur - 60, 0) / 60);
       }

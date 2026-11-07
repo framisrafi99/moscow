@@ -111,10 +111,10 @@
   var TZ = 'Asia/Makassar';
   var sb = Moscow.sb, esc = Moscow.esc;
   function $(i) { return document.getElementById(i); }
-  // Jam kerja staf (sama dengan aturan Payroll): masuk 10.00, toleransi 15 menit, lembur mulai 17.20.
-  var JAM = { masuk: 600, toleransi: 15, lembur: 1040 };
-  // Jam kerja staf ini (diatur manajemen); lembur mulai 20 menit sesudah jam pulang.
-  function aturJam(jm, jp) { var m = menit(jm), p = menit(jp); if (m != null) JAM.masuk = m; if (p != null) { JAM.pulang = p; JAM.lembur = p + 20; } }
+  // Jam kerja staf (sama dengan aturan Payroll): masuk 10.00, toleransi 15 menit, lembur sesudah 8 jam kerja (jam masuk + 8 jam).
+  var JAM = { masuk: 600, toleransi: 15 };
+  function aturJam(jm, jp) { var m = menit(jm), p = menit(jp); if (m != null) JAM.masuk = m; if (p != null) JAM.pulang = p; }
+  function batasLembur(m) { return Math.max(m != null ? m : JAM.masuk, JAM.masuk) + 480; }
   var HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   var BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   var D = { uid: '', saya: null, selisih: 0, sibuk: false, posisi: null };
@@ -393,7 +393,8 @@
     var baris = hari.map(function (x) {
       var m = menit(x.masuk), p = menit(x.pulang), k = [];
       if (m != null && m > JAM.masuk + JAM.toleransi) { telat += m - JAM.masuk; k.push('<span class="label no">Telat ' + (m - JAM.masuk) + ' mnt</span>'); }
-      if (p != null && p > JAM.lembur) { lembur += p - JAM.lembur; k.push('<span class="label biru">Lembur ' + (p - JAM.lembur) + ' mnt</span>'); }
+      var bl = batasLembur(m);
+      if (p != null && m != null && p > bl) { lembur += p - bl; k.push('<span class="label biru">Lembur ' + (p - bl) + ' mnt</span>'); }
       if (m != null && p == null && x.tanggal !== hariIni()) k.push('<span class="label w">Tidak absen pulang</span>');
       if (x.koreksi) k.push('<span class="label abu">Dikoreksi</span>');
       if (x.uji) k.push('<span class="label w">' + esc(x.uji) + '</span>');
