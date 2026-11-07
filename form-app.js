@@ -23,7 +23,7 @@
     },
     produksi: {
       judul: 'STAF PRODUKSI', masuk: 'Form staf produksi', peran: ['produksi', 'manajemen'],
-      sembunyi: '.t:has(> #pgsT1), .tabs:has(> #tab1)',
+      sembunyi: '.t:has(> #pgsT1), .tabs:has(> #tab1), #mmhBtn',
       menu: [
         { k: 'isi', nm: 'Isi laporan', ik: 'produksi', l: ['#pgsT1', '#tab1'], pendek: 'Laporan' },
         { k: 'data', nm: 'Data produksi', ik: 'dasbor', l: ['#pgsT1', '#tab2'], pendek: 'Data' },
@@ -34,6 +34,7 @@
         { k: 'rencana', nm: 'Rencana produksi', ik: 'setuju', l: ['#pgsT1', '#tabRPD'] },
         { k: 'sesuai', nm: 'Penyesuaian stok', ik: 'atur', l: ['#pgsT1', '#tabPS'] },
         { k: 'kemasan', nm: 'Harga kemasan', ik: 'harga', l: ['#pgsT1', '#tabKms'] },
+        { k: 'hpp', nm: 'HPP & Harga jual', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox', pendek: 'HPP' },
         { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' },
         { k: 'lapajuan', nm: 'Laporan pengajuan (PDF)', ik: 'nota', panel: 'ajuan', pendek: 'Lap. ajuan' },
         { grup: 'STOK BARANG JADI' },
@@ -43,7 +44,7 @@
     },
     bahanbaku: {
       judul: 'STAF BAHAN BAKU', masuk: 'Form staf bahan baku', peran: ['bahan_baku', 'manajemen'],
-      sembunyi: '.t:has(> #pgsT1), #tabs:has(> #tabBeli)',
+      sembunyi: '.t:has(> #pgsT1), #tabs:has(> #tabBeli), #mmhBtn',
       menu: [
         { k: 'produksi', nm: 'Produksi', ik: 'produksi', l: ['#pgsT1', 'Produksi@#tabs'] },
         { k: 'pigment', nm: 'Mixing pigment', ik: 'muat', l: ['#pgsT1', 'Mixing pigment@#tabs'], pendek: 'Pigment' },
@@ -53,6 +54,7 @@
         { k: 'sesuai', nm: 'Penyesuaian', ik: 'atur', l: ['#pgsT1', 'Penyesuaian@#tabs'] },
         { k: 'stok', nm: 'Stok bahan', ik: 'stok', l: ['#pgsT1', 'Stok bahan@#tabs'], pendek: 'Stok' },
         { k: 'harga', nm: 'Harga', ik: 'harga', l: ['#pgsT1', '#tabHarga'] },
+        { k: 'hpp', nm: 'HPP & Harga jual', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox', pendek: 'HPP' },
         { k: 'laporan', nm: 'Laporan', ik: 'laporan', l: ['#pgsT1', 'Laporan@#tabs'] },
         { k: 'pantau', nm: 'Pantau produksi', ik: 'dasbor', l: ['#pgsT1', '#tabPP'] },
         { k: 'rencana', nm: 'Rencana bahan', ik: 'setuju', l: ['#pgsT1', '#tabRBB'] },
