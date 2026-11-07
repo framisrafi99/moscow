@@ -19,7 +19,7 @@
   #mIsi { padding:0 !important; }
   #mIsi > section[data-bagian="isi"] { padding:0 !important; margin:0 !important; }
   /* Koreksi penjualan & bukti transfer tampil langsung di aplikasi: beri ruang di bawah supaya tombol kirim tidak tertutup menu bawah. */
-  #mIsi > section[data-bagian="koreksi"], #mIsi > section[data-bagian="setoran"] { padding-bottom:calc(120px + env(safe-area-inset-bottom)) !important; }
+  #mIsi > section[data-bagian="koreksi"], #mIsi > section[data-bagian="setoran"], #mIsi > section[data-bagian="kas"] { padding-bottom:calc(120px + env(safe-area-inset-bottom)) !important; }
   html.m-d #mIsi > section[data-bagian="koreksi"], html.m-d #mIsi > section[data-bagian="setoran"] { padding-bottom:40px !important; }
   #kjIsi, #stIsi { overflow-x:hidden; }
   #kjIsi .baris > label, #stIsi .baris > label { flex:1 1 140px; min-width:0; }
@@ -56,6 +56,7 @@
       <iframe id="bingkai" title="Form toko" hidden></iframe>
     </div>
   </section>
+  <section data-bagian="kas"><div id="kkIsi"></div></section>
   <section data-bagian="setoran"><div id="stIsi" style="max-width:860px;margin:0 auto;padding:16px"></div></section>
   <section data-bagian="koreksi"><div id="kjIsi" style="max-width:860px;margin:0 auto;padding:16px"></div></section>
 </main>
@@ -67,6 +68,7 @@
 <script src="setoran.js?v=1"></script>
 <script src="toko-baca.js?v=1"></script>
 <script src="toko-lapor.js?v=1"></script>
-<script src="consignment-app.js?v=15"></script>
+<script src="tokokas.js?v=1"></script>
+<script src="consignment-app.js?v=16"></script>
 </body>
 </html>

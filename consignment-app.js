@@ -471,7 +471,7 @@
   }
 
   function ukur() {
-    var fr = C.frame; if (!fr || fr.hidden || C.aktif === 'koreksi' || C.aktif === 'setoran') return;
+    var fr = C.frame; if (!fr || fr.hidden || C.aktif === 'koreksi' || C.aktif === 'setoran' || C.aktif === 'kas') return;
     document.documentElement.classList.add('berbingkai'); window.scrollTo(0, 0);
     var atas = fr.getBoundingClientRect().top;
     var bawah = document.documentElement.classList.contains('m-m') && $('mBawah') ? $('mBawah').offsetHeight : 0;
@@ -587,18 +587,20 @@
       document.querySelectorAll('[data-k="titip"]').forEach(function (x) { x.hidden = !adaTitip; });
       // Kasir, pinjaman, dan penyesuaian hanya ada di Toko Offline.
       var offline = !!(dok && dok.getElementById('ksNavO'));
-      document.querySelectorAll('[data-k="pinjam"],[data-k="sesuai"],a[href="kasir.html"]').forEach(function (x) { x.hidden = !offline; });
+      document.querySelectorAll('[data-k="pinjam"],[data-k="sesuai"],[data-k="kas"],a[href="kasir.html"]').forEach(function (x) { x.hidden = !offline; });
       // Bukti transfer setoran hanya untuk toko consignment (bukan Toko Offline).
       document.querySelectorAll('[data-k="setoran"]').forEach(function (x) { x.hidden = offline || C.adaSetoran === false; });
       // Menu yang tidak ada di toko ini juga dibuang dari lembar "Menu" (HP).
       for (var i = MENU.length - 1; i >= 0; i--) {
         var mk = MENU[i].k;
-        if ((mk === 'titip' && !adaTitip) || ((mk === 'pinjam' || mk === 'sesuai' || mk === 'kasir') && !offline) || (mk === 'setoran' && (offline || C.adaSetoran === false))) MENU.splice(i, 1);
+        if ((mk === 'titip' && !adaTitip) || ((mk === 'pinjam' || mk === 'sesuai' || mk === 'kasir' || mk === 'kas') && !offline) || (mk === 'setoran' && (offline || C.adaSetoran === false))) MENU.splice(i, 1);
       }
       // Nama pengisi otomatis dari akun yang masuk.
       var nm = dok && dok.getElementById('nama');
       if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
-      if (C.aktif === 'koreksi' || C.aktif === 'setoran') document.documentElement.classList.remove('berbingkai');
+      if (C.aktif === 'kas' && !offline) { C.aktif = 'jual'; M.buka('jual', true); }
+      if (C.aktif === 'koreksi' || C.aktif === 'setoran' || C.aktif === 'kas') document.documentElement.classList.remove('berbingkai');
+      if (C.aktif === 'kas') { window.TokoKas.buka($('kkIsi'), sb, C.toko); return; }
       if (C.aktif === 'koreksi') { window.KoreksiJual.bukaToko($('kjIsi'), C.toko, C.nama); return; }
       if (C.aktif === 'setoran') { window.SetoranBukti.buka($('stIsi'), C.toko, C.nama); return; }
       ukur(); tekan(C.aktif === 'riwayat' ? 'jual' : C.aktif);
@@ -630,6 +632,7 @@
       { k: 'jual', nm: 'Report penjualan', ik: 'jual', bagian: 'isi', pendek: 'Jual' },
       { k: 'terima', nm: 'Terima barang', ik: 'gudang', bagian: 'isi', pendek: 'Terima' },
       { k: 'biaya', nm: 'Biaya', ik: 'uang', bagian: 'isi' },
+      { k: 'kas', nm: 'Kas tunai', ik: 'uang', bagian: 'kas', pendek: 'Kas' },
       { k: 'retur', nm: 'Barang return', ik: 'muat', bagian: 'isi', pendek: 'Return' },
       { k: 'dasbor', nm: 'Dashboard toko', ik: 'dasbor', bagian: 'isi', pendek: 'Dashboard' },
       { k: 'hitung', nm: 'Hitung stok', ik: 'stok', bagian: 'isi' },
@@ -643,12 +646,13 @@
       { k: 'riwayat', nm: 'Riwayat isi laporan', ik: 'riwayat', bagian: 'isi', pendek: 'Riwayat' },
       { k: 'kasir', nm: 'Kasir', ik: 'kasir', href: 'kasir.html' }
     ],
-    bawah: ['jual', 'terima', 'biaya', 'dasbor', 'lain'],
+    bawah: ['jual', 'terima', 'biaya', 'kas', 'dasbor', 'lain'],
     pindah: function (k) {
       C.aktif = k; tombolPdf();
       // Koreksi penjualan tampil langsung di aplikasi (bukan di form lama dalam bingkai).
       if (k === 'koreksi') { document.documentElement.classList.remove('berbingkai'); if (C.toko) window.KoreksiJual.bukaToko($('kjIsi'), C.toko, C.nama); return; }
       if (k === 'setoran') { document.documentElement.classList.remove('berbingkai'); if (C.toko) window.SetoranBukti.buka($('stIsi'), C.toko, C.nama); return; }
+      if (k === 'kas') { document.documentElement.classList.remove('berbingkai'); if (C.toko) window.TokoKas.buka($('kkIsi'), sb, C.toko); return; }
       tekan(k); setTimeout(ukur, 0);
     },
     siap: function (ctx) {
