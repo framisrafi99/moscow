@@ -93,7 +93,7 @@
   function persen(a, b) { return b ? Math.min(100, Math.round(a / b * 1000) / 10) : 0; }
 
   async function muat() {
-    S.memuat = true; gambar();
+    S.memuat = true; S.sqlCek = null; gambar();
     var h2 = await Promise.all([S.sb.rpc('sistem_kesehatan'),
       S.sb.from('gm_tindakan').select('id,judul,ket,sumber,prioritas,tenggat,dibuat').eq('status', 'buka').order('prioritas').order('tenggat', { ascending: true, nullsFirst: false }).limit(60),
       S.sb.rpc('pusat_agen')]);
@@ -138,7 +138,30 @@
     return '<div class="cd">' + h + '</div>' + tindakan();
   }
 
+  // File SQL di repo (folder sql/) yang belum tercatat di sql_terpasang (sql/195, 7 Nov 2026).
+  async function cekSql() {
+    S.sqlCek = { memuat: true }; gambar();
+    try {
+      var h = await Promise.all([fetch('https://api.github.com/repos/framisrafi99/moscow/contents/sql?ref=main').then(function (r) { if (!r.ok) throw new Error('GitHub ' + r.status); return r.json(); }),
+        S.sb.from('sql_terpasang').select('file')]);
+      if (h[1].error) throw new Error(h[1].error.message);
+      var ada = {}; (h[1].data || []).forEach(function (x) { ada[x.file] = 1; });
+      var belum = (h[0] || []).map(function (x) { return x.name; }).filter(function (n) { return /\.sql$/i.test(n) && !ada[n]; }).sort();
+      S.sqlCek = { belum: belum, total: (h[0] || []).length };
+    } catch (e) { S.sqlCek = { galat: String(e && e.message || e) }; }
+    gambar();
+  }
+  function kartuSql() {
+    var c = S.sqlCek;
+    var h = '<div class="cd"><h3 style="margin-top:0">Perubahan database (folder sql/)</h3>';
+    if (!c || c.memuat) return h + '<div class="ksg">Memeriksa…</div></div>';
+    if (c.galat) return h + '<div class="ksg">Belum bisa diperiksa: ' + esc(c.galat) + '</div></div>';
+    if (!c.belum.length) return h + '<div class="jg-top"><span>Semua ' + c.total + ' file sudah terpasang.</span><span class="jg-chip jg-ok">OK</span></div></div>';
+    return h + '<p class="sb" style="margin:0 0 6px">File berikut ada di aplikasi tetapi belum tercatat terpasang di database. Fitur yang memakainya bisa belum jalan.</p>' +
+      c.belum.map(function (n) { return '<div class="jg-row"><div class="jg-top"><span>' + esc(n) + '</span><span class="jg-chip jg-warn">Belum terpasang</span></div></div>'; }).join('') + '</div>';
+  }
   function sistem(D) {
+    if (!S.sqlCek) setTimeout(cekSql, 0);
     var I = infoSistem(D), K = D.kapasitas || {}, A = I.A, L = I.L, akhir = I.akhir, J = I.J, H = I.H;
     var basi = (A.potret_basi_daftar || []).map(function (x) { return esc(x.k) + ' (' + esc(x.w) + ')'; }).join(', ');
     var st = akhir && (Date.now() - new Date(akhir.waktu).getTime() < 5 * 3600e3) ? STATUS[akhir.status] || STATUS.sehat : null;
@@ -173,7 +196,7 @@
     if (H.length) h += '<div class="cd"><h3 style="margin-top:0">Proses yang error (24 jam terakhir)</h3>' + H.map(function (x) {
       return '<div class="jg-row"><div class="jg-top"><div>' + esc(x.jam) + '<div class="jg-ket">' + esc(x.contoh || '') + '</div></div><span class="jg-chip jg-bad">' + x.n + '× kode ' + esc(x.kode == null ? '–' : x.kode) + '</span></div></div>';
     }).join('') + '</div>';
-    return h;
+    return h + kartuSql();
   }
 
   var PRIO_A = { CRITICAL: ['Kritis', 'jg-bad'], HIGH: ['Tinggi', 'jg-warn'], MEDIUM: ['Sedang', 'jg-fix'] };
