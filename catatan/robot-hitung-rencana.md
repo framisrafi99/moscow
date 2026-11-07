@@ -31,7 +31,11 @@ Ini memberi ruang, tetapi beban masih ikut naik dengan jumlah data. Supaya tunta
 Urutan menurut dampak. Setiap langkah: buat fungsi SQL → robot menghitung versi lama dan baru berdampingan
 (mode banding) minimal 3 hari → kalau sama persis, rumus JS memakai hasil SQL → versi lama dilepas.
 
-1. **Penjualan marketplace per barang** (`MdLama.mpJual`, dipakai Dasbor/HPP terjual, `md:mkt`).
+1. **(Sedang diuji sejak 7 Nov 2026)** `sql/190` `mp_jual_kelompok` + `md.js` v15 `mpJual(sb, {dari, sampai})`;
+   jadwal `hitung-potret-uji-mp` (`sql/191`) membandingkan tiap 30 menit, hasil di `robot_log` jenis `uji:mpdb`.
+   Uji pertama: `laporan:2026-11` dan `md:tpb` sama persis. Sesudah 3 hari bersih: robot menyimpan dengan cara baru
+   (`mpDb` tidak lagi dibatasi mode banding) dan jadwal uji dihentikan.
+   **Penjualan marketplace per barang** (`MdLama.mpJual`, dipakai Dasbor/HPP terjual, `md:mkt`).
    Sekarang: seluruh `mp_pesanan` dibaca dan dicocokkan nama/variasi → kode barang di JS setiap panggilan.
    Jadi: fungsi `mp_jual_harian(dari, sampai)` → (tanggal, kode, qty, total, saluran). Padanan nama → kode
    (`MP_padananFn_`) disimpan sebagai kolom kode di `mp_pesanan` saat upload / lewat trigger, supaya tidak dicocokkan ulang.
