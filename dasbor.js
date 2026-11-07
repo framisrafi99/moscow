@@ -52,7 +52,7 @@
       tangkap(semua(sb, 'toko_jual_log', 'id,baris_sheet,tanggal,toko,kode,qty_terjual,total')),
       tangkap(semua(sb, 'toko_retur_log', 'id,baris_sheet,tanggal,toko,kode,qty,nilai')),
       window.Lembar.muat(sb, ['order_log', 'katalog', 'produksi_log', 'salur_log']),
-      tangkap(window.MdLama.mpJual(sb)),
+      tangkap(p && p.mpDb ? window.MdLama.mpJual(sb, { dari: lDari, sampai: sampai }) : window.MdLama.mpJual(sb)),
       ringan ? null : (p && p.gd && p.gd.ok ? { v: p.gd } : tangkap(window.MdLama.gdPemilikData(sb))),
       ringan || modeTpb ? null : sb.rpc('produksi_awal'),
       ringan || modeTpb ? [] : Promise.all(toko.map(function (n) { return sb.rpc('toko_stok_hitung', { p_toko: n }); }))
@@ -283,12 +283,13 @@
   function akhir(b) { var a = b.split('-'), d = new Date(Date.UTC(Number(a[0]), Number(a[1]), 0)).getUTCDate(); return b + '-' + (d < 10 ? '0' : '') + d; }
 
   // KB_laporan_ (file 81): laporan bulanan Kendali Bisnis.
+  // opsi.mpDb: penjualan marketplace dijumlah di database (uji tahap B, SQL 190).
   // opsi.acc (robot hitung, 7 Nov 2026): hasil akuntingLaporan bulan itu yang sudah dihitung (potret md:acc / md:acc:lalu),
   // supaya robot tidak menghitung accounting dua kali dalam satu panggilan (batas prosesor Edge Function).
   async function laporanBulan(sb, bulan, opsi) {
     var acc = opsi && opsi.acc && opsi.acc.ok && opsi.acc.bulan === bulan ? Promise.resolve(opsi.acc) : window.Akunting.akuntingLaporan(sb, { bulan: bulan });
     var h = await Promise.all([acc,
-      dsData(sb, { dari: bulan + '-01', sampai: akhir(bulan), ringan: true }).then(function (v) { return v; }, function (e) { return { ok: false, pesan: e.message }; }),
+      dsData(sb, { dari: bulan + '-01', sampai: akhir(bulan), ringan: true, mpDb: !!(opsi && opsi.mpDb) }).then(function (v) { return v; }, function (e) { return { ok: false, pesan: e.message }; }),
       sb.from('tutup_buku').select('bulan,status').eq('bulan', bulan)]);
     var lap = h[0];
     if (!lap || !lap.ok) throw new Error((lap && lap.pesan) || 'Laporan accounting gagal dimuat.');

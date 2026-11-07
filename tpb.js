@@ -49,7 +49,7 @@
     var tambah = function (ok, judul, ket, berat) { cek.push({ ok: !!ok, j: judul, ket: ket || '', berat: !!berat }); };
     var h = await Promise.all([
       window.Produksi.prodSesuaiDaftar(sb, true).catch(function () { return null; }),
-      window.Dasbor.dsData(sb, opsi && opsi.gd ? { dari: dari, sampai: sampai, ringan: 'tpb', gd: opsi.gd } : { dari: dari, sampai: sampai }).catch(function (e) { return { ok: false, pesan: e.message }; }),
+      window.Dasbor.dsData(sb, opsi && opsi.gd ? { dari: dari, sampai: sampai, ringan: 'tpb', gd: opsi.gd, mpDb: !!opsi.mpDb } : { dari: dari, sampai: sampai, mpDb: !!(opsi && opsi.mpDb) }).catch(function (e) { return { ok: false, pesan: e.message }; }),
       window.Akunting.mbDaftar(sb).catch(function () { return null; }),
       bhSiap || window.BagiHasilMd.hitung(sb, bulan).catch(function (e) { return { ok: false, pesan: e.message }; }),
       sb.from('toko_jual_log').select('toko').gte('tanggal', dari).lte('tanggal', sampai)
@@ -134,7 +134,7 @@
     var out = { ok: true, bulanIni: bulanIni, daftar: daftar };
     var bulan = bulanOk(p && p.bulan) ? p.bulan : '';
     if (bulan) {
-      var r = await periksa(sb, bulan, { bh: p && p.bh, gd: p && p.gd });
+      var r = await periksa(sb, bulan, { bh: p && p.bh, gd: p && p.gd, mpDb: !!(p && p.mpDb) });
       out.bulan = bulan; out.nb = namaBulan(bulan); out.cek = r.cek; out.tutup = !!(T[bulan] && T[bulan].st === 'Ditutup');
       out.boleh = bulan < bulanIni;
       if (r.d && r.d.ok) {

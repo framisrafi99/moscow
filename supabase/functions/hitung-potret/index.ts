@@ -72,7 +72,9 @@ function jamTeks(d: Date) { const w = new Date(d.getTime() + 8 * 3600e3), p = (n
 
 // Kunci potret -> cara menghitung (sama dengan LANGSUNG di master-app.js). Satu fungsi boleh mengisi beberapa kunci.
 type Isi = Record<string, unknown>;
-const RUMUS: Record<string, () => Promise<Isi>> = {
+// Opsi per panggilan. mpDb: penjualan marketplace dijumlah di database (uji berdampingan tahap B, SQL 190; body.uji = 'mpdb').
+type Opsi = { mpDb?: boolean };
+const RUMUS: Record<string, (o: Opsi) => Promise<Isi>> = {
   'md:beranda': async () => ({ 'md:beranda': await W.Akunting.berandaData(sb) }),
   'md:ringkasan': async () => ({ 'md:ringkasan': await W.MdLama.mdRingkasan(sb) }),
   'md:setuju': async () => ({ 'md:setuju': await W.MdLama.mdSetujuData(sb) }),
@@ -110,15 +112,15 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
   },
   // Halaman Mike (KBS file 85): barang baru menunggu harga jual, kenaikan harga beli 61 hari, laporan bulanan (KB_laporan_).
   // Bagian bagi hasil memakai potret md:bh / md:bh:lalu yang masih segar (lihat potretSegar), 7 Nov 2026.
-  'md:tpb': async () => {
+  'md:tpb': async (o) => {
     const bulan = W.TutupBuku.bulanPotret();
     const [bh, gd] = await Promise.all([potretSegar(['md:bh', 'md:bh:lalu'], bulan), potretSegar(['md:gudang'], null)]);
-    return { 'md:tpb': await W.TutupBuku.tpbData(sb, { bulan, bh, gd }) };
+    return { 'md:tpb': await W.TutupBuku.tpbData(sb, { bulan, bh, gd, mpDb: !!o.mpDb }) };
   },
   'kb:bbr': async () => ({ 'kb:bbr': await W.MdLama.bbrData(sb) }),
   'kb:hrgnaik': async () => ({ 'kb:hrgnaik': await W.MdLama.kbNaik(sb) }),
-  'laporan': async () => { const b = bulanMundur(0); return { ['laporan:' + b]: await laporan(b) }; },
-  'laporan:lalu': async () => { const b = bulanMundur(1); return { ['laporan:' + b]: await laporan(b) }; },
+  'laporan': async (o) => { const b = bulanMundur(0); return { ['laporan:' + b]: await laporan(b, o) }; },
+  'laporan:lalu': async (o) => { const b = bulanMundur(1); return { ['laporan:' + b]: await laporan(b, o) }; },
   // HPP (SBH_hitung_ + KBS file 85): 'hpp' dibulatkan, 'hpp:asli' tanpa pembulatan.
   'hpp': async () => {
     const H = await W.MdLama.bahanHpp(sb), peta = H.peta(), bulat: Record<string, number> = {}, asli: Record<string, number> = {};
@@ -150,8 +152,8 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
 // laporan:<bulan> sama dengan potret Apps Script (KB_laporan_).
 // Bagian accounting memakai potret md:acc / md:acc:lalu bila bulannya sama dan umurnya <= 30 menit (dihitung jadwal 10 menit
 // dengan rumus yang sama), supaya satu panggilan tidak lewat batas prosesor (7 Nov 2026). Kalau tidak ada, dihitung seperti biasa.
-async function laporan(b: string) {
-  return await W.Dasbor.laporanBulan(sb, b, { acc: await potretSegar(['md:acc', 'md:acc:lalu'], b) });
+async function laporan(b: string, o: Opsi = {}) {
+  return await W.Dasbor.laporanBulan(sb, b, { acc: await potretSegar(['md:acc', 'md:acc:lalu'], b), mpDb: !!o.mpDb });
 }
 // Potret jadwal 10 menit (untuk bulan tertentu, atau tanpa bulan bila null) yang umurnya <= 30 menit (null bila tidak ada).
 async function potretSegar(kunci: string[], bulan: string | null): Promise<unknown> {
@@ -205,7 +207,7 @@ Deno.serve(async (req) => {
     jadwal = !!(k.data && k.data.kunci && k.data.kunci === tanda);
   }
   if (!jadwal && !(await bolehManajemen(req))) return json({ ok: false, pesan: 'Tidak diizinkan.' }, 403);
-  let body: { simpan?: boolean; kunci?: string[]; isi?: boolean; sub?: boolean } = {};
+  let body: { simpan?: boolean; kunci?: string[]; isi?: boolean; sub?: boolean; uji?: string } = {};
   try { body = await req.json(); } catch (_) { /* kosong */ }
   const simpan = body.simpan === true;
   const mulai = Date.now();
@@ -240,9 +242,11 @@ Deno.serve(async (req) => {
   }
   const versi = await muatRumus();
   // Kunci laporan:<yyyy-MM> boleh diminta untuk bulan mana pun (mis. untuk mencocokkan bulan yang sudah lewat).
-  const R: Record<string, () => Promise<Isi>> = Object.assign({}, RUMUS);
+  const R: Record<string, (o: Opsi) => Promise<Isi>> = Object.assign({}, RUMUS);
+  // Uji berdampingan hanya untuk mode banding (tidak menyimpan), supaya angka yang tampil tetap dari cara lama.
+  const opsi: Opsi = { mpDb: body.uji === 'mpdb' && !simpan };
   (Array.isArray(body.kunci) ? body.kunci : []).forEach((k) => {
-    if (/^laporan:\d{4}-\d{2}$/.test(k) && !R[k]) R[k] = async () => ({ [k]: await laporan(k.slice(8)) });
+    if (/^laporan:\d{4}-\d{2}$/.test(k) && !R[k]) R[k] = async (o) => ({ [k]: await laporan(k.slice(8), o) });
   });
   // Rumus berat (laporan bulanan, tutup buku) tidak ikut jadwal 10 menit; masing-masing punya jadwal sendiri.
   const BERAT = ['laporan', 'laporan:lalu', 'md:tpb'];
@@ -256,7 +260,7 @@ Deno.serve(async (req) => {
   async function jalankan(k: string) {
     const t = Date.now();
     try {
-      const r = await Promise.race([R[k](), new Promise<Isi>((_, gagal) => setTimeout(() => gagal(new Error('lebih dari 60 detik')), 60000))]);
+      const r = await Promise.race([R[k](opsi), new Promise<Isi>((_, gagal) => setTimeout(() => gagal(new Error('lebih dari 60 detik')), 60000))]);
       let semuaOk = true;
       Object.keys(r).forEach((kk) => { const v = r[kk] as { ok?: boolean } | null; if (!v || v.ok === false) semuaOk = false; else isi[kk] = JSON.parse(JSON.stringify(v)); });
       hasil[k] = { detik: (Date.now() - t) / 1000, ok: semuaOk, isi: Object.keys(r) };
@@ -278,7 +282,7 @@ Deno.serve(async (req) => {
   }
   const detik = (Date.now() - mulai) / 1000;
   const gagal = Object.keys(hasil).filter((k) => !(hasil[k] as { ok: boolean }).ok);
-  await sb.from('robot_log').insert({ jenis: simpan ? (jadwal ? 'jadwal:bagian' : 'simpan') : 'banding', detik, hasil: { versi, gagal, hasil, banding } });
+  await sb.from('robot_log').insert({ jenis: simpan ? (jadwal ? 'jadwal:bagian' : 'simpan') : (opsi.mpDb ? 'uji:mpdb' : 'banding'), detik, hasil: { versi, gagal, hasil, banding } });
   // isi: true (hanya manajemen, bukan jadwal) = kirim juga hasil hitungan, untuk dicocokkan dengan hitungan di aplikasi.
   return json({ ok: true, simpan, detik, versi, gagal, hasil, banding, isi: body.isi === true && !jadwal ? isi : undefined });
 });

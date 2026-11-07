@@ -1256,9 +1256,25 @@
 
   window.MdLama = { mpTambahStaf: mpTambahStaf, mmHargaData: mmHargaData, mdeStok: mdeStok, bbrData: bbrData, kbNaik: kbNaik, mdSetujuData: mdSetujuData, pgsTanpaData: pgsTanpaData, mpRingkasOfficial: mpRingkasOfficial, mpData: mpData, gdRingkas: gdRingkas, bahanHpp: bahanHpp, lapisHpp: lapisHpp, mdRingkasan: mdRingkasan, hargaBahanBakuMaster: hargaBahanBakuMaster, hrgNaikData: hrgNaikData, pinjamPemilik: pinjamPemilik, sesuaiPemilik: sesuaiPemilik, rpPantau: rpPantau, rpDaftar: rpDaftar, gdPemilikData: gdPemilikData, beliLalu: beliLalu, mdeData: mdeData, mpPsn: async function (sb) { return MP_bacaPsn_(await window.Lembar.muat(sb, TABEL_MP)); },
     // MP_dasborJual_ (file 36): penjualan marketplace Official per barang untuk dasbor.
-    mpJual: async function (sb) {
-      var L = await window.Lembar.muat(sb, TABEL_MP), B = MP_barang_(L), P = MP_padananFn_(L, B), out = [];
+    // r = { dari, sampai } (7 Nov 2026): pesanan dijumlah di database (rpc mp_jual_kelompok, SQL 190) untuk rentang itu saja,
+    // tidak membaca seluruh mp_pesanan. Pencocokan nama -> kode sama (MP_padananFn_); usulan padanan diisi dulu dengan
+    // harga baris pertama tiap nama+variasi (d.p) supaya hasilnya sama dengan cara lama. Tanpa r = cara lama.
+    mpJual: async function (sb, r) {
       var label = { Shopee: 'Official Shopee', Tokopedia: 'Official Tokopedia/TikTok', Lazada: 'Official Lazada' };
+      if (r && MP_tgl_(r.dari) && MP_tgl_(r.sampai)) {
+        var h = await Promise.all([window.Lembar.muat(sb, ['barang_order', 'mp_padanan']), sb.rpc('mp_jual_kelompok', { p_dari: r.dari, p_sampai: r.sampai })]);
+        if (h[1].error) throw new Error(h[1].error.message);
+        var L2 = h[0], B2 = MP_barang_(L2), P2 = MP_padananFn_(L2, B2), d = h[1].data || {}, hasil = [];
+        (d.p || []).forEach(function (x) { P2(MP_t_(x[0], 250), MP_t_(x[1], 120), MP_n_(x[2])); });
+        (d.g || []).forEach(function (x) {
+          var q = MP_n_(x[6]); if (!(q > 0)) return;
+          var ha = MP_n_(x[3]), hd = MP_n_(x[4]), pf = MP_t_(x[5], 20);
+          var m = P2(MP_t_(x[1], 250), MP_t_(x[2], 120), ha); if (!m.k || m.k === '-') return;
+          hasil.push([x[0], m.k, q, (hd || ha) * q, label[pf] || ('Official ' + pf)]);
+        });
+        return hasil;
+      }
+      var L = await window.Lembar.muat(sb, TABEL_MP), B = MP_barang_(L), P = MP_padananFn_(L, B), out = [];
       MP_bacaPsn_(L).forEach(function (x) {
         if (x.toko !== MP_TOKO_POTONG_ || x.batal || x.belum) return;
         var q = x.q - x.ret; if (!(q > 0)) return;
