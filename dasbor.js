@@ -37,7 +37,10 @@
     if (hari(dari, sampai) > 400) dari = geser(sampai, -400);
     var panjang = hari(dari, sampai) + 1, lSampai = geser(dari, -1), lDari = geser(dari, -panjang);
     var gagal = [], out = { ok: true, hariIni: hariIni, dari: dari, sampai: sampai, lDari: lDari, lSampai: lSampai, gagal: gagal };
-    var ringan = !!(p && p.ringan);
+    // p.ringan: true = laporan bulanan (hanya keuangan + barang terjual & HPP); 'tpb' = pemeriksaan tutup buku
+    // (ditambah stok gudang utama & Kantor Packing untuk peringatan stok minus). p.gd = hasil gdPemilikData yang sudah
+    // dihitung (potret md:gudang). Keduanya dipakai robot hitung supaya tidak lewat batas prosesor (7 Nov 2026).
+    var ringan = p && p.ringan === true, modeTpb = !!(p && p.ringan === 'tpb');
 
     var pel = await sb.from('pelanggan').select('nama_pelanggan,tipe,baris_sheet,id').order('baris_sheet', { ascending: true, nullsFirst: false }).order('id');
     var toko = [], adaT = {};
@@ -50,11 +53,9 @@
       tangkap(semua(sb, 'toko_retur_log', 'id,baris_sheet,tanggal,toko,kode,qty,nilai')),
       window.Lembar.muat(sb, ['order_log', 'katalog', 'produksi_log', 'salur_log']),
       tangkap(window.MdLama.mpJual(sb)),
-      // p.ringan (robot hitung laporan bulanan, 7 Nov 2026): hanya keuangan + barang terjual & HPP; stok, tindakan, dan
-      // peringatan dilewati supaya satu panggilan robot tidak lewat batas prosesor.
-      ringan ? null : tangkap(window.MdLama.gdPemilikData(sb)),
-      ringan ? null : sb.rpc('produksi_awal'),
-      ringan ? [] : Promise.all(toko.map(function (n) { return sb.rpc('toko_stok_hitung', { p_toko: n }); }))
+      ringan ? null : (p && p.gd && p.gd.ok ? { v: p.gd } : tangkap(window.MdLama.gdPemilikData(sb))),
+      ringan || modeTpb ? null : sb.rpc('produksi_awal'),
+      ringan || modeTpb ? [] : Promise.all(toko.map(function (n) { return sb.rpc('toko_stok_hitung', { p_toko: n }); }))
     ]);
     var H = h[0], G = H.G, hpp = H.peta();
     var brg = coba(gagal, 'Daftar barang', function () { return G.barang(); }, { list: [], idx: {} });
@@ -172,7 +173,7 @@
       return { n: judul, ket: ket, q: q, hpp: vh, jual: vj, tanpa: tanpaH, minus: minus };
     };
     var lokasi = [];
-    coba(gagal, 'Stok gudang produksi', function () {
+    if (!modeTpb) coba(gagal, 'Stok gudang produksi', function () {
       var r = h[7], d = r && !r.error && r.data, awal = null;
       if (d) { if (Array.isArray(d.urut)) { awal = {}; d.urut.forEach(function (x) { awal[x[0]] = x[1]; }); } else if (d.urut === undefined) awal = d; }
       if (!awal) throw new Error('stok awal gudang produksi belum tersedia');
@@ -193,7 +194,7 @@
       n.hpp = on.tot.hpp; n.jual = on.tot.jual; n.tanpa = on.tot.tanpaHpp;
       lokasi.push(n);
     });
-    coba(gagal, 'Stok toko & consignment', function () {
+    if (!modeTpb) coba(gagal, 'Stok toko & consignment', function () {
       toko.forEach(function (n, i) {
         var r = h[8][i]; if (r.error) throw new Error(r.error.message);
         var m = {}; (r.data || []).forEach(function (x) { if (x.kode) m[x.kode] = Number(x.qty) || 0; });
@@ -203,7 +204,8 @@
     out.stok = lokasi;
 
     // 4. Perlu ditindak
-    coba(gagal, 'Perlu ditindak', function () {
+    if (modeTpb) out.ringan = 'tpb';
+    else coba(gagal, 'Perlu ditindak', function () {
       var t = [], po = null;
       try { po = G.po(); G.isiTerima(po, gdLog); } catch (e) { po = null; }
       if (po) {

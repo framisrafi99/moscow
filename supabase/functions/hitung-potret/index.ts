@@ -112,7 +112,8 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
   // Bagian bagi hasil memakai potret md:bh / md:bh:lalu yang masih segar (lihat potretSegar), 7 Nov 2026.
   'md:tpb': async () => {
     const bulan = W.TutupBuku.bulanPotret();
-    return { 'md:tpb': await W.TutupBuku.tpbData(sb, { bulan, bh: await potretSegar(['md:bh', 'md:bh:lalu'], bulan) }) };
+    const [bh, gd] = await Promise.all([potretSegar(['md:bh', 'md:bh:lalu'], bulan), potretSegar(['md:gudang'], null)]);
+    return { 'md:tpb': await W.TutupBuku.tpbData(sb, { bulan, bh, gd }) };
   },
   'kb:bbr': async () => ({ 'kb:bbr': await W.MdLama.bbrData(sb) }),
   'kb:hrgnaik': async () => ({ 'kb:hrgnaik': await W.MdLama.kbNaik(sb) }),
@@ -152,13 +153,15 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
 async function laporan(b: string) {
   return await W.Dasbor.laporanBulan(sb, b, { acc: await potretSegar(['md:acc', 'md:acc:lalu'], b) });
 }
-// Potret jadwal 10 menit untuk bulan tertentu yang umurnya <= 30 menit (null bila tidak ada).
-async function potretSegar(kunci: string[], bulan: string): Promise<unknown> {
+// Potret jadwal 10 menit (untuk bulan tertentu, atau tanpa bulan bila null) yang umurnya <= 30 menit (null bila tidak ada).
+async function potretSegar(kunci: string[], bulan: string | null): Promise<unknown> {
   let isi: unknown = null;
-  const r = await sb.from('hasil_hitung').select('data,dibuat').in('kunci', kunci).eq('data->>bulan', bulan);
+  let q = sb.from('hasil_hitung').select('data,dibuat').in('kunci', kunci);
+  if (bulan) q = q.eq('data->>bulan', bulan);
+  const r = await q;
   // deno-lint-ignore no-explicit-any
   (r.data || []).forEach((x: any) => {
-    if (x.data && x.data.ok && x.data.bulan === bulan && Date.now() - new Date(x.dibuat).getTime() <= 30 * 60e3) isi = x.data;
+    if (x.data && x.data.ok && (!bulan || x.data.bulan === bulan) && Date.now() - new Date(x.dibuat).getTime() <= 30 * 60e3) isi = x.data;
   });
   return isi;
 }
