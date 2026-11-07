@@ -10,8 +10,31 @@
     'hitung-potret-laporan-lalu': 'Hitung laporan bulan lalu', 'hitung-potret-tpb': 'Cek tutup buku',
     'bukti-bayar-periksa': 'Admin Accounting: periksa bukti', 'bukti-bayar-pengingat': 'Admin Accounting: pengingat harian',
     'absen-pengingat-masuk': 'Pengingat absen masuk', 'absen-pengingat-pulang': 'Pengingat absen pulang',
-    'gaji-berjalan': 'Hitung gaji berjalan', 'cadang-harian': 'Cadangan data harian'
+    'gaji-berjalan': 'Hitung gaji berjalan', 'cadang-harian': 'Cadangan data harian',
+    'hitung-potret-uji-mp': 'Uji hitung penjualan marketplace di database', 'toko-pengingat-jual': 'Pengingat lapor penjualan toko',
+    'toko-lapor-rekap': 'Rekap toko yang belum lapor'
   };
+  var STATUS_B = { aman: ['✅', 'Aman', 'jg-ok'], perhatian: ['🟡', 'Perlu perhatian', 'jg-warn'], mendesak: ['⚠️', 'Mendesak', 'jg-bad'] };
+  var BAGIAN_B = [['uang', '💰 Uang'], ['stok', '📦 Stok'], ['penjualan', '📈 Penjualan'], ['tindakan', '✅ Yang perlu dilakukan']];
+  // Penjaga bisnis (sql/192, 7 Nov 2026): ringkasan pagi agen "Penjaga bisnis Moscow" (07.00 WITA) — uang, stok, penjualan.
+  function bisnis(D) {
+    var B = D.bisnis || [], A = D.bisnis_atur || [], x = B[0];
+    var h = '<div class="cd"><h3 style="margin-top:0">Penjaga bisnis</h3>' +
+      '<p class="sb" style="margin:0 0 6px">Ringkasan pagi (07.00 WITA) dari agen <b>Penjaga bisnis Moscow</b>: uang, stok, dan penjualan. Agen hanya membaca data, tidak mengubah apa pun.</p>';
+    if (!x) return h + '<div class="ksg">Belum ada ringkasan. Ringkasan pertama dikirim besok pagi.</div></div>';
+    var st = STATUS_B[x.status] || STATUS_B.aman;
+    h += '<div class="jg-top"><b>' + jam(x.waktu) + ' · ' + esc(x.ringkas || '') + '</b><span class="jg-chip ' + st[2] + '">' + st[0] + ' ' + st[1] + '</span></div>';
+    BAGIAN_B.forEach(function (b) { if (x[b[0]]) h += '<div class="jg-row"><b>' + b[1] + '</b><div class="jg-ket" style="white-space:pre-line">' + esc(x[b[0]]) + '</div></div>'; });
+    if (B.length > 1) h += '<details style="margin-top:6px"><summary class="sb">Ringkasan sebelumnya</summary>' + B.slice(1, 15).map(function (y) {
+      var s2 = STATUS_B[y.status] || STATUS_B.aman;
+      return '<div class="jg-row"><div class="jg-top"><div><b>' + jam(y.waktu) + '</b> · ' + esc(y.ringkas || '') + '</div><span class="jg-chip ' + s2[2] + '">' + s2[0] + ' ' + s2[1] + '</span></div>' +
+        (y.tindakan ? '<div class="jg-ket" style="white-space:pre-line">' + esc(y.tindakan) + '</div>' : '') + '</div>';
+    }).join('') + '</details>';
+    if (A.length) h += '<details style="margin-top:6px"><summary class="sb">Batas peringatan</summary>' + A.map(function (a) {
+      return '<div class="jg-row"><div class="jg-top"><span>' + esc(a.ket || a.k) + '</span><b>' + fmt(a.v) + '</b></div></div>';
+    }).join('') + '<p class="sb">Ingin mengubah batas? Minta ke Claude, misalnya "stok tipis jadi 10 hari".</p></details>';
+    return h + '</div>';
+  }
   var STATUS = { sehat: ['✅', 'Sehat', 'jg-ok'], diperbaiki: ['🔧', 'Diperbaiki otomatis', 'jg-fix'], perlu_keputusan: ['🟡', 'Perlu keputusan', 'jg-warn'], mendesak: ['⚠️', 'Mendesak', 'jg-bad'] };
   var CSS = '.jg-ring{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:8px 0}' +
     '.jg-ring>div{border:1px solid var(--garis,#e3e6ea);border-radius:10px;padding:8px 10px}.jg-ring b{display:block;font-size:18px}' +
@@ -58,6 +81,7 @@
       '<div><span class="sb">Hasil hitung terlambat</span><b>' + (A.potret_basi || 0) + '</b></div></div>' +
       (basi ? '<p class="sb" style="margin:0 0 4px">Belum ter-update: ' + basi + '</p>' : '') +
       '<p class="sb" style="margin:0">Diperbarui ' + jam(D.waktu) + ' · tampilan siap untuk staf: ' + (A.halaman_cache || 0) + ' dari 13</p></div>';
+    h += bisnis(D);
     // kapasitas
     var kap = [['Database (semua data aplikasi)', K.db_mb, K.db_batas_mb, ' MB'], ['File bukti (foto / PDF, ' + (K.file_n || 0) + ' file)', K.file_mb, K.file_batas_mb, ' MB'],
       ['Proses otomatis (perkiraan sebulan)', (K.fungsi_hari || 0) * 30, K.fungsi_batas_bulan, '']];
