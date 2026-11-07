@@ -37,6 +37,7 @@
     if (hari(dari, sampai) > 400) dari = geser(sampai, -400);
     var panjang = hari(dari, sampai) + 1, lSampai = geser(dari, -1), lDari = geser(dari, -panjang);
     var gagal = [], out = { ok: true, hariIni: hariIni, dari: dari, sampai: sampai, lDari: lDari, lSampai: lSampai, gagal: gagal };
+    var ringan = !!(p && p.ringan);
 
     var pel = await sb.from('pelanggan').select('nama_pelanggan,tipe,baris_sheet,id').order('baris_sheet', { ascending: true, nullsFirst: false }).order('id');
     var toko = [], adaT = {};
@@ -49,9 +50,11 @@
       tangkap(semua(sb, 'toko_retur_log', 'id,baris_sheet,tanggal,toko,kode,qty,nilai')),
       window.Lembar.muat(sb, ['order_log', 'katalog', 'produksi_log', 'salur_log']),
       tangkap(window.MdLama.mpJual(sb)),
-      tangkap(window.MdLama.gdPemilikData(sb)),
-      sb.rpc('produksi_awal'),
-      Promise.all(toko.map(function (n) { return sb.rpc('toko_stok_hitung', { p_toko: n }); }))
+      // p.ringan (robot hitung laporan bulanan, 7 Nov 2026): hanya keuangan + barang terjual & HPP; stok, tindakan, dan
+      // peringatan dilewati supaya satu panggilan robot tidak lewat batas prosesor.
+      ringan ? null : tangkap(window.MdLama.gdPemilikData(sb)),
+      ringan ? null : sb.rpc('produksi_awal'),
+      ringan ? [] : Promise.all(toko.map(function (n) { return sb.rpc('toko_stok_hitung', { p_toko: n }); }))
     ]);
     var H = h[0], G = H.G, hpp = H.peta();
     var brg = coba(gagal, 'Daftar barang', function () { return G.barang(); }, { list: [], idx: {} });
@@ -154,6 +157,8 @@
         saluran: Object.keys(sal).map(function (k) { return sal[k]; }),
         tanpaHpp: Object.keys(tanpa).map(function (k) { return { k: k, n: nama[k] || k, q: tanpa[k] }; }) };
     }, null);
+
+    if (ringan) { out.ringan = true; out.diperbarui = fmt(new Date(), 'dd/MM/yyyy HH:mm'); return out; }
 
     // 3. Nilai stok per lokasi
     var nilai = function (stok, judul, ket) {
@@ -281,7 +286,7 @@
   async function laporanBulan(sb, bulan, opsi) {
     var acc = opsi && opsi.acc && opsi.acc.ok && opsi.acc.bulan === bulan ? Promise.resolve(opsi.acc) : window.Akunting.akuntingLaporan(sb, { bulan: bulan });
     var h = await Promise.all([acc,
-      dsData(sb, { dari: bulan + '-01', sampai: akhir(bulan) }).then(function (v) { return v; }, function (e) { return { ok: false, pesan: e.message }; }),
+      dsData(sb, { dari: bulan + '-01', sampai: akhir(bulan), ringan: true }).then(function (v) { return v; }, function (e) { return { ok: false, pesan: e.message }; }),
       sb.from('tutup_buku').select('bulan,status').eq('bulan', bulan)]);
     var lap = h[0];
     if (!lap || !lap.ok) throw new Error((lap && lap.pesan) || 'Laporan accounting gagal dimuat.');

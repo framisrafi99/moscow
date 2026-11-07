@@ -41,14 +41,16 @@
     return out;
   }
 
-  async function periksa(sb, bulan) {
+  // opsi.bh (robot hitung, 7 Nov 2026): hasil BagiHasilMd.hitung bulan itu yang sudah dihitung (potret md:bh / md:bh:lalu).
+  async function periksa(sb, bulan, opsi) {
+    var bhSiap = opsi && opsi.bh && opsi.bh.ok && opsi.bh.bulan === bulan ? opsi.bh : null;
     var dari = bulan + '-01', sampai = akhirBulan(bulan), cek = [];
     var tambah = function (ok, judul, ket, berat) { cek.push({ ok: !!ok, j: judul, ket: ket || '', berat: !!berat }); };
     var h = await Promise.all([
       window.Produksi.prodSesuaiDaftar(sb, true).catch(function () { return null; }),
       window.Dasbor.dsData(sb, { dari: dari, sampai: sampai }).catch(function (e) { return { ok: false, pesan: e.message }; }),
       window.Akunting.mbDaftar(sb).catch(function () { return null; }),
-      window.BagiHasilMd.hitung(sb, bulan).catch(function (e) { return { ok: false, pesan: e.message }; }),
+      bhSiap || window.BagiHasilMd.hitung(sb, bulan).catch(function (e) { return { ok: false, pesan: e.message }; }),
       sb.from('toko_jual_log').select('toko').gte('tanggal', dari).lte('tanggal', sampai)
     ]);
     // file 74
@@ -131,7 +133,7 @@
     var out = { ok: true, bulanIni: bulanIni, daftar: daftar };
     var bulan = bulanOk(p && p.bulan) ? p.bulan : '';
     if (bulan) {
-      var r = await periksa(sb, bulan);
+      var r = await periksa(sb, bulan, { bh: p && p.bh });
       out.bulan = bulan; out.nb = namaBulan(bulan); out.cek = r.cek; out.tutup = !!(T[bulan] && T[bulan].st === 'Ditutup');
       out.boleh = bulan < bulanIni;
       if (r.d && r.d.ok) {

@@ -109,7 +109,11 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
     return out;
   },
   // Halaman Mike (KBS file 85): barang baru menunggu harga jual, kenaikan harga beli 61 hari, laporan bulanan (KB_laporan_).
-  'md:tpb': async () => ({ 'md:tpb': await W.TutupBuku.tpbData(sb, { bulan: W.TutupBuku.bulanPotret() }) }),
+  // Bagian bagi hasil memakai potret md:bh / md:bh:lalu yang masih segar (lihat potretSegar), 7 Nov 2026.
+  'md:tpb': async () => {
+    const bulan = W.TutupBuku.bulanPotret();
+    return { 'md:tpb': await W.TutupBuku.tpbData(sb, { bulan, bh: await potretSegar(['md:bh', 'md:bh:lalu'], bulan) }) };
+  },
   'kb:bbr': async () => ({ 'kb:bbr': await W.MdLama.bbrData(sb) }),
   'kb:hrgnaik': async () => ({ 'kb:hrgnaik': await W.MdLama.kbNaik(sb) }),
   'laporan': async () => { const b = bulanMundur(0); return { ['laporan:' + b]: await laporan(b) }; },
@@ -146,13 +150,17 @@ const RUMUS: Record<string, () => Promise<Isi>> = {
 // Bagian accounting memakai potret md:acc / md:acc:lalu bila bulannya sama dan umurnya <= 30 menit (dihitung jadwal 10 menit
 // dengan rumus yang sama), supaya satu panggilan tidak lewat batas prosesor (7 Nov 2026). Kalau tidak ada, dihitung seperti biasa.
 async function laporan(b: string) {
-  let acc: unknown = null;
-  const r = await sb.from('hasil_hitung').select('data,dibuat').in('kunci', ['md:acc', 'md:acc:lalu']).eq('data->>bulan', b);
+  return await W.Dasbor.laporanBulan(sb, b, { acc: await potretSegar(['md:acc', 'md:acc:lalu'], b) });
+}
+// Potret jadwal 10 menit untuk bulan tertentu yang umurnya <= 30 menit (null bila tidak ada).
+async function potretSegar(kunci: string[], bulan: string): Promise<unknown> {
+  let isi: unknown = null;
+  const r = await sb.from('hasil_hitung').select('data,dibuat').in('kunci', kunci).eq('data->>bulan', bulan);
   // deno-lint-ignore no-explicit-any
   (r.data || []).forEach((x: any) => {
-    if (x.data && x.data.ok && x.data.bulan === b && Date.now() - new Date(x.dibuat).getTime() <= 30 * 60e3) acc = x.data;
+    if (x.data && x.data.ok && x.data.bulan === bulan && Date.now() - new Date(x.dibuat).getTime() <= 30 * 60e3) isi = x.data;
   });
-  return await W.Dasbor.laporanBulan(sb, b, { acc });
+  return isi;
 }
 
 // Kelompok jadwal 10 menit (rumus yang memakai data yang sama dijadikan satu, supaya tiap panggilan tetap ringan).
