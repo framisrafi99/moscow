@@ -18,7 +18,7 @@
     menu: [
       { k: 'beranda', nm: 'Beranda' }, { k: 'setuju', nm: 'Persetujuan' },
       { k: 'produksi', nm: 'Produksi' }, { k: 'gudang', nm: 'Gudang Utama', pendek: 'Gudang' }, { k: 'purch', nm: 'Purchasing' },
-      { k: 'jual', nm: 'Penjualan' }, { k: 'upload', nm: 'Upload laporan', ik: 'nota' }, { k: 'uang', nm: 'Accounting' }, { k: 'laporan', nm: 'Laporan', ik: 'laporan' }, { k: 'riwayat', nm: 'Riwayat' }, { k: 'jaga', nm: 'Penjaga sistem', ik: 'laporan' }, { k: 'atur', nm: 'Pengaturan' },
+      { k: 'jual', nm: 'Penjualan' }, { k: 'upload', nm: 'Upload laporan', ik: 'nota' }, { k: 'uang', nm: 'Accounting' }, { k: 'laporan', nm: 'Laporan', ik: 'laporan' }, { k: 'riwayat', nm: 'Riwayat' }, { k: 'jaga', nm: 'Pusat agen', ik: 'laporan' }, { k: 'atur', nm: 'Pengaturan' },
       { grup: 'MASTER DATA' },
       { k: 'mdproduk', nm: 'Produk', ik: 'produk', bagian: 'atur', judul: 'Produk · edit barang & HPP' },
       { k: 'mdpemasok', nm: 'Pemasok', ik: 'pemasok', bagian: 'purch', judul: 'Pemasok · pembelian per supplier' },
