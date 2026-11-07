@@ -42,10 +42,25 @@ async function kunci() {
 Deno.serve(async (req) => {
   // Pengaman ringan: hanya POST dari jadwal (header khusus). Pemutus "terlalu banyak panggilan" ada di database.
   if (req.method !== 'POST' || req.headers.get('x-moscow-pengingat') !== '1') return json({ ok: false, pesan: 'Tidak diizinkan.' }, 403);
-  let jenis = '';
-  try { const b = await req.json(); jenis = String(b?.jenis || ''); } catch (_) { /* tanpa body */ }
+  let jenis = '', tokoSatu = '';
+  try { const b = await req.json(); jenis = String(b?.jenis || ''); tokoSatu = String(b?.toko || ''); } catch (_) { /* tanpa body */ }
   const k = await kunci();
   // 7 Nov 2026: pengingat isi penjualan harian toko (Consignment Medan / Sidoarjo / Renon, Toko Offline), tiap jam 09–17 WITA.
+  // 7 Nov 2026: manajemen menekan "Kirim pengingat sekarang" di Beranda Master Data (toko_ingatkan) -> satu toko, kapan saja.
+  if (jenis === 'jual' && tokoSatu) {
+    const { data: ts, error: es } = await sb.rpc('toko_pengingat_satu', { p_toko: tokoSatu });
+    if (es) return json({ ok: false, pesan: es.message }, 500);
+    webpush.setVapidDetails('https://app.moscowsupplies.com', k.publik, k.privat);
+    let kirimS = 0;
+    await Promise.all(((ts as unknown[]) || []).map(async (x) => {
+      const s = x as { endpoint: string; p256dh: string; auth: string; toko: string };
+      const isi = { title: 'Laporan penjualan belum diisi', body: 'Manajemen Moscow Supplies mengingatkan: isi atau upload penjualan ' + s.toko + '. Kalau tidak ada penjualan, ketuk lalu pilih "Tidak ada penjualan".',
+        url: '/consignment.html?toko=' + encodeURIComponent(s.toko), tag: 'toko-jual' };
+      try { await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(isi), { TTL: 3600 * 6, urgency: 'high' }); kirimS++; }
+      catch (e) { const kode = (e as { statusCode?: number }).statusCode; if (kode === 404 || kode === 410) await sb.from('toko_push').delete().eq('endpoint', s.endpoint); }
+    }));
+    return json({ ok: true, jenis, toko: tokoSatu, kirim: kirimS });
+  }
   if (jenis === 'jual') {
     const { data: tj, error: ej } = await sb.rpc('toko_pengingat_target');
     if (ej) return json({ ok: false, pesan: ej.message }, 500);

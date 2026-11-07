@@ -205,12 +205,12 @@
   // ======================= BERANDA (gabungan Beranda + Dasbor; tampilan di beranda.js) =======================
   function tindakanList() {
     var d = D.beranda || {}, r = D.ringkasan || {}, L = [];
-    if (d.nota && d.nota.n) L.push({ teks: d.nota.n + ' nota toko offline belum ada metode bayar', buka: 'uang', w: true });
-    (d.akun || []).forEach(function (a) { if (a.v < 0) L.push({ teks: (/^saldo /i.test(a.n) ? a.n : 'Saldo ' + a.n) + ' minus ' + rp(-a.v), buka: 'uang', w: true }); });
+    if (d.nota && d.nota.n) L.push({ teks: d.nota.n + ' nota toko offline belum ada metode bayar', buka: 'tindak:nota', w: true });
+    (d.akun || []).forEach(function (a) { if (a.v < 0) L.push({ teks: (/^saldo /i.test(a.n) ? a.n : 'Saldo ' + a.n) + ' minus ' + rp(-a.v), buka: 'tindak:saldo:' + a.n, w: true }); });
     if (D.pantau && D.pantau.nTahan) L.push({ teks: D.pantau.nTahan + ' pengiriman tertahan', buka: 'setuju', w: true });
     var t = jumlahTunggu(); if (t) L.push({ teks: t + ' persetujuan menunggu', buka: 'setuju', w: true });
     if (r.pinjam && r.pinjam.lewat) L.push({ teks: r.pinjam.lewat + ' pinjaman barang lewat tanggal kembali', buka: 'gudang', w: true });
-    (r.akhir || []).forEach(function (a) { if (a.lalu !== null && a.lalu > (r.batas || 3)) L.push({ teks: a.n + ' belum lapor ' + a.lalu + ' hari', buka: 'riwayat', w: true }); });
+    (r.akhir || []).forEach(function (a) { if (a.lalu !== null && a.lalu > (r.batas || 3)) L.push({ teks: a.n + ' belum lapor ' + a.lalu + ' hari', buka: /^(Consignment |Toko Offline)/.test(a.n) ? 'tindak:lapor:' + a.n : 'riwayat', w: true }); });
     if (d.hari) {
       var tgl = Number(String(d.hari).slice(8)), akhir = new Date(Number(d.hari.slice(0, 4)), Number(d.hari.slice(5, 7)), 0).getDate();
       if (tgl >= akhir - 7) L.push({ teks: 'Hitung fisik akhir bulan · ' + akhir + ' ' + namaBulan(d.bulan), buka: 'gudang', w: false });
@@ -241,7 +241,15 @@
     var ekor = D.dasborHtml ? '<details class="cd" style="margin-top:16px"><summary style="cursor:pointer;font-weight:800;font-size:16.5px">Ringkasan operasional <span class="sb" style="font-weight:500">· laporan staf, toko &amp; consignment, catatan stok</span></summary><div style="margin-top:12px">' + D.dasborHtml + '</div></details>' : '';
     BerandaBaru.gambar(el, BR.cache[k], D.beranda || {}, tindakanList(), {
       gantiBulan: function (m) { BR.bulan = m; gambarBeranda(false); },
-      buka: function (b) { M.buka(b); },
+      buka: function (b) {
+        // 7 Nov 2026: peringatan "Perlu perhatian" dibuka sebagai jendela tindakan (perhatian.js), bukan sekadar pindah halaman.
+        if (/^tindak:/.test(b) && window.Perhatian) {
+          window.Perhatian.buka(b.slice(7), { sb: sb, beranda: D.beranda, data: BR.cache[k],
+            keUang: function (bg) { U.bagian = bg; M.buka('uang'); }, segarkan: function () { muat(); } });
+          return;
+        }
+        M.buka(b);
+      },
       ekor: ekor, kpi: (BR.kpi || {})[k], pengguna: { nama: D.namaTim || D.nama, email: D.email },
       menuAkun: [{ nm: 'Muat ulang data', klik: function () { muat(); } }, { nm: 'Hitung ulang sekarang', klik: function () { var b = document.querySelector('#mAksi .pri'); if (b) b.click(); } },
         { nm: 'Upload penjualan harian', k: 'upload' }, { nm: 'Upload dana cair', k: 'upload' }, { nm: 'Laporan bulanan', k: 'laporan' },

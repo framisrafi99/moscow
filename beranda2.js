@@ -441,7 +441,7 @@
     // Perlu perhatian
     var chip = '';
     (T || []).forEach(function (t) { chip += t.buka ? '<button type="button" class="' + (t.w ? '' : 'n') + '" data-buka="' + esc(t.buka) + '">' + esc(t.teks) + ' ›</button>' : '<span class="' + (t.w ? '' : 'n') + '">' + esc(t.teks) + '</span>'; });
-    if (lewat) chip += '<button type="button" data-gulir="bxPo">' + lewat + ' PO melewati batas penerimaan ›</button>';
+    if (lewat) chip += '<button type="button" data-buka="tindak:po">' + lewat + ' PO melewati batas penerimaan ›</button>';
     h += chip ? '<div class="bh-awas" id="bxPerhatian"><span class="bh-ik bulat kuning">' + IKN.seru + '</span><div class="tx"><b>Perlu perhatian</b><span>Beberapa aktivitas memerlukan tindak lanjut.</span></div><div class="ch">' + chip + '</div></div>'
       : '<div class="bh-awas ok" id="bxPerhatian"><span class="bh-ik bulat hijau">' + ik('M20 6 9 17l-5-5', 24) + '</span><div class="tx"><b>Semua aman</b><span>Tidak ada yang perlu ditindaklanjuti saat ini.</span></div></div>';
 
