@@ -8,6 +8,7 @@
 --   * hitung-potret-laporan-lalu : dilewati bila buku bulan lalu sudah Ditutup dan potretnya dibuat sesudah buku ditutup.
 --                                  Tetap dihitung bila buku dibuka lagi / belum ditutup / potret belum ada, dan sekali tiap
 --                                  malam (02:18 WITA) sebagai cadangan.
+-- Dijalankan 7 Nov 2026 21:03 WITA.
 -- Pasangannya: Edge Function hitung-potret v15 (tanpa coba ulang saat 546, 2 kelompok bersamaan, TPB tidak ikut laporan bulan lalu).
 
 select cron.alter_job((select jobid from cron.job where jobname = 'hitung-potret-laporan'), command := $c$

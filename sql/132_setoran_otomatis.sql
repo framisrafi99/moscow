@@ -1,4 +1,6 @@
 -- 132 (2 Nov 2026): setoran consignment & dana cair Official otomatis masuk accounting.
+-- Dijalankan 7 Nov 2026 21:20 WITA (Penjaga sistem, disetujui Iqbal). Policy setoran_* belum ada sehingga baris
+-- "drop policy if exists" dilewati; _acc_no_baru tidak diganti (versi di database sudah sama isinya).
 --
 -- Consignment (Medan, Sidoarjo, Renon):
 --   * Bagian Moscow Supplies dari invoice bagi hasil yang sudah terbit tercatat otomatis sebagai pendapatan di akun
