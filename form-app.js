@@ -1362,6 +1362,33 @@
     pasang();
   }
 
+  // 7 Nov 2026: hasil produksi yang dilaporkan langsung dipindah otomatis ke stok Gudang Utama, jadi "stok gudang produksi"
+  // selalu 0 dan membingungkan staf. Di aplikasi staf produksi: pilihan "Disalurkan" dan angka stok gudang produksi
+  // disembunyikan, diganti keterangan bahwa hasil produksi langsung masuk Gudang Utama. Datanya tidak dihapus.
+  function produksiKeGudang(dok) {
+    if (!dok || dok.getElementById('pkgCss')) return;
+    var st = dok.createElement('style'); st.id = 'pkgCss';
+    st.textContent = '#seg button[data-j="SALUR"],#tujuanBox,.stokbar,#daftar .stk,#daftar .grid2 label i,' +
+      '#p2 .tile.k,#p2 .prod .nums .k,#p2 table.tw th:nth-child(4),#p2 table.tw td:nth-child(4){display:none!important}' +
+      '#pkgInfo{border:1px solid #BFE3CB;background:#EAF6EE;color:#145C34;border-radius:12px;padding:10px 12px;margin:0 0 10px;font-size:13px;line-height:1.45}';
+    (dok.head || dok.body).appendChild(st);
+    var TEKS = 'Hasil produksi yang kamu laporkan <b>langsung masuk stok Gudang Utama</b>, jadi tidak ada stok yang tersisa di produksi. Cukup isi jumlah yang diproduksi hari ini.';
+    function rapikan() {
+      var cari = dok.getElementById('cari');
+      if (cari && !dok.getElementById('pkgInfo')) { var d = dok.createElement('div'); d.id = 'pkgInfo'; d.innerHTML = TEKS; cari.parentNode.insertBefore(d, cari); }
+      var sal = dok.querySelector('#seg button[data-j="SALUR"]');
+      if (sal && /\bon\b/.test(sal.className)) { var pr = dok.querySelector('#seg button[data-j="PRODUKSI"]'); if (pr) pr.click(); }
+      dok.querySelectorAll('#p2 .tile.x span, #p2 .prod .nums .x span, #p2 table.tw th:nth-child(3)').forEach(function (el) {
+        if (el.textContent === 'Disalurkan') el.textContent = 'Masuk Gudang Utama';
+      });
+      var ket = dok.querySelector('#p2 .card .kecil');
+      if (ket && !ket.getAttribute('data-pkg')) { ket.setAttribute('data-pkg', '1'); ket.textContent = 'Angka mengikuti periode di atas. Hasil produksi otomatis masuk stok Gudang Utama. Cat dirinci per warna.'; }
+    }
+    var tunda = null, obs = new (dok.defaultView || window).MutationObserver(function () { clearTimeout(tunda); tunda = setTimeout(rapikan, 80); });
+    obs.observe(dok.body, { childList: true, subtree: true });
+    rapikan();
+  }
+
   function tampil(html, dariSimpanan) {
     var m = $('muatan');
     // Bilah tab lama disembunyikan lewat aturan gaya (tetap berlaku walau form menggambar ulang isinya).
@@ -1377,6 +1404,7 @@
       ukur(); tekan(C.aktif);
       if (APP === 'gudang') { try { cariKodeKirim(dok); } catch (e) { } try { ikonGd(dok); } catch (e) { } try { tanggalOpname(dok); } catch (e) { } }
       if (APP === 'gudang' || APP === 'produksi' || APP === 'bahanbaku') { try { koreksiAjuan(dok); } catch (e) { } try { terimaDiDaftar(dok); } catch (e) { } }
+      if (APP === 'produksi') { try { produksiKeGudang(dok); } catch (e) { } }
       if (BUKA.length) jalankanBuka(dok);
       // Stok di dalam tampilan simpanan bisa sudah lama: langsung dimuat ulang (form produksi).
       if (dariSimpanan) try { if (typeof fr.contentWindow.muatStok === 'function') fr.contentWindow.muatStok(); } catch (e) { }
