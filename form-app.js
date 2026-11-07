@@ -1324,6 +1324,44 @@
     C.nama = d.nama || '';
     tampil(String(d.html || ''), false);
   }
+  // 7 Nov 2026: tombol mengambang "barang dibayar — tandai diterima" menutupi tombol lain dan membuat staf menandai barang
+  // yang belum datang. Tombolnya disembunyikan; daftarnya dibuka dari kartu di bawah daftar pengajuan (menu Pengajuan),
+  // dan setiap "Diterima" minta konfirmasi bahwa barang sudah benar-benar sampai.
+  function terimaDiDaftar(dok) {
+    if (!dok || dok.getElementById('ptrInlineCss')) return;
+    var st = dok.createElement('style'); st.id = 'ptrInlineCss';
+    st.textContent = '#ptrBtn{display:none!important}#ptrInline{margin:14px 0 6px;border:1px solid #d9cdf0;background:#f6f1fd;border-radius:14px;padding:14px}' +
+      '#ptrInline b{display:block;font-size:15px;margin-bottom:4px;color:#3f2470}#ptrInline .ks{font-size:13px;color:#4a5566}' +
+      '#ptrInline button{margin-top:10px;width:100%;border:0;border-radius:10px;background:#6b3fb5;color:#fff;padding:11px;font:inherit;font-weight:700;cursor:pointer}' +
+      '#ptrInline button:disabled{background:#c9bfdc}';
+    (dok.head || dok.body).appendChild(st);
+    function jumlah() { var b = dok.getElementById('ptrBtn'), m = b && /(\d+)/.exec(b.textContent || ''); return m ? Number(m[1]) : 0; }
+    function pasang() {
+      var pan = dok.getElementById('pgsPan'), isi = dok.getElementById('pgsIsi'), seg = dok.querySelector('#pgsSg button[data-s="daftar"]');
+      if (!pan || !isi || !seg) return;
+      var daftar = /\bon\b/.test(seg.className), ada = dok.getElementById('ptrInline');
+      if (!daftar) { if (ada) ada.remove(); return; }
+      var n = jumlah(), h = '<b>&#128230; Barang sudah dibayar, menunggu datang (' + n + ')</b>' +
+        '<div class="ks">' + (n ? 'Tekan <b>Diterima</b> hanya kalau barangnya <b>sudah benar-benar sampai</b> dan sudah dicek jumlahnya. Barang yang baru dipesan / dibayar jangan ditandai diterima.' : 'Belum ada barang dibayar yang menunggu diterima.') + '</div>' +
+        '<button type="button" data-ptr-buka' + (n ? '' : ' disabled') + '>Buka daftar barang datang &rarr; tandai diterima</button>';
+      if (ada && ada.getAttribute('data-n') === String(n) && ada.parentNode === isi && isi.lastElementChild === ada) return;
+      if (!ada) { ada = dok.createElement('div'); ada.id = 'ptrInline'; }
+      ada.setAttribute('data-n', String(n)); ada.innerHTML = h; isi.appendChild(ada);
+    }
+    var tunda = null, obs = new (dok.defaultView || window).MutationObserver(function () { clearTimeout(tunda); tunda = setTimeout(pasang, 120); });
+    obs.observe(dok.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    dok.addEventListener('click', function (e) {
+      var t = e.target && e.target.closest ? e.target : null; if (!t) return;
+      if (t.closest('[data-ptr-buka]')) { var b = dok.getElementById('ptrBtn'); if (b) b.click(); return; }
+      var tr = t.closest('#ptrPan [data-p="terima"]');
+      if (tr) {
+        var kartu = tr.closest('.c'), nm = kartu && kartu.querySelector('b') ? kartu.querySelector('b').textContent : 'barang ini';
+        if (!(dok.defaultView || window).confirm('Barang "' + nm + '" sudah BENAR-BENAR SAMPAI dan sudah dicek jumlahnya?\n\nKalau barangnya belum datang, tekan Batal.')) { e.preventDefault(); e.stopPropagation(); }
+      }
+    }, true);
+    pasang();
+  }
+
   function tampil(html, dariSimpanan) {
     var m = $('muatan');
     // Bilah tab lama disembunyikan lewat aturan gaya (tetap berlaku walau form menggambar ulang isinya).
@@ -1338,7 +1376,7 @@
       if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
       ukur(); tekan(C.aktif);
       if (APP === 'gudang') { try { cariKodeKirim(dok); } catch (e) { } try { ikonGd(dok); } catch (e) { } try { tanggalOpname(dok); } catch (e) { } }
-      if (APP === 'gudang' || APP === 'produksi' || APP === 'bahanbaku') { try { koreksiAjuan(dok); } catch (e) { } }
+      if (APP === 'gudang' || APP === 'produksi' || APP === 'bahanbaku') { try { koreksiAjuan(dok); } catch (e) { } try { terimaDiDaftar(dok); } catch (e) { } }
       if (BUKA.length) jalankanBuka(dok);
       // Stok di dalam tampilan simpanan bisa sudah lama: langsung dimuat ulang (form produksi).
       if (dariSimpanan) try { if (typeof fr.contentWindow.muatStok === 'function') fr.contentWindow.muatStok(); } catch (e) { }
