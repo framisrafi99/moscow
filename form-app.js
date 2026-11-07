@@ -35,7 +35,9 @@
         { k: 'sesuai', nm: 'Penyesuaian stok', ik: 'atur', l: ['#pgsT1', '#tabPS'] },
         { k: 'kemasan', nm: 'Harga kemasan', ik: 'harga', l: ['#pgsT1', '#tabKms'] },
         { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' },
-        { k: 'lapajuan', nm: 'Laporan pengajuan (PDF)', ik: 'nota', panel: 'ajuan', pendek: 'Lap. ajuan' }
+        { k: 'lapajuan', nm: 'Laporan pengajuan (PDF)', ik: 'nota', panel: 'ajuan', pendek: 'Lap. ajuan' },
+        { grup: 'STOK BARANG JADI' },
+        { k: 'stokgu', nm: 'Stok Gudang Utama', ik: 'gudang', href: 'stok.html?lokasi=Gudang%20utama' }
       ],
       bawah: ['isi', 'data', 'order', 'botol', 'lain']
     },
@@ -1372,7 +1374,7 @@
       '#p2 .tile.k,#p2 .prod .nums .k,#p2 table.tw th:nth-child(4),#p2 table.tw td:nth-child(4){display:none!important}' +
       '#pkgInfo{border:1px solid #BFE3CB;background:#EAF6EE;color:#145C34;border-radius:12px;padding:10px 12px;margin:0 0 10px;font-size:13px;line-height:1.45}';
     (dok.head || dok.body).appendChild(st);
-    var TEKS = 'Hasil produksi yang kamu laporkan <b>langsung masuk stok Gudang Utama</b>, jadi tidak ada stok yang tersisa di produksi. Cukup isi jumlah yang diproduksi hari ini.';
+    var TEKS = 'Hasil produksi yang kamu laporkan <b>langsung masuk stok Gudang Utama</b>, jadi tidak ada stok yang tersisa di produksi. Cukup isi jumlah yang diproduksi hari ini. Untuk melihat stok barang jadi, buka menu <b>Stok Gudang Utama</b>.';
     function rapikan() {
       var cari = dok.getElementById('cari');
       if (cari && !dok.getElementById('pkgInfo')) { var d = dok.createElement('div'); d.id = 'pkgInfo'; d.innerHTML = TEKS; cari.parentNode.insertBefore(d, cari); }
