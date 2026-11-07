@@ -580,6 +580,8 @@
     fr.onload = function () {
       m.hidden = true; fr.hidden = false;
       var dok = fr.contentDocument;
+      // Pengingat lapor penjualan harian + notifikasi HP (7 Nov 2026).
+      if (window.TokoLapor && C.toko) window.TokoLapor.pasang({ sb: sb, toko: function () { return C.toko; }, nama: function () { return C.nama; }, isi: function () { M.buka('jual'); }, ubah: function () { setTimeout(ukur, 0); } });
       // Barang titipan hanya ada di Medan.
       var adaTitip = !!(dok && dok.getElementById('tabTtp'));
       document.querySelectorAll('[data-k="titip"]').forEach(function (x) { x.hidden = !adaTitip; });

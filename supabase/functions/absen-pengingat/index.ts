@@ -45,6 +45,22 @@ Deno.serve(async (req) => {
   let jenis = '';
   try { const b = await req.json(); jenis = String(b?.jenis || ''); } catch (_) { /* tanpa body */ }
   const k = await kunci();
+  // 7 Nov 2026: pengingat isi penjualan harian toko (Consignment Medan / Sidoarjo / Renon, Toko Offline), tiap jam 09–17 WITA.
+  if (jenis === 'jual') {
+    const { data: tj, error: ej } = await sb.rpc('toko_pengingat_target');
+    if (ej) return json({ ok: false, pesan: ej.message }, 500);
+    if (!tj?.ok) return json(tj);
+    webpush.setVapidDetails('https://app.moscowsupplies.com', k.publik, k.privat);
+    let kirimJ = 0;
+    await Promise.all((tj.target || []).map(async (s: { endpoint: string; p256dh: string; auth: string; toko: string }) => {
+      const isi = { title: 'Penjualan hari ini belum diisi', body: s.toko + ': isi atau upload penjualan hari ini. Kalau tidak ada penjualan, ketuk lalu pilih "Tidak ada penjualan".',
+        url: '/consignment.html?toko=' + encodeURIComponent(s.toko), tag: 'toko-jual' };
+      try { await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(isi), { TTL: 3600, urgency: 'high' }); kirimJ++; }
+      catch (e) { const kode = (e as { statusCode?: number }).statusCode; if (kode === 404 || kode === 410) await sb.from('toko_push').delete().eq('endpoint', s.endpoint); }
+    }));
+    await sb.rpc('toko_pengingat_catat', { p_jam: tj.jam, p_kirim: kirimJ });
+    return json({ ok: true, jenis, kirim: kirimJ });
+  }
   if (jenis !== 'masuk' && jenis !== 'pulang') return json({ ok: true, siap: true });
 
   const { data: t, error } = await sb.rpc('absen_pengingat_target', { p_jenis: jenis });
