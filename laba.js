@@ -14,6 +14,23 @@
     return (v < 0 ? '−' : (tanda && v > 0 ? '+' : '')) + angka(v, 1) + ' jt';
   }
   function jtA(n) { var v = Math.round((Number(n) || 0) / 1e5) / 10; return Math.round(v * 10) ? (v < 0 ? '−' : '') + angka(v, 1) : '–'; }
+  function rpL(n) { n = Math.round(Number(n) || 0); return (n < 0 ? '−' : '') + 'Rp ' + Math.abs(n).toLocaleString('id-ID'); }
+  function rpA(n) { n = Math.round(Number(n) || 0); return n ? (n < 0 ? '−' : '') + Math.abs(n).toLocaleString('id-ID') : '–'; }
+  var SAT = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'];
+  function tb(n) {
+    n = Math.floor(n); var sisa = function (x, d) { return x % d ? ' ' + tb(x % d) : ''; };
+    if (n < 12) return SAT[n];
+    if (n < 20) return tb(n - 10) + ' belas';
+    if (n < 100) return tb(n / 10) + ' puluh' + sisa(n, 10);
+    if (n < 200) return 'seratus' + sisa(n, 100);
+    if (n < 1000) return tb(n / 100) + ' ratus' + sisa(n, 100);
+    if (n < 2000) return 'seribu' + sisa(n, 1000);
+    if (n < 1e6) return tb(n / 1000) + ' ribu' + sisa(n, 1000);
+    if (n < 1e9) return tb(n / 1e6) + ' juta' + sisa(n, 1e6);
+    if (n < 1e12) return tb(n / 1e9) + ' miliar' + sisa(n, 1e9);
+    return tb(n / 1e12) + ' triliun' + sisa(n, 1e12);
+  }
+  function terbilang(n) { n = Math.round(Number(n) || 0); if (!n) return 'Nol rupiah'; var t = (n < 0 ? 'minus ' : '') + tb(Math.abs(n)) + ' rupiah'; return t.charAt(0).toUpperCase() + t.slice(1); }
   function pr(a, b) { return b ? angka(Math.round(a / b * 1000) / 10, 1) + '%' : '–'; }
   function jml(L) { return (L || []).reduce(function (a, x) { return a + (Number(x[1]) || 0); }, 0); }
   function nmBln(b) { return BLN[Number(String(b).slice(5, 7)) - 1] || b; }
@@ -134,13 +151,13 @@
     var rows = S.daftar.map(function (b) {
       tj += b.jual; tp += b.pot;
       var r = '<tr><td><i class="lb-tt" style="background:' + b.c + '"></i>' + esc(b.n) + (b.ket ? '<small>' + esc(b.ket) + '</small>' : '') + '</td>' +
-        '<td class="angka">' + jtA(b.jual) + '</td><td class="angka">' + (b.adaPot ? '−' + jtA(b.pot) : '–') + '</td><td class="angka"><b>' + jtA(b.bersih) + '</b></td>' +
+        '<td class="angka">' + rpA(b.jual) + '</td><td class="angka">' + (b.adaPot ? '−' + rpA(b.pot) : '–') + '</td><td class="angka"><b>' + rpA(b.bersih) + '</b></td>' +
         '<td class="angka">' + (b.adaPot ? pr(b.pot, b.jual) : '–') + '</td><td class="angka">' + pr(b.jual, S.tot) + '</td></tr>';
-      Object.keys(b.anak).forEach(function (n) { r += '<tr class="anak"><td>' + esc(n.replace(/^Consignment\s+/i, '')) + '</td><td class="angka">' + jtA(b.anak[n]) + '</td><td class="angka">–</td><td class="angka">' + jtA(b.anak[n]) + '</td><td></td><td class="angka">' + pr(b.anak[n], S.tot) + '</td></tr>'; });
+      Object.keys(b.anak).forEach(function (n) { r += '<tr class="anak"><td>' + esc(n.replace(/^Consignment\s+/i, '')) + '</td><td class="angka">' + rpA(b.anak[n]) + '</td><td class="angka">–</td><td class="angka">' + rpA(b.anak[n]) + '</td><td></td><td class="angka">' + pr(b.anak[n], S.tot) + '</td></tr>'; });
       return r;
     }).join('');
     return '<table class="lb-sl"><thead><tr><th>Saluran</th><th>Penjualan</th><th>Potongan</th><th>Diterima bersih</th><th>% potongan</th><th>Bagian</th></tr></thead><tbody>' + rows +
-      '<tr class="akhir"><td>Total</td><td class="angka">' + jtA(tj) + '</td><td class="angka">−' + jtA(tp) + '</td><td class="angka">' + jtA(tj - tp) + '</td><td class="angka">' + pr(tp, tj) + '</td><td class="angka">100%</td></tr></tbody></table>';
+      '<tr class="akhir"><td>Total</td><td class="angka">' + rpA(tj) + '</td><td class="angka">−' + rpA(tp) + '</td><td class="angka">' + rpA(tj - tp) + '</td><td class="angka">' + pr(tp, tj) + '</td><td class="angka">100%</td></tr></tbody></table>';
   }
   function grafikSaluran(M, interaktif, sempit) {
     var D = M.sal.daftar, n = M.bulan.length || 1, W = sempit ? 360 : 660, Hh = sempit ? 230 : 250, kiri = 46, kanan = 8, atas = 12, bawah = 30;
@@ -168,9 +185,10 @@
   // ---------- Tangga ringkasan & tabel per bulan (dipakai layar dan PDF) ----------
   function tangga(M) {
     var baris = function (nama, ket, nilai, kelas, tanda) {
-      return '<tr class="' + (kelas || '') + '"><td>' + esc(nama) + (ket ? '<small>' + esc(ket) + '</small>' : '') + '</td><td class="r angka">' + (tanda || '') + jt(nilai).replace('−', '') + '</td></tr>';
+      var kata = /sub|akhir/.test(kelas || '') || /^Bonus/.test(nama) ? '<tr class="lb-kata"><td colspan="2">' + esc((tanda === '−' ? 'Minus ' + terbilang(Math.abs(nilai)).toLowerCase() : terbilang(Math.abs(nilai)))) + '</td></tr>' : '';
+      return '<tr class="' + (kelas || '') + (kata ? ' ada-kata' : '') + '"><td>' + esc(nama) + (ket ? '<small>' + esc(ket) + '</small>' : '') + '</td><td class="r angka">' + (tanda || '') + rpL(Math.abs(nilai)) + '</td></tr>' + kata;
     };
-    var anak = function (L) { return L.map(function (x) { return '<tr class="anak"><td>' + esc(x[0]) + '</td><td class="r angka">' + jt(x[1]) + '</td></tr>'; }).join(''); };
+    var anak = function (L) { return L.map(function (x) { return '<tr class="anak"><td>' + esc(x[0]) + '</td><td class="r angka">' + rpL(x[1]) + '</td></tr>'; }).join(''); };
     var T = M.T, st = M.stok;
     return '<table class="lb-tg"><tbody>' +
       baris('Pendapatan penjualan', 'Semua uang hasil penjualan dari marketplace, consignment, toko dan reseller.', T.pend, 'sub') + anak(M.pend) +
@@ -209,7 +227,8 @@
     '.lb-kpi .k{border:1px solid var(--garis);border-radius:16px;padding:16px 18px;background:var(--kartu);border-top:4px solid var(--lbB)}' +
     '.lb-kpi .k.bonus{border-top-color:#B42318}.lb-kpi .k.utama{background:var(--lbN);border-color:var(--lbN);border-top-color:#5FA8D3;color:#fff}' +
     '.lb-kpi .n{font-size:13px;font-weight:600;color:var(--abu)}.lb-kpi .k.utama .n,.lb-kpi .k.utama .s{color:#B9C6DB}' +
-    '.lb-kpi .v{font-size:28px;font-weight:800;letter-spacing:-.02em;margin-top:6px;line-height:1.1}.lb-kpi .s{font-size:12.5px;color:var(--abu);margin-top:6px}' +
+    '.lb-kpi .lb-kt{font-size:12px;font-style:italic;margin-top:4px;color:var(--teks2);line-height:1.35}.lb-kpi .k.utama .lb-kt{color:#DCE6F5}.lb-tg tr.lb-kata td{padding:0 0 9px;text-align:right;font-size:12px;font-style:italic;color:var(--abu);border-bottom:1px solid var(--garis2)}.lb-tg tr.ada-kata td{border-bottom:0}.lb-tg tr.akhir+tr.lb-kata td{border-bottom:0;color:var(--lbN)}' +
+    '.lb-kpi .v{font-size:23px;font-weight:800;letter-spacing:-.02em;margin-top:6px;line-height:1.1}.lb-kpi .s{font-size:12.5px;color:var(--abu);margin-top:6px}' +
     '.lb .cd{margin:0}.lb .cd h3{font-size:16.5px}' +
     '.lb-bt{width:100%;height:auto;display:block;font-family:inherit}.lb-grid{stroke:var(--garis2)}.lb-nol{stroke:#9AA6B6}.lb-sumbu{font-size:11px;fill:var(--abu)}' +
     '.lb-b1{fill:var(--lbN)}.lb-b2{fill:var(--lbB)}.lb-b2.neg{fill:#B42318}.lb-tb{fill:#B42318}.lb-bl3{font-size:12px;fill:var(--teks2);font-weight:600}' +
@@ -254,15 +273,15 @@
     var h = '<style>' + CSS + '</style><div class="lb">';
     h += '<div class="lb-kop"><div class="kiri"><img src="logo-putih.png" alt="Moscow Supplies"><h2>Laporan Laba Bersih</h2><p>' + esc(PT) + ' · ' + esc(M.periode) + ' · disusun ' + esc(M.dibuat) + '</p></div>' +
       '<div class="tb"><button type="button" class="utama" data-lbx="pdf">Unduh PDF</button><button type="button" data-lbx="csv">Unduh CSV</button></div></div>';
-    h += '<div class="lb-kpi"><div class="k"><div class="n">Laba usaha (sebelum bonus direksi)</div><div class="v angka">' + jt(M.usaha) + '</div><div class="s">Margin ' + pr(M.usaha, M.T.pend) + ' dari pendapatan ' + jt(M.T.pend) + '</div></div>' +
-      '<div class="k bonus"><div class="n">Bonus direksi</div><div class="v angka">' + jt(-M.T.bonus) + '</div><div class="s">' + esc(M.bonusBln) + '</div></div>' +
-      '<div class="k utama"><div class="n">Laba bersih setelah bonus direksi</div><div class="v angka">' + jt(M.bersih) + '</div><div class="s">Rata-rata ' + jt(M.bersih / (M.bulan.length || 1)) + ' per bulan</div></div></div>';
+    h += '<div class="lb-kpi"><div class="k"><div class="n">Laba usaha (sebelum bonus direksi)</div><div class="v angka">' + rpL(M.usaha) + '</div><div class="lb-kt">' + esc(terbilang(M.usaha)) + '</div><div class="s">Margin ' + pr(M.usaha, M.T.pend) + ' dari pendapatan ' + jt(M.T.pend) + '</div></div>' +
+      '<div class="k bonus"><div class="n">Bonus direksi</div><div class="v angka">' + rpL(-M.T.bonus) + '</div><div class="lb-kt">Minus ' + esc(terbilang(M.T.bonus).toLowerCase()) + '</div><div class="s">' + esc(M.bonusBln) + '</div></div>' +
+      '<div class="k utama"><div class="n">Laba bersih setelah bonus direksi</div><div class="v angka">' + rpL(M.bersih) + '</div><div class="lb-kt">' + esc(terbilang(M.bersih)) + '</div><div class="s">Rata-rata ' + jt(M.bersih / (M.bulan.length || 1)) + ' per bulan</div></div></div>';
     h += '<div class="cd"><div class="kpl"><h3>Laba per bulan</h3><span class="sb">juta rupiah · klik bulan untuk rinciannya</span></div>' +
       '<div class="lb-gr"><div>' + batang(M, true, M.sempit) + '<div class="lb-lgk"><span><i style="background:#0C1F40"></i>Laba usaha</span><span><i style="background:#1E78A8"></i>Laba bersih</span><span><i style="background:#B42318;border-radius:50%"></i>Bulan ada bonus direksi</span></div></div>' +
       '<div class="lb-rbx" id="lbRinci"></div></div></div>';
     h += '<div class="lb-dw"><div class="cd"><div class="kpl"><h3>Pendapatan per saluran</h3><span class="sb">klik untuk melihat bagiannya</span></div><div class="lb-dk">' + donat(M.dPend, 'lbD1', true) + legenda(M.dPend, 'lbL1', true) + '</div></div>' +
       '<div class="cd"><div class="kpl"><h3>Ke mana uangnya keluar</h3><span class="sb">di luar bonus direksi</span></div><div class="lb-dk">' + donat(M.dKeluar, 'lbD2', true) + legenda(M.dKeluar, 'lbL2', true) + '</div></div></div>';
-    h += '<div class="cd"><div class="kpl"><h3>Penjualan per saluran</h3><span class="sb">juta rupiah · ' + esc(M.periode) + '</span></div><div class="gulir">' + tabelSaluran(M) + '</div>' +
+    h += '<div class="cd"><div class="kpl"><h3>Penjualan per saluran</h3><span class="sb">rupiah · ' + esc(M.periode) + '</span></div><div class="gulir">' + tabelSaluran(M) + '</div>' +
       '<div class="lb-gr" style="margin-top:6px"><div><div class="sb" style="margin-bottom:6px">Penjualan per bulan · klik bulan untuk rinciannya, klik nama saluran untuk menyorot</div>' + grafikSaluran(M, true, M.sempit) + '</div><div class="lb-rbx" id="lbRinci2"></div></div></div>';
     h += '<div class="cd"><h3>Ringkasan ' + M.bulan.length + ' bulan</h3>' + tangga(M) + '</div>';
     h += '<div class="cd"><div class="kpl"><h3>Per bulan</h3><span class="sb">dalam juta rupiah</span></div><div class="gulir">' + tabelBulan(M) + '</div>' +
@@ -300,7 +319,7 @@
       '.kop .kn{text-align:right;font-size:9pt;color:#B9C6DB}.kop .kn b{display:block;color:#fff;font-size:11pt}' +
       '.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.kpi>div{border:1px solid #E2E7EE;border-top:3px solid #1E78A8;border-radius:8px;padding:10px 12px}' +
       '.kpi>div.b{border-top-color:#B42318}.kpi>div.u{background:#0C1F40;color:#fff;border-color:#0C1F40;border-top-color:#5FA8D3}' +
-      '.kpi .n{font-size:8.5pt;color:#5A6677;font-weight:600}.kpi .u .n,.kpi .u .s{color:#B9C6DB}.kpi .v{font-size:17pt;font-weight:800;margin-top:3px}.kpi .s{font-size:8pt;color:#5A6677;margin-top:3px}' +
+      '.kpi .n{font-size:8.5pt;color:#5A6677;font-weight:600}.kpi .u .n,.kpi .u .s{color:#B9C6DB}.kpi .lb-kt{font-size:7.5pt;font-style:italic;margin-top:2px;color:#344154}.kpi .u .lb-kt{color:#DCE6F5}.lb-tg tr.lb-kata td{padding:0 0 4px;text-align:right;font-size:7.5pt;font-style:italic;color:#5A6677;border-bottom:1px solid #EEF2F6}.lb-tg tr.ada-kata td{border-bottom:0}.kpi .v{font-size:14pt;font-weight:800;margin-top:3px}.kpi .s{font-size:8pt;color:#5A6677;margin-top:3px}' +
       'h2{font-size:12pt;margin:16px 0 6px;padding-bottom:5px;border-bottom:2px solid #0C1F40;color:#0C1F40}' +
       '.lb-bt{width:100%;height:auto;display:block}.lb-grid{stroke:#EEF2F6}.lb-nol{stroke:#9AA6B6}.lb-sumbu{font-size:11px;fill:#5A6677}.lb-b1{fill:#0C1F40}.lb-b2{fill:#1E78A8}.lb-b2.neg{fill:#B42318}' +
       '.lb-tb{fill:#B42318}.lb-bl3{font-size:12px;fill:#344154;font-weight:600}.lb-hit{fill:transparent}' +
@@ -326,14 +345,14 @@
     return '<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Laporan Laba Bersih Moscow Supplies ' + esc(M.periode) + '</title><base href="' + esc(asal) + '">' +
       '<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet"><style>' + css + '</style></head><body>' +
       '<div class="kop"><div><img src="logo-putih.png" alt="Moscow Supplies"><h1>Laporan Laba Bersih</h1><p>' + esc(PT) + '</p></div><div class="kn"><b>' + esc(M.periode) + '</b>Disusun ' + esc(M.dibuat) + '</div></div>' +
-      '<div class="kpi"><div><div class="n">Laba usaha (sebelum bonus direksi)</div><div class="v">' + jt(M.usaha) + '</div><div class="s">Margin ' + pr(M.usaha, M.T.pend) + ' dari pendapatan ' + jt(M.T.pend) + '</div></div>' +
-      '<div class="b"><div class="n">Bonus direksi</div><div class="v">' + jt(-M.T.bonus) + '</div><div class="s">' + esc(M.bonusBln) + '</div></div>' +
-      '<div class="u"><div class="n">Laba bersih setelah bonus direksi</div><div class="v">' + jt(M.bersih) + '</div><div class="s">Rata-rata ' + jt(M.bersih / (M.bulan.length || 1)) + ' per bulan</div></div></div>' +
+      '<div class="kpi"><div><div class="n">Laba usaha (sebelum bonus direksi)</div><div class="v">' + rpL(M.usaha) + '</div><div class="lb-kt">' + esc(terbilang(M.usaha)) + '</div><div class="s">Margin ' + pr(M.usaha, M.T.pend) + ' dari pendapatan ' + jt(M.T.pend) + '</div></div>' +
+      '<div class="b"><div class="n">Bonus direksi</div><div class="v">' + rpL(-M.T.bonus) + '</div><div class="lb-kt">Minus ' + esc(terbilang(M.T.bonus).toLowerCase()) + '</div><div class="s">' + esc(M.bonusBln) + '</div></div>' +
+      '<div class="u"><div class="n">Laba bersih setelah bonus direksi</div><div class="v">' + rpL(M.bersih) + '</div><div class="lb-kt">' + esc(terbilang(M.bersih)) + '</div><div class="s">Rata-rata ' + jt(M.bersih / (M.bulan.length || 1)) + ' per bulan</div></div></div>' +
       '<h2>Laba per bulan (juta rupiah)</h2>' + batang(M, false) +
       '<div class="lgk"><span><i style="background:#0C1F40"></i>Laba usaha</span><span><i style="background:#1E78A8"></i>Laba bersih</span><span><i style="background:#B42318;border-radius:50%"></i>Bulan ada bonus direksi</span></div>' +
       '<div class="dw"><div><h2>Pendapatan per saluran</h2><div class="dk">' + donat(M.dPend, 'p1', false) + legenda(M.dPend, 'q1', false) + '</div></div>' +
       '<div><h2>Ke mana uangnya keluar</h2><div class="dk">' + donat(M.dKeluar, 'p2', false) + legenda(M.dKeluar, 'q2', false) + '</div></div></div>' + kaki +
-      '<div class="hal"></div><h2>Penjualan per saluran (juta rupiah)</h2>' + tabelSaluran(M) +
+      '<div class="hal"></div><h2>Penjualan per saluran (rupiah)</h2>' + tabelSaluran(M) +
       '<h2>Penjualan per bulan per saluran (juta rupiah)</h2>' + grafikSaluran(M, false, false) + kaki +
       '<div class="hal"></div><h2>Ringkasan ' + M.bulan.length + ' bulan</h2>' + tangga(M) + kaki +
       '<div class="hal"></div><h2>Per bulan (juta rupiah)</h2>' + tabelBulan(M) +
