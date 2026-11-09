@@ -1289,7 +1289,7 @@
       h += '<div class="cd"><h3>Riwayat pembuatan pigment campuran</h3>' + (lp.length ? '<table class="tabel"><tbody>' + lp.slice(0, 40).map(function (x) { return baris2(esc(x.n) + '<small>' + esc(tglId(x.t)) + (x.c ? ' · ' + esc(x.c) : '') + '</small>', jml(x.ml, 'gram')); }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada pigment campuran yang dibuat.</div>') + '</div>';
     } else if (PR.sb === 'dasar') {
       var ds = d.dasar || [];
-      h += '<div class="cd"><h3>Stok cat dasar (siap campur warna)</h3><p class="sb" style="margin-top:-4px">Dibuat dari menu Produksi staf bahan baku, terpakai saat campur warna.</p>' +
+      h += '<div class="cd"><h3>Stok cat dasar &amp; bahan jadi</h3><p class="sb" style="margin-top:-4px">Dibuat dari menu Produksi staf bahan baku. Terpakai otomatis dari laporan produksi (jumlah botol per warna / produk).</p>' +
         (ds.length ? '<table class="tabel"><thead><tr><th>Cat dasar</th><th class="r">Dibuat bulan ini</th><th class="r">Terpakai bulan ini</th><th class="r">Sisa</th></tr></thead><tbody>' + ds.map(function (x) {
           return '<tr><td>' + esc(x.n) + '<small>' + esc(x.kel || '') + '</small></td><td class="r angka">' + dec(x.prB / 1000) + ' kg</td><td class="r angka">' + dec(x.pkB / 1000) + ' kg</td><td class="r angka' + (x.sisa < 0 ? ' mn' : '') + '">' + dec(x.sisa / 1000) + ' kg</td></tr>'; }).join('') + '</tbody></table>' : '<div class="ksg">Belum ada data cat dasar.</div>') + '</div>';
     } else {

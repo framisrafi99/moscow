@@ -311,6 +311,8 @@
     function BBK_stokDasar_(warna, jadiList, prod, wlog, bulan) {
       const dasar = {}, out = [];
       warna.forEach(function (w) { w.dasar.forEach(function (d) { dasar[d.n.toLowerCase()] = true; }); });
+      // 9 Nov 2026 (sql/194): bahan jadi yang langsung dibotolkan (Filler, Gesso, Unyellowing) ikut dihitung stoknya.
+      wlog.forEach(function (x) { if (x.d) dasar[x.d.toLowerCase()] = true; });
       jadiList.forEach(function (j) {
         if (!dasar[j.n.toLowerCase()]) return;
         let pr = 0, pk = 0, prB = 0, pkB = 0;

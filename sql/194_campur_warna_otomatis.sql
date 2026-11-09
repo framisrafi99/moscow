@@ -156,3 +156,17 @@ update public.produk_berat set gram_per_pcs = v.g, catatan = v.c, diubah = now()
  ('M05', 109.2, 'perkiraan: sama dengan Leather 100ml'), ('M06', 1092, 'perkiraan: 10 x isi Water Based 100ml')) v(k, g, c)
 where kode_produk = v.k;
 -- Finisher 60ml: 79 g penuh -> isi ±64,7 g (belum dipakai).
+
+-- Tambahan 9 Nov 2026: Filler, Gesso, Unyellowing = satu bahan jadi yang langsung dibotolkan (produk_berat.bahan_jadi).
+-- Berat per botol masih perkiraan dari data Okt-Nov (batch Ronny / jumlah botol Erwin), diganti setelah ditimbang.
+-- _warna_potong diperbarui: kalau produk_berat.bahan_jadi terisi, bahan jadi itu terpakai 100% (bahan_warna_log kelompok 'Produksi').
+alter table public.produk_berat add column if not exists bahan_jadi text;
+alter table public.produk_berat alter column kelompok_warna drop not null;
+insert into public.produk_berat (kode_produk, gram_per_pcs, kelompok_warna, bahan_jadi, catatan) values
+ ('K006', 114, 'Produksi', 'Leather Filler', 'perkiraan dari data Okt-Nov (36,3 kg / 318 botol); perlu ditimbang'),
+ ('K007', 220, 'Produksi', 'Gesso', 'perkiraan dari data Okt (30,1 kg / 137 botol); perlu ditimbang'),
+ ('K017', 108, 'Produksi', 'Unyellowing / Solesauce', 'perkiraan dari data Okt-Nov (±1,08 g/ml); perlu ditimbang'),
+ ('K018', 1080, 'Produksi', 'Unyellowing / Solesauce', 'perkiraan: 10 x Unyellowing 100ml')
+on conflict (kode_produk) do update set gram_per_pcs = excluded.gram_per_pcs, kelompok_warna = excluded.kelompok_warna, bahan_jadi = excluded.bahan_jadi, catatan = excluded.catatan, diubah = now();
+-- (isi lengkap _warna_potong versi ini ada di database; cabang baru di awal fungsi:)
+--   if nullif(pb.bahan_jadi, '') is not null then insert into bahan_warna_log (... dasar = pb.bahan_jadi, dasar_terpakai_gram = qty x gram_per_pcs, kelompok 'Produksi'); return; end if;
