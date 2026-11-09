@@ -136,6 +136,7 @@
   M.mulai({
     aplikasi: 'KENDALI BISNIS', masukJudul: 'Kendali Bisnis', masukTeks: 'Ringkasan usaha, laporan bulanan, dan HPP Moscow Supplies. Masuk memakai akun Google yang sudah didaftarkan.',
     izin: function (ctx) { return ['manajemen', 'kendali_bisnis', 'accounting'].indexOf(ctx.peran) > -1 ? true : (ctx.peran ? 'Akun ' + ctx.email + ' tidak punya akses ke Kendali Bisnis.' : false); },
+    bawah: ['beranda', 'darurat', 'acc', 'laba', 'lain'],
     menu: [{ k: 'beranda', nm: 'Beranda' }, { k: 'darurat', nm: 'Peringatan darurat', ik: 'laporan', pendek: 'Darurat' }, { k: 'acc', nm: 'ACC Pengajuan', ik: 'setuju', pendek: 'ACC' }, { k: 'laporan', nm: 'Laporan', judul: 'Laporan bulanan' }, { k: 'laba', nm: 'Laba bersih', ik: 'uang', judul: 'Laba bersih Januari–Oktober 2026', pendek: 'Laba' }, { k: 'hpp', nm: 'HPP & Harga', ik: 'harga' }],
     pindah: function (k) { document.documentElement.classList.toggle('m-bx', k === 'beranda'); if (k === 'darurat') bukaDarurat(); if (k === 'hpp' && !barang) muatHpp(); if (k === 'acc') muatAcc(); if (k === 'laba' && window.LabaBersih) LabaBersih.muat($('isiLaba'), sb); },
     siap: function (ctx) {
