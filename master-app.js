@@ -71,6 +71,8 @@
     if (h[0].error) { $('bBeranda').innerHTML = '<div class="msg bad">Data gagal dimuat: ' + esc(h[0].error.message) + '</div>'; return; }
     (h[0].data || []).forEach(function (x) { D[KUNCI[x.kunci]] = x.data; D.waktu[KUNCI[x.kunci]] = x.dibuat; });
     D.aksi = h[1].data || [];
+    // 9 Nov 2026: jumlah peringatan darurat (tindakan agen prioritas 1) untuk chip Perlu perhatian.
+    try { var pd = await sb.rpc('peringatan_data'); D.darurat = pd.data && pd.data.ok ? pd.data.darurat.length : 0; } catch (e) { D.darurat = 0; }
     // Koreksi laporan penjualan toko (koreksi.js): langsung dari Supabase.
     if (window.KoreksiJual) {
       window.KoreksiJual.pasang({ badge: function () { M.badge('setuju', jumlahTunggu()); var c = document.querySelector('[data-bg="koreksi"] b'); if (c) c.textContent = window.KoreksiJual.menunggu() + ' menunggu'; },
@@ -205,6 +207,7 @@
   // ======================= BERANDA (gabungan Beranda + Dasbor; tampilan di beranda.js) =======================
   function tindakanList() {
     var d = D.beranda || {}, r = D.ringkasan || {}, L = [];
+    if (D.darurat) L.push({ teks: '⚠️ ' + D.darurat + ' peringatan darurat (juga tampil di Kendali Bisnis)', buka: 'jaga', w: true });
     if (d.nota && d.nota.n) L.push({ teks: d.nota.n + ' nota toko offline belum ada metode bayar', buka: 'tindak:nota', w: true });
     (d.akun || []).forEach(function (a) { if (a.v < 0) L.push({ teks: (/^saldo /i.test(a.n) ? a.n : 'Saldo ' + a.n) + ' minus ' + rp(-a.v), buka: 'tindak:saldo:' + a.n, w: true }); });
     if (D.pantau && D.pantau.nTahan) L.push({ teks: D.pantau.nTahan + ' pengiriman tertahan', buka: 'setuju', w: true });

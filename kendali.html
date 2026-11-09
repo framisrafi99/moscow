@@ -79,6 +79,7 @@
 <body>
 <main id="mIsi">
   <section data-bagian="beranda" id="bBeranda"><div class="ksg">Memuat beranda…</div></section>
+  <section data-bagian="darurat" id="bDarurat"><div class="ksg">Memuat peringatan…</div></section>
   <section data-bagian="laporan">
     <div class="bulan">
       <button id="tSebelum" type="button" aria-label="Bulan sebelumnya">‹</button>
@@ -119,6 +120,7 @@
 <script src="moscow.js?v=16"></script>
 <script src="beranda2.js?v=7"></script>
 <script src="akun.js?v=5"></script>
+<script src="darurat.js?v=1"></script>
 <script>
 (function () {
   var M = Moscow, sb = M.sb, esc = M.esc;
@@ -132,8 +134,8 @@
   M.mulai({
     aplikasi: 'KENDALI BISNIS', masukJudul: 'Kendali Bisnis', masukTeks: 'Ringkasan usaha, laporan bulanan, dan HPP Moscow Supplies. Masuk memakai akun Google yang sudah didaftarkan.',
     izin: function (ctx) { return ['manajemen', 'kendali_bisnis', 'accounting'].indexOf(ctx.peran) > -1 ? true : (ctx.peran ? 'Akun ' + ctx.email + ' tidak punya akses ke Kendali Bisnis.' : false); },
-    menu: [{ k: 'beranda', nm: 'Beranda' }, { k: 'acc', nm: 'ACC Pengajuan', ik: 'setuju', pendek: 'ACC' }, { k: 'laporan', nm: 'Laporan', judul: 'Laporan bulanan' }, { k: 'hpp', nm: 'HPP & Harga', ik: 'harga' }],
-    pindah: function (k) { document.documentElement.classList.toggle('m-bx', k === 'beranda'); if (k === 'hpp' && !barang) muatHpp(); if (k === 'acc') muatAcc(); },
+    menu: [{ k: 'beranda', nm: 'Beranda' }, { k: 'darurat', nm: 'Peringatan darurat', ik: 'laporan', pendek: 'Darurat' }, { k: 'acc', nm: 'ACC Pengajuan', ik: 'setuju', pendek: 'ACC' }, { k: 'laporan', nm: 'Laporan', judul: 'Laporan bulanan' }, { k: 'hpp', nm: 'HPP & Harga', ik: 'harga' }],
+    pindah: function (k) { document.documentElement.classList.toggle('m-bx', k === 'beranda'); if (k === 'darurat') bukaDarurat(); if (k === 'hpp' && !barang) muatHpp(); if (k === 'acc') muatAcc(); },
     siap: function (ctx) {
       KB.email = String(ctx.email || '').toLowerCase(); KB.peran = ctx.peran === 'manajemen' ? 'Manajemen' : 'Kendali Bisnis'; var um = (ctx.sesi && ctx.sesi.user && ctx.sesi.user.user_metadata) || {}; KB.nama = um.full_name || um.name || '';
       M.aksi([{ nm: 'Muat ulang', ik: 'muat', klik: function () { muatSemua(); } }]);
@@ -147,16 +149,29 @@
           '<a class="it" href="stok.html">' + M.svg('stok') + '<span class="nm">Stok semua lokasi</span></a>');
       }
       KB.bisaAcc = ctx.peran === 'manajemen' || ctx.peran === 'kendali_bisnis';
-      muatLaporan(); gambarBeranda(); muatAcc();
+      muatLaporan(); gambarBeranda(); muatAcc(); hitungDarurat();
+      if (M.aktif() === 'darurat') bukaDarurat();
     }
   });
 
+  // ======================= PERINGATAN DARURAT (9 Nov 2026) =======================
+  function bukaDarurat() {
+    if (!window.Darurat) return;
+    Darurat.gambar($('bDarurat'), sb, { nama: KB.namaTim || KB.nama || KB.email, bisaTanggap: KB.bisaAcc,
+      onJumlah: function (n) { if (n !== KB.darurat) { KB.darurat = n; gambarBeranda(); } } });
+  }
+  function hitungDarurat() {
+    if (!window.Darurat) return;
+    Darurat.jumlah(sb).then(function (L) { KB.darurat = L.length; gambarBeranda(); }, function () { });
+  }
+
   // ======================= BERANDA (tampilan sama dengan Beranda Master Data, hanya melihat) =======================
   var KB = { bulan: '', cache: {}, md: null, email: '', nama: '', namaTim: undefined };
-  function muatSemua() { KB.cache = {}; KB.md = null; SALDO = {}; gambarBeranda(); muatLaporan(); muatAcc(); barang = null; if (M.aktif() === 'hpp') muatHpp(); }
+  function muatSemua() { KB.cache = {}; KB.md = null; SALDO = {}; gambarBeranda(); muatLaporan(); muatAcc(); hitungDarurat(); if (M.aktif() === 'darurat') bukaDarurat(); barang = null; if (M.aktif() === 'hpp') muatHpp(); }
   function namaBln(b) { var p = String(b || '').split('-'); return (NAMA_BULAN[Number(p[1]) - 1] || '') + ' ' + p[0]; }
   function tindakanKB() {
     var md = KB.md || {}, d = md.beranda || {}, r = md.ringkasan || {}, L = [];
+    if (KB.darurat) L.push({ teks: '⚠️ ' + KB.darurat + ' peringatan darurat', w: true, buka: 'darurat' });
     if (d.nota && d.nota.n) L.push({ teks: d.nota.n + ' nota toko offline belum ada metode bayar', w: true });
     (d.akun || []).forEach(function (a) { if (a.v < 0) L.push({ teks: (/^saldo /i.test(a.n) ? a.n : 'Saldo ' + a.n) + ' minus ' + rp(-a.v), w: true }); });
     if (md.pantau && md.pantau.nTahan) L.push({ teks: md.pantau.nTahan + ' pengiriman tertahan', w: true });
@@ -186,7 +201,7 @@
     var C = KB.cache[k];
     BerandaBaru.gambar(el, C.B, (KB.md || {}).beranda || {}, tindakanKB(), {
       gantiBulan: function (m) { KB.bulan = m; gambarBeranda(); },
-      buka: function (b) { if (b === 'laporan' || b === 'hpp' || b === 'acc') M.buka(b); else { var t = $(b === 'purch' ? 'bxPo' : 'bxRinci'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
+      buka: function (b) { if (b === 'laporan' || b === 'hpp' || b === 'acc' || b === 'darurat') M.buka(b); else { var t = $(b === 'purch' ? 'bxPo' : 'bxRinci'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
       kpi: C.K, pengguna: { nama: KB.namaTim || KB.nama, email: KB.email }, peran: KB.peran,
       menuAkun: [{ nm: 'Muat ulang data', klik: muatSemua }, { nm: 'Laporan bulanan', k: 'laporan' }, { nm: 'HPP & Harga', k: 'hpp' },
         { nm: 'Keluar / ganti akun', klik: function () { sb.auth.signOut({ scope: 'local' }).then(function () { location.href = 'index.html'; }); } }]
