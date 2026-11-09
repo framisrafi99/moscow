@@ -213,6 +213,32 @@
   }
   function catatan(M) { return '<ul class="lb-cat">' + (M.isi.catatan || []).concat([M.stok.ket || '']).filter(Boolean).map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul>'; }
 
+
+  // ---------- Laba bersih vs sisa uang di rekening ----------
+  function bagianKas(M, cetak) {
+    var K = M.isi.kas; if (!K || !K.posisi) return '';
+    var awal = 0, akhir = 0, jb = 0;
+    var pos = K.posisi.map(function (x) {
+      awal += Number(x[1]) || 0; akhir += Number(x[2]) || 0;
+      return '<tr><td>' + esc(x[0]) + (x[3] ? '<small>' + esc(x[3]) + '</small>' : '') + '</td><td class="angka">' + rpA(x[1]) + '</td><td class="angka">' + rpA(x[2]) + '</td></tr>';
+    }).join('');
+    var naik = akhir - awal;
+    var jbr = K.jembatan.map(function (x) { jb += Number(x[1]) || 0; return '<tr><td>' + esc(x[0]) + (x[2] ? '<small>' + esc(x[2]) + '</small>' : '') + '</td><td class="angka">' + (x[1] > 0 ? '+' : '') + rpA(x[1]) + '</td></tr>'; }).join('');
+    var harus = M.bersih + jb, belum = harus - naik;
+    var kata = function (v) { return '<tr class="lb-kata2"><td colspan="2">' + esc(v < 0 ? 'Minus ' + terbilang(-v).toLowerCase() : terbilang(v)) + '</td></tr>'; };
+    var h2 = cetak ? function (t) { return '<h2>' + t + '</h2>'; } : function (t) { return '<h4 class="lb-h4">' + t + '</h4>'; };
+    return (cetak ? '<h2>' + esc(K.judul) + '</h2>' : '<div class="cd lb-kas"><h3>' + esc(K.judul) + '</h3>') + '<p class="lb-pg">' + esc(K.pengantar) + '</p>' +
+      h2('Posisi uang (rupiah)') + '<div class="gulir"><table class="lb-sl lb-ks"><thead><tr><th>Rekening / saldo</th><th>1 Januari</th><th>31 Oktober</th></tr></thead><tbody>' + pos +
+      '<tr class="akhir"><td>Total uang</td><td class="angka">' + rpA(awal) + '</td><td class="angka">' + rpA(akhir) + '</td></tr>' +
+      '<tr class="akhir"><td>Uang bertambah</td><td></td><td class="angka">' + rpA(naik) + '</td></tr></tbody></table></div>' +
+      h2('Dari laba bersih ke sisa uang (rupiah)') + '<div class="gulir"><table class="lb-sl lb-ks"><tbody>' +
+      '<tr class="sub"><td>Laba bersih setelah bonus direksi</td><td class="angka">' + rpA(M.bersih) + '</td></tr>' + jbr +
+      '<tr class="akhir"><td>Seharusnya uang bertambah</td><td class="angka">' + rpA(harus) + '</td></tr>' +
+      '<tr class="akhir"><td>Kenyataannya uang bertambah</td><td class="angka">' + rpA(naik) + '</td></tr>' +
+      '<tr class="akhir lb-merah"><td>Belum terjelaskan<small>Perlu dikonfirmasi ke Junior dan Mike, lihat daftar di bawah.</small></td><td class="angka">' + rpA(belum) + '</td></tr>' + kata(belum) +
+      '</tbody></table></div>' + h2('Perlu dikonfirmasi') + '<ul class="lb-cat">' + (K.belum || []).map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul>' + (cetak ? '' : '</div>');
+  }
+
   // ---------- Gaya layar ----------
   var CSS =
     '.lb{--lbN:#0C1F40;--lbB:#1E78A8;display:flex;flex-direction:column;gap:16px}' +
@@ -256,6 +282,8 @@
     '.lb-bl{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}.lb-bl th,.lb-bl td{padding:8px 6px;border-bottom:1px solid var(--garis2);text-align:right;white-space:nowrap}' +
     '.lb-bl th:first-child,.lb-bl td:first-child{text-align:left;position:sticky;left:0;background:var(--kartu)}.lb-bl thead th{font-size:12px;color:#fff;background:var(--lbN)}' +
     '.lb-bl thead th:first-child{background:var(--lbN)}.lb-bl tr.sub td{font-weight:800;background:var(--latar)}.lb-bl tr.akhir td{font-weight:800;border-top:2px solid var(--lbN)}.lb-bl td.neg{color:#B42318}' +
+    '.lb-ks{min-width:0}.lb-ks td small{margin-left:0!important;white-space:normal}.lb-ks td:first-child{white-space:normal}.lb-ks tr.sub td{font-weight:800;background:var(--latar)}.lb-ks tr.lb-merah td{color:#B42318;background:#FDECEA}.lb-ks tr.lb-kata2 td{text-align:right;font-size:12px;font-style:italic;color:#B42318;border-bottom:0;padding-top:2px}' +
+    '.lb-pg{margin:0;font-size:13.5px;color:var(--teks2);line-height:1.5}.lb-h4{margin:6px 0 0;font-size:14px;font-weight:800;color:var(--lbN)}' +
     '.lb-cat{margin:0;padding-left:18px;font-size:13.5px;color:var(--teks2);display:flex;flex-direction:column;gap:6px}' +
     '.lb-sl{width:100%;border-collapse:collapse;font-size:13.5px;min-width:620px}.lb-sl th,.lb-sl td{padding:9px 8px;border-bottom:1px solid var(--garis2);text-align:right;white-space:nowrap;vertical-align:top}' +
     '.lb-sl th:first-child,.lb-sl td:first-child{text-align:left;white-space:normal}.lb-sl thead th{font-size:12px;color:#fff;background:var(--lbN)}.lb-sl td small{display:block;font-size:11.5px;color:var(--abu);margin:2px 0 0 18px}' +
@@ -286,6 +314,7 @@
     h += '<div class="cd"><h3>Ringkasan ' + M.bulan.length + ' bulan</h3>' + tangga(M) + '</div>';
     h += '<div class="cd"><div class="kpl"><h3>Per bulan</h3><span class="sb">dalam juta rupiah</span></div><div class="gulir">' + tabelBulan(M) + '</div>' +
       '<p class="sb" style="margin:0">Laba per bulan belum memasukkan kenaikan stok (' + jt(M.dStok, true) + '), yang hanya bisa dihitung untuk seluruh periode. Pembelian aset/peralatan ' + jt(M.aset) + ' tidak dihitung sebagai biaya.</p></div>';
+    h += bagianKas(M, false);
     h += '<div class="cd"><h3>Cara menghitung</h3>' + catatan(M) + '</div></div>';
     return h;
   }
@@ -335,6 +364,7 @@
       '.lb-bl{width:100%;border-collapse:collapse;font-size:8.5pt}.lb-bl th,.lb-bl td{padding:5px 4px;border-bottom:1px solid #EEF2F6;text-align:right;white-space:nowrap}' +
       '.lb-bl th:first-child,.lb-bl td:first-child{text-align:left}.lb-bl thead th{background:#0C1F40;color:#fff}.lb-bl tr.sub td{font-weight:800;background:#F4F7FA}' +
       '.lb-bl tr.akhir td{font-weight:800;border-top:1.5px solid #0C1F40}.lb-bl td.neg{color:#B42318}' +
+      '.lb-ks td small{margin-left:0!important;white-space:normal}.lb-ks tr.sub td{font-weight:800;background:#F4F7FA}.lb-ks tr.lb-merah td{color:#B42318;background:#FDECEA}.lb-ks tr.lb-kata2 td{text-align:right;font-size:7.5pt;font-style:italic;color:#B42318;border-bottom:0}.lb-pg{margin:0 0 4px;font-size:9pt;color:#344154;line-height:1.45}' +
       '.lb-cat{margin:0;padding-left:16px;font-size:8.5pt;color:#344154}.lb-cat li{margin:2px 0}.ket{font-size:8pt;color:#5A6677;margin:4px 0 0}' +
       '.lb-sl{width:100%;border-collapse:collapse;font-size:9pt}.lb-sl th,.lb-sl td{padding:5px 6px;border-bottom:1px solid #EEF2F6;text-align:right;white-space:nowrap;vertical-align:top}' +
       '.lb-sl th:first-child,.lb-sl td:first-child{text-align:left;white-space:normal}.lb-sl thead th{background:#0C1F40;color:#fff;font-size:8.5pt}.lb-sl td small{display:block;font-size:7.5pt;color:#5A6677;margin-left:16px}' +
@@ -357,6 +387,7 @@
       '<div class="hal"></div><h2>Ringkasan ' + M.bulan.length + ' bulan</h2>' + tangga(M) + kaki +
       '<div class="hal"></div><h2>Per bulan (juta rupiah)</h2>' + tabelBulan(M) +
       '<p class="ket">Laba per bulan belum memasukkan kenaikan stok (' + jt(M.dStok, true) + '), yang hanya bisa dihitung untuk seluruh periode. Pembelian aset/peralatan ' + jt(M.aset) + ' tidak dihitung sebagai biaya.</p>' +
+      kaki + '<div class="hal"></div>' + bagianKas(M, true) +
       '<h2>Cara menghitung</h2>' + catatan(M) + kaki + '</body></html>';
   }
   function unduhPdf(M, tombol) {
