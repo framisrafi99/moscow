@@ -1,21 +1,11 @@
-// =====================================================================
-// Edge Function "kirim-telegram" — tahap B: pemberitahuan Telegram dikirim langsung dari Supabase (tanpa Apps Script).
-// Mengambil antrean efek_antre jenis yang isi pesannya sudah lengkap di Supabase, lalu mengirim ke Telegram
-// persis seperti Apps Script (TG_kirim_ file 21 + baris asal file 42, SBE_JENIS_ file 85):
-//   tg            : teks siap kirim (+ baris asal). Pesan yang diberi tombol ACC (request pindah stok, usulan HPP)
-//                   TIDAK diambil — tetap dikirim Apps Script karena tombolnya dijawab Apps Script.
-//   pl_viory      : pesan pribadi ke Viory.
-//   tg_kirim      : barang keluar dari Gudang Utama.
-//   terima_selisih: toko menerima barang kurang dari surat jalan.
-//   produksi_masuk: laporan produksi otomatis masuk Gudang Utama.
-//   order_status  : request pindah stok disetujui / dikirim / dibatalkan (RP_tgStatus_ file 33).
-//   sa_ajuan      : ajuan stok opname / penyesuaian Gudang Utama & Kantor Packing (SA_teksAjuan_ file 23).
-// Jenis lain tetap dikerjakan Apps Script seperti sebelumnya.
-// Rahasia (diisi manajemen di Supabase › Edge Functions › Secrets, tidak pernah tertulis di kode):
-//   TG_TOKEN, TG_CHAT (grup), TG_VIORY (chat pribadi Viory, boleh kosong).
-// Dipanggil jadwal / pemicu database dengan header x-moscow-robot-kunci (isi robot_kunci id 1).
-// Pasang dengan "Verify JWT" dimatikan.
-// =====================================================================
+// Edge Function "kirim-telegram" — pemberitahuan Telegram dikirim langsung dari Supabase (tanpa Apps Script).
+// Sumber: moscow/supabase-fn/kirim-telegram/index.ts. Jenis efek_antre yang diambil:
+//   tg, pl_viory, tg_kirim, terima_selisih, produksi_masuk, order_status, sa_ajuan (lihat SBE_JENIS_ file 85 Apps Script)
+//   tg_tombol (4 Nov 2026): pesan bertombol Setujui / Tolak (pengajuan impor, request pindah stok, usulan HPP);
+//                           tombolnya dijawab Edge Function tg-tombol (tabel tg_acc_log).
+//   pl_gm (9 Nov 2026): pesan PRIBADI ke general manager = akun Telegram terdaftar peran "manajemen" (tg_akun, lewat /daftar).
+// Pesan "tg" yang bertombol (REQUEST PINDAH STOK BARU / USULAN UBAH ...) juga dikirim dengan tombol di sini.
+// Rahasia: TG_TOKEN, TG_CHAT (grup), TG_VIORY, TG_CHAT_MIKE (boleh kosong). Dipanggil jadwal dengan header x-moscow-robot-kunci.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const URL_SB = Deno.env.get('SUPABASE_URL')!;
@@ -29,11 +19,13 @@ const sb = createClient(URL_SB, kunciServer(), { auth: { persistSession: false }
 const TOKEN = (Deno.env.get('TG_TOKEN') || '').trim();
 const CHAT = (Deno.env.get('TG_CHAT') || '').trim();
 const VIORY = (Deno.env.get('TG_VIORY') || '').trim();
+const MIKE = (Deno.env.get('TG_CHAT_MIKE') || '').trim();
 const MAKS_BARIS = 12;
-const JENIS = ['tg', 'pl_viory', 'tg_kirim', 'terima_selisih', 'produksi_masuk', 'order_status', 'sa_ajuan'];
+const JENIS = ['tg', 'tg_tombol', 'pl_viory', 'pl_mike', 'pl_gm', 'tg_kirim', 'terima_selisih', 'produksi_masuk', 'order_status', 'sa_ajuan'];
 
 function json(isi: unknown, status = 200) { return new Response(JSON.stringify(isi), { status, headers: { 'Content-Type': 'application/json' } }); }
 function esc(s: unknown) { return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function unesc(s: unknown) { return String(s || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&'); }
 function fmt(n: unknown) {
   const x = Math.round(Number(n) || 0), s = String(Math.abs(x));
   let o = '';
@@ -47,13 +39,13 @@ function daftar(baris: string[]) {
   return t.join('\n');
 }
 function rapiWarna(v: unknown) { return String(v === null || v === undefined ? '' : v).replace(/\s+/g, ' ').trim().toUpperCase(); }
-// Pesan yang di Apps Script diberi tombol Setujui / Tolak (TGA_tebak_ file 70).
-function bertombol(teks: string) {
-  return (teks.indexOf('<b>REQUEST PINDAH STOK BARU</b>') !== -1 && /No: ([^\n<]+)/.test(teks)) ||
-    (teks.indexOf('<b>USULAN UBAH ') !== -1 && /\bHU-\d{6}-\d+\b/.test(teks));
+// TGA_tebak_ (file 71): notif mana yang diberi tombol.
+function tebak(teks: string): { jenis: string; no: string } | null {
+  if (teks.indexOf('<b>REQUEST PINDAH STOK BARU</b>') !== -1) { const m = /No: ([^\n<]+)/.exec(teks); if (m) return { jenis: 'rp', no: unesc(m[1]).trim() }; }
+  if (teks.indexOf('<b>USULAN UBAH ') !== -1) { const m = /\b(HU-\d{6}-\d+)\b/.exec(teks); if (m) return { jenis: 'hu', no: m[1] }; }
+  return null;
 }
 type Asal = { e?: string; n?: string; nama?: string; lewat?: string } | null;
-// Baris pertama = asal pemberitahuan (file 42).
 function denganAsal(teks: string, a: Asal) {
   if (!a || !teks) return teks;
   return (a.e || '') + ' <b>' + esc(a.n) + '</b>' + (a.nama ? ' · ' + esc(a.nama) : '') + (a.lewat ? ' <i>(lewat form ' + esc(a.lewat) + ')</i>' : '') + '\n' + teks;
@@ -63,15 +55,17 @@ async function sidik(teks: string) {
   const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(teks));
   return Array.from(new Uint8Array(h)).slice(0, 16).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
+async function sudahTerkirim(teks: string) {
+  const k = await sidik(teks);
+  const ada = await sb.from('tg_kirim_ganda').select('waktu').eq('sidik', k).gte('waktu', new Date(Date.now() - 600000).toISOString()).maybeSingle();
+  if (ada.data) return true;
+  await sb.from('tg_kirim_ganda').upsert({ sidik: k, waktu: new Date().toISOString() }, { onConflict: 'sidik' });
+  return false;
+}
 // TG_kirim_ (file 21): pesan yang sama persis tidak dikirim lagi dalam 10 menit.
 async function kirim(chat: string, teks: string, cegahGanda: boolean) {
   if (!TOKEN || !chat || !teks) return 'lewat: rahasia Telegram belum diisi';
-  if (cegahGanda) {
-    const k = await sidik(teks);
-    const ada = await sb.from('tg_kirim_ganda').select('waktu').eq('sidik', k).gte('waktu', new Date(Date.now() - 600000).toISOString()).maybeSingle();
-    if (ada.data) return 'lewat: pesan sama baru saja terkirim';
-    await sb.from('tg_kirim_ganda').upsert({ sidik: k, waktu: new Date().toISOString() }, { onConflict: 'sidik' });
-  }
+  if (cegahGanda && await sudahTerkirim(teks)) return 'lewat: pesan sama baru saja terkirim';
   const r = await fetch('https://api.telegram.org/bot' + TOKEN + '/sendMessage', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: chat, text: teks.slice(0, 4000), parse_mode: 'HTML', disable_web_page_preview: true }),
@@ -80,11 +74,43 @@ async function kirim(chat: string, teks: string, cegahGanda: boolean) {
   const j = await r.json().catch(() => ({}));
   throw new Error('Telegram ' + r.status + ': ' + String((j as { description?: string }).description || '').slice(0, 120));
 }
+// 9 Nov 2026: chat pribadi general manager = akun Telegram terdaftar peran "manajemen" (tg_akun).
+let chatGm: string | null = null;
+async function gm() {
+  if (chatGm !== null) return chatGm;
+  const r = await sb.from('tg_akun').select('uid').eq('peran', 'manajemen').maybeSingle();
+  chatGm = r.data && r.data.uid ? String(r.data.uid) : '';
+  return chatGm;
+}
+// TGA_kirimTombol_ (file 71): pesan + tombol Setujui / Tolak; catatan tombol di tg_acc_log.
+async function kirimTombol(teks: string, jenis: string, nos: string[]) {
+  if (!TOKEN || !CHAT || !teks) return 'lewat: rahasia Telegram belum diisi';
+  if (!nos.length) return await kirim(CHAT, teks, true);
+  if (await sudahTerkirim(teks)) return 'lewat: pesan sama baru saja terkirim';
+  const id = 'S' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
+  const c = await sb.from('tg_acc_log').insert({ id_sheet: id, waktu: new Date().toISOString(), jenis, nomor: nos.join(','), status: 'Menunggu' });
+  if (c.error) throw new Error('catat tombol: ' + c.error.message);
+  const r = await fetch('https://api.telegram.org/bot' + TOKEN + '/sendMessage', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: CHAT, text: (teks + '\n\n👇 <i>Bisa langsung ACC lewat tombol di bawah.</i>').slice(0, 4000), parse_mode: 'HTML', disable_web_page_preview: true,
+      reply_markup: { inline_keyboard: [[{ text: '✅ Setujui', callback_data: 'a|' + id + '|s' }, { text: '❌ Tolak', callback_data: 'a|' + id + '|t' }]] } }),
+  });
+  const j = await r.json().catch(() => ({}));
+  // deno-lint-ignore no-explicit-any
+  const res = (j as any).result;
+  if (r.ok && res) { await sb.from('tg_acc_log').update({ chat: String(res.chat.id), pesan: String(res.message_id) }).eq('id_sheet', id); return 'ok'; }
+  await sb.from('tg_acc_log').update({ status: 'Gagal kirim' }).eq('id_sheet', id);
+  // Cadangan: kirim tanpa tombol (keputusan lewat Master Data).
+  const b = await fetch('https://api.telegram.org/bot' + TOKEN + '/sendMessage', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: CHAT, text: teks.slice(0, 4000), parse_mode: 'HTML', disable_web_page_preview: true }),
+  });
+  return b.ok ? 'ok (tanpa tombol)' : 'gagal: Telegram ' + r.status;
+}
 
 let namaBarang: Record<string, string> | null = null;
 async function nama() {
   if (namaBarang) return namaBarang;
-  // GD_barang_: baris pertama per kode (tanpa tanda '-') di BARANG_ORDER.
   const r = await sb.from('barang_order').select('kode,nama_barang,baris_sheet,id').order('baris_sheet', { ascending: true, nullsFirst: false }).order('id');
   const m: Record<string, string> = {};
   (r.data || []).forEach((x) => { const k = String(x.kode || '').trim().toUpperCase(); if (k && k.indexOf('-') === -1 && !(k in m)) m[k] = String(x.nama_barang || '').trim(); });
@@ -92,11 +118,9 @@ async function nama() {
   return m;
 }
 
-// Data pendukung yang harus sudah ada di Supabase. Kalau belum ada, antrean tidak diambil (dikerjakan nanti / oleh Apps Script).
 // deno-lint-ignore no-explicit-any
 async function siapkan(jenis: string, d: any): Promise<any | null | undefined> {
   if (jenis === 'order_status') {
-    // RP_cariOrder_ / kumpulOrder_ (file 1 & 33): semua baris ORDER_LOG dengan nomor itu dan tanggal terisi.
     const no = String(d.no || '').trim();
     if (!no) return null;
     const r = await sb.from('order_log').select('pelanggan,kode,nama,qty,tanggal,baris_sheet,id').eq('no_order', no).not('tanggal', 'is', null)
@@ -105,7 +129,6 @@ async function siapkan(jenis: string, d: any): Promise<any | null | undefined> {
     return { no, pl: String(r.data[0].pelanggan ?? ''), items: r.data.map((x) => ({ k: String(x.kode ?? ''), n: String(x.nama ?? ''), q: Number(x.qty) || 0 })) };
   }
   if (jenis === 'sa_ajuan') {
-    // PSS_baca_ (file 7): baris PRODUKSI_SESUAI_LOG untuk nomor-nomor ajuan itu.
     const nos: string[] = Array.isArray(d.no) ? d.no.map(String) : [];
     if (!nos.length) return [];
     const r = await sb.from('produksi_sesuai_log').select('no,bagian,kode,nama_barang,warna,stok_sistem,hasil_hitung,selisih,alasan,pengaju,status,baris_sheet,id')
@@ -141,8 +164,23 @@ function teksAjuan(list: any[]) {
 // deno-lint-ignore no-explicit-any
 async function kerjakan(jenis: string, d: any, bahan?: any): Promise<string> {
   const a: Asal = d && d.asal ? d.asal : null;
-  if (jenis === 'tg') return await kirim(CHAT, denganAsal(String(d.teks || ''), a), true);
+  if (jenis === 'tg') {
+    const teks = String(d.teks || ''), tb = tebak(teks);
+    // Pesan bertombol dikirim tanpa baris asal (sama dengan TGA_kirimTombol_ Apps Script).
+    if (tb) return await kirimTombol(teks, tb.jenis, [tb.no]);
+    return await kirim(CHAT, denganAsal(teks, a), true);
+  }
+  if (jenis === 'tg_tombol') {
+    const teks = String(d.teks || ''), nos: string[] = (Array.isArray(d.nos) ? d.nos : []).map(String).filter(Boolean).slice(0, 200);
+    return await kirimTombol(teks, String(d.jenis || ''), nos);
+  }
   if (jenis === 'pl_viory') return await kirim(VIORY, String(d.teks || ''), false);
+  if (jenis === 'pl_mike') return await kirim(MIKE, String(d.teks || ''), false);
+  if (jenis === 'pl_gm') {
+    const c = await gm();
+    if (!c) return 'lewat: akun Telegram manajemen belum terdaftar (/daftar)';
+    return await kirim(c, String(d.teks || '') + '\n\n<i>' + jam() + '</i>', false);
+  }
   if (jenis === 'tg_kirim') {
     const p = d.p || {}, nm = await nama();
     const items = Array.isArray(p.items) ? p.items : [];
@@ -170,7 +208,6 @@ async function kerjakan(jenis: string, d: any, bahan?: any): Promise<string> {
       '\nCek di Master Data > Persetujuan > Pantau pengiriman.\n\n<i>' + jam() + '</i>', a), true);
   }
   if (jenis === 'produksi_masuk') {
-    // PLG_tg_ (file 30): laporan produksi otomatis masuk Gudang Utama.
     const items = Array.isArray(d.items) ? d.items : [];
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d.tanggal || ''));
     // deno-lint-ignore no-explicit-any
@@ -190,7 +227,6 @@ async function kerjakan(jenis: string, d: any, bahan?: any): Promise<string> {
     // deno-lint-ignore no-explicit-any
     const baris = o.items.map((it: any) => {
       const s = String(it.k || '').trim().toUpperCase(), i = s.indexOf('-'), w = i === -1 ? '' : s.slice(i + 1);
-      // Nama di ORDER_LOG biasanya sudah memuat warna ("... - BLACK"); jangan ditulis dua kali.
       const n = String(it.n), sudah = w && n.toUpperCase().endsWith(w);
       return esc(n + (w && !sudah ? ' ' + w : '')) + ' — ' + fmt(Number(it.q) || 0) + ' pcs';
     });
@@ -213,21 +249,19 @@ Deno.serve(async (req) => {
   const k = tanda ? await sb.from('robot_kunci').select('kunci').eq('id', 1).maybeSingle() : null;
   if (!(k && k.data && k.data.kunci === tanda)) return json({ ok: false, pesan: 'Tidak diizinkan.' }, 403);
   if (!TOKEN || !CHAT) return json({ ok: false, pesan: 'Rahasia TG_TOKEN / TG_CHAT belum diisi; antrean dibiarkan untuk Apps Script.' });
-  namaBarang = null;
-  // Pesan untuk Viory hanya diambil kalau chat Viory sudah diisi; kalau belum, tetap dikirim Apps Script.
-  const jenis = JENIS.filter((j) => j !== 'pl_viory' || VIORY);
+  namaBarang = null; chatGm = null;
+  // Pesan pribadi tanpa rahasia chat (TG_VIORY / TG_CHAT_MIKE) dibiarkan untuk Apps Script.
+  const jenis = JENIS.filter((j) => (j !== 'pl_viory' || VIORY) && (j !== 'pl_mike' || MIKE));
   const r = await sb.from('efek_antre').select('id,jenis,data,dibuat').is('selesai', null).in('jenis', jenis).order('id').limit(30);
   const hasil: string[] = [];
   for (const x of r.data || []) {
-    if (x.jenis === 'tg' && bertombol(String((x.data && x.data.teks) || ''))) continue;   // tetap untuk Apps Script (tombol ACC)
     const bahan = await siapkan(x.jenis, x.data || {});
     if (bahan === null) { hasil.push(x.jenis + ' #' + x.id + ': belum, data belum ada'); continue; }
-    // Diambil dulu (selesai diisi) supaya tidak dikerjakan dua kali oleh Apps Script / panggilan lain.
     const a = await sb.from('efek_antre').update({ selesai: new Date().toISOString(), hasil: 'proses' }).eq('id', x.id).is('selesai', null).select('id');
     if (a.error || !a.data || !a.data.length) continue;
     let ket = 'ok';
     try { ket = await kerjakan(x.jenis, x.data || {}, bahan); } catch (e) { ket = 'gagal: ' + String((e as Error)?.message || e).slice(0, 200); }
-    if (ket === 'ok' || /^lewat: pesan sama/.test(ket)) ket = ket === 'ok' ? 'ok (Supabase)' : ket;
+    if (ket === 'ok') ket = 'ok (Supabase)';
     await sb.from('efek_antre').update({ hasil: ket }).eq('id', x.id);
     hasil.push(x.jenis + ' #' + x.id + ': ' + ket);
   }
