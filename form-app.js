@@ -1391,9 +1391,27 @@
       var ket = dok.querySelector('#p2 .card .kecil');
       if (ket && !ket.getAttribute('data-pkg')) { ket.setAttribute('data-pkg', '1'); ket.textContent = 'Angka mengikuti periode di atas. Hasil produksi otomatis masuk stok Gudang Utama. Cat dirinci per warna.'; }
     }
-    var tunda = null, obs = new (dok.defaultView || window).MutationObserver(function () { clearTimeout(tunda); tunda = setTimeout(rapikan, 80); });
+    // 9 Nov 2026 (sql/193): botol, Seal Filler, amplop & Kenka Bond jerigen terpotong otomatis dari laporan produksi.
+    // Menu "Botol & stiker" tinggal untuk stiker & heat shrink: roll = catat 1 saat membuka roll baru, lembar = jumlah lembar terpakai.
+    function rapikanBotol() {
+      var v5 = dok.getElementById('v5'); if (!v5) return;
+      var bt = dok.querySelector('#bhSeg button[data-bj="Botol"]'), sk = dok.querySelector('#bhSeg button[data-bj="Stiker"]');
+      if (bt) bt.style.display = 'none';
+      if (sk && !/\bon\b/.test(sk.className)) sk.click();
+      if (sk && sk.textContent !== 'Stiker & heat shrink') sk.textContent = 'Stiker & heat shrink';
+      var judul = v5.querySelector('.card > b'), ket = v5.querySelector('.card > .kecil');
+      if (judul && judul.textContent !== 'Stiker & heat shrink') judul.textContent = 'Stiker & heat shrink';
+      if (ket && !ket.getAttribute('data-komp')) {
+        ket.setAttribute('data-komp', '1');
+        ket.innerHTML = '<b>Botol tidak perlu dicatat lagi</b>: botol, Seal Filler, amplop, dan Kenka Bond jerigen terpotong otomatis setiap kamu melapor produksi. ' +
+          'Di sini cukup catat <b>stiker roll & heat shrink: isi 1 setiap membuka roll baru</b>, dan <b>stiker lembar: jumlah lembar yang dipakai</b>. Botol rusak / pecah dicatat di menu Rusak.';
+      }
+      var q = dok.getElementById('bhQty'); if (q && q.placeholder !== '1') q.placeholder = '1';
+      var lq = v5.querySelector('label[for="bhQty"]'); if (lq && lq.textContent !== 'Jumlah roll / lembar') lq.textContent = 'Jumlah roll / lembar';
+    }
+    var tunda = null, obs = new (dok.defaultView || window).MutationObserver(function () { clearTimeout(tunda); tunda = setTimeout(function () { rapikan(); rapikanBotol(); }, 80); });
     obs.observe(dok.body, { childList: true, subtree: true });
-    rapikan();
+    rapikan(); rapikanBotol();
   }
 
   function tampil(html, dariSimpanan) {
