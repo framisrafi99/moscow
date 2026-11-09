@@ -81,3 +81,11 @@ begin
 end $$;
 drop trigger if exists hasil_hitung_audit_tg on public.hasil_hitung;
 create trigger hasil_hitung_audit_tg after insert or update of data on public.hasil_hitung for each row when (new.kunci = 'agen:audit') execute function public._tg_audit();
+
+-- Jadwal kirim-telegram juga jalan bila ada antrean pl_gm.
+select cron.alter_job((select jobid from cron.job where jobname='kirim-telegram'), command := $c$
+  select net.http_post(url := 'https://ufhuvwfudblbyrwzugaa.supabase.co/functions/v1/kirim-telegram',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-moscow-robot-kunci', (select kunci from public.robot_kunci where id = 1)),
+    body := '{}'::jsonb, timeout_milliseconds := 60000)
+  where exists (select 1 from public.efek_antre where selesai is null and jenis in ('tg', 'pl_viory', 'tg_kirim', 'terima_selisih', 'produksi_masuk', 'order_status', 'sa_ajuan', 'tg_tombol', 'pl_mike', 'pl_gm'))
+$c$);
