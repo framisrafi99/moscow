@@ -377,7 +377,9 @@
       var oto = r.oto; if (typeof oto === 'string') { try { oto = oto ? JSON.parse(oto) : null; } catch (e) { oto = null; } }
       var st = rapi(r.status, 20);
       tutup[b] = st === 'Ditutup';
-      if (st === 'Ditutup' && Array.isArray(oto)) beku[b] = oto;
+      // Baris terakhir per bulan yang menentukan: bulan yang dibuka lagi tidak boleh tetap memakai potret lama
+      // (dulu potret lama + hitungan langsung bagi hasil terjumlah dua kali saat tutup ulang).
+      if (st === 'Ditutup' && Array.isArray(oto)) beku[b] = oto; else delete beku[b];
     });
     var bln = Object.keys(beku);
     if (bln.length) {
