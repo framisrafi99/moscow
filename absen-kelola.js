@@ -104,10 +104,10 @@
     var hadir = 0, telat = 0, belum = 0, nIzin = 0;
     var baris = aktif.map(function (s) {
       var x = hari[s.id] || {}, m = menit(x.masuk), p = menit(x.pulang), ket = [], l = lokasi(s.lokasi_id);
-      var jm = menit(s.jam_masuk) != null ? menit(s.jam_masuk) : JAM.masuk, jl = menit(s.jam_pulang) != null ? menit(s.jam_pulang) + 20 : JAM.lembur;
+      var jm = menit(s.jam_masuk) != null ? menit(s.jam_masuk) : JAM.masuk, jl = Math.max(m != null ? m : jm, jm) + 480;   // lembur sesudah 8 jam kerja (7 Nov 2026)
       if (x.masuk) hadir++;
       if (m != null && m > jm + JAM.toleransi) { telat++; ket.push('<span class="label no">Telat ' + (m - jm) + ' mnt</span>'); }
-      if (p != null && p > jl) ket.push('<span class="label biru">Lembur ' + (p - jl) + ' mnt</span>');
+      if (p != null && m != null && p > jl) ket.push('<span class="label biru">Lembur ' + (p - jl) + ' mnt</span>');
       var hk = Array.isArray(s.hari_kerja) ? s.hari_kerja : [1, 2, 3, 4, 5, 6], dowT = new Date(String(d.tanggal) + 'T12:00:00').getDay(), bukanKerja = hk.indexOf(dowT) === -1;
       if (!x.masuk && izin[s.id]) { nIzin++; ket.push('<span class="label ok">' + NAMA_IZIN[izin[s.id]] + '</span>'); }
       else if (!x.masuk && bukanKerja) ket.push('<span class="label biru">Libur / WFH</span>');
@@ -125,7 +125,8 @@
       var kr = A.koreksi === s.id;
       return '<tr><td><b>' + esc(s.nama) + '</b><small>' + esc(l ? l.nama : 'Lokasi belum dipilih') + ' · ' + esc(String(s.jam_masuk || '10:00').replace(':', '.')) + '–' + esc(String(s.jam_pulang || '17:00').replace(':', '.')) + '</small></td>' +
         '<td>' + sel(x.masuk, x.masuk_foto, x.masuk_jarak, x.masuk_akurasi) + '</td><td>' + sel(x.pulang, x.pulang_foto, x.pulang_jarak, x.pulang_akurasi) + '</td>' +
-        '<td>' + ket.join(' ') + '</td><td><button type="button" class="tbl kcl" data-koreksi="' + s.id + '">' + (kr ? 'Tutup' : 'Koreksi') + '</button></td></tr>' +
+        '<td>' + ket.join(' ') + '</td><td style="white-space:nowrap"><button type="button" class="tbl kcl" data-koreksi="' + s.id + '">' + (kr ? 'Tutup' : 'Koreksi') + '</button>' +
+        (!x.masuk && !izin[s.id] && !bukanKerja ? ' <button type="button" class="tbl kcl" data-cepat="sakit" data-staf="' + s.id + '" title="Staf konfirmasi sakit">Sakit</button> <button type="button" class="tbl kcl" data-cepat="izin" data-staf="' + s.id + '">Izin</button>' : '') + '</td></tr>' +
         (kr ? '<tr><td colspan="5" style="background:var(--latar)"><div class="ak-f">' +
           '<label>Jam masuk<input type="time" id="krMasuk" value="' + esc(String(x.masuk || '').replace('.', ':')) + '"></label>' +
           '<label>Jam pulang<input type="time" id="krPulang" value="' + esc(String(x.pulang || '').replace('.', ':')) + '"></label>' +
@@ -159,11 +160,20 @@
     return h;
   }
 
+  function formIzin(d) {
+    var aktif = (d.staf || []).filter(function (s) { return s.aktif; }).sort(function (a, b) { return a.nama < b.nama ? -1 : 1; }), h = hariIni();
+    return '<div class="ak-kotak"><b>Catat sakit / izin / cuti untuk staf</b><p class="sb" style="margin:4px 0 10px">Untuk staf yang mengabari lewat WA atau telepon. Langsung disetujui, jadi hari itu tidak dihitung alpa di Payroll (gaji &amp; uang makan tetap dibayar).</p>' +
+      '<div class="ak-f"><label>Staf<select id="icStaf"><option value="">— pilih —</option>' + aktif.map(function (s) { return '<option value="' + s.id + '">' + esc(s.nama) + '</option>'; }).join('') + '</select></label>' +
+      '<label>Jenis<select id="icJenis"><option value="sakit">Sakit</option><option value="izin">Izin</option><option value="cuti">Cuti</option></select></label>' +
+      '<label>Dari<input type="date" id="icMulai" value="' + h + '"></label><label>Sampai<input type="date" id="icSelesai" value="' + h + '"></label>' +
+      '<label style="grid-column:span 2">Keterangan<input type="text" id="icAlasan" maxlength="300" placeholder="mis. demam, kabari lewat WA"></label>' +
+      '<button type="button" class="tbl pri" id="icSimpan"' + (A.sibuk ? ' disabled' : '') + '>Catat</button></div></div>';
+  }
   function tabIzin(d) {
     var daf = d.izin || [];
-    if (!daf.length) return '<div class="ak-kotak"><div class="ksg">Belum ada pengajuan izin, cuti, atau sakit.</div></div>';
+    if (!daf.length) return formIzin(d) + '<div class="ak-kotak"><div class="ksg">Belum ada pengajuan izin, cuti, atau sakit.</div></div>';
     var ST = { menunggu: ['Menunggu', 'w'], disetujui: ['Disetujui', 'ok'], ditolak: ['Ditolak', 'no'] };
-    return '<div class="ak-kotak">' + daf.map(function (i) {
+    return formIzin(d) + '<div class="ak-kotak">' + daf.map(function (i) {
       var s = staf(i.staf_id), st = ST[i.status] || [i.status, 'abu'];
       return '<div class="ak-iz"><div><b>' + esc(s ? s.nama : '?') + '</b> · ' + esc(NAMA_IZIN[i.jenis] || i.jenis) + ' <span class="label ' + st[1] + '">' + st[0] + '</span>' +
         '<small>' + esc(tgl(i.mulai)) + (i.selesai !== i.mulai ? ' – ' + esc(tgl(i.selesai)) : '') + ' · ' + esc(i.alasan) + '</small>' +
@@ -264,6 +274,19 @@
       var lamaM = String(x.masuk || '').replace('.', ':'), lamaP = String(x.pulang || '').replace('.', ':');
       jalankan('absen_koreksi', { p_staf_id: A.koreksi, p_tanggal: A.tanggal, p_masuk: vm === lamaM ? null : vm, p_pulang: vp === lamaP ? null : vp, p_alasan: el.querySelector('#krAlasan').value },
         'Koreksi tersimpan.', function () { A.koreksi = null; });
+    };
+    el.querySelectorAll('[data-cepat]').forEach(function (b) {
+      b.onclick = function () {
+        var j = b.getAttribute('data-cepat'), id = +b.getAttribute('data-staf'), st = staf(id);
+        var c = prompt('Catat ' + NAMA_IZIN[j].toLowerCase() + ' untuk ' + (st ? st.nama : 'staf') + ' tanggal ' + tgl(A.tanggal) + '.\nKeterangan (boleh dikosongkan):', j === 'sakit' ? 'Sakit, kabari manajemen' : '');
+        if (c == null) return;
+        jalankan('absen_izin_catat', { p_staf_id: id, p_jenis: j, p_mulai: A.tanggal, p_selesai: A.tanggal, p_alasan: c }, NAMA_IZIN[j] + ' tercatat.');
+      };
+    });
+    var ic = el.querySelector('#icSimpan');
+    if (ic) ic.onclick = function () {
+      var id = +el.querySelector('#icStaf').value; if (!id) { alert('Pilih staf dulu.'); return; }
+      jalankan('absen_izin_catat', { p_staf_id: id, p_jenis: el.querySelector('#icJenis').value, p_mulai: el.querySelector('#icMulai').value, p_selesai: el.querySelector('#icSelesai').value || el.querySelector('#icMulai').value, p_alasan: el.querySelector('#icAlasan').value }, 'Tercatat.');
     };
     el.querySelectorAll('[data-setuju]').forEach(function (b) {
       b.onclick = function () { jalankan('absen_izin_putus', { p_id: +b.getAttribute('data-setuju'), p_status: 'disetujui', p_catatan: '' }, 'Pengajuan disetujui.'); };
