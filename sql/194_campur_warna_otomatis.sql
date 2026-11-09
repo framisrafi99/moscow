@@ -170,3 +170,11 @@ insert into public.produk_berat (kode_produk, gram_per_pcs, kelompok_warna, baha
 on conflict (kode_produk) do update set gram_per_pcs = excluded.gram_per_pcs, kelompok_warna = excluded.kelompok_warna, bahan_jadi = excluded.bahan_jadi, catatan = excluded.catatan, diubah = now();
 -- (isi lengkap _warna_potong versi ini ada di database; cabang baru di awal fungsi:)
 --   if nullif(pb.bahan_jadi, '') is not null then insert into bahan_warna_log (... dasar = pb.bahan_jadi, dasar_terpakai_gram = qty x gram_per_pcs, kelompok 'Produksi'); return; end if;
+
+-- Berat isi bersih final 9 Nov 2026 (ditimbang manajemen Moscow Supplies):
+update public.produk_berat set gram_per_pcs = v.g, catatan = v.c, diubah = now() from (values
+ ('K007', 250, 'isi 250 g per botol (dikonfirmasi manajemen 9 Nov)'),
+ ('K006', 85, 'perkiraan: 100 g penuh - ±15 g botol+tutup (botol kosong belum bisa ditimbang, stok habis)'),
+ ('M05', 112.2, 'isi bersih: 128 g penuh - 15,8 g botol+tutup (9 Nov)'), ('M06', 1122, 'perkiraan: 10 x isi Water Based 100ml'),
+ ('K017', 101.5, 'isi bersih: 115 g penuh - 13,5 g botol+tutup (9 Nov)'), ('K018', 1015, 'perkiraan: 10 x isi Unyellowing 100ml')) v(k, g, c)
+where kode_produk = v.k;
