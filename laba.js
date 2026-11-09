@@ -43,6 +43,7 @@
       dPend: pend.map(function (x, i) { return { n: x[0], v: x[1], c: WARNA[i % WARNA.length] }; }),
       dKeluar: keluar.map(function (x, i) { return { n: x[0], v: x[1], c: WARNA[i % WARNA.length] }; }),
       bonusBln: bulan.filter(function (m) { return Number(m.bonus); }).map(function (m) { return bln3(m.b) + ' ' + jt(m.bonus).replace(' jt', ''); }).join(' · '),
+      sal: saluran(bulan),
       aset: bulan.reduce(function (a, m) { return a + (Number(m.aset) || 0); }, 0),
       periode: bulan.length ? nmBln(bulan[0].b) + ' – ' + nmBln(bulan[bulan.length - 1].b) + ' ' + String(bulan[bulan.length - 1].b).slice(0, 4) : '',
       dibuat: new Date(lap.dibuat).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -104,6 +105,64 @@
       '<table class="lb-rb"><tbody>' + br('Pendapatan', h.pend) + br('Potongan marketplace', h.pot, '', true) + br('Pembelian barang & bahan', h.beli, '', true) +
       br('Biaya usaha', h.biaya, '', true) + br('Laba usaha', h.usaha, 'sub') + (h.bonus ? br('Bonus direksi', h.bonus, '', true) : '') + br('Laba bersih', h.bersih, 'akhir') +
       '</tbody></table><p class="lb-rb-ket">Penjualan terbesar: ' + top + '</p>';
+  }
+
+
+  // ---------- Penjualan per saluran (penjualan, potongan, diterima bersih) ----------
+  var KEL = [
+    { n: 'Shopee', c: '#E8833A', cocok: /^shopee/i },
+    { n: 'Tokopedia/TikTok', c: '#146C43', cocok: /^tokopedia|tiktok/i },
+    { n: 'Lazada', c: '#6B4FA0', cocok: /^lazada/i },
+    { n: 'Consignment', c: '#1E78A8', cocok: /^consignment/i, anak: true, ket: 'Bagi hasil yang diterima Moscow; bagian toko consignment tidak tercatat.' },
+    { n: 'Toko offline', c: '#0C1F40', cocok: /^toko offline/i, ket: 'Potongan QRIS ±0,3%, tidak dipisahkan.' },
+    { n: 'Reseller & lainnya', c: '#8EA3C4', cocok: /reseller|pembeli lain/i, ket: 'Diskon reseller tidak tercatat terpisah.' }
+  ];
+  function kelOf(nama) { for (var i = 0; i < KEL.length; i++) if (KEL[i].cocok.test(nama)) return i; return KEL.length - 1; }
+  function potKel(nama) { var t = String(nama).replace(/^potongan\s+/i, ''); for (var i = 0; i < 3; i++) if (KEL[i].cocok.test(t)) return i; return -1; }
+  function saluran(bulan) {
+    var bar = KEL.map(function (k) { return { n: k.n, c: k.c, ket: k.ket || '', jual: 0, pot: 0, anak: {}, bln: bulan.map(function () { return { jual: 0, pot: 0 }; }) }; });
+    bulan.forEach(function (m, i) {
+      (m.pend || []).forEach(function (x) { var k = kelOf(x[0]), v = Number(x[1]) || 0; bar[k].jual += v; bar[k].bln[i].jual += v; if (KEL[k].anak) bar[k].anak[x[0]] = (bar[k].anak[x[0]] || 0) + v; });
+      (m.potmp || []).forEach(function (x) { var k = potKel(x[0]), v = Number(x[1]) || 0; if (k < 0) return; bar[k].pot += v; bar[k].bln[i].pot += v; });
+    });
+    var tot = bar.reduce(function (a, b) { return a + b.jual; }, 0);
+    bar.forEach(function (b) { b.bersih = b.jual - b.pot; b.porsi = tot ? b.jual / tot : 0; b.adaPot = KEL.indexOf(KEL.filter(function (k) { return k.n === b.n; })[0]) < 3; });
+    return { daftar: bar.filter(function (b) { return Math.round(b.jual); }), tot: tot };
+  }
+  function tabelSaluran(M) {
+    var S = M.sal, tj = 0, tp = 0;
+    var rows = S.daftar.map(function (b) {
+      tj += b.jual; tp += b.pot;
+      var r = '<tr><td><i class="lb-tt" style="background:' + b.c + '"></i>' + esc(b.n) + (b.ket ? '<small>' + esc(b.ket) + '</small>' : '') + '</td>' +
+        '<td class="angka">' + jtA(b.jual) + '</td><td class="angka">' + (b.adaPot ? '−' + jtA(b.pot) : '–') + '</td><td class="angka"><b>' + jtA(b.bersih) + '</b></td>' +
+        '<td class="angka">' + (b.adaPot ? pr(b.pot, b.jual) : '–') + '</td><td class="angka">' + pr(b.jual, S.tot) + '</td></tr>';
+      Object.keys(b.anak).forEach(function (n) { r += '<tr class="anak"><td>' + esc(n.replace(/^Consignment\s+/i, '')) + '</td><td class="angka">' + jtA(b.anak[n]) + '</td><td class="angka">–</td><td class="angka">' + jtA(b.anak[n]) + '</td><td></td><td class="angka">' + pr(b.anak[n], S.tot) + '</td></tr>'; });
+      return r;
+    }).join('');
+    return '<table class="lb-sl"><thead><tr><th>Saluran</th><th>Penjualan</th><th>Potongan</th><th>Diterima bersih</th><th>% potongan</th><th>Bagian</th></tr></thead><tbody>' + rows +
+      '<tr class="akhir"><td>Total</td><td class="angka">' + jtA(tj) + '</td><td class="angka">−' + jtA(tp) + '</td><td class="angka">' + jtA(tj - tp) + '</td><td class="angka">' + pr(tp, tj) + '</td><td class="angka">100%</td></tr></tbody></table>';
+  }
+  function grafikSaluran(M, interaktif, sempit) {
+    var D = M.sal.daftar, n = M.bulan.length || 1, W = sempit ? 360 : 660, Hh = sempit ? 230 : 250, kiri = 46, kanan = 8, atas = 12, bawah = 30;
+    var totB = M.bulan.map(function (m, i) { return D.reduce(function (a, b) { return a + b.bln[i].jual; }, 0); });
+    var maks = Math.max.apply(null, totB.concat([1])), langkah = 100e6; while (maks / langkah > 6) langkah *= 2; maks = Math.ceil(maks / langkah) * langkah;
+    var tinggi = Hh - atas - bawah, y = function (v) { return atas + (maks - v) / maks * tinggi; }, lk = (W - kiri - kanan) / n, bw = Math.min(34, lk * 0.62), s = '';
+    for (var g = 0; g <= maks + 1; g += langkah) s += '<line x1="' + kiri + '" x2="' + (W - kanan) + '" y1="' + y(g).toFixed(1) + '" y2="' + y(g).toFixed(1) + '" class="' + (g ? 'lb-grid' : 'lb-nol') + '"/><text x="' + (kiri - 8) + '" y="' + (y(g) + 4).toFixed(1) + '" text-anchor="end" class="lb-sumbu">' + Math.round(g / 1e6) + '</text>';
+    M.bulan.forEach(function (m, i) {
+      var cx = kiri + lk * (i + 0.5), dasar = 0, tumpuk = '';
+      D.forEach(function (b, k) { var v = b.bln[i].jual; if (v <= 0) return; tumpuk += '<rect class="lb-st" data-k="' + k + '" x="' + (cx - bw / 2).toFixed(1) + '" y="' + y(dasar + v).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(0.6, y(dasar) - y(dasar + v)).toFixed(1) + '" fill="' + b.c + '"/>'; dasar += v; });
+      s += '<g class="lb-kol2" data-m="' + i + '"' + (interaktif ? ' tabindex="0" role="button" aria-label="' + esc(nmBln(m.b) + ': penjualan ' + jt(totB[i])) + '"' : '') + '><rect class="lb-hit" x="' + (cx - lk / 2).toFixed(1) + '" y="' + atas + '" width="' + lk.toFixed(1) + '" height="' + (tinggi + bawah) + '"/>' + tumpuk +
+        '<text x="' + cx.toFixed(1) + '" y="' + (Hh - 10) + '" text-anchor="middle" class="lb-bl3">' + bln3(m.b) + '</text></g>';
+    });
+    var lg = '<div class="lb-lgk lb-lgs">' + D.map(function (b, k) { return interaktif ? '<button type="button" data-k="' + k + '"><i style="background:' + b.c + '"></i>' + esc(b.n) + '</button>' : '<span><i style="background:' + b.c + '"></i>' + esc(b.n) + '</span>'; }).join('') + '</div>';
+    return '<svg class="lb-bt lb-sgr" viewBox="0 0 ' + W + ' ' + Hh + '" role="img" aria-label="Grafik penjualan per bulan per saluran, juta rupiah">' + s + '</svg>' + lg;
+  }
+  function rinciSaluranBulan(M, i) {
+    var m = M.bulan[i]; if (!m) return '';
+    var D = M.sal.daftar, tj = 0, tp = 0;
+    var rows = D.map(function (b) { var x = b.bln[i]; tj += x.jual; tp += x.pot; if (!Math.round(x.jual)) return ''; return '<tr><td><i class="lb-tt" style="background:' + b.c + '"></i>' + esc(b.n) + '</td><td class="r angka">' + jtA(x.jual) + '</td><td class="r angka">' + (b.adaPot ? '−' + jtA(x.pot) : '–') + '</td><td class="r angka"><b>' + jtA(x.jual - x.pot) + '</b></td></tr>'; }).join('');
+    return '<div class="lb-rb-kp"><b>' + esc(nmBln(m.b) + ' ' + m.b.slice(0, 4)) + '</b><span>juta rupiah</span></div><table class="lb-rb lb-rb4"><thead><tr><th></th><th>Jual</th><th>Potongan</th><th>Bersih</th></tr></thead><tbody>' + rows +
+      '<tr class="akhir"><td>Total</td><td class="r angka">' + jtA(tj) + '</td><td class="r angka">−' + jtA(tp) + '</td><td class="r angka">' + jtA(tj - tp) + '</td></tr></tbody></table>';
   }
 
   // ---------- Tangga ringkasan & tabel per bulan (dipakai layar dan PDF) ----------
@@ -179,6 +238,14 @@
     '.lb-bl th:first-child,.lb-bl td:first-child{text-align:left;position:sticky;left:0;background:var(--kartu)}.lb-bl thead th{font-size:12px;color:#fff;background:var(--lbN)}' +
     '.lb-bl thead th:first-child{background:var(--lbN)}.lb-bl tr.sub td{font-weight:800;background:var(--latar)}.lb-bl tr.akhir td{font-weight:800;border-top:2px solid var(--lbN)}.lb-bl td.neg{color:#B42318}' +
     '.lb-cat{margin:0;padding-left:18px;font-size:13.5px;color:var(--teks2);display:flex;flex-direction:column;gap:6px}' +
+    '.lb-sl{width:100%;border-collapse:collapse;font-size:13.5px;min-width:620px}.lb-sl th,.lb-sl td{padding:9px 8px;border-bottom:1px solid var(--garis2);text-align:right;white-space:nowrap;vertical-align:top}' +
+    '.lb-sl th:first-child,.lb-sl td:first-child{text-align:left;white-space:normal}.lb-sl thead th{font-size:12px;color:#fff;background:var(--lbN)}.lb-sl td small{display:block;font-size:11.5px;color:var(--abu);margin:2px 0 0 18px}' +
+    '.lb-sl tr.anak td{padding:3px 8px;font-size:12.5px;color:var(--teks2);border-bottom:0}.lb-sl tr.anak td:first-child{padding-left:26px}.lb-sl tr.akhir td{font-weight:800;border-top:2px solid var(--lbN)}' +
+    '.lb-tt{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;vertical-align:0}' +
+    '.lb-kol2{cursor:pointer;outline:none}.lb-kol2:hover .lb-hit,.lb-kol2:focus-visible .lb-hit{fill:rgba(30,120,168,.06)}.lb-kol2.on .lb-hit{fill:rgba(30,120,168,.12)}.lb-kol2.on .lb-bl3{fill:var(--lbN);font-weight:800}' +
+    '.lb-st{transition:opacity .15s}.lb-sgr.fokus .lb-st{opacity:.18}.lb-sgr.fokus .lb-st.on{opacity:1}' +
+    '.lb-lgs button{border:0;background:transparent;font:inherit;font-size:12.5px;color:var(--teks2);padding:4px 6px;border-radius:7px;cursor:pointer}.lb-lgs button:hover,.lb-lgs button.on{background:var(--latar);color:var(--tinta)}' +
+    '.lb-rb4 th{font-size:11.5px;color:var(--abu);text-align:right;padding:4px 0 6px;font-weight:600}.lb-rb4 td{padding:5px 0 5px 8px}.lb-rb4 td:first-child{padding-left:0}' +
     '@media (max-width:860px){.lb-gr,.lb-dw{grid-template-columns:minmax(0,1fr)}}' +
     '@media (max-width:620px){.lb-kpi{grid-template-columns:minmax(0,1fr)}.lb-kop{padding:18px}.lb-kop h2{font-size:20px}.lb-kop .tb{width:100%}.lb-kop .tb button{flex:1}' +
     '.lb-dk{grid-template-columns:minmax(0,1fr);justify-items:center}.lb-dk .lb-lg{width:100%}}';
@@ -195,6 +262,8 @@
       '<div class="lb-rbx" id="lbRinci"></div></div></div>';
     h += '<div class="lb-dw"><div class="cd"><div class="kpl"><h3>Pendapatan per saluran</h3><span class="sb">klik untuk melihat bagiannya</span></div><div class="lb-dk">' + donat(M.dPend, 'lbD1', true) + legenda(M.dPend, 'lbL1', true) + '</div></div>' +
       '<div class="cd"><div class="kpl"><h3>Ke mana uangnya keluar</h3><span class="sb">di luar bonus direksi</span></div><div class="lb-dk">' + donat(M.dKeluar, 'lbD2', true) + legenda(M.dKeluar, 'lbL2', true) + '</div></div></div>';
+    h += '<div class="cd"><div class="kpl"><h3>Penjualan per saluran</h3><span class="sb">juta rupiah · ' + esc(M.periode) + '</span></div><div class="gulir">' + tabelSaluran(M) + '</div>' +
+      '<div class="lb-gr" style="margin-top:6px"><div><div class="sb" style="margin-bottom:6px">Penjualan per bulan · klik bulan untuk rinciannya, klik nama saluran untuk menyorot</div>' + grafikSaluran(M, true, M.sempit) + '</div><div class="lb-rbx" id="lbRinci2"></div></div></div>';
     h += '<div class="cd"><h3>Ringkasan ' + M.bulan.length + ' bulan</h3>' + tangga(M) + '</div>';
     h += '<div class="cd"><div class="kpl"><h3>Per bulan</h3><span class="sb">dalam juta rupiah</span></div><div class="gulir">' + tabelBulan(M) + '</div>' +
       '<p class="sb" style="margin:0">Laba per bulan belum memasukkan kenaikan stok (' + jt(M.dStok, true) + '), yang hanya bisa dihitung untuk seluruh periode. Pembelian aset/peralatan ' + jt(M.aset) + ' tidak dihitung sebagai biaya.</p></div>';
@@ -248,6 +317,10 @@
       '.lb-bl th:first-child,.lb-bl td:first-child{text-align:left}.lb-bl thead th{background:#0C1F40;color:#fff}.lb-bl tr.sub td{font-weight:800;background:#F4F7FA}' +
       '.lb-bl tr.akhir td{font-weight:800;border-top:1.5px solid #0C1F40}.lb-bl td.neg{color:#B42318}' +
       '.lb-cat{margin:0;padding-left:16px;font-size:8.5pt;color:#344154}.lb-cat li{margin:2px 0}.ket{font-size:8pt;color:#5A6677;margin:4px 0 0}' +
+      '.lb-sl{width:100%;border-collapse:collapse;font-size:9pt}.lb-sl th,.lb-sl td{padding:5px 6px;border-bottom:1px solid #EEF2F6;text-align:right;white-space:nowrap;vertical-align:top}' +
+      '.lb-sl th:first-child,.lb-sl td:first-child{text-align:left;white-space:normal}.lb-sl thead th{background:#0C1F40;color:#fff;font-size:8.5pt}.lb-sl td small{display:block;font-size:7.5pt;color:#5A6677;margin-left:16px}' +
+      '.lb-sl tr.anak td{padding:2px 6px;font-size:8.5pt;color:#344154;border-bottom:0}.lb-sl tr.anak td:first-child{padding-left:22px}.lb-sl tr.akhir td{font-weight:800;border-top:1.5px solid #0C1F40}' +
+      '.lb-tt{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px}.lb-st{}.lb-lgs{display:flex;flex-wrap:wrap;gap:12px;font-size:8.5pt;color:#344154}.lb-lgs i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}' +
       '.hal{break-before:page}.kaki{margin-top:14px;padding-top:6px;border-top:1px solid #E2E7EE;font-size:7.5pt;color:#5A6677;display:flex;justify-content:space-between}';
     var kaki = '<div class="kaki"><span>Moscow Supplies · ' + esc(PT) + '</span><span>Laporan Laba Bersih ' + esc(M.periode) + ' · disusun ' + esc(M.dibuat) + '</span></div>';
     return '<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Laporan Laba Bersih Moscow Supplies ' + esc(M.periode) + '</title><base href="' + esc(asal) + '">' +
@@ -260,6 +333,8 @@
       '<div class="lgk"><span><i style="background:#0C1F40"></i>Laba usaha</span><span><i style="background:#1E78A8"></i>Laba bersih</span><span><i style="background:#B42318;border-radius:50%"></i>Bulan ada bonus direksi</span></div>' +
       '<div class="dw"><div><h2>Pendapatan per saluran</h2><div class="dk">' + donat(M.dPend, 'p1', false) + legenda(M.dPend, 'q1', false) + '</div></div>' +
       '<div><h2>Ke mana uangnya keluar</h2><div class="dk">' + donat(M.dKeluar, 'p2', false) + legenda(M.dKeluar, 'q2', false) + '</div></div></div>' + kaki +
+      '<div class="hal"></div><h2>Penjualan per saluran (juta rupiah)</h2>' + tabelSaluran(M) +
+      '<h2>Penjualan per bulan per saluran (juta rupiah)</h2>' + grafikSaluran(M, false, false) + kaki +
       '<div class="hal"></div><h2>Ringkasan ' + M.bulan.length + ' bulan</h2>' + tangga(M) + kaki +
       '<div class="hal"></div><h2>Per bulan (juta rupiah)</h2>' + tabelBulan(M) +
       '<p class="ket">Laba per bulan belum memasukkan kenaikan stok (' + jt(M.dStok, true) + '), yang hanya bisa dihitung untuk seluruh periode. Pembelian aset/peralatan ' + jt(M.aset) + ' tidak dihitung sebagai biaya.</p>' +
@@ -316,6 +391,19 @@
       g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pilihBulan(Number(g.getAttribute('data-m'))); } });
     });
     pilihBulan(M.H.length - 1);
+    var pilihB2 = function (i) { el.querySelectorAll('.lb-kol2').forEach(function (g) { g.classList.toggle('on', Number(g.getAttribute('data-m')) === i); }); var r = el.querySelector('#lbRinci2'); if (r) r.innerHTML = rinciSaluranBulan(M, i); };
+    el.querySelectorAll('.lb-kol2').forEach(function (g) {
+      g.addEventListener('click', function () { pilihB2(Number(g.getAttribute('data-m'))); });
+      g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pilihB2(Number(g.getAttribute('data-m'))); } });
+    });
+    pilihB2(M.H.length - 1);
+    var sorot = -1, sgr = el.querySelector('.lb-sgr');
+    el.querySelectorAll('.lb-lgs button').forEach(function (b) { b.addEventListener('click', function () {
+      var k = Number(b.getAttribute('data-k')); sorot = sorot === k ? -1 : k;
+      sgr.classList.toggle('fokus', sorot > -1);
+      sgr.querySelectorAll('.lb-st').forEach(function (r) { r.classList.toggle('on', Number(r.getAttribute('data-k')) === sorot); });
+      el.querySelectorAll('.lb-lgs button').forEach(function (x) { x.classList.toggle('on', Number(x.getAttribute('data-k')) === sorot); });
+    }); });
     pasangDonat(el, M.dPend, 'lbD1', 'lbL1'); pasangDonat(el, M.dKeluar, 'lbD2', 'lbL2');
     el.querySelectorAll('[data-lbx]').forEach(function (b) { b.onclick = function () { if (b.getAttribute('data-lbx') === 'pdf') unduhPdf(M, b); else unduhCsv(M); }; });
   }
