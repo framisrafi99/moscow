@@ -36,3 +36,22 @@ begin
 end $$;
 revoke all on function public.peringatan_tanggapi(bigint, text, text) from public, anon;
 grant execute on function public.peringatan_tanggapi(bigint, text, text) to authenticated;
+
+-- Telegram (grup Pemberitahuan) setiap ada peringatan darurat baru, dan saat peringatan darurat selesai ditangani.
+create or replace function public._gm_tindakan_tg()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare teks text;
+begin
+  if new.status = 'buka' and new.prioritas <= 1 and (tg_op = 'INSERT' or old.prioritas > 1 or old.status <> 'buka') then
+    teks := '🚨 <b>PERINGATAN DARURAT</b>' || E'\n' || public._tg_esc(new.judul) ||
+      case when coalesce(new.ket, '') <> '' then E'\n\n' || public._tg_esc(left(new.ket, 900)) else '' end ||
+      case when new.tenggat is not null then E'\n\nTenggat: ' || to_char(new.tenggat, 'DD/MM/YYYY') else '' end ||
+      E'\n\n<i>Beri tanggapan di aplikasi Kendali Bisnis › Peringatan darurat.</i>';
+  elsif tg_op = 'UPDATE' and old.status = 'buka' and new.status = 'selesai' and old.prioritas <= 1 then
+    teks := '✅ <b>Peringatan darurat selesai ditangani</b>' || E'\n' || public._tg_esc(new.judul);
+  end if;
+  if teks is not null then insert into efek_antre (jenis, data) values ('tg', jsonb_build_object('teks', teks)); end if;
+  return new;
+end $$;
+drop trigger if exists gm_tindakan_tg on public.gm_tindakan;
+create trigger gm_tindakan_tg after insert or update of status, prioritas on public.gm_tindakan for each row execute function public._gm_tindakan_tg();
