@@ -146,3 +146,13 @@ end $$;
 revoke all on function public._bbk_simpan_baris_inti(text, text, text, jsonb, jsonb, jsonb, text) from public, anon, authenticated;
 revoke all on function public.bbk_simpan_baris(text, text, text, jsonb, jsonb, jsonb, text) from public, anon;
 grant execute on function public.bbk_simpan_baris(text, text, text, jsonb, jsonb, jsonb, text) to authenticated;
+
+-- Koreksi 9 Nov 2026: angka timbangan di atas = botol penuh. Isi bersih = penuh - berat botol + tutup
+-- (30ml 7,2 g; 60ml 14,3 g; 100ml 15,8 g).
+update public.produk_berat set gram_per_pcs = v.g, catatan = v.c, diubah = now() from (values
+ ('M02', 32.8, 'isi bersih: 40 g penuh - 7,2 g botol+tutup (9 Nov)'), ('M02N30', 32.8, 'sama dengan Leather 30ml'), ('M02P30', 32.8, 'sama dengan Leather 30ml'),
+ ('M03', 76.5, 'isi bersih: 90,8 g penuh - 14,3 g botol+tutup (9 Nov)'), ('M03N60', 76.5, 'sama dengan Leather 60ml'), ('M03P60', 76.5, 'sama dengan Leather 60ml'),
+ ('M04', 109.2, 'isi bersih: 125 g penuh - 15,8 g botol+tutup (9 Nov)'), ('M01', 1092, 'perkiraan: 10 x isi Leather 100ml'),
+ ('M05', 109.2, 'perkiraan: sama dengan Leather 100ml'), ('M06', 1092, 'perkiraan: 10 x isi Water Based 100ml')) v(k, g, c)
+where kode_produk = v.k;
+-- Finisher 60ml: 79 g penuh -> isi ±64,7 g (belum dipakai).
