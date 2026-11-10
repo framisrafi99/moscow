@@ -104,6 +104,7 @@
       <div id="accRiwayat"><div class="ksg">Memuat…</div></div>
     </div>
   </section>
+  <section data-bagian="iklan"><div id="isiIklan"><div class="ksg">Memuat data iklan…</div></div></section>
   <section data-bagian="laba"><div id="isiLaba"><div class="ksg">Memuat laporan laba…</div></div></section>
   <section data-bagian="hpp">
     <div class="cd">
@@ -123,6 +124,7 @@
 <script src="akun.js?v=6"></script>
 <script src="darurat.js?v=1"></script>
 <script src="laba.js?v=5"></script>
+<script src="iklan.js?v=1"></script>
 <script>
 (function () {
   var M = Moscow, sb = M.sb, esc = M.esc;
@@ -137,8 +139,8 @@
     aplikasi: 'KENDALI BISNIS', masukJudul: 'Kendali Bisnis', masukTeks: 'Ringkasan usaha, laporan bulanan, dan HPP Moscow Supplies. Masuk memakai akun Google yang sudah didaftarkan.',
     izin: function (ctx) { return ['manajemen', 'kendali_bisnis', 'accounting'].indexOf(ctx.peran) > -1 ? true : (ctx.peran ? 'Akun ' + ctx.email + ' tidak punya akses ke Kendali Bisnis.' : false); },
     bawah: ['beranda', 'darurat', 'acc', 'laba', 'lain'],
-    menu: [{ k: 'beranda', nm: 'Beranda' }, { k: 'darurat', nm: 'Peringatan darurat', ik: 'laporan', pendek: 'Darurat' }, { k: 'acc', nm: 'ACC Pengajuan', ik: 'setuju', pendek: 'ACC' }, { k: 'laporan', nm: 'Laporan', judul: 'Laporan bulanan' }, { k: 'laba', nm: 'Laba bersih', ik: 'uang', judul: 'Laba bersih Januari–Oktober 2026', pendek: 'Laba' }, { k: 'hpp', nm: 'HPP & Harga', ik: 'harga' }],
-    pindah: function (k) { document.documentElement.classList.toggle('m-bx', k === 'beranda'); if (k === 'darurat') bukaDarurat(); if (k === 'hpp' && !barang) muatHpp(); if (k === 'acc') muatAcc(); if (k === 'laba' && window.LabaBersih) LabaBersih.muat($('isiLaba'), sb); },
+    menu: [{ k: 'beranda', nm: 'Beranda' }, { k: 'darurat', nm: 'Peringatan darurat', ik: 'laporan', pendek: 'Darurat' }, { k: 'acc', nm: 'ACC Pengajuan', ik: 'setuju', pendek: 'ACC' }, { k: 'laporan', nm: 'Laporan', judul: 'Laporan bulanan' }, { k: 'laba', nm: 'Laba bersih', ik: 'uang', judul: 'Laba bersih Januari–Oktober 2026', pendek: 'Laba' }, { k: 'iklan', nm: 'Iklan', ik: 'dasbor', judul: 'Pemantauan iklan Shopee & TikTok', pendek: 'Iklan' }, { k: 'hpp', nm: 'HPP & Harga', ik: 'harga' }],
+    pindah: function (k) { document.documentElement.classList.toggle('m-bx', k === 'beranda'); if (k === 'darurat') bukaDarurat(); if (k === 'hpp' && !barang) muatHpp(); if (k === 'acc') muatAcc(); if (k === 'laba' && window.LabaBersih) LabaBersih.muat($('isiLaba'), sb); if (k === 'iklan' && window.Iklan) Iklan.muat($('isiIklan'), sb); },
     siap: function (ctx) {
       KB.email = String(ctx.email || '').toLowerCase(); KB.peran = ctx.peran === 'manajemen' ? 'Manajemen' : 'Kendali Bisnis'; var um = (ctx.sesi && ctx.sesi.user && ctx.sesi.user.user_metadata) || {}; KB.nama = um.full_name || um.name || '';
       M.aksi([{ nm: 'Muat ulang', ik: 'muat', klik: function () { muatSemua(); } }]);
@@ -155,6 +157,7 @@
       muatLaporan(); gambarBeranda(); muatAcc(); hitungDarurat();
       if (M.aktif() === 'darurat') bukaDarurat();
       if (M.aktif() === 'laba' && window.LabaBersih) LabaBersih.muat($('isiLaba'), sb);
+      if (M.aktif() === 'iklan' && window.Iklan) Iklan.muat($('isiIklan'), sb);
     }
   });
 
