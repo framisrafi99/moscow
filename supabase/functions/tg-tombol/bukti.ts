@@ -487,6 +487,16 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
         kategori = katInv;
         b = await ubah(id, { baca: r, kategori: katInv, keterangan: t(ketGabung(sib.baca, r, nama, nominal, Number(sib.nominal)).replace(/ \[Telegram: [^\]]*\]$/, ''), 150),
           catatan: (b.catatan ? b.catatan + ' ' : '') + '📎 Invoice terlampir (bukti #' + sib.id + ').' });
+      } else if (inv) {
+        // 10 Nov 2026: invoice yang datang lebih dulu jangan langsung memunculkan pertanyaan. Tunggu sebentar (maks ±45 detik):
+        // kalau bukti transfernya menyusul, kartu transfer yang mencatat dan invoice ini otomatis jadi lampiran (tidak ditanya).
+        await tampil(b, '📎 <b>Invoice dari ' + esc(nama) + '</b> · ' + rp(nominal) + '\n⏳ Menunggu bukti transfernya. Kalau dikirim bersamaan, keduanya digabung jadi satu catatan.');
+        for (let i = 0; i < 11; i++) {
+          await new Promise((s) => setTimeout(s, 4000));
+          const kini = (await sb.from('bb_bukti').select('status,baca').eq('id', id).single()).data;
+          if (!kini || kini.status === 'sama' || (kini.baca && kini.baca.lampiran_untuk)) return;   // sudah digabung oleh bukti transfer
+        }
+        b = (await sb.from('bb_bukti').select('*').eq('id', id).single()).data || b;
       }
     }
     // pindah dana antar akun Moscow (PT -> Belanja, Belanja -> ShopeePay / Kas): dicatat sebagai Pindah, bukan pengeluaran
