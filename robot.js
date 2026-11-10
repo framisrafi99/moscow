@@ -22,7 +22,13 @@
   function tgl(v) { if (v instanceof Date) return window.Lembar.format(v, 'yyyy-MM-dd'); var s = rapi(v, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : ''; }
   function kodeDasar(k) { return String(k).trim().toUpperCase().split('-')[0]; }
   function bawaan(kel, k, asal) {
-    if (kel === 'Barang jualan') return /lokal/i.test(asal || '') ? { lead: 5, cad: 7, siklus: 14, sumber: 'lokal' } : { lead: 105, cad: 7, siklus: 30, sumber: 'impor' };
+    // 10 Nov 2026: asal dari daftar barang impor manajemen (tabel barang_impor): impor = selalu impor (105 hari),
+    // campuran = kadang impor kadang lokal (ikut PO terakhir; belum ada PO = dianggap bisa beli lokal), selain itu lokal.
+    if (kel === 'Barang jualan') {
+      if (/campuran/i.test(asal || '')) return /impor/i.test(asal) ? { lead: 105, cad: 7, siklus: 30, sumber: 'impor/lokal (PO terakhir impor)' }
+        : { lead: 5, cad: 7, siklus: 14, sumber: /lokal/i.test(asal) ? 'impor/lokal (PO terakhir lokal)' : 'impor/lokal' };
+      return /lokal/i.test(asal || '') ? { lead: 5, cad: 7, siklus: 14, sumber: 'lokal' } : { lead: 105, cad: 7, siklus: 30, sumber: 'impor' };
+    }
     if (kel === 'Botol & stiker') return /^(BT2|BT3)$/.test(k) ? { lead: 90, cad: 7, siklus: 30, sumber: 'impor Cina' } : { lead: 4, cad: 7, siklus: 14, sumber: 'lokal' };
     return { lead: 5, cad: 7, siklus: 14, sumber: 'lokal' };
   }
@@ -55,7 +61,8 @@
       semua(sb, 'acc_log', 'id,baris_sheet,tanggal,kategori,keterangan,nominal,status'),
       semua(sb, 'pengadaan_setelan', 'id,baris_sheet,kode,waktu_tunggu,stok_cadangan,beli_untuk,catatan'),
       Promise.all(toko.map(function (n) { return sb.rpc('toko_stok_hitung', { p_toko: n }); })),
-      sb.from('hasil_hitung').select('data').eq('kunci', 'md:pengadaan').maybeSingle()
+      sb.from('hasil_hitung').select('data').eq('kunci', 'md:pengadaan').maybeSingle(),
+      sb.from('barang_impor').select('kode,asal')
     ]);
     var H = h[0], A = h[1].A, L = h[2], lama = h[7] && h[7].data ? h[7].data.data : null;
     var BB = B.buat(L), PR = P.buat(L), PG = window.Pengadaan.buat(L);
@@ -99,6 +106,17 @@
           o.items.forEach(function (it) { var s = Math.max(0, it.q - it.d); if (s) transit[it.k] = (transit[it.k] || 0) + s; });
         });
       }
+      // daftar barang impor manajemen (barang_impor); kalau tabel belum bisa dibaca, pakai asal PO terakhir seperti sebelumnya
+      var daftar = null, bi = h[8];
+      if (bi && !bi.error && Array.isArray(bi.data) && bi.data.length) { daftar = {}; bi.data.forEach(function (r) { daftar[String(r.kode).trim().toUpperCase()] = r.asal; }); }
+      var asalBarang = function (k) {
+        var po = asal[k] || '';
+        if (!daftar) return po;
+        var d = daftar[String(k).trim().toUpperCase()];
+        if (d === 'impor') return 'Impor';
+        if (d === 'campuran') return 'campuran ' + po;
+        return /impor/i.test(po) ? po : 'lokal';
+      };
       var hpp = {};
       try { hpp = H.peta(); } catch (e) { hpp = {}; }
       var pakai = {};
@@ -110,7 +128,7 @@
       log.forEach(function (x) { if (/^keluar/i.test(x.j) && x.st === 'Kantor Packing') { catatAwal('Barang jualan', x.t); tambahPakai(pakai, x.k, x.t, x.q); } });
       brg.list.forEach(function (b) {
         if (produksi[b.k]) return;
-        items.push({ kel: 'Barang jualan', k: b.k, n: b.n, kat: b.kat, s: 'pcs', stok: stok[b.k] || 0, transit: transit[b.k] || 0, p: pakai[b.k] || null, h: harga[b.k] || hpp[b.k] || 0, asal: asal[b.k] || '' });
+        items.push({ kel: 'Barang jualan', k: b.k, n: b.n, kat: b.kat, s: 'pcs', stok: stok[b.k] || 0, transit: transit[b.k] || 0, p: pakai[b.k] || null, h: harga[b.k] || hpp[b.k] || 0, asal: asalBarang(b.k) });
       });
     });
 
