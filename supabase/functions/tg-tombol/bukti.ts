@@ -117,7 +117,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       ' (WITA); bukti dikirim hari ini, jadi tahun yang tidak tertulis = tahun ini.\n' +
       (isi.teks ? 'Caption / pesan pengirim: "' + isi.teks + '"\n' : '') +
       'Jawab HANYA dengan JSON (tanpa teks lain):\n' +
-      '{"bukti":true|false, "belum_bayar":true|false, "nominal":angka total yang dibayar (rupiah, bulat), "tanggal":"YYYY-MM-DD" atau null, ' +
+      '{"bukti":true|false, "belum_bayar":true|false, "nominal":angka total yang dibayar (rupiah, bulat), "tanggal":"YYYY-MM-DD" atau null, "tgl_invoice":"YYYY-MM-DD" atau null, ' +
       '"penerima":"toko / penerima", "ringkasan":"apa yang dibayar, singkat, maks 110 huruf, bahasa Indonesia", "kategori":"salah satu kategori", ' +
       '"sumber":"Rekening Belanja|Rekening PT|ShopeePay|Kas Tunai|Dana Shopee (belum cair)|Dana Tokopedia/TikTok (belum cair)|" , "ref":"nomor referensi / no pesanan atau \\"\\"", "barang":[{"nama":"nama barang","total":angka}], "sistem":[{"kode":"B1|P1|I1|O1","nota":"nama barang di bukti","total":angka}], "pindah":null atau {"dari":"akun asal","ke":"akun tujuan","biaya":angka biaya admin}, ' +
       '"jenis_bayar":"transfer_bank|shopeepay|tunai|lainnya|", "dokumen":"transfer|invoice|nota|lainnya", "atas_nama":"nama pemilik rekening / akun yang MEMBAYAR (pengirim uang) kalau terlihat, atau \\"\\"", "yakin":0-1}\n' +
@@ -127,6 +127,9 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       'nota = nota / struk / kwitansi / faktur toko; lainnya = selain itu (pesanan marketplace, pesan teks, dll). atas_nama = nama PENGIRIM uang (bukan penerima). ' +
       'Aturan: bukti=true kalau ini bukti pembayaran / nota / struk / transfer / pesanan yang sudah dibayar, atau pesan teks yang melaporkan pengeluaran. ' +
       'belum_bayar=true kalau ini pesanan / invoice / commercial invoice / sales order / COD / tagihan yang belum lunas (dokumen dari penjual, bukan bukti transfer). ' +
+      'tanggal = tanggal PEMBAYARAN (tanggal transfer / tanggal bayar / tanggal pesanan dibayar), BUKAN tanggal invoice atau jatuh tempo; ' +
+      'tgl_invoice = tanggal yang tertulis di invoice / nota / pesanan kalau ada (boleh sama dengan tanggal). ' +
+      'ref = nomor invoice / nomor pesanan / nomor referensi transfer persis seperti tertulis. ' +
       'nominal = total yang benar-benar dibayar (termasuk ongkir & biaya admin), bukan harga satuan; kalau ada beberapa pesanan, jumlahkan semuanya. ' +
       'barang = daftar barang / pesanan yang terlihat (maks 10) dengan total masing-masing; kosongkan [] kalau tidak ada rincian. ' +
       'sumber: rekening BCA 613-0358401 atau 613-0**-**01 = Rekening Belanja; rekening 770-0875355 atau TOENTOENAN LANGKAH ELOHI = Rekening PT; ' +
@@ -207,8 +210,9 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       ' <i>(total bukti dibagi sebanding perkiraan harga)</i>:' + (r.rencana.i.length ? teksRencana(r.rencana) + '\n\n<i>Kalau benar, ' + esc(b.pengirim) + ' tekan ✅ Sudah dibayar.</i>' : '\n<i>Belum ada yang dicentang.</i>');
     else if (r.rencana) h += '\n\n🛒 <b>Pengajuan yang dibayar dengan bukti ini</b> (nota → sistem):' + teksRencana(r.rencana) +
       (r.rencana.kurang ? '' :'\n\n<i>Kalau benar, ' + esc(b.pengirim) + ' tekan ✅ Sudah dibayar. Pengajuan langsung berstatus dibayar dan tercatat di accounting.</i>');
-    if (r.kandidat) h +='\n\n🔎 <b>Mungkin sudah tercatat</b> dari belanja lewat aplikasi (nota → sistem):' + barisPasang(r.kandidat) + '\n= ' + rp(r.kandidat.sum) +
-      ' (' + esc(r.kandidat.tr.join(', ')) + ')' + (r.kandidat.beda ? ', selisih ' + rp(Math.abs(r.kandidat.beda)) : '') + '\n<i>Kalau sama, tekan 📎 Sudah tercatat.</i>';
+    if (r.kandidat) h +='\n\n🔎 <b>Mungkin sudah tercatat</b> ' + (r.kandidat.acc ? 'di accounting' + (r.kandidat.alasan ? ' <i>(' + esc(r.kandidat.alasan) + ')</i>' : '') + ':'
+      : 'dari belanja lewat aplikasi (nota → sistem):') + barisPasang(r.kandidat) + '\n= ' + rp(r.kandidat.sum) +
+      ' (' + esc(r.kandidat.tr.join(', ')) + ')' + (r.kandidat.beda ? ', selisih ' + rp(Math.abs(r.kandidat.beda)) : '') + '\n<i>Kalau ini pembayaran yang sama, tekan 📎 Sudah tercatat. Kalau berbeda, tekan ✅ Catat.</i>';
     if (b.status === 'tunggu') h += '\n\n⏳ <i>Belum ada di aplikasi. Kalau ini belanja dari pengajuan, input dulu di aplikasi (Bayar di Purchasing / bayar PO) — bukti ditempel otomatis. Kalau bukan, tekan ✅ Catat.</i>';
     if (b.catatan) h += '\n\n<i>' + esc(b.catatan) + '</i>';
     const id = b.id;
@@ -244,6 +248,25 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
   function teksCocok(c: Any) {
     return '✅ <b>Sudah tercatat</b> — ' + esc(c.no.join(', ')) + ' (' + esc(c.t) + ', ' + esc(c.sumber) + ') · ' + rp(c.v) +
       (c.beda ? ' <i>(selisih ' + rp(Math.abs(c.beda)) + ')</i>' : '') + '\n📎 Bukti dilampirkan, tidak dicatat dua kali.';
+  }
+
+  // 10 Nov 2026: cocokkan bukti dengan transaksi yang sudah tercatat secara teliti (nominal, tanggal bayar & tanggal invoice, akun, kategori,
+  // nomor invoice / pesanan). yakin = boleh ditempel otomatis; kalau ragu, Admin Accounting MENANYAKAN (📎 Sudah tercatat / ✅ Catat).
+  async function cariTercatat(b: Any): Promise<Any> {
+    const r = b.baca || {}, ti = /^\d{4}-\d{2}-\d{2}$/.test(String(r.tgl_invoice || '')) ? String(r.tgl_invoice) : null;
+    const c = await sb.rpc('bb_cocok_detail', { p_nominal: b.nominal, p_tanggal: b.tanggal, p_pengirim: b.pengirim || '', p_akun: b.akun || '',
+      p_kategori: b.kategori || '', p_ref: String(r.ref || ''), p_tgl_invoice: ti });
+    if (!c.error && Array.isArray(c.data) && c.data[0]) return c.data[0];
+    if (c.error) console.error('bb_cocok_detail', c.error.message);
+    // gabungan beberapa transaksi (fungsi lama): tidak pernah ditempel otomatis, selalu ditanyakan
+    const o = await sb.rpc('bb_cocok', { p_nominal: b.nominal, p_tanggal: b.tanggal, p_pengirim: b.pengirim || '' });
+    const x = Array.isArray(o.data) && o.data[0];
+    if (!x || (!c.error && x.cara !== 'jumlah')) return null;
+    return { ...x, yakin: false, alasan: x.cara === 'jumlah' ? 'gabungan ' + x.no.length + ' transaksi' : 'perlu dicek' };
+  }
+  function kandidatAcc(c: Any) {
+    return { acc: true, tr: c.no, sum: c.v, beda: c.beda, alasan: c.alasan || '', pasang: [],
+      n: [c.t + ' · ' + (c.akun || '-') + ' · ' + String(c.ket || '').replace(/ \[[^\]]*\]$/, '')] };
   }
 
   // ---------- padanan nama barang: nota / toko -> nama di sistem ----------
@@ -515,8 +538,12 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     }
     // cocokkan dengan accounting
     if (nominal) {
-      const c = await sb.rpc('bb_cocok', { p_nominal: nominal, p_tanggal: tanggal, p_pengirim: nama });
-      const cand = Array.isArray(c.data) && c.data[0];
+      const cand = await cariTercatat(b);
+      if (cand && !cand.yakin) {
+        // mirip tapi ada yang beda (akun / kategori / tanggal / nominal): tanyakan, jangan tempel sendiri
+        b = await ubah(id, { baca: { ...b.baca, kandidat: kandidatAcc(cand) } });
+        await tampil(b); return;
+      }
       if (cand) {
         // uang sudah tercatat, tapi barangnya masih ada di pengajuan yang belum dibayar -> tawarkan "Tandai sudah dibayar"
         const rc = rencanaBayar(r, belum, items, nominal);
@@ -774,9 +801,9 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       await tampil(baru); return jawab('Dijadikan pengeluaran. Cek lalu tekan ✅ Catat.');
     }
     if (op === 'c') {
-      const c = b.nominal ? await sb.rpc('bb_cocok', { p_nominal: b.nominal, p_tanggal: b.tanggal, p_pengirim: b.pengirim }) : { data: [] };
-      const cand = Array.isArray(c.data) && c.data[0];
-      if (cand) { await sb.rpc('bb_tempel', { p_id: id, p_nos: cand.no }); await tempelLampiran(b, cand.no); await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n' + teksCocok(cand)); return jawab('Sudah tercatat sebelumnya — bukti ditempel.'); }
+      // pengirim menekan ✅ Catat: hanya ditempel kalau benar-benar sama (yakin); yang mirip sudah ditanyakan di kartu
+      const cand = b.nominal && !(b.baca && b.baca.kandidat && b.baca.kandidat.acc) ? await cariTercatat(b) : null;
+      if (cand && cand.yakin) { await sb.rpc('bb_tempel', { p_id: id, p_nos: cand.no }); await tempelLampiran(b, cand.no); await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n' + teksCocok(cand)); return jawab('Sudah tercatat sebelumnya — bukti ditempel.'); }
       const r = await sb.rpc('bb_catat', { p_id: id, p_oleh: pengisi });
       if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal mencatat.'), true);
       await tempelLampiran(b, r.data.no);
@@ -822,8 +849,8 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     const r = await sb.from('bb_bukti').select('*').eq('status', 'tunggu').limit(50);
     let tempel = 0, tanya = 0;
     for (const b of r.data || []) {
-      const c = await sb.rpc('bb_cocok', { p_nominal: b.nominal, p_tanggal: b.tanggal, p_pengirim: b.pengirim });
-      const cand = Array.isArray(c.data) && c.data[0];
+      const cand = await cariTercatat(b);
+      if (cand && !cand.yakin) { const baru = await ubah(b.id, { status: 'usul', baca: { ...b.baca, kandidat: kandidatAcc(cand) } }); await tampil(baru); tanya++; continue; }
       if (cand) { await sb.rpc('bb_tempel', { p_id: b.id, p_nos: cand.no }); await tempelLampiran(b, cand.no); await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n' + teksCocok(cand)); tempel++; continue; }
       if (Date.now() - new Date(b.waktu).getTime() > 3 * 86400e3) {
         const baru = await ubah(b.id, { status: 'usul', catatan: '⏳ Sudah 3 hari belum ada di aplikasi. Kalau memang bukan dari pengajuan, tekan ✅ Catat.' });
