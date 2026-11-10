@@ -93,7 +93,7 @@
   function isiSO() {
     var S = stokSemua(), aktif = P.barang.filter(function (b) { return b.aktif; });
     if (!aktif.length) return '<div class="cd"><div class="ksg">Belum ada barang packing untuk dihitung.</div></div>';
-    var h = '<div class="cd"><h3>Stock opname (SO) akhir bulan</h3><p class="sb" style="margin:0 0 10px">Hitung fisik setiap barang di gudang, isi jumlahnya. Kosongkan barang yang tidak dihitung. Selisih dengan stok sistem tercatat otomatis.</p>' +
+    var h = '<div class="cd"><h3>Sesuaikan stok (stock opname)</h3><p class="sb" style="margin:0 0 10px">Bisa dipakai kapan saja, tidak harus akhir bulan: kalau stok fisik lebih banyak atau lebih sedikit dari stok sistem. Hitung fisik barangnya, isi jumlahnya. Kosongkan barang yang tidak dihitung. Selisih dengan stok sistem tercatat otomatis.</p>' +
       '<div class="pk-f" style="margin-bottom:12px"><label>Tanggal SO<input type="date" id="pkTgl" value="' + hariIni() + '" max="' + hariIni() + '"></label><label class="pn">Catatan<textarea id="pkCat" placeholder="opsional, misalnya: SO akhir Oktober"></textarea></label></div>' +
       '<div class="pk-gl"><table class="pk-t pk-so"><thead><tr><th>Barang</th><th class="r">Stok sistem</th><th class="r">Hasil hitung</th><th class="r">Selisih</th></tr></thead><tbody>' + aktif.map(function (b) {
         return '<tr data-id="' + b.id + '" data-sis="' + S[b.id] + '"><td><b>' + esc(b.nama) + '</b><small>' + esc(b.satuan) + '</small></td><td class="r">' + fmt(S[b.id]) + '</td>' +
@@ -154,7 +154,7 @@
 
   function gambar() {
     if (!document.getElementById('pkCss')) { var s = document.createElement('style'); s.id = 'pkCss'; s.textContent = CSS; document.head.appendChild(s); }
-    var T = [['stok', 'Stok'], ['keluar', 'Ambil (keluar)'], ['masuk', 'Barang masuk'], ['rusak', 'Rusak'], ['so', 'SO akhir bulan'], ['riwayat', 'Riwayat'], ['daftar', 'Daftar barang']];
+    var T = [['stok', 'Stok'], ['keluar', 'Ambil (keluar)'], ['masuk', 'Barang masuk'], ['rusak', 'Rusak'], ['so', 'Sesuaikan stok (SO)'], ['riwayat', 'Riwayat'], ['daftar', 'Daftar barang']];
     var h = '<div class="pk-tab" role="group" aria-label="Bagian packing">' + T.map(function (t) { return '<button type="button" data-pt="' + t[0] + '" aria-pressed="' + (P.tab === t[0]) + '">' + t[1] + '</button>'; }).join('') + '</div>';
     if (P.pesan) h += '<div class="msg ' + P.kelas + '">' + esc(P.pesan) + '</div>';
     h += P.tab === 'stok' ? isiStok() : P.tab === 'keluar' ? formCatat('Keluar') : P.tab === 'masuk' ? formCatat('Masuk') : P.tab === 'rusak' ? formCatat('Rusak') : P.tab === 'so' ? isiSO() : P.tab === 'riwayat' ? isiRiwayat() : isiDaftar();
