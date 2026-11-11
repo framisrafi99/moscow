@@ -1313,40 +1313,29 @@
     try { html = await asalBarang(html); } catch (e) { }
     return html;
   }
-  // 11 Nov 2026: pilihan asal barang (Impor / Lokal) mengikuti daftar barang impor manajemen (tabel barang_impor).
-  // impor = otomatis Impor; campuran (kadang impor kadang lokal) = staf WAJIB memilih Impor atau Lokal saat mengajukan;
-  // barang jualan lain = otomatis Lokal. Di form PO, label Asal barang menyebut barang yang bisa impor / lokal.
+  // 11 Nov 2026: asal barang (Impor / Lokal) di form pengajuan & PO mengikuti daftar barang impor manajemen (tabel barang_impor).
+  // impor = tetap Impor; campuran (baris kuning) = staf wajib memilih Impor atau Lokal; selain itu = tetap Lokal. Aturan di asal-barang.js.
   async function asalBarang(html) {
     if (['gudang', 'produksi', 'bahanbaku', 'purchasing'].indexOf(APP) === -1) return html;
     var r = await batasWaktu(sb.from('barang_impor').select('kode,nama,asal'), 6000);
     if (!r || r.error || !Array.isArray(r.data) || !r.data.length) return html;
     var peta = {};
     r.data.forEach(function (x) { peta[String(x.kode).trim().toUpperCase()] = { a: x.asal, n: x.nama }; });
-    var skrip = '<script>window.__ASAL=' + JSON.stringify(peta).replace(/</g, '\\u003c') + ';' +
-      'window.__asalAmbil=function(k){return window.__ASAL[String(k||"").trim().toUpperCase()]||null;};' +
-      'window.__asalPilih=function(it,i){var a=it.kel==="Barang jualan"?window.__asalAmbil(it.k):null,c=a&&a.a==="campuran";' +
-        'var h="<label>Asal barang"+(c?" <b style=\\"color:#9a3412\\">(barang ini bisa impor atau lokal, wajib dipilih)</b>":"")+"</label><select data-imp=\\""+i+"\\""+(c&&it.imp===null?" style=\\"border:2px solid #d97706\\"":"")+">";' +
-        'if(c)h+="<option value=\\"\\""+(it.imp===null?" selected":"")+">- pilih Impor atau Lokal -</option>";' +
-        'h+="<option value=\\"0\\""+(it.imp===false?" selected":"")+">Lokal</option><option value=\\"1\\""+(it.imp===true?" selected":"")+">Impor (dikirim juga ke Mike)</option></select>";return h;};' +
-      'window.__asalCek=function(KR){for(var i=0;i<KR.length;i++){if(KR[i].imp===null){var s=document.querySelector("select[data-imp=\\""+i+"\\"]");' +
-        'if(s){s.style.border="2px solid #b3261e";s.scrollIntoView&&s.scrollIntoView({block:"center"});}' +
-        'alert("Pilih asal barang (Impor atau Lokal) untuk "+(KR[i].n||KR[i].k)+". Barang ini kadang impor kadang beli lokal.");return false;}}return true;};' +
-      'window.__asalPoKet=function(rows){var c=[],l=[];(rows||[]).forEach(function(r){var a=window.__asalAmbil(r.k);if(!r.k)return;if(a&&a.a==="campuran")c.push(r.k);else if(!a)l.push(r.k);});' +
-        'var t="";if(c.length)t+=" <b style=\\"color:#9a3412\\">("+c.join(", ")+" bisa impor atau lokal, pilih sesuai pembelian ini)</b>";' +
-        'if(l.length)t+=" <span style=\\"color:#6b7280;font-weight:400\\">("+l.slice(0,5).join(", ")+(l.length>5?", …":"")+" barang lokal)</span>";return t;};' +
-      '<\/script>';
+    var skrip = '<script>window.__ASAL=' + JSON.stringify(peta).replace(/</g, '\\u003c') + ';<\/script>' +
+      '<script src="' + location.origin + '/asal-barang.js?v=1"><\/script>';
     // 1) tebakan awal per barang
-    html = html.replace("function tebakImp(kl, k) { return kl === 'Barang jualan' ||",
-      "function tebakImp(kl, k) { if (kl === 'Barang jualan' && window.__ASAL) { var a = window.__asalAmbil(k); return !a ? false : a.a === 'campuran' ? null : true; } return kl === 'Barang jualan' ||");
-    // 2) pilihan Impor / Lokal (campuran: ada '- pilih -')
+    html = html.replace("function tebakImp(kl, k) {", "function tebakImp(kl, k) { if (window.__asalTebak) return window.__asalTebak(kl, k);");
+    // 2) pilihan asal di kartu pengajuan (hanya barang campuran yang bisa dipilih)
     html = html.split("'<label>Asal barang</label><select data-imp=\"' + i + '\"><option value=\"0\"' + (it.imp ? '' : ' selected') + '>Lokal</option><option value=\"1\"' + (it.imp ? ' selected' : '') + '>Impor (dikirim juga ke Mike)</option></select>'")
       .join("(window.__asalPilih ? window.__asalPilih(it, i) : '')");
     html = html.split("if (it) it.imp = s.value === '1'; };").join("if (it) { it.imp = s.value === '' ? null : s.value === '1'; s.style.border = ''; } };");
-    // 3) wajib pilih sebelum kirim pengajuan
+    // 3) cek sebelum kirim pengajuan
     html = html.replace('function kirimAjuan(yakin) {', 'function kirimAjuan(yakin) { if (window.__asalCek && !window.__asalCek(KR)) return;');
     html = html.replace('function kirim(yakin) {', 'function kirim(yakin) { if (typeof KR !== "undefined" && window.__asalCek && !window.__asalCek(KR)) return;');
-    // 4) form PO: keterangan asal di label
-    html = html.split("'<div><label>Asal barang</label><select data-po=\"asal\">'").join("'<div><label>Asal barang' + (window.__asalPoKet ? window.__asalPoKet(S.po.rows) : '') + '</label><select data-po=\"asal\">'");
+    // 4) form PO: asal ditetapkan dari barangnya
+    var po = "'<div><label>Asal barang</label><select data-po=\"asal\">' + opsi(['Impor', 'Lokal'], S.po.asal) + '</select></div>'";
+    html = html.split(po).join("(window.__asalPo ? window.__asalPo(S.po, " + po + ") : " + po + ")");
+    html = html.replace('function simpanPo(btn) {', 'function simpanPo(btn) { if (window.__asalPo) window.__asalPo(S.po, \'\');');
     return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (x) { return x + skrip; }) : skrip + html;
   }
   async function muat() {
