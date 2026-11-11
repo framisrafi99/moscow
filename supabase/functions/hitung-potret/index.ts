@@ -48,15 +48,19 @@ async function muatRumus() {
   versiDimuat = tanda;
   // Satu kali jalan robot: isi tiap tabel cukup dibaca sekali dari database (lembar_baca), dipakai semua rumus.
   const siapkan = W.Lembar.siapkan;
+  // 11 Nov 2026: simpanan dipegang lewat variabel lokal. Dua panggilan robot bisa berjalan bersamaan di mesin yang sama
+  // dan masing-masing mengosongkan SIMPANAN; dulu tabel yang sedang ditunggu bisa terbaca kosong (daftar Botol & stiker /
+  // Bahan baku hilang dari md:pengadaan).
   W.Lembar.muat = async (_sb: unknown, tabel: string[]) => {
-    const perlu = tabel.filter((t) => !(t in SIMPANAN));
+    const S = SIMPANAN;
+    const perlu = tabel.filter((t) => !(t in S));
     if (perlu.length) {
       const janji = sb.rpc('lembar_baca', { p_tabel: perlu }).then((r) => { if (r.error) throw new Error(r.error.message); return r.data || {}; });
       janji.catch(() => { /* galat dilaporkan lewat rumus yang menunggu */ });
-      perlu.forEach((t) => { const p = janji.then((d: Record<string, unknown>) => d[t] || []); p.catch(() => {}); SIMPANAN[t] = p; });
+      perlu.forEach((t) => { const p = janji.then((d: Record<string, unknown>) => d[t] || []); p.catch(() => {}); S[t] = p; });
     }
     const isi: Record<string, unknown> = {};
-    for (const t of tabel) isi[t] = await SIMPANAN[t];
+    for (const t of tabel) isi[t] = await S[t];
     return siapkan(isi);
   };
   return tanda;
