@@ -115,7 +115,7 @@
         var d = daftar[String(k).trim().toUpperCase()];
         if (d === 'impor') return 'Impor';
         if (d === 'campuran') return 'campuran ' + po;
-        return /impor/i.test(po) ? po : 'lokal';
+        return 'lokal'; // selain daftar barang impor manajemen = lokal (11 Nov 2026)
       };
       var hpp = {};
       try { hpp = H.peta(); } catch (e) { hpp = {}; }
