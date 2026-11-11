@@ -138,6 +138,7 @@
       var transit = {}, harga = {}, pakai = {};
       beli.forEach(function (x) { if (x.st === 'Dipesan') transit[x.k] = (transit[x.k] || 0) + x.q; if (x.hs) harga[x.k] = x.hs; });
       log.forEach(function (x) { catatAwal('Bahan baku', x.t); if (x.j === 'Terpakai' || x.j === 'Rusak') tambahPakai(pakai, x.k, x.t, x.q); });
+      if (!stok.length) gagal.push('Bahan baku: daftar kosong (tabel bahan_baku ' + window.Lembar.baca(L, 'bahan_baku', 2).length + ' baris, L: ' + Object.keys(L).join('/') + ')');
       stok.forEach(function (b) { items.push({ kel: 'Bahan baku', k: b.k, n: b.n, kat: b.kel, s: b.s || 'kg', stok: b.ss || 0, transit: transit[b.k] || 0, p: pakai[b.k] || null, h: harga[b.k] || 0, min: b.min }); });
     });
 
@@ -147,6 +148,7 @@
       PR.catatan('bahan_log').forEach(function (x) { catatAwal('Botol & stiker', x.t); tambahPakai(pakai, kunci(x.n), x.t, x.q); });
       PR.catatan('bahan_rusak').forEach(function (x) { tambahPakai(pakai, kunci(x.n), x.t, x.q); });
       window.Lembar.baca(L, 'bahan_masuk', 8).forEach(function (r) { var q = Number(r[3]), hg = Number(r[7]); if (q > 0 && hg > 0) harga[kunci(r[2])] = Math.round(hg / q); });
+      if (!d.barang.length) gagal.push('Botol & stiker: daftar kosong (tabel bahan ' + window.Lembar.baca(L, 'bahan', 2).length + ' baris)');
       d.barang.forEach(function (b) {
         var k = (b.k || b.n).toUpperCase();
         items.push({ kel: 'Botol & stiker', k: k, n: b.n, kat: b.j, s: 'pcs', stok: b.ss || 0, transit: pesanAjuan['Botol & stiker|' + k] || 0, p: pakai[kunci(b.n)] || null, h: harga[kunci(b.n)] || 0, min: b.min });
