@@ -92,6 +92,11 @@
     coba('Barang jualan', function () {
       var G = H.G, brg = G.barang(), log = H.log, produksi = {};
       try { produksi = BB.bbk.katalog(); } catch (e) { produksi = {}; }
+      // katalog produksi tidak terbaca: jangan sampai produk buatan sendiri ikut jadi barang jualan; pakai daftar hitungan sebelumnya
+      if (!Object.keys(produksi).length && lama && Array.isArray(lama.items)) {
+        var sebelum = {}; lama.items.forEach(function (x) { if (x.kel === 'Barang jualan') sebelum[x.k] = true; });
+        if (Object.keys(sebelum).length) { produksi = { __lama: true }; G.barang().list.forEach(function (b) { if (!sebelum[b.k]) produksi[b.k] = true; }); gagal.push('Katalog produksi belum terbaca, memakai daftar sebelumnya'); }
+      }
       var stok = {}, tambahStok = function (k, q) { if (k && q) stok[k] = (stok[k] || 0) + q; };
       var gs = G.stok(log);
       Object.keys(gs).forEach(function (key) { tambahStok(key.split('|')[0], gs[key]); });
@@ -138,7 +143,7 @@
       var transit = {}, harga = {}, pakai = {};
       beli.forEach(function (x) { if (x.st === 'Dipesan') transit[x.k] = (transit[x.k] || 0) + x.q; if (x.hs) harga[x.k] = x.hs; });
       log.forEach(function (x) { catatAwal('Bahan baku', x.t); if (x.j === 'Terpakai' || x.j === 'Rusak') tambahPakai(pakai, x.k, x.t, x.q); });
-      if (!stok.length) gagal.push('Bahan baku: daftar kosong (tabel bahan_baku ' + window.Lembar.baca(L, 'bahan_baku', 2).length + ' baris, L: ' + Object.keys(L).join('/') + ')');
+      if (!stok.length) gagal.push('Bahan baku: daftar kosong (tabel bahan_baku ' + window.Lembar.baca(L, 'bahan_baku', 2).length + ' baris)');
       stok.forEach(function (b) { items.push({ kel: 'Bahan baku', k: b.k, n: b.n, kat: b.kel, s: b.s || 'kg', stok: b.ss || 0, transit: transit[b.k] || 0, p: pakai[b.k] || null, h: harga[b.k] || 0, min: b.min }); });
     });
 
@@ -197,6 +202,15 @@
       if (x.kel === 'Barang jualan') x.ket.push('Penjualan online dihitung dari kiriman gudang ke Kantor Packing.');
       x.nilai = Math.round(x.saran * (x.h || 0));
       delete x.p;
+    });
+    // 11 Nov 2026: kalau satu kelompok kosong karena datanya sesekali tidak terbaca, pakai hitungan sebelumnya supaya
+    // daftar barang di form pengajuan staf tidak hilang (kasus: Botol & stiker kosong di form Produksi).
+    if (lama && Array.isArray(lama.items)) ['Bahan baku', 'Botol & stiker'].forEach(function (kel) {
+      if (items.some(function (x) { return x.kel === kel; })) return;
+      var l = lama.items.filter(function (x) { return x.kel === kel; });
+      if (!l.length) return;
+      l.forEach(function (x) { items.push(x); });
+      gagal.push(kel + ': data belum terbaca, memakai hitungan sebelumnya');
     });
     var urut = { 'Kritis': 0, 'Saatnya pesan': 1, 'Berlebih': 2, 'Aman': 3, 'Tidak bergerak': 4, 'Tanpa data': 5 };
     items.sort(function (a, b) { return (urut[a.st] - urut[b.st]) || ((a.hari === null ? 1e9 : a.hari) - (b.hari === null ? 1e9 : b.hari)) || (a.n < b.n ? -1 : 1); });
