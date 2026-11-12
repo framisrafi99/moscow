@@ -59,7 +59,7 @@
     }
     function itemRobot(robot) {
       return ((robot && robot.items) || []).map(function (x) {
-        return { kel: x.kel, k: x.k, n: x.n, s: x.s, stok: x.stok, transit: x.transit, rata: x.rata, hari: x.hari, saran: x.saran, h: x.h, st: x.st };
+        return { kel: x.kel, k: x.k, n: x.n, s: x.s, stok: x.stok, kp: x.kp, toko: x.toko, transit: x.transit, rata: x.rata, hari: x.hari, saran: x.saran, h: x.h, st: x.st };
       });
     }
     // pgdData: pengajuan terbaru dulu, maks 500, dengan tanda impor.

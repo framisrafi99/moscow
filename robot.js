@@ -97,11 +97,13 @@
         var sebelum = {}; lama.items.forEach(function (x) { if (x.kel === 'Barang jualan') sebelum[x.k] = true; });
         if (Object.keys(sebelum).length) { produksi = { __lama: true }; G.barang().list.forEach(function (b) { if (!sebelum[b.k]) produksi[b.k] = true; }); gagal.push('Katalog produksi belum terbaca, memakai daftar sebelumnya'); }
       }
-      var stok = {}, tambahStok = function (k, q) { if (k && q) stok[k] = (stok[k] || 0) + q; };
+      // 12 Nov 2026 (masukan penanggung jawab Gudang Utama): stok & saran pengajuan barang jualan hanya dari Gudang Utama.
+      // Stok Kantor Packing dan toko/consignment tidak lagi dijumlahkan; disimpan terpisah (kp, toko) sebagai keterangan saja.
+      var stok = {}, stokKp = {}, stokToko = {}, tambah = function (m, k, q) { if (k && q) m[k] = (m[k] || 0) + q; };
       var gs = G.stok(log);
-      Object.keys(gs).forEach(function (key) { tambahStok(key.split('|')[0], gs[key]); });
-      A.on.list.forEach(function (x) { tambahStok(x.k, x.q); });
-      h[6].forEach(function (r) { if (r.error) { gagal.push('Stok toko: ' + r.error.message); return; } (r.data || []).forEach(function (x) { if (x.kode) tambahStok(x.kode, Number(x.qty) || 0); }); });
+      Object.keys(gs).forEach(function (key) { tambah(stok, key.split('|')[0], gs[key]); });
+      A.on.list.forEach(function (x) { tambah(stokKp, x.k, x.q); });
+      h[6].forEach(function (r) { if (r.error) { gagal.push('Stok toko: ' + r.error.message); return; } (r.data || []).forEach(function (x) { if (x.kode) tambah(stokToko, x.kode, Number(x.qty) || 0); }); });
       var transit = {}, asal = {}, harga = {}, po = null;
       try { po = G.po(); G.isiTerima(po, log); } catch (e) { po = null; }
       if (po) {
@@ -124,16 +126,12 @@
       };
       var hpp = {};
       try { hpp = H.peta(); } catch (e) { hpp = {}; }
+      // Pemakaian = barang yang keluar dari Gudang Utama (ke Kantor Packing, toko, consignment, reseller), supaya sejalan dengan stoknya.
       var pakai = {};
-      h[3].forEach(function (r) { var t = tgl(r.tanggal); catatAwal('Barang jualan', t); tambahPakai(pakai, kodeDasar(r.kode === null ? '' : r.kode), t, Number(r.qty_terjual) || 0); });
-      window.Lembar.baca(L, 'order_log', 13).forEach(function (r) {
-        if (!/resel|putus/i.test(String(r[3])) || !/^(Dikirim|Selesai)$/.test(String(r[12]).trim())) return;
-        tambahPakai(pakai, kodeDasar(r[4]), tgl(r[1]), Number(r[6]) || 0);
-      });
-      log.forEach(function (x) { if (/^keluar/i.test(x.j) && x.st === 'Kantor Packing') { catatAwal('Barang jualan', x.t); tambahPakai(pakai, x.k, x.t, x.q); } });
+      log.forEach(function (x) { if (/^keluar/i.test(x.j)) { catatAwal('Barang jualan', x.t); tambahPakai(pakai, x.k, x.t, x.q); } });
       brg.list.forEach(function (b) {
         if (produksi[b.k]) return;
-        items.push({ kel: 'Barang jualan', k: b.k, n: b.n, kat: b.kat, s: 'pcs', stok: stok[b.k] || 0, transit: transit[b.k] || 0, p: pakai[b.k] || null, h: harga[b.k] || hpp[b.k] || 0, asal: asalBarang(b.k) });
+        items.push({ kel: 'Barang jualan', k: b.k, n: b.n, kat: b.kat, s: 'pcs', stok: stok[b.k] || 0, kp: stokKp[b.k] || 0, toko: stokToko[b.k] || 0, transit: transit[b.k] || 0, p: pakai[b.k] || null, h: harga[b.k] || hpp[b.k] || 0, asal: asalBarang(b.k) });
       });
     });
 

@@ -17,6 +17,12 @@
   function e(s) { return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
   window.__asalAmbil = ambil;
+  // 12 Nov 2026: stok di daftar pengajuan = stok Gudang Utama saja; stok Kantor Packing & toko hanya keterangan.
+  window.__stokLain = function (x) {
+    if (!x || (!x.kp && !x.toko)) return '';
+    var f = function (n) { return (Math.round(Number(n) * 10) / 10).toLocaleString('id-ID'); };
+    return ' <span style="color:#6b7280">(di luar gudang: KP ' + f(x.kp || 0) + ', toko ' + f(x.toko || 0) + ')</span>';
+  };
   // tebakan awal: impor = true, campuran = null (belum dipilih), lainnya = false
   window.__asalTebak = function (kel, k) { var j = jenis(kel, k); return j === 'impor' ? true : j === 'campuran' ? null : false; };
 
