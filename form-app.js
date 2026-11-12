@@ -1245,6 +1245,9 @@
     var p = langkah.split('@'), teks = rapi(p[0]), wadah = p[1];
     var calon = dok.querySelectorAll(wadah + ' > button, ' + wadah + ' > [role=tab]');
     for (var i = 0; i < calon.length; i++) if (rapi(calon[i].innerText || calon[i].textContent) === teks) return calon[i];
+    // 12 Nov 2026: tombol menu lama bisa memuat angka penanda (mis. "Pengajuan 8", "Stok 3"); tanpa ini menu aplikasi
+    // tidak menemukan tombolnya dan halaman tetap di tab sebelumnya (tampak "macet").
+    for (var j = 0; j < calon.length; j++) if (rapi(calon[j].innerText || calon[j].textContent).replace(/\s*\d+$/, '') === teks) return calon[j];
     return null;
   }
   // Bilah tab lama disembunyikan; pindah menu lewat menu aplikasi.
