@@ -213,7 +213,8 @@
       gdxOrderMasuk: function () { return window.Gudang.gdxOrderMasuk(sb); },
       ptrData: function () { return window.Pengadaan.ptrData(sb, 'gudang'); },
       hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'gudang', a[0]); },
-      gdxPengajuan: function (a) { return a[0] && a[0].mm ? null : window.Pengadaan.gdxPengajuan(sb); },
+      // 12 Nov 2026: mode manajemen juga dibaca dari Supabase (dulu lewat Apps Script, memuat 10-20 detik); mgmt hanya menandai "atas nama manajemen".
+      gdxPengajuan: function (a) { return window.Pengadaan.gdxPengajuan(sb).then(function (r) { if (r && a[0] && a[0].mm) r.mgmt = true; return r; }); },
       // Kantor Packing (stok, per warna) dihitung dari Supabase (kp.js).
       gdxKp: function () { return window.KantorPacking.gdxKp(sb); },
       gdxKpW: function (a) { return window.KantorPacking.gdxKpW(sb, a[0]); },
@@ -230,7 +231,7 @@
       pantauProduksi: function (a) { return window.BahanBaku.pantauProduksi(sb, a[0], 'produksi'); },
       rencanaProduksi: function () { return window.BahanBaku.rencanaProduksi(sb); },
       hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'produksi', a[0]); },
-      pgsData: function (a) { return a[0] && a[0].mm ? null : window.Pengadaan.pgsData(sb, 'produksi'); },
+      pgsData: function (a) { return window.Pengadaan.pgsData(sb, 'produksi').then(function (r) { if (r && a[0] && a[0].mm) r.mgmt = true; return r; }); },
       stokBahan: function () { return window.Produksi.stokBahan(sb); },
       ambilBahan: function () { return window.Produksi.ambilBahan(sb); },
       ambilOrderProduksi: function (a) { return window.Produksi.ambilOrderProduksi(sb, a[0]); },
@@ -246,7 +247,7 @@
       pantauProduksi: function (a) { return window.BahanBaku.pantauProduksi(sb, a[0], 'bahan'); },
       rencanaBahan: function (a) { return window.BahanBaku.rencanaBahan(sb, a[0]); },
       hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'bahanbaku', a[0]); },
-      pgsData: function (a) { return a[0] && a[0].mm ? null : window.Pengadaan.pgsData(sb, 'bahanbaku'); }
+      pgsData: function (a) { return window.Pengadaan.pgsData(sb, 'bahanbaku').then(function (r) { if (r && a[0] && a[0].mm) r.mgmt = true; return r; }); }
     }
   };
   // Form accounting manajemen (31 Okt): saldo, riwayat, laporan bulanan, dan metode bayar nota dari Supabase (akun.js).
