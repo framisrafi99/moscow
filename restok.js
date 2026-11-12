@@ -29,6 +29,8 @@
       // b[6] = 1: produk buatan sendiri (Cat Moscow & Kenka), bisa diproduksi -> tidak dibatasi stok gudang.
       h = (b[0] > 0 ? 'Gudang <b>' + f(b[0]) + '</b>' + (b[6] ? ' (lebihnya diproduksi)' : '') : (b[6] ? '<span style="' + JINGGA + '">Gudang kosong, akan diproduksi</span>' : '<span style="' + MERAH + '">Gudang kosong</span>')) +
         ' &middot; stok toko ' + (pasti ? f(b[5]) : f(t[0]) + (warna ? ' (semua warna)' : '')) + ' &middot; laku ' + f(b[2]) + '/bln' +
+        (b[8] ? ' &middot; <span style="' + HIJAU + '">&#9733; terlaris (cadangan 3 bulan)</span>' : '') +
+        (b[7] > 0 && !(b[3] > 0) ? ' &middot; <span style="' + JINGGA + '">barang baru di toko ini: jatah coba ' + f(b[7]) + ' pcs</span>' : '') +
         (b[3] > 0 ? ' &middot; <span style="' + HIJAU + '">saran ' + f(b[3]) + '</span>' : (b[4] > 0 ? ' &middot; <span style="' + JINGGA + '">perlu ' + f(b[4]) + ', gudang kosong</span>' : ' &middot; saran 0'));
     }
     return '<span style="' + ABU + '">' + h + '</span><span id="rw_' + esc(kode) + '" style="display:block;font-size:12px"></span>';
@@ -38,9 +40,11 @@
     var el = $('rw_' + kode); if (!el) return;
     var b = brs(kq); if (!b || !(q > 0)) { el.innerHTML = ''; return; }
     var prod = b[6] && q > b[0] ? '<span style="' + JINGGA + '">Stok gudang ' + f(b[0]) + ' pcs; ' + f(q - b[0]) + ' pcs perlu diproduksi dulu, jadi pengiriman bisa lebih lama.</span> ' : '';
-    if (prod && !(b[4] <= 0) && !(q > b[4])) { el.innerHTML = prod; return; }
+    var wajar = Math.max(b[4] || 0, b[7] || 0);
+    if (q <= wajar) { el.innerHTML = prod; return; }
+    if (b[7] > 0) { el.innerHTML = prod + '<span style="' + JINGGA + '">Barang baru di toko ini: jatah coba ' + f(b[7]) + ' pcs dulu. Lebih dari itu akan ditinjau manajemen.</span>'; return; }
     if (b[4] <= 0) el.innerHTML = '<span style="' + JINGGA + '">' + (b[2] > 0 ? 'Stok toko masih cukup untuk 2 bulan.' : 'Belum ada penjualan ' + R.hari + ' hari terakhir.') + ' Request ini akan ditinjau manajemen.</span>';
-    else if (q > b[4]) el.innerHTML = '<span style="' + JINGGA + '">Lebih dari kebutuhan 2 bulan (cukup ' + f(b[4]) + ' pcs).</span>';
+    else if (q > b[4]) el.innerHTML = '<span style="' + JINGGA + '">Lebih dari kebutuhan ' + (b[8] ? '3' : '2') + ' bulan (cukup ' + f(b[4]) + ' pcs).</span>';
     else el.innerHTML = '';
   }
 
@@ -69,11 +73,11 @@
   // Ringkasan di layar periksa: barang yang melebihi kebutuhan 2 bulan.
   window.__rstCek = function (items) {
     if (!R) return '';
-    var L = items.filter(function (it) { var b = brs(it.kode); return b && it.qty > b[4]; });
-    if (!L.length) return '<div style="margin-top:10px;padding:10px 12px;border-radius:12px;background:#E9F7EF;color:#146C43;font-size:13px">&#9989; Semua jumlah sesuai kebutuhan paling lama 2 bulan.</div>';
+    var L = items.filter(function (it) { var b = brs(it.kode); return b && it.qty > Math.max(b[4] || 0, b[7] || 0); });
+    if (!L.length) return '<div style="margin-top:10px;padding:10px 12px;border-radius:12px;background:#E9F7EF;color:#146C43;font-size:13px">&#9989; Semua jumlah sesuai jatah toko.</div>';
     return '<div style="margin-top:10px;padding:10px 12px;border-radius:12px;background:#FFF6E6;color:#7A4A00;font-size:13px"><b>' + L.length + ' barang melebihi kebutuhan 2 bulan</b> (dihitung dari rata-rata penjualan ' + R.hari +
       ' hari terakhir). Order tetap bisa disimpan, tetapi akan ditinjau manajemen Moscow Supplies:<ul style="margin:6px 0 0;padding-left:18px">' +
-      L.slice(0, 12).map(function (it) { var b = brs(it.kode); return '<li>' + esc(it.nama) + ': minta ' + f(it.qty) + ', ' + (b[4] > 0 ? 'cukup ' + f(b[4]) : (b[2] > 0 ? 'stok toko masih cukup' : 'belum ada penjualan')) + '</li>'; }).join('') +
+      L.slice(0, 12).map(function (it) { var b = brs(it.kode); return '<li>' + esc(it.nama) + ': minta ' + f(it.qty) + ', ' + (b[7] > 0 ? 'barang baru, jatah coba ' + f(b[7]) : b[4] > 0 ? 'cukup ' + f(b[4]) : (b[2] > 0 ? 'stok toko masih cukup' : 'belum laku')) + '</li>'; }).join('') +
       (L.length > 12 ? '<li>... dan ' + (L.length - 12) + ' barang lain</li>' : '') + '</ul></div>';
   };
 
@@ -86,7 +90,7 @@
     Object.keys(R.items).forEach(function (k) { var b = R.items[k]; if (b[4] > b[3]) tahan++; if (b[6] && b[3] > b[0]) produksi++; });
     el.style.cssText = 'margin:0 0 12px;padding:12px 14px;border-radius:14px;background:#EEF6FB;border:1px solid #CFE3EF;font-size:13px;color:#0F1B2A';
     el.innerHTML = '<b style="font-size:14px">&#129302; Saran robot re-stock</b><div style="margin-top:4px">' +
-      (ks.length ? '<b>' + ks.length + ' barang</b> disarankan diminta (' + f(tot) + ' pcs) supaya stok toko cukup paling lama 2 bulan.' : 'Stok toko masih cukup untuk 2 bulan. Tidak ada barang yang perlu diminta sekarang.') +
+      (ks.length ? '<b>' + ks.length + ' barang</b> disarankan diminta (' + f(tot) + ' pcs): stok cukup 2 bulan, barang terlaris 3 bulan, dan warna yang laku tetap lengkap.' : 'Stok toko masih cukup untuk 2 bulan. Tidak ada barang yang perlu diminta sekarang.') +
       (produksi ? ' ' + produksi + ' di antaranya produk Moscow / Kenka yang stok gudangnya kurang dan akan diproduksi.' : '') +
       (tahan ? ' ' + tahan + ' barang lain perlu, tetapi stok Gudang Utama kosong atau kurang.' : '') +
       '</div><div style="margin-top:4px;color:#5A6677">Dihitung dari rata-rata penjualan ' + R.hari + ' hari terakhir dan stok toko saat ini. Jumlah request tidak bisa melebihi stok Gudang Utama, kecuali produk Moscow dan Kenka (bisa diproduksi).</div>' +

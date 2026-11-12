@@ -200,9 +200,9 @@
         var st = harian > 0 ? (hr < 7 ? 'Kritis' : hr < 14 ? 'Segera isi' : hr <= RP_TARGET_ ? 'Aman' : 'Berlebih') : (s > 0 ? 'Belum laku' : 'Belum dicoba');
         nilai += it.q * (Number(hpp[it.k]) || 0);
         if (it.q > b[0]) { if (b[6]) produksi++; else kurang++; }
-        if (it.q > b[4]) lebih++;
+        if (it.q > Math.max(b[4] || 0, b[7] || 0)) lebih++;
         if (st === 'Belum laku') belumLaku++;
-        return { k: it.k, n: it.n, w: it.w, q: it.q, gd: b[0], s: s, j30: b[2], cukup: cukup, saran: b[3], butuh: b[4], st: st, pr: b[6] ? 1 : 0 };
+        return { k: it.k, n: it.n, w: it.w, q: it.q, gd: b[0], s: s, j30: b[2], cukup: cukup, saran: b[3], butuh: Math.max(b[4] || 0, b[7] || 0), st: st, pr: b[6] ? 1 : 0, coba: b[7] || 0, laris: b[8] ? 1 : 0 };
       });
       return { no: o.no, t: fmt(new Date(o.t + 'T00:00:00'), 'dd/MM/yyyy'), pl: o.pl, p: O.t(o.p, 60), c: O.t(o.c, 200), q: r.q, nilai: Math.round(nilai),
         kurang: kurang, produksi: produksi, lebih: lebih, belumLaku: belumLaku, hari: hari, items: items };

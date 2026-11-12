@@ -17,3 +17,9 @@
 --   kode:  kode -> [stok toko semua warna, rata-rata per bulan semua warna]
 --   Barang berwarna dengan stok per warna yang pasti: kebutuhan = ceil(terjual warna x 60 / hari) - stok toko warna itu.
 --   Yang belum pasti: kebutuhan kode dibagi menurut porsi penjualan tiap warna.
+
+-- 12 Nov 2026 (lanjutan, disetujui manajemen): aturan jatah di toko_restok_info
+--   c_hari 60 (stok cukup 2 bulan), c_laris_n 15 + c_laris_hari 90 (15 barang terlaris tiap toko: cadangan 3 bulan),
+--   c_coba 5 (barang yang belum pernah dijual di toko itu: jatah coba 5 pcs), c_min_warna 2 (barang berwarna yang laku:
+--   tiap warna minimal 2 pcs selama stok gudang ada). items: [gd, terjual, rata/bln, saran, kebutuhan, stok toko, produk sendiri,
+--   jatah coba, terlaris]. Angka aturan ada di bagian declare fungsi (pg_get_functiondef untuk teks lengkap).

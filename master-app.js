@@ -2549,7 +2549,7 @@
       var tanda = [];
       if (o.kurang) tanda.push('<span class="label no">' + o.kurang + ' barang melebihi stok gudang</span>');
       if (o.produksi) tanda.push('<span class="label w">' + o.produksi + ' produk Moscow / Kenka perlu diproduksi</span>');
-      if (o.lebih) tanda.push('<span class="label w">' + o.lebih + ' barang melebihi kebutuhan 2 bulan</span>');
+      if (o.lebih) tanda.push('<span class="label w">' + o.lebih + ' barang melebihi jatah</span>');
       if (o.belumLaku) tanda.push('<span class="label w">' + o.belumLaku + ' barang belum laku</span>');
       return '<div class="cd"><div class="rq-kpl"><h3>' + esc(o.pl) + '</h3><span class="sb">' + esc(o.no) + ' · ' + esc(o.t) + (o.p ? ' · ' + esc(o.p) : '') + '</span></div>' +
         (o.c ? '<div class="sb">Catatan: ' + esc(o.c) + '</div>' : '') +
@@ -2562,16 +2562,24 @@
           '<span class="sb" style="margin:0" data-jml="' + i + '"></span></div>') +
         '<div class="gulir"><table class="tabel rq-tbl"><thead><tr><th>Barang</th><th class="r">Minta</th><th class="r">Gudang</th><th class="r">Stok toko</th><th class="r">Laku/bln</th><th class="r">Cukup</th><th class="r">Saran</th><th class="r">Disetujui</th></tr></thead><tbody>' +
         o.items.map(function (it, j) {
-          return '<tr><td><b>' + esc(it.n) + '</b>' + (it.w ? '<small>' + esc(it.w) + '</small>' : '') + '<small><span class="label ' + (WARNA_ST[it.st] || 'abu') + '">' + esc(it.st) + '</span></small></td>' +
+          return '<tr><td><b>' + esc(it.n) + '</b>' + (it.w ? '<small>' + esc(it.w) + '</small>' : '') + '<small><span class="label ' + (WARNA_ST[it.st] || 'abu') + '">' + esc(it.st) + '</span>' +
+            (it.laris ? ' <span class="label ok">&#9733; Terlaris</span>' : '') + (it.coba ? ' <span class="label biru">Barang baru</span>' : '') + '</small></td>' +
             '<td class="r' + (it.butuh !== undefined && it.q > it.butuh ? ' kurang' : '') + '"><b>' + fmt(it.q) + '</b></td><td class="r' + (it.q > it.gd && !it.pr ? ' kurang' : '') + '"' + (it.q > it.gd && it.pr ? ' style="color:#9A5B00;font-weight:700" title="Produk sendiri: kekurangannya diproduksi"' : '') + '>' + fmt(it.gd) + '</td><td class="r">' + fmt(it.s) + '</td><td class="r">' + fmt(it.j30) + '</td>' +
             '<td class="r">' + (it.cukup === null || it.cukup === undefined ? '–' : fmt(it.cukup) + ' hr') + '</td><td class="r">' + fmt(it.saran) + '</td>' +
             '<td class="r"><input class="isian" type="number" inputmode="numeric" min="0" step="1" data-qs="' + i + '" data-j="' + j + '" value="' + it.q + '" aria-label="Jumlah disetujui ' + esc(it.n) + '" style="width:78px;text-align:right;padding:6px 8px"></td></tr>';
         }).join('') + '</tbody></table></div>' +
-        '<p class="sb" style="margin:0">Gudang = stok Gudang Utama yang tersedia. Laku/bln = rata-rata penjualan toko per bulan (' + fmt(o.hari) + ' hari terakhir). Cukup = perkiraan stok toko cukup berapa hari setelah barang diterima. Saran robot = jumlah supaya stok toko cukup paling lama 2 bulan. Angka merah di kolom Minta = melebihi kebutuhan 2 bulan; merah di kolom Gudang = stok gudang tidak cukup; jingga di kolom Gudang = produk Moscow / Kenka yang kekurangannya diproduksi.</p>' +
+        '<p class="sb" style="margin:0">Gudang = stok Gudang Utama yang tersedia. Laku/bln = rata-rata penjualan toko per bulan (' + fmt(o.hari) + ' hari terakhir). Cukup = perkiraan stok toko cukup berapa hari setelah barang diterima. Saran robot = jumlah supaya stok toko cukup 2 bulan (barang terlaris 3 bulan, tiap warna yang laku minimal 2 pcs); barang baru di toko itu diberi jatah coba 5 pcs. Angka merah di kolom Minta = melebihi jatah; merah di kolom Gudang = stok gudang tidak cukup; jingga di kolom Gudang = produk Moscow / Kenka yang kekurangannya diproduksi.</p>' +
         (q ? '<div class="msg tunggu" style="margin:0">Sedang diterapkan: ' + esc(q) + '</div>'
           : '<div class="aksi-baris"><input class="isian" placeholder="Alasan (wajib kalau ditolak)" maxlength="200" data-alasan="' + i + '"><button type="button" class="tbl pri" data-rq="' + i + '" data-aksi="setuju">Setujui</button><button type="button" class="tbl mer" data-rq="' + i + '" data-aksi="tolak">Tolak</button></div><div data-pesan="' + i + '"></div>') +
         '</div>';
     }).join('');
+    // Saran ACC per barang: saran robot (2 bulan; 3 bulan untuk barang terlaris; kelengkapan warna). Barang baru di toko itu
+    // (belum pernah dijual): jatah coba, paling banyak sejumlah yang diminta. Barang dagangan dibatasi stok gudang.
+    function saranAcc(it) {
+      var v = it.saran || 0;
+      if (!v && it.coba) v = Math.min(it.q, it.coba);
+      return Math.max(0, it.pr ? v : Math.min(v, it.gd));
+    }
     function isianQs(i) { return Array.prototype.slice.call(el.querySelectorAll('[data-qs="' + i + '"]')); }
     function nilaiQs(inp) { var v = String(inp.value).trim(); return v === '' ? NaN : Number(v); }
     function ringkasQs(i) {
@@ -2589,7 +2597,7 @@
     // 12 Nov 2026: aturan manajemen: barang ke toko & consignment diberikan sesuai data penjualan bulanan. Kolom Disetujui
     // awalnya terisi saran robot (kebutuhan paling lama 2 bulan), bukan jumlah yang diminta; manajemen masih bisa mengubahnya.
     R.list.forEach(function (o, i) {
-      isianQs(i).forEach(function (inp) { var it = o.items[+inp.getAttribute('data-j')]; inp.value = Math.max(0, it.pr ? (it.saran || 0) : Math.min(it.saran || 0, it.gd)); });
+      isianQs(i).forEach(function (inp) { inp.value = saranAcc(o.items[+inp.getAttribute('data-j')]); });
       ringkasQs(i);
     });
     el.querySelectorAll('[data-qs]').forEach(function (inp) { inp.oninput = function () { ringkasQs(+inp.getAttribute('data-qs')); }; });
@@ -2599,7 +2607,7 @@
         isianQs(i).forEach(function (inp) {
           var it = o.items[+inp.getAttribute('data-j')];
           // Produk Moscow / Kenka (it.pr) bisa diproduksi, jadi tidak dipotong stok gudang.
-          inp.value = cara === 'minta' ? it.q : cara === 'saran' ? Math.max(0, it.pr ? (it.saran || 0) : Math.min(it.saran || 0, it.gd)) : Math.max(0, it.pr ? it.q : Math.min(it.q, it.gd));
+          inp.value = cara === 'minta' ? it.q : cara === 'saran' ? saranAcc(it) : Math.max(0, it.pr ? it.q : Math.min(it.q, it.gd));
         });
         ringkasQs(i);
       };
