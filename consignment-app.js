@@ -573,8 +573,31 @@
     tampil(String(d.html || ''));
   }
 
+  // 12 Nov 2026: Re-stock produk dibangun ulang (restok.js + RPC toko_restok_info). Form lama diberi kait:
+  // keterangan stok gudang / stok toko / laku per bulan / saran robot di tiap barang, batas jumlah = stok Gudang Utama,
+  // peringatan kebutuhan 2 bulan di layar periksa, dan tombol "Isi sesuai saran robot".
+  window.__restokInfo = function () {
+    return sb.rpc('toko_restok_info', { p_toko: C.toko }).then(function (r) { return r.error ? null : r.data; });
+  };
+  function kaitRestok(html) {
+    var n = 0;
+    function ganti(a, b) { if (html.indexOf(a) > -1) { html = html.replace(a, b); n++; } }
+    ganti("(mati ? 'harga belum tersedia' : rp(it.harga) + hd) + '</span>' +",
+      "(mati ? 'harga belum tersedia' : rp(it.harga) + hd) + '</span>' + (window.__rstInfo ? window.__rstInfo(it.kode, kq) : '') +");
+    ganti("var it = barangDari(k);\n    if (it && it.w && it.w.length) {\n      if (!W[k]) return;",
+      "var it = barangDari(k);\n    if (window.__rstBatas) window.__rstBatas(e.target, it && it.w && it.w.length ? (W[k] ? k + '-' + W[k] : '') : k);\n    if (it && it.w && it.w.length) {\n      if (!W[k]) return;");
+    ganti("    paket = { pelanggan: pel.n, tanggal: tgl, items: r.items };",
+      "    if (window.__rstTolak) { var tl = window.__rstTolak(r.items); if (tl) { galat(tl); return; } }\n    paket = { pelanggan: pel.n, tanggal: tgl, items: r.items };");
+    ganti("'</p>' + tabelOrder(o);\n    lihat('cek');", "'</p>' + tabelOrder(o) + (window.__rstCek ? window.__rstCek(r.items) : '');\n    lihat('cek');");
+    ganti("$('periksa').addEventListener('click', periksa);",
+      "$('periksa').addEventListener('click', periksa);\n  window.__rstGambar = gambarBarang;\n  window.__rstIsi = function (m) { for (var k in m) Q[k] = String(m[k]); gambarBarang(); for (var n = 0; n < KAT.length; n++) { var e = $('kc_' + n); if (e) e.textContent = labelIsi(n); } hitung(); };");
+    // Kait hanya dipasang kalau kelimanya cocok dengan form yang tersimpan; kalau tidak, form berjalan seperti semula.
+    return n === 5 ? html.replace(/<head[^>]*>/i, function (x) { return x + '<script src="' + location.origin + '/restok.js?v=1"><\/script>'; }) : null;
+  }
+
   function tampil(html) {
     var m = $('muatan');
+    try { var hk = kaitRestok(html); if (hk) html = hk; } catch (e) { }
     html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (x) { return x + JEMBATAN + GAYA; }) : JEMBATAN + GAYA + html;
     var fr = $('bingkai'); C.frame = fr;
     fr.onload = function () {

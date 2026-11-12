@@ -169,44 +169,42 @@
   }
 
   // ---- rpDaftar (file 33): request barang toko & consignment yang menunggu ACC manajemen ----
-  // 12 Nov 2026: dihitung penuh dari Supabase. Dulu, kalau ada request yang menunggu, daftar ini diserahkan ke Apps Script;
-  // sejak Apps Script tidak lagi menghitung, request baru tidak muncul di Master Data > Persetujuan.
-  // Per barang: minta, stok Gudang Utama, stok toko & laku 30 hari (gudang_lokasi_data, per kode), perkiraan cukup berapa hari
-  // sesudah barang diterima, saran (supaya stok toko cukup RP_TARGET_ hari), dan status stok toko saat ini.
-  var RP_TARGET_ = 30, RP_BATAS_ = 60;
+  // 12 Nov 2026: dibangun ulang, dihitung penuh dari Supabase (dulu diserahkan ke Apps Script yang sudah tidak menghitung,
+  // sehingga request baru tidak muncul di Master Data > Persetujuan). Angkanya dari RPC toko_restok_info (sql 205),
+  // sumber yang sama dengan form Re-stock toko: stok Gudang Utama yang tersedia (sudah dikurangi order disetujui yang belum
+  // dikirim), stok toko, rata-rata laku per bulan (per warna), dan saran robot supaya stok toko cukup paling lama 2 bulan.
+  var RP_TARGET_ = 60;
   async function rpDaftar(sb) {
-    var L = await window.Lembar.muat(sb, ['barang_order', 'gudang_stok_awal', 'online_stok_awal', 'gudang_log', 'po_log', 'po_item', 'po_biaya',
-      'salur_log', 'produksi_sesuai_log', 'order_log', 'order_proses', 'pelanggan']);
-    var G = window.Gudang.buat(L), O = G.om;
+    var L = await window.Lembar.muat(sb, ['order_log']), O = window.Gudang.buat(L).om;
     var tunggu = O.kumpul('0000-01-01', '9999-12-31').filter(function (o) { return o.tp === 'Consignment' && o.st === 'Menunggu'; });
-    if (!tunggu.length) return { ok: true, list: [], n: 0, batas: RP_BATAS_, target: RP_TARGET_ };
-    var h = await Promise.all([sb.rpc('gudang_lokasi_data'), sb.from('hasil_hitung').select('data').eq('kunci', 'hpp').maybeSingle()]);
-    if (h[0].error) throw new Error(h[0].error.message);
-    var toko = {}; ((h[0].data && h[0].data.toko) || []).forEach(function (t) { toko[String(t.n).trim().toLowerCase()] = t; });
-    var hp = h[1] && h[1].data ? h[1].data.data : null; if (typeof hp === 'string') { try { hp = JSON.parse(hp); } catch (e) { hp = null; } }
-    var hpp = (hp && hp.hpp) || {};
-    var stok = G.stok(G.log());
+    if (!tunggu.length) return { ok: true, list: [], n: 0, batas: RP_TARGET_, target: RP_TARGET_ };
+    var nama = []; tunggu.forEach(function (o) { if (nama.indexOf(o.pl) < 0) nama.push(o.pl); });
+    var hasil = await Promise.all([sb.from('hasil_hitung').select('data').eq('kunci', 'hpp').maybeSingle()].concat(
+      nama.map(function (n) { return sb.rpc('toko_restok_info', { p_toko: n }); })));
+    var hp = hasil[0] && hasil[0].data ? hasil[0].data.data : null; if (typeof hp === 'string') { try { hp = JSON.parse(hp); } catch (e) { hp = null; } }
+    var hpp = (hp && hp.hpp) || {}, info = {};
+    nama.forEach(function (n, i) { var r = hasil[i + 1]; if (r.error) throw new Error(r.error.message); info[n] = r.data && r.data.ok ? r.data : { hari: 30, items: {}, kode: {} }; });
     tunggu.sort(function (a, b) { return a.t < b.t ? -1 : a.t > b.t ? 1 : a.ms - b.ms; });
     var list = tunggu.map(function (o) {
-      var r = O.rinci(o, null, stok), t = toko[String(o.pl).trim().toLowerCase()] || { stok: {}, jual: {} };
+      var r = O.rinci(o, null, null), I = info[o.pl], hari = I.hari || 30;
       var perKode = {}; r.items.forEach(function (it) { perKode[it.k] = (perKode[it.k] || 0) + it.q; });
       var nilai = 0, kurang = 0, lebih = 0, belumLaku = 0;
       var items = r.items.map(function (it) {
-        var s = Number((t.stok || {})[it.k]) || 0, j30 = Number((t.jual || {})[it.k]) || 0, rata = j30 / 30;
-        var cukup = rata > 0 ? Math.floor((s + perKode[it.k]) / rata) : null;
-        var saran = rata > 0 ? Math.max(0, Math.ceil(rata * RP_TARGET_ - s)) : 0;
-        var hr = rata > 0 ? s / rata : null;
-        var st = rata > 0 ? (hr < 7 ? 'Kritis' : hr < 14 ? 'Segera isi' : hr <= RP_BATAS_ ? 'Aman' : 'Berlebih') : (s > 0 ? 'Belum laku' : 'Belum dicoba');
+        var b = I.items[it.w ? it.k + '-' + it.w : it.k] || [0, 0, 0, 0, 0], kd = I.kode[it.k] || [0, 0];
+        var s = Number(kd[0]) || 0, rbk = Number(kd[1]) || 0, harian = rbk / 30;
+        var cukup = harian > 0 ? Math.floor((s + perKode[it.k]) / harian) : null;
+        var hr = harian > 0 ? s / harian : null;
+        var st = harian > 0 ? (hr < 7 ? 'Kritis' : hr < 14 ? 'Segera isi' : hr <= RP_TARGET_ ? 'Aman' : 'Berlebih') : (s > 0 ? 'Belum laku' : 'Belum dicoba');
         nilai += it.q * (Number(hpp[it.k]) || 0);
-        if (it.q > it.stok) kurang++;
-        if (cukup !== null && cukup > RP_BATAS_) lebih++;
+        if (it.q > b[0]) kurang++;
+        if (it.q > b[4]) lebih++;
         if (st === 'Belum laku') belumLaku++;
-        return { k: it.k, n: it.n, w: it.w, q: it.q, gd: it.stok, s: s, j30: j30, cukup: cukup, saran: saran, st: st };
+        return { k: it.k, n: it.n, w: it.w, q: it.q, gd: b[0], s: s, j30: b[2], cukup: cukup, saran: b[3], butuh: b[4], st: st };
       });
       return { no: o.no, t: fmt(new Date(o.t + 'T00:00:00'), 'dd/MM/yyyy'), pl: o.pl, p: O.t(o.p, 60), c: O.t(o.c, 200), q: r.q, nilai: Math.round(nilai),
-        kurang: kurang, lebih: lebih, belumLaku: belumLaku, hari: 30, items: items };
+        kurang: kurang, lebih: lebih, belumLaku: belumLaku, hari: hari, items: items };
     });
-    return { ok: true, list: list, n: list.length, batas: RP_BATAS_, target: RP_TARGET_ };
+    return { ok: true, list: list, n: list.length, batas: RP_TARGET_, target: RP_TARGET_ };
   }
 
   // ---- hargaBahanBakuMaster (file 4): harga bahan baku + kemasan, riwayat perubahan ----
