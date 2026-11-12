@@ -2555,7 +2555,7 @@
         (o.c ? '<div class="sb">Catatan: ' + esc(o.c) + '</div>' : '') +
         '<div class="rq-mt"><span class="label biru">' + fmt(o.q) + ' pcs</span><span class="label abu">nilai HPP ' + rp(o.nilai) + '</span>' + tanda.join('') + '</div>' +
         // 12 Nov 2026: koreksi jumlah sebelum ACC (kolom Disetujui). Tombol cepat mengisi kolom itu; order tersimpan dengan jumlah yang disetujui.
-        (q ? '' : '<div class="aksi-baris" style="flex-wrap:wrap;gap:8px"><span class="sb" style="margin:0">Isi kolom Disetujui:</span>' +
+        (q ? '' : '<div class="aksi-baris" style="flex-wrap:wrap;gap:8px"><span class="sb" style="margin:0">Kolom Disetujui sudah terisi saran robot (sesuai penjualan bulanan toko). Ganti dengan:</span>' +
           '<button type="button" class="tbl" data-cepat="gudang" data-o="' + i + '">Sesuaikan stok gudang</button>' +
           '<button type="button" class="tbl" data-cepat="saran" data-o="' + i + '">Pakai saran robot</button>' +
           '<button type="button" class="tbl" data-cepat="minta" data-o="' + i + '">Kembalikan ke permintaan</button>' +
@@ -2586,7 +2586,12 @@
         : 'Disetujui <b>' + fmt(tot) + ' pcs</b> dari ' + fmt(o.q) + ' pcs' + (ubah ? ' · ' + ubah + ' barang dikoreksi' : '');
       return { tot: tot, ubah: ubah, salah: salah };
     }
-    R.list.forEach(function (o, i) { ringkasQs(i); });
+    // 12 Nov 2026: aturan manajemen: barang ke toko & consignment diberikan sesuai data penjualan bulanan. Kolom Disetujui
+    // awalnya terisi saran robot (kebutuhan paling lama 2 bulan), bukan jumlah yang diminta; manajemen masih bisa mengubahnya.
+    R.list.forEach(function (o, i) {
+      isianQs(i).forEach(function (inp) { var it = o.items[+inp.getAttribute('data-j')]; inp.value = Math.max(0, it.pr ? (it.saran || 0) : Math.min(it.saran || 0, it.gd)); });
+      ringkasQs(i);
+    });
     el.querySelectorAll('[data-qs]').forEach(function (inp) { inp.oninput = function () { ringkasQs(+inp.getAttribute('data-qs')); }; });
     el.querySelectorAll('[data-cepat]').forEach(function (b) {
       b.onclick = function () {
