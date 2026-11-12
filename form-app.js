@@ -15,7 +15,6 @@
         { k: 'ajuan', nm: 'Pengajuan', ik: 'purch', l: ['Pengajuan@.m'] },
         { k: 'salur', nm: 'Penyaluran', ik: 'pemasok', l: ['Penyaluran@.m'] },
         { k: 'riwayat', nm: 'Riwayat', ik: 'riwayat', l: ['Riwayat@.m'] },
-        { k: 'uang', nm: 'Uang keluar', ik: 'uang', l: ['Uang keluar@.m'], pendek: 'Uang' },
         { k: 'hpp', nm: 'HPP & Harga', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox' },
         { k: 'lapajuan', nm: 'Laporan pengajuan (PDF)', ik: 'nota', panel: 'ajuan', pendek: 'Lap. ajuan' }
       ],
