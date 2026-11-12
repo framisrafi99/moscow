@@ -266,6 +266,29 @@
       } catch (e) { }
       return { hpp: hpp };
     }
+    function hppTerima(po, poOut) {
+      var buka = {}, out = {}, akhir = {}, awal = {};
+      poOut.forEach(function (o) { if (o.sisa > 0) buka[o.no] = true; });
+      try {
+        baca('online_stok_awal', 6).forEach(function (r) {
+          var k = GD_rapi_(r[0], 30).toUpperCase(), h = Number(r[5]);
+          if (k && isFinite(h) && h > 0) awal[k] = h;
+        });
+      } catch (e) { }
+      po.list.slice().sort(function (a, b) { return a.t < b.t ? -1 : a.t > b.t ? 1 : a.ms - b.ms; }).forEach(function (o) {
+        if (o.st === GD_ST_.TOLAK || o.st === GD_ST_.BATAL || !o.items.length) return;
+        var barang = 0, biaya = 0;
+        o.items.forEach(function (it) { barang += it.s; });
+        o.biaya.forEach(function (b) { biaya += b.v; });
+        o.items.forEach(function (it) {
+          var bagian = barang > 0 ? biaya * it.s / barang : 0;
+          var unit = it.q > 0 ? Math.round(it.h + bagian / it.q) : it.h;
+          if (buka[o.no]) out[o.no + '|' + it.k] = { lama: akhir[it.k] || awal[it.k] || 0, baru: unit };
+          if (unit) akhir[it.k] = unit;
+        });
+      });
+      return out;
+    }
     // HRG_peta_ bagian A (barang jualan) saja: yang dipakai halaman gudang.
     function hargaBarang() {
       var peta = {};
@@ -319,6 +342,8 @@
         bayar: GD_BAYAR_.slice(), bayarStaf: Object.keys(GD_BAYAR_STAF_), biayaJenis: GD_BIAYA_JENIS_.slice(), st: Object.assign({}, GD_ST_)
       };
       r.hrg = hargaBarang();
+      // 12 Nov 2026: untuk Terima barang PO: HPP sebelum PO ini (PO sebelumnya / stok awal) dan HPP dari PO ini (harga + bagian ongkir).
+      try { r.hppTerima = hppTerima(po, poOut); } catch (e) { r.hppTerima = {}; }
       return r;
     }
     // gdxOrderMasuk (file 52, versi file 53): order yang siap dikirim gudang dan order yang menunggu ACC.

@@ -18,8 +18,10 @@
 
   window.__asalAmbil = ambil;
   // 12 Nov 2026: saat terima barang PO, tampilkan perbandingan harga beli PO ini dengan HPP sekarang
-  window.__hppTanda = function (it, hrg) {
-    var h = Number(it && it.h) || 0, x = hrg && it ? hrg[it.k] : null, lama = x ? Number(x.hpp) || 0 : 0;
+  window.__hppTanda = function (it, hrg, no, peta) {
+    var p = peta && no && it ? peta[no + '|' + it.k] : null;
+    var h = p ? Number(p.baru) || 0 : Number(it && it.h) || 0;
+    var x = hrg && it ? hrg[it.k] : null, lama = p ? Number(p.lama) || 0 : (x ? Number(x.hpp) || 0 : 0);
     var rp = function (n) { return 'Rp ' + Math.round(Math.abs(n)).toLocaleString('id-ID'); };
     var gaya = 'display:inline-block;margin-top:3px;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;';
     if (!h) return '';
@@ -29,7 +31,7 @@
     var naik = beda > 0;
     return '<div><span style="' + gaya + (naik ? 'background:#fdecea;color:#b3261e' : 'background:#e7f6ec;color:#157347') + '">' + (naik ? '&#9650; naik ' : '&#9660; turun ') +
       (Math.round(Math.abs(pr) * 10) / 10).toLocaleString('id-ID') + '% (' + (naik ? '+' : '&minus;') + rp(beda) + ')</span>' +
-      '<div style="font-size:12px;color:#6b7686">HPP sekarang ' + rp(lama) + ' &rarr; harga beli PO ini ' + rp(h) + '</div></div>';
+      '<div style="font-size:12px;color:#6b7686">HPP sekarang ' + rp(lama) + ' &rarr; HPP dari PO ini ' + rp(h) + (p && Math.round(p.baru) !== Math.round(it.h) ? ' (harga ' + rp(it.h) + ' + ongkir)' : '') + '</div></div>';
   };
 
   // 12 Nov 2026: tanda asal di daftar barang & daftar pengajuan

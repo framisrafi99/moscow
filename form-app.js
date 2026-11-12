@@ -1326,7 +1326,7 @@
     var peta = {};
     r.data.forEach(function (x) { peta[String(x.kode).trim().toUpperCase()] = { a: x.asal, n: x.nama }; });
     var skrip = '<script>window.__ASAL=' + JSON.stringify(peta).replace(/</g, '\\u003c') + ';<\/script>' +
-      '<script src="' + location.origin + '/asal-barang.js?v=4"><\/script>';
+      '<script src="' + location.origin + '/asal-barang.js?v=5"><\/script>';
     // 1) tebakan awal per barang
     html = html.replace("function tebakImp(kl, k) {", "function tebakImp(kl, k) { if (window.__asalTebak) return window.__asalTebak(kl, k);");
     // 2) pilihan asal di kartu pengajuan (hanya barang campuran yang bisa dipilih)
@@ -1348,7 +1348,7 @@
     // 3d) pengajuan: harga satuan diisi otomatis dari harga beli terakhir (staf tidak perlu mencari); saat terima PO tampil perubahan HPP
     html = html.split("'<div><label>Perkiraan harga satuan</label><input data-i=\"' + i + '\" data-f=\"h\" inputmode=\"numeric\" value=\"' + esc(it.h ? f(it.h) : '') + '\" placeholder=\"Rp\"></div></div>'")
       .join("'<div><label>Harga terakhir (otomatis)</label><input data-i=\"' + i + '\" data-f=\"h\" readonly tabindex=\"-1\" style=\"background:#f2f5f8;color:#6b7686\" value=\"' + esc(it.h ? f(it.h) : '') + '\" placeholder=\"belum ada data\"></div></div>'");
-    html = html.split("', sudah datang ' + fmt(it.d) + '</div></td>").join("', sudah datang ' + fmt(it.d) + '</div>' + (window.__hppTanda ? window.__hppTanda(it, S.d && S.d.hrg) : '') + '</td>");
+    html = html.split("', sudah datang ' + fmt(it.d) + '</div></td>").join("', sudah datang ' + fmt(it.d) + '</div>' + (window.__hppTanda ? window.__hppTanda(it, S.d && S.d.hrg, o && o.no, S.d && S.d.hppTerima) : '') + '</td>");
     // 4) form PO: asal ditetapkan dari barangnya
     var po = "'<div><label>Asal barang</label><select data-po=\"asal\">' + opsi(['Impor', 'Lokal'], S.po.asal) + '</select></div>'";
     html = html.split(po).join("(window.__asalPo ? window.__asalPo(S.po, " + po + ") : " + po + ")");
