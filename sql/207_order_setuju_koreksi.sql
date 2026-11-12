@@ -76,3 +76,13 @@ begin
     || ' Staf gudang bisa menyiapkan barangnya.');
 end $function$;
 grant execute on function public.order_setuju_koreksi(text, jsonb, text) to authenticated;
+
+-- 12 Nov 2026 (lanjutan): produk buatan sendiri (kategori 'Produk Cat Moscow' dan 'Produk Kenka by Moscow') bisa diproduksi,
+-- jadi tidak dibatasi stok Gudang Utama. Fungsi bantu _brg_produksi(kode) dipakai di toko_simpan_order, order_setuju_koreksi,
+-- dan toko_restok_info (saran tidak dipotong stok gudang; elemen ke-7 items = 1 untuk produk sendiri). Sudah terpasang di database.
+create or replace function public._brg_produksi(p_kode text)
+ returns boolean language sql stable security definer set search_path to 'public'
+as $function$
+  select exists (select 1 from barang_order b where upper(btrim(b.kode)) = split_part(upper(btrim(coalesce(p_kode, ''))), '-', 1)
+                    and btrim(coalesce(b.kategori, '')) in ('Produk Cat Moscow', 'Produk Kenka by Moscow'));
+$function$;

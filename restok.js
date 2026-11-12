@@ -26,7 +26,8 @@
     } else {
       // b[5] = stok toko untuk barang / warna ini; null = toko belum punya hitung stok per warna (dipakai stok semua warna).
       var b = brs(kq) || [0, 0, 0, 0, 0, null], warna = kq !== kode, pasti = b[5] !== null && b[5] !== undefined;
-      h = (b[0] > 0 ? 'Gudang <b>' + f(b[0]) + '</b>' : '<span style="' + MERAH + '">Gudang kosong</span>') +
+      // b[6] = 1: produk buatan sendiri (Cat Moscow & Kenka), bisa diproduksi -> tidak dibatasi stok gudang.
+      h = (b[0] > 0 ? 'Gudang <b>' + f(b[0]) + '</b>' + (b[6] ? ' (lebihnya diproduksi)' : '') : (b[6] ? '<span style="' + JINGGA + '">Gudang kosong, akan diproduksi</span>' : '<span style="' + MERAH + '">Gudang kosong</span>')) +
         ' &middot; stok toko ' + (pasti ? f(b[5]) : f(t[0]) + (warna ? ' (semua warna)' : '')) + ' &middot; laku ' + f(b[2]) + '/bln' +
         (b[3] > 0 ? ' &middot; <span style="' + HIJAU + '">saran ' + f(b[3]) + '</span>' : (b[4] > 0 ? ' &middot; <span style="' + JINGGA + '">perlu ' + f(b[4]) + ', gudang kosong</span>' : ' &middot; saran 0'));
     }
@@ -36,6 +37,8 @@
   function peringatan(kode, kq, q) {
     var el = $('rw_' + kode); if (!el) return;
     var b = brs(kq); if (!b || !(q > 0)) { el.innerHTML = ''; return; }
+    var prod = b[6] && q > b[0] ? '<span style="' + JINGGA + '">Stok gudang ' + f(b[0]) + ' pcs; ' + f(q - b[0]) + ' pcs perlu diproduksi dulu, jadi pengiriman bisa lebih lama.</span> ' : '';
+    if (prod && !(b[4] <= 0) && !(q > b[4])) { el.innerHTML = prod; return; }
     if (b[4] <= 0) el.innerHTML = '<span style="' + JINGGA + '">' + (b[2] > 0 ? 'Stok toko masih cukup untuk 2 bulan.' : 'Belum ada penjualan ' + R.hari + ' hari terakhir.') + ' Request ini akan ditinjau manajemen.</span>';
     else if (q > b[4]) el.innerHTML = '<span style="' + JINGGA + '">Lebih dari kebutuhan 2 bulan (cukup ' + f(b[4]) + ' pcs).</span>';
     else el.innerHTML = '';
@@ -45,7 +48,7 @@
   window.__rstBatas = function (inp, kq) {
     if (!R || !kq || !inp) return;
     var kode = inp.getAttribute('data-k'), b = brs(kq) || [0, 0, 0, 0, 0], q = Number(inp.value);
-    if (inp.value !== '' && isFinite(q) && q > b[0]) {
+    if (inp.value !== '' && isFinite(q) && q > b[0] && !b[6]) {
       inp.value = b[0] > 0 ? String(b[0]) : '';
       var el = $('rw_' + kode);
       if (el) { el.innerHTML = '<span style="' + MERAH + '">' + (b[0] > 0 ? 'Stok Gudang Utama hanya ' + f(b[0]) + ' pcs. Jumlah disesuaikan.' : 'Stok Gudang Utama kosong, belum bisa diminta.') + '</span>'; return; }
@@ -58,7 +61,7 @@
     if (!R) return '';
     for (var i = 0; i < items.length; i++) {
       var b = brs(items[i].kode) || [0];
-      if (items[i].qty > b[0]) return 'Stok Gudang Utama untuk ' + items[i].nama + ' tinggal ' + f(b[0]) + ' pcs. Kurangi jumlahnya.';
+      if (items[i].qty > b[0] && !b[6]) return 'Stok Gudang Utama untuk ' + items[i].nama + ' tinggal ' + f(b[0]) + ' pcs. Kurangi jumlahnya.';
     }
     return '';
   };
@@ -79,12 +82,14 @@
     var el = $('rstKartu'); if (!el) { el = document.createElement('div'); el.id = 'rstKartu'; var cari = $('cari'); (cari || d).parentNode.insertBefore(el, cari || d); }
     var ks = Object.keys(R.items).filter(function (k) { return R.items[k][3] > 0; }), tot = 0, tahan = 0;
     ks.forEach(function (k) { tot += R.items[k][3]; });
-    Object.keys(R.items).forEach(function (k) { if (R.items[k][4] > R.items[k][3]) tahan++; });
+    var produksi = 0;
+    Object.keys(R.items).forEach(function (k) { var b = R.items[k]; if (b[4] > b[3]) tahan++; if (b[6] && b[3] > b[0]) produksi++; });
     el.style.cssText = 'margin:0 0 12px;padding:12px 14px;border-radius:14px;background:#EEF6FB;border:1px solid #CFE3EF;font-size:13px;color:#0F1B2A';
     el.innerHTML = '<b style="font-size:14px">&#129302; Saran robot re-stock</b><div style="margin-top:4px">' +
       (ks.length ? '<b>' + ks.length + ' barang</b> disarankan diminta (' + f(tot) + ' pcs) supaya stok toko cukup paling lama 2 bulan.' : 'Stok toko masih cukup untuk 2 bulan. Tidak ada barang yang perlu diminta sekarang.') +
+      (produksi ? ' ' + produksi + ' di antaranya produk Moscow / Kenka yang stok gudangnya kurang dan akan diproduksi.' : '') +
       (tahan ? ' ' + tahan + ' barang lain perlu, tetapi stok Gudang Utama kosong atau kurang.' : '') +
-      '</div><div style="margin-top:4px;color:#5A6677">Dihitung dari rata-rata penjualan ' + R.hari + ' hari terakhir dan stok toko saat ini. Jumlah request tidak bisa melebihi stok Gudang Utama.</div>' +
+      '</div><div style="margin-top:4px;color:#5A6677">Dihitung dari rata-rata penjualan ' + R.hari + ' hari terakhir dan stok toko saat ini. Jumlah request tidak bisa melebihi stok Gudang Utama, kecuali produk Moscow dan Kenka (bisa diproduksi).</div>' +
       (ks.length ? '<button type="button" id="rstIsiBtn" class="btn" style="margin-top:10px">Isi sesuai saran robot (' + ks.length + ' barang)</button>' : '');
     var b = $('rstIsiBtn');
     if (b) b.onclick = function () {

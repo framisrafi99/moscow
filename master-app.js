@@ -2548,6 +2548,7 @@
       var q = antre[o.no];
       var tanda = [];
       if (o.kurang) tanda.push('<span class="label no">' + o.kurang + ' barang melebihi stok gudang</span>');
+      if (o.produksi) tanda.push('<span class="label w">' + o.produksi + ' produk Moscow / Kenka perlu diproduksi</span>');
       if (o.lebih) tanda.push('<span class="label w">' + o.lebih + ' barang melebihi kebutuhan 2 bulan</span>');
       if (o.belumLaku) tanda.push('<span class="label w">' + o.belumLaku + ' barang belum laku</span>');
       return '<div class="cd"><div class="rq-kpl"><h3>' + esc(o.pl) + '</h3><span class="sb">' + esc(o.no) + ' · ' + esc(o.t) + (o.p ? ' · ' + esc(o.p) : '') + '</span></div>' +
@@ -2562,11 +2563,11 @@
         '<div class="gulir"><table class="tabel rq-tbl"><thead><tr><th>Barang</th><th class="r">Minta</th><th class="r">Gudang</th><th class="r">Stok toko</th><th class="r">Laku/bln</th><th class="r">Cukup</th><th class="r">Saran</th><th class="r">Disetujui</th></tr></thead><tbody>' +
         o.items.map(function (it, j) {
           return '<tr><td><b>' + esc(it.n) + '</b>' + (it.w ? '<small>' + esc(it.w) + '</small>' : '') + '<small><span class="label ' + (WARNA_ST[it.st] || 'abu') + '">' + esc(it.st) + '</span></small></td>' +
-            '<td class="r' + (it.butuh !== undefined && it.q > it.butuh ? ' kurang' : '') + '"><b>' + fmt(it.q) + '</b></td><td class="r' + (it.q > it.gd ? ' kurang' : '') + '">' + fmt(it.gd) + '</td><td class="r">' + fmt(it.s) + '</td><td class="r">' + fmt(it.j30) + '</td>' +
+            '<td class="r' + (it.butuh !== undefined && it.q > it.butuh ? ' kurang' : '') + '"><b>' + fmt(it.q) + '</b></td><td class="r' + (it.q > it.gd && !it.pr ? ' kurang' : '') + '"' + (it.q > it.gd && it.pr ? ' style="color:#9A5B00;font-weight:700" title="Produk sendiri: kekurangannya diproduksi"' : '') + '>' + fmt(it.gd) + '</td><td class="r">' + fmt(it.s) + '</td><td class="r">' + fmt(it.j30) + '</td>' +
             '<td class="r">' + (it.cukup === null || it.cukup === undefined ? '–' : fmt(it.cukup) + ' hr') + '</td><td class="r">' + fmt(it.saran) + '</td>' +
             '<td class="r"><input class="isian" type="number" inputmode="numeric" min="0" step="1" data-qs="' + i + '" data-j="' + j + '" value="' + it.q + '" aria-label="Jumlah disetujui ' + esc(it.n) + '" style="width:78px;text-align:right;padding:6px 8px"></td></tr>';
         }).join('') + '</tbody></table></div>' +
-        '<p class="sb" style="margin:0">Gudang = stok Gudang Utama yang tersedia. Laku/bln = rata-rata penjualan toko per bulan (' + fmt(o.hari) + ' hari terakhir). Cukup = perkiraan stok toko cukup berapa hari setelah barang diterima. Saran robot = jumlah supaya stok toko cukup paling lama 2 bulan. Angka merah di kolom Minta = melebihi kebutuhan 2 bulan; merah di kolom Gudang = stok gudang tidak cukup.</p>' +
+        '<p class="sb" style="margin:0">Gudang = stok Gudang Utama yang tersedia. Laku/bln = rata-rata penjualan toko per bulan (' + fmt(o.hari) + ' hari terakhir). Cukup = perkiraan stok toko cukup berapa hari setelah barang diterima. Saran robot = jumlah supaya stok toko cukup paling lama 2 bulan. Angka merah di kolom Minta = melebihi kebutuhan 2 bulan; merah di kolom Gudang = stok gudang tidak cukup; jingga di kolom Gudang = produk Moscow / Kenka yang kekurangannya diproduksi.</p>' +
         (q ? '<div class="msg tunggu" style="margin:0">Sedang diterapkan: ' + esc(q) + '</div>'
           : '<div class="aksi-baris"><input class="isian" placeholder="Alasan (wajib kalau ditolak)" maxlength="200" data-alasan="' + i + '"><button type="button" class="tbl pri" data-rq="' + i + '" data-aksi="setuju">Setujui</button><button type="button" class="tbl mer" data-rq="' + i + '" data-aksi="tolak">Tolak</button></div><div data-pesan="' + i + '"></div>') +
         '</div>';
@@ -2576,7 +2577,7 @@
     function ringkasQs(i) {
       var o = R.list[i], tot = 0, ubah = 0, salah = 0;
       isianQs(i).forEach(function (inp) {
-        var it = o.items[+inp.getAttribute('data-j')], v = nilaiQs(inp), buruk = !(v >= 0) || Math.floor(v) !== v || v > it.gd;
+        var it = o.items[+inp.getAttribute('data-j')], v = nilaiQs(inp), buruk = !(v >= 0) || Math.floor(v) !== v || (v > it.gd && !it.pr);
         inp.style.borderColor = buruk ? '#B42318' : (v !== it.q ? '#1E78A8' : '');
         if (buruk) salah++; else { tot += v; if (v !== it.q) ubah++; }
       });
@@ -2592,7 +2593,8 @@
         var i = +b.getAttribute('data-o'), o = R.list[i], cara = b.getAttribute('data-cepat');
         isianQs(i).forEach(function (inp) {
           var it = o.items[+inp.getAttribute('data-j')];
-          inp.value = cara === 'minta' ? it.q : cara === 'saran' ? Math.max(0, Math.min(it.saran || 0, it.gd)) : Math.max(0, Math.min(it.q, it.gd));
+          // Produk Moscow / Kenka (it.pr) bisa diproduksi, jadi tidak dipotong stok gudang.
+          inp.value = cara === 'minta' ? it.q : cara === 'saran' ? Math.max(0, it.pr ? (it.saran || 0) : Math.min(it.saran || 0, it.gd)) : Math.max(0, it.pr ? it.q : Math.min(it.q, it.gd));
         });
         ringkasQs(i);
       };

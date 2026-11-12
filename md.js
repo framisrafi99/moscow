@@ -188,7 +188,7 @@
     var list = tunggu.map(function (o) {
       var r = O.rinci(o, null, null), I = info[o.pl], hari = I.hari || 30;
       var perKode = {}; r.items.forEach(function (it) { perKode[it.k] = (perKode[it.k] || 0) + it.q; });
-      var nilai = 0, kurang = 0, lebih = 0, belumLaku = 0;
+      var nilai = 0, kurang = 0, lebih = 0, belumLaku = 0, produksi = 0;
       var items = r.items.map(function (it) {
         var b = I.items[it.w ? it.k + '-' + it.w : it.k] || [0, 0, 0, 0, 0, null], kd = I.kode[it.k] || [0, 0];
         // Stok toko per warna (b[5]) dipakai kalau toko sudah punya hitung stok per warna; kalau belum, dipakai angka per kode.
@@ -199,13 +199,13 @@
         var hr = harian > 0 ? Math.max(s, 0) / harian : null;
         var st = harian > 0 ? (hr < 7 ? 'Kritis' : hr < 14 ? 'Segera isi' : hr <= RP_TARGET_ ? 'Aman' : 'Berlebih') : (s > 0 ? 'Belum laku' : 'Belum dicoba');
         nilai += it.q * (Number(hpp[it.k]) || 0);
-        if (it.q > b[0]) kurang++;
+        if (it.q > b[0]) { if (b[6]) produksi++; else kurang++; }
         if (it.q > b[4]) lebih++;
         if (st === 'Belum laku') belumLaku++;
-        return { k: it.k, n: it.n, w: it.w, q: it.q, gd: b[0], s: s, j30: b[2], cukup: cukup, saran: b[3], butuh: b[4], st: st };
+        return { k: it.k, n: it.n, w: it.w, q: it.q, gd: b[0], s: s, j30: b[2], cukup: cukup, saran: b[3], butuh: b[4], st: st, pr: b[6] ? 1 : 0 };
       });
       return { no: o.no, t: fmt(new Date(o.t + 'T00:00:00'), 'dd/MM/yyyy'), pl: o.pl, p: O.t(o.p, 60), c: O.t(o.c, 200), q: r.q, nilai: Math.round(nilai),
-        kurang: kurang, lebih: lebih, belumLaku: belumLaku, hari: hari, items: items };
+        kurang: kurang, produksi: produksi, lebih: lebih, belumLaku: belumLaku, hari: hari, items: items };
     });
     return { ok: true, list: list, n: list.length, batas: RP_TARGET_, target: RP_TARGET_ };
   }
