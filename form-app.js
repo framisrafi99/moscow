@@ -1529,6 +1529,17 @@
       html = html.replace("b.onclick = function () { kel = 'Barang jualan'; tambah('Barang jualan', b.getAttribute('data-k'), true); pilih('beli', 'ajukan'); }; });\n  }",
         "b.onclick = function () { kel = 'Barang jualan'; tambah('Barang jualan', b.getAttribute('data-k'), true); pilih('beli', 'ajukan'); }; });\n    var sm = $('gdxRbSemua'); if (sm) sm.onclick = function () { kel = 'Barang jualan'; (window.__robotPerlu ? window.__robotPerlu(D, hb.concat(tp)) : []).forEach(function (y) { tambah('Barang jualan', y.x.k, true); }); pilih('beli', 'ajukan'); };\n  }");
     }
+    if (APP === 'produksi') {
+      // 12 Nov 2026: Penyesuaian stok: pilihan "Produksi" dihapus. Hasil produksi langsung masuk stok Gudang Utama, jadi tidak ada
+      // stok barang jadi di produksi; penyesuaian barang jadi dilakukan dari Gudang Utama. Tersisa Botol dan Stiker.
+      html = html.replace("var PS = {bagian: 'Produksi',", "var PS = {bagian: 'Botol',");
+      html = html.replace("'<div class=\"seg\" id=\"psSeg\"><button type=\"button\" data-pb=\"Produksi\" class=\"on\">Produksi</button><button type=\"button\" data-pb=\"Botol\">Botol</button>",
+        "'<div class=\"seg\" id=\"psSeg\"><button type=\"button\" data-pb=\"Botol\" class=\"on\">Botol</button>");
+      html = html.replace("Dipakai kalau hasil hitung fisik berbeda dengan stok di sistem. Stok baru berubah setelah disetujui manajemen Moscow Supplies.</div>' +\n      '<label class=\"t\">Bagian</label>'",
+        "Dipakai kalau hasil hitung fisik botol atau stiker berbeda dengan stok di sistem. Stok baru berubah setelah disetujui manajemen Moscow Supplies. Stok barang jadi ada di Gudang Utama dan disesuaikan dari aplikasi Gudang Utama.</div>' +\n      '<label class=\"t\">Bagian</label>'");
+      // Harga kemasan: stok masuk dari pengajuan terisi otomatis dari pembayaran Purchasing (sql 208).
+      html = html.replace("Isi harga total sesuai nota.", "Stok masuk dari pengajuan terisi otomatis dari pembayaran Purchasing; yang tampil di sini hanya stok masuk tanpa pengajuan. Isi harga total sesuai nota.");
+    }
     // 12 Nov 2026: HPP & Harga (Gudang Utama). HPP diperbarui otomatis saat Terima barang, jadi staf hanya melihat HPP
     // dan mengajukan harga jual baru; barang yang HPP-nya naik 35% atau lebih dari HPP acuan (sql 203) diberi tanda merah
     // dan ditaruh paling atas. Manajemen (mode manajemen) tetap bisa mengubah HPP & harga jual seperti biasa.

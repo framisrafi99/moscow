@@ -1,0 +1,7 @@
+-- 12 Nov 2026: Staf Produksi (hasil audit menu). Sudah terpasang di database; teks lengkap: pg_get_functiondef.
+-- 1) _kms_harga_auto(p_id): harga botol / stiker / packaging yang masuk dari pengajuan (catatan bahan_masuk memuat [PG-...])
+--    diisi otomatis dari nominal yang dibayar Purchasing ("Dibayar ... · <akun> · Rp <nominal> · <supplier>" di
+--    pengadaan_ajuan.ref_po_supplier); kalau jumlah masuk berbeda dengan jumlah dibeli, nominal dibagi sebanding.
+--    Dipanggil di akhir produksi_simpan_masuk. Stok masuk lama dari pengajuan (7 baris) sudah diisi.
+--    Stok masuk tanpa pengajuan tetap diisi staf lewat menu Harga kemasan.
+-- 2) produksi_sesuai_ajukan: bagian 'Produksi' ditolak (stok barang jadi ada di Gudang Utama); tersisa Botol dan Stiker.
