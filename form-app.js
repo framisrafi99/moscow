@@ -70,6 +70,8 @@
         { k: 'laporan', nm: 'Laporan', ik: 'laporan', l: ['Laporan@#kbTabs'] },
         { k: 'hpp', nm: 'HPP & Harga', ik: 'harga', l: ['HPP & Harga@#kbTabs'], pendek: 'HPP' },
         { k: 'naik', nm: 'ACC ubah HPP', ik: 'dasbor', l: ['Harga naik@#kbTabs'], pendek: 'ACC HPP' },
+        // 12 Nov 2026: catatan pekerjaan sistem per hari dari penanggung jawab sistem (sistem-lap.js, tabel sistem_laporan).
+        { k: 'sistem', nm: 'Laporan sistem', ik: 'laporan', panel: 'sistem', pendek: 'Sistem' },
         { grup: 'PERSETUJUAN & LAPORAN' },
         { k: 'acc', nm: 'ACC Pengajuan', ik: 'setuju', href: 'form.html?f=mikelama#acc' },
         { k: 'laris', nm: 'Laris & Lambat', ik: 'jual', href: 'form.html?f=mikelama#laris' },
@@ -1249,6 +1251,9 @@
     if (mm && mm.panel === 'ajuan') {
       el.hidden = false; C.panel = true; sec.classList.add('pk-mode'); $('muatan').hidden = true; document.documentElement.classList.remove('berbingkai');
       if (window.AjuanPdf) AjuanPdf.gambar(el, M.sb, APP);
+    } else if (mm && mm.panel === 'sistem') {
+      el.hidden = false; C.panel = true; sec.classList.add('pk-mode'); $('muatan').hidden = true; document.documentElement.classList.remove('berbingkai');
+      if (window.LaporanSistem) LaporanSistem.gambar(el, M.sb, C.peran);
     } else if (mm && mm.panel === 'pkp') {
       el.hidden = false; C.panel = true; sec.classList.add('pk-mode'); $('muatan').hidden = true; document.documentElement.classList.remove('berbingkai');
       if (window.ProduksiKP) ProduksiKP.gambar(el, M.sb, k, { nama: C.nama, salin: salinKeSheet });
