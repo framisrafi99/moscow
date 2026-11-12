@@ -1,6 +1,6 @@
 /* Moscow Supplies - Pembaruan aplikasi (12 Nov 2026).
  * Catatan "apa yang baru" per aplikasi staf (tabel app_pembaruan). Tampil sebagai menu "Pembaruan aplikasi" di menu samping,
- * tombol lonceng dengan angka yang belum dibaca, dan pengingat sekali saat ada pembaruan baru.
+ * angka merah kecil di menu (dan di tombol Menu bawah di HP) untuk pembaruan yang belum dibaca.
  * Manajemen Moscow Supplies bisa menulis pembaruan baru dari jendela yang sama.
  * Dipakai: form.html (form-app.js) dan consignment.html (consignment-app.js) lewat window.Pembaruan.pasang(app, peran).
  */
@@ -25,10 +25,7 @@
   function gaya() {
     if (document.getElementById('pbGaya')) return;
     var st = document.createElement('style'); st.id = 'pbGaya';
-    st.textContent = '#pbLonceng{position:fixed;right:14px;bottom:86px;z-index:60;border:0;border-radius:999px;background:#1E78A8;color:#fff;font-family:inherit;font-size:13px;font-weight:700;line-height:1;' +
-      'padding:10px 14px;box-shadow:0 4px 14px rgba(15,27,42,.25);cursor:pointer;display:none}#pbLonceng.ada{display:block}' +
-      '#pbLonceng i{font-style:normal;display:inline-block;min-width:18px;padding:2px 5px;margin-left:6px;border-radius:999px;background:#fff;color:#B42318;font-size:11px}' +
-      '#pbLatar{position:fixed;inset:0;z-index:80;background:rgba(15,27,42,.45);display:flex;align-items:flex-end;justify-content:center}' +
+    st.textContent = '#pbLatar{position:fixed;inset:0;z-index:80;background:rgba(15,27,42,.45);display:flex;align-items:flex-end;justify-content:center}' +
       '#pbJendela{background:#fff;width:100%;max-width:640px;max-height:86vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px 26px;font-family:inherit;color:#0F1B2A}' +
       '@media(min-width:700px){#pbLatar{align-items:center}#pbJendela{border-radius:18px}}' +
       '#pbJendela h2{margin:0;font-size:18px}#pbJendela .pbIt{border:1px solid #E2E7EE;border-radius:14px;padding:12px 14px;margin-top:10px}' +
@@ -48,12 +45,27 @@
     S.list = r.data || [];
     perbarui();
   }
+  var MERAH = 'display:inline-block;min-width:18px;padding:1px 6px;border-radius:999px;background:#D92D20;color:#fff;font-size:11px;font-weight:700;text-align:center;margin-left:auto';
   function perbarui() {
     var n = belum();
-    var lc = document.getElementById('pbLonceng');
-    if (lc) { lc.className = n ? 'ada' : ''; lc.innerHTML = '&#128276; Pembaruan' + (n ? '<i>' + n + '</i>' : ''); }
     var mn = document.getElementById('pbMenu');
-    if (mn) mn.querySelector('.nm').innerHTML = 'Pembaruan aplikasi' + (n ? ' <b style="color:#B42318">(' + n + ' baru)</b>' : '');
+    if (mn) { var bd = mn.querySelector('.pbBd'); bd.textContent = n || ''; bd.style.display = n ? 'inline-block' : 'none'; }
+    var lb = document.getElementById('pbLembar');
+    if (lb) { var bd2 = lb.querySelector('.pbBd'); bd2.textContent = n || ''; bd2.style.display = n ? 'inline-block' : 'none'; }
+    // titik merah di tombol "Menu" bawah (HP)
+    if (window.Moscow && window.Moscow.badge) window.Moscow.badge('lain', n);
+  }
+  // HP: menu "Menu" (lembar bawah) dibuat ulang setiap dibuka -> sisipkan "Pembaruan aplikasi" paling atas.
+  function pasangLembar() {
+    new MutationObserver(function () {
+      var lm = document.getElementById('mLembar'); if (!lm || document.getElementById('pbLembar')) return;
+      var isi = lm.querySelector('.isi'), h3 = isi && isi.querySelector('h3'); if (!h3) return;
+      var svg = window.Moscow && window.Moscow.svg ? window.Moscow.svg('laporan', 20) : '';
+      h3.insertAdjacentHTML('afterend', '<button type="button" class="it" id="pbLembar">' + svg + '<span>Pembaruan aplikasi</span><span class="pbBd" style="' + MERAH + '"></span></button>');
+      var b = document.getElementById('pbLembar');
+      b.onclick = function (e) { e.stopPropagation(); lm.remove(); buka(); };
+      perbarui();
+    }).observe(document.body, { childList: true });
   }
 
   function buka() {
@@ -100,13 +112,11 @@
     pasang: async function (app, peran) {
       S.app = app || ''; S.peran = peran || ''; if (!S.app) return;
       gaya(); S.baca = ambilBaca();
-      if (!document.getElementById('pbLonceng')) {
-        var b = document.createElement('button'); b.type = 'button'; b.id = 'pbLonceng'; b.onclick = buka; document.body.appendChild(b);
-      }
+      pasangLembar();
       var nav = document.querySelector('#mSide nav');
       if (nav && !document.getElementById('pbMenu')) {
         var svg = window.Moscow && window.Moscow.svg ? window.Moscow.svg('laporan') : '';
-        nav.insertAdjacentHTML('afterbegin', '<a class="it" href="#" id="pbMenu">' + svg + '<span class="nm">Pembaruan aplikasi</span></a>');
+        nav.insertAdjacentHTML('afterbegin', '<a class="it" href="#" id="pbMenu">' + svg + '<span class="nm">Pembaruan aplikasi</span><span class="pbBd" style="' + MERAH + '"></span></a>');
         document.getElementById('pbMenu').onclick = function (e) { e.preventDefault(); buka(); };
       }
       try { await muat(); } catch (e) { return; }
