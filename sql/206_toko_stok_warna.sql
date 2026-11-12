@@ -1,0 +1,19 @@
+-- 12 Nov 2026: stok toko per warna, disamakan dengan Gudang Utama (toko, consignment).
+-- Sudah terpasang langsung di database. File ini mencatat isinya; teks lengkap fungsi ambil dengan:
+--   select pg_get_functiondef('public._toko_stok_warna'::regproc);
+--   select pg_get_functiondef('public.toko_restok_info'::regproc);
+--
+-- _toko_stok_warna(p_toko) -> (k, w, q)
+--   Sumber sama dengan toko_stok_hitung (stok awal, penjualan, order selesai, return layak jual, pinjaman), dipecah per warna.
+--   Barang berwarna yang penyesuaian hitung stoknya tercatat per kode (tanpa warna): stok per warna diambil dari
+--   HITUNG STOK terakhir toko (toko_hitung_log, per warna) + pergerakan sesudah waktu hitung itu. Hasilnya hanya dipakai
+--   kalau jumlah semua warna sama persis dengan stok resmi kode tersebut; kalau tidak, kode itu dikembalikan apa adanya
+--   (baris w = '' berarti stok per warna belum bisa dipastikan sampai toko menghitung stok per warna).
+--   Hak akses: hanya dipanggil dari fungsi lain (execute dicabut dari authenticated).
+--
+-- toko_restok_info(p_toko) -> json
+--   items: kunci (kode atau kode-WARNA) -> [stok gudang tersedia, terjual dalam `hari`, rata-rata per bulan,
+--          saran (dibatasi stok gudang), kebutuhan 2 bulan, stok toko barang/warna ini (null = belum pasti per warna)]
+--   kode:  kode -> [stok toko semua warna, rata-rata per bulan semua warna]
+--   Barang berwarna dengan stok per warna yang pasti: kebutuhan = ceil(terjual warna x 60 / hari) - stok toko warna itu.
+--   Yang belum pasti: kebutuhan kode dibagi menurut porsi penjualan tiap warna.

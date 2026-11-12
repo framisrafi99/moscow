@@ -22,11 +22,12 @@
     if (!R) return '';
     var t = kd(kode), h = '';
     if (!kq) {
-      h = 'stok toko ' + f(t[0]) + ' (semua warna) &middot; laku ' + f(t[1]) + '/bln &middot; pilih warna untuk melihat stok gudang';
+      h = 'stok toko ' + f(t[0]) + ' (semua warna) &middot; laku ' + f(t[1]) + '/bln &middot; pilih warna untuk melihat stok gudang, stok toko, dan saran';
     } else {
-      var b = brs(kq) || [0, 0, 0, 0, 0], warna = kq !== kode;
+      // b[5] = stok toko untuk barang / warna ini; null = toko belum punya hitung stok per warna (dipakai stok semua warna).
+      var b = brs(kq) || [0, 0, 0, 0, 0, null], warna = kq !== kode, pasti = b[5] !== null && b[5] !== undefined;
       h = (b[0] > 0 ? 'Gudang <b>' + f(b[0]) + '</b>' : '<span style="' + MERAH + '">Gudang kosong</span>') +
-        ' &middot; stok toko ' + f(t[0]) + (warna ? ' (semua warna)' : '') + ' &middot; laku ' + f(b[2]) + '/bln' +
+        ' &middot; stok toko ' + (pasti ? f(b[5]) : f(t[0]) + (warna ? ' (semua warna)' : '')) + ' &middot; laku ' + f(b[2]) + '/bln' +
         (b[3] > 0 ? ' &middot; <span style="' + HIJAU + '">saran ' + f(b[3]) + '</span>' : (b[4] > 0 ? ' &middot; <span style="' + JINGGA + '">perlu ' + f(b[4]) + ', gudang kosong</span>' : ' &middot; saran 0'));
     }
     return '<span style="' + ABU + '">' + h + '</span><span id="rw_' + esc(kode) + '" style="display:block;font-size:12px"></span>';

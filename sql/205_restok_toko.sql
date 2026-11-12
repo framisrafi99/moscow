@@ -84,3 +84,6 @@ begin
   if position(a in d) = 0 then raise exception 'pola 2'; end if; d := replace(d, a, b);
   execute d;
 end $$;
+
+-- 12 Nov 2026 (lanjutan): stok toko per warna, disamakan dengan Gudang Utama.
+-- _toko_stok_warna(toko) dan toko_restok_info (elemen ke-6 = stok toko per barang/warna) versi akhir ada di file 206.

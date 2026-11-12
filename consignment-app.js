@@ -592,7 +592,7 @@
     ganti("$('periksa').addEventListener('click', periksa);",
       "$('periksa').addEventListener('click', periksa);\n  window.__rstGambar = gambarBarang;\n  window.__rstIsi = function (m) { for (var k in m) Q[k] = String(m[k]); gambarBarang(); for (var n = 0; n < KAT.length; n++) { var e = $('kc_' + n); if (e) e.textContent = labelIsi(n); } hitung(); };");
     // Kait hanya dipasang kalau kelimanya cocok dengan form yang tersimpan; kalau tidak, form berjalan seperti semula.
-    return n === 5 ? html.replace(/<head[^>]*>/i, function (x) { return x + '<script src="' + location.origin + '/restok.js?v=1"><\/script>'; }) : null;
+    return n === 5 ? html.replace(/<head[^>]*>/i, function (x) { return x + '<script src="' + location.origin + '/restok.js?v=2"><\/script>'; }) : null;
   }
 
   function tampil(html) {

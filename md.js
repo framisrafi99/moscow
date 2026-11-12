@@ -190,10 +190,13 @@
       var perKode = {}; r.items.forEach(function (it) { perKode[it.k] = (perKode[it.k] || 0) + it.q; });
       var nilai = 0, kurang = 0, lebih = 0, belumLaku = 0;
       var items = r.items.map(function (it) {
-        var b = I.items[it.w ? it.k + '-' + it.w : it.k] || [0, 0, 0, 0, 0], kd = I.kode[it.k] || [0, 0];
-        var s = Number(kd[0]) || 0, rbk = Number(kd[1]) || 0, harian = rbk / 30;
-        var cukup = harian > 0 ? Math.floor((s + perKode[it.k]) / harian) : null;
-        var hr = harian > 0 ? s / harian : null;
+        var b = I.items[it.w ? it.k + '-' + it.w : it.k] || [0, 0, 0, 0, 0, null], kd = I.kode[it.k] || [0, 0];
+        // Stok toko per warna (b[5]) dipakai kalau toko sudah punya hitung stok per warna; kalau belum, dipakai angka per kode.
+        var pasti = b[5] !== null && b[5] !== undefined;
+        var s = pasti ? Number(b[5]) || 0 : Number(kd[0]) || 0, harian = (pasti ? Number(b[2]) || 0 : Number(kd[1]) || 0) / 30;
+        var minta = pasti ? it.q : perKode[it.k];
+        var cukup = harian > 0 ? Math.floor((Math.max(s, 0) + minta) / harian) : null;
+        var hr = harian > 0 ? Math.max(s, 0) / harian : null;
         var st = harian > 0 ? (hr < 7 ? 'Kritis' : hr < 14 ? 'Segera isi' : hr <= RP_TARGET_ ? 'Aman' : 'Berlebih') : (s > 0 ? 'Belum laku' : 'Belum dicoba');
         nilai += it.q * (Number(hpp[it.k]) || 0);
         if (it.q > b[0]) kurang++;
