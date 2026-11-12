@@ -1457,6 +1457,8 @@
     var m = $('muatan');
     // Bilah tab lama disembunyikan lewat aturan gaya (tetap berlaku walau form menggambar ulang isinya).
     var gaya = GAYA + '<style>' + F.sembunyi + '{display:none!important}</style>';
+    // 12 Nov 2026: staf Gudang Utama cukup lewat "+ Buat pengajuan"; tab "PO impor" (buat / catat PO) hanya untuk Purchasing & manajemen.
+    if (APP === 'gudang' && C.peran === 'gudang') gaya += '<style>.s > button[data-s="po"], .tile[data-ke="po"]{display:none!important}</style>';
     html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (x) { return x + JEMBATAN + gaya; }) : JEMBATAN + gaya + html;
     var fr = $('bingkai'); C.frame = fr;
     fr.onload = function () {
@@ -1491,7 +1493,7 @@
       C.aktif = k; if (F.asli) { panelAsli(k); return; } tekan(k); subBotol(k); panelAbsen(k); panelMenu(k); setTimeout(ukur, 0);
     },
     siap: function (ctx) {
-      C.mgmt = ctx.peran === 'manajemen';
+      C.mgmt = ctx.peran === 'manajemen'; C.peran = ctx.peran || '';
       if (ctx.peran === 'manajemen') {
         var nav = document.querySelector('#mSide nav');
         if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + M.svg('beranda') + '<span class="nm">Master Data</span></a>');
