@@ -1508,6 +1508,7 @@
     },
     siap: function (ctx) {
       C.mgmt = ctx.peran === 'manajemen'; C.peran = ctx.peran || '';
+      if (window.Pembaruan) setTimeout(function () { window.Pembaruan.pasang(APP, ctx.peran); }, 300);
       C.lihatStaf = true; try { C.lihatStaf = localStorage.getItem('lihatStaf') !== '0'; } catch (x) { }
       if (ctx.peran === 'manajemen') {
         var nav = document.querySelector('#mSide nav');

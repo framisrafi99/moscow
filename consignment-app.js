@@ -657,6 +657,7 @@
     },
     siap: function (ctx) {
       C.peran = ctx.peran; C.nama = '';
+      if (window.Pembaruan) setTimeout(function () { window.Pembaruan.pasang('toko', ctx.peran); }, 300);
       if (ctx.peran === 'manajemen') {
         try { C.toko = TOKO_URL || localStorage.getItem('tokoPilihan') || ''; if (TOKO_URL) localStorage.setItem('tokoPilihan', TOKO_URL); } catch (x) { C.toko = TOKO_URL; }
         var nav = document.querySelector('#mSide nav');
