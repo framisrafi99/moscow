@@ -17,8 +17,39 @@
   function e(s) { return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
   window.__asalAmbil = ambil;
+  // 12 Nov 2026: laporan barang bonus dari supplier per bulan (tab Terima barang)
+  window.__bonusKartu = function () {
+    var b = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 7);
+    return '<div class="card" id="bnKartu"><h3>&#127873; Laporan barang bonus</h3>' +
+      '<div class="kecil">Barang bonus dari supplier yang dicatat saat Terima barang (kolom Bonus). Masuk stok gudang, HPP tidak berubah.</div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px;align-items:center"><input type="month" id="bnBln" value="' + b + '" style="max-width:180px">' +
+      '<button type="button" class="btn" style="padding:9px 14px" onclick="window.__bonusMuat()">Lihat</button></div><div id="bnIsi" style="margin-top:8px"></div></div>';
+  };
+  window.__bonusMuat = function () {
+    var el = document.getElementById('bnIsi'), bl = (document.getElementById('bnBln') || {}).value || '';
+    if (!el) return; el.innerHTML = '<div class="kecil">Memuat…</div>';
+    var rp = function (n) { return 'Rp ' + Math.round(Number(n) || 0).toLocaleString('id-ID'); };
+    google.script.run.withSuccessHandler(function (r) {
+      if (!r || !r.ok) { el.innerHTML = '<div class="kecil">' + e((r && r.pesan) || 'Gagal memuat.') + '</div>'; return; }
+      if (!r.list.length) { el.innerHTML = '<div class="kecil">Belum ada barang bonus di bulan ini.</div>'; return; }
+      var tq = 0, tn = 0;
+      el.innerHTML = '<table class="t"><tr><th>Tanggal</th><th>Barang</th><th class="n">Qty</th><th class="n">Nilai (HPP)</th></tr>' + r.list.map(function (x) {
+        var nilai = (Number(x.q) || 0) * (Number(x.hpp) || 0); tq += Number(x.q) || 0; tn += nilai;
+        return '<tr><td>' + e(x.t.slice(8, 10) + '/' + x.t.slice(5, 7)) + '</td><td>' + e(x.n) + (x.w ? ' - ' + e(x.w) : '') + ' <span class="kecil">' + e(x.k) + '</span><div class="kecil">' + e(x.po) + ' &middot; ' + e(x.sup) + '</div></td>' +
+          '<td class="n">' + (Number(x.q) || 0).toLocaleString('id-ID') + '</td><td class="n">' + rp(nilai) + '</td></tr>';
+      }).join('') + '<tr><td colspan="2"><b>Total</b></td><td class="n"><b>' + tq.toLocaleString('id-ID') + '</b></td><td class="n"><b>' + rp(tn) + '</b></td></tr></table>';
+    }).withFailureHandler(function (er) { el.innerHTML = '<div class="kecil">' + e(er && er.message || 'Gagal memuat.') + '</div>'; }).gdBonusLap({ bulan: bl });
+  };
+
   // 12 Nov 2026: saat terima barang PO, tampilkan perbandingan harga beli PO ini dengan HPP sekarang
   window.__hppTanda = function (it, hrg, no, peta) {
+    var dasar = window.__hppTandaDasar(it, hrg, no, peta), x = hrg && it ? hrg[it.k] : null, hj = x ? Number(x.hj) || 0 : 0;
+    var p = peta && no && it ? peta[no + '|' + it.k] : null, baru = p ? Number(p.baru) || 0 : Number(it && it.h) || 0;
+    if (hj > 0 && baru > 0 && baru / hj > 0.35) dasar += '<div style="margin-top:3px;font-size:12px;font-weight:700;color:#9a3412">&#9888; HPP ' + (Math.round(baru / hj * 1000) / 10).toLocaleString('id-ID') +
+      '% dari harga jual Rp ' + Math.round(hj).toLocaleString('id-ID') + ' (standar maks. 35%): ajukan harga jual baru</div>';
+    return dasar;
+  };
+  window.__hppTandaDasar = function (it, hrg, no, peta) {
     var p = peta && no && it ? peta[no + '|' + it.k] : null;
     var h = p ? Number(p.baru) || 0 : Number(it && it.h) || 0;
     var x = hrg && it ? hrg[it.k] : null, lama = p ? Number(p.lama) || 0 : (x ? Number(x.hpp) || 0 : 0);

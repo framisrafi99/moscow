@@ -214,6 +214,7 @@
       ptrData: function () { return window.Pengadaan.ptrData(sb, 'gudang'); },
       hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'gudang', a[0]); },
       // 12 Nov 2026: mode manajemen juga dibaca dari Supabase (dulu lewat Apps Script, memuat 10-20 detik); mgmt hanya menandai "atas nama manajemen".
+      gdBonusLap: function (a) { return sb.rpc('gudang_bonus_bulan', { p_bulan: (a[0] && a[0].bulan) || '' }).then(function (r) { return r.error ? { ok: false, pesan: r.error.message } : r.data; }); },
       gdxPengajuan: function (a) { return window.Pengadaan.gdxPengajuan(sb).then(function (r) { if (r && a[0] && a[0].mm) r.mgmt = true; return r; }); },
       // Kantor Packing (stok, per warna) dihitung dari Supabase (kp.js).
       gdxKp: function () { return window.KantorPacking.gdxKp(sb); },
@@ -1326,7 +1327,7 @@
     var peta = {};
     r.data.forEach(function (x) { peta[String(x.kode).trim().toUpperCase()] = { a: x.asal, n: x.nama }; });
     var skrip = '<script>window.__ASAL=' + JSON.stringify(peta).replace(/</g, '\\u003c') + ';<\/script>' +
-      '<script src="' + location.origin + '/asal-barang.js?v=5"><\/script>';
+      '<script src="' + location.origin + '/asal-barang.js?v=6"><\/script>';
     // 1) tebakan awal per barang
     html = html.replace("function tebakImp(kl, k) {", "function tebakImp(kl, k) { if (window.__asalTebak) return window.__asalTebak(kl, k);");
     // 2) pilihan asal di kartu pengajuan (hanya barang campuran yang bisa dipilih)
@@ -1349,6 +1350,15 @@
     html = html.split("'<div><label>Perkiraan harga satuan</label><input data-i=\"' + i + '\" data-f=\"h\" inputmode=\"numeric\" value=\"' + esc(it.h ? f(it.h) : '') + '\" placeholder=\"Rp\"></div></div>'")
       .join("'<div><label>Harga terakhir (otomatis)</label><input data-i=\"' + i + '\" data-f=\"h\" readonly tabindex=\"-1\" style=\"background:#f2f5f8;color:#6b7686\" value=\"' + esc(it.h ? f(it.h) : '') + '\" placeholder=\"belum ada data\"></div></div>'");
     html = html.split("', sudah datang ' + fmt(it.d) + '</div></td>").join("', sudah datang ' + fmt(it.d) + '</div>' + (window.__hppTanda ? window.__hppTanda(it, S.d && S.d.hrg, o && o.no, S.d && S.d.hppTerima) : '') + '</td>");
+    // 3e) Terima barang PO: kolom Bonus (barang gratis dari supplier) + laporan barang bonus bulanan (aplikasi Gudang Utama)
+    if (APP === 'gudang') {
+    html = html.split("<th class=\"n\">Baik</th><th class=\"n\">Rusak</th></tr>'").join("<th class=\"n\">Baik</th><th class=\"n\">Rusak</th><th class=\"n\">Bonus</th></tr>'");
+    html = html.split("'<td class=\"n\" colspan=\"3\">lengkap</td></tr>'").join("'<td class=\"n\" colspan=\"4\">lengkap</td></tr>'");
+    html = html.split("esc(v.rusak === undefined ? '' : v.rusak) + '\" placeholder=\"0\"></td></tr>';").join("esc(v.rusak === undefined ? '' : v.rusak) + '\" placeholder=\"0\"></td>' +\n            '<td class=\"n\"><input data-tb=\"' + esc(key) + '\" data-jn=\"bonus\" inputmode=\"numeric\" title=\"Barang bonus gratis dari supplier\" style=\"width:60px;padding:6px;text-align:right\" value=\"' + esc(v.bonus === undefined ? '' : v.bonus) + '\" placeholder=\"0\"></td></tr>';");
+    html = html.split("return { k: it.k, w: it.w, baik: v.baik || '', rusak: v.rusak || '' }; }).filter(function (x) { return x.baik || x.rusak; });")
+      .join("return { k: it.k, w: it.w, baik: v.baik || '', rusak: v.rusak || '', bonus: v.bonus || '' }; }).filter(function (x) { return x.baik || x.rusak || x.bonus; });");
+    html = html.split("h += '<div class=\"card\"><h3>&#128229; Barang dari supplier (PO)</h3>';").join("h += '<div class=\"card\"><h3>&#128229; Barang dari supplier (PO)</h3>';\n  h = (window.__bonusKartu ? window.__bonusKartu() : '') + h;");
+    }
     // 4) form PO: asal ditetapkan dari barangnya
     var po = "'<div><label>Asal barang</label><select data-po=\"asal\">' + opsi(['Impor', 'Lokal'], S.po.asal) + '</select></div>'";
     html = html.split(po).join("(window.__asalPo ? window.__asalPo(S.po, " + po + ") : " + po + ")");
