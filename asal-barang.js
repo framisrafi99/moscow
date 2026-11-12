@@ -17,6 +17,21 @@
   function e(s) { return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
   window.__asalAmbil = ambil;
+  // 12 Nov 2026: saat terima barang PO, tampilkan perbandingan harga beli PO ini dengan HPP sekarang
+  window.__hppTanda = function (it, hrg) {
+    var h = Number(it && it.h) || 0, x = hrg && it ? hrg[it.k] : null, lama = x ? Number(x.hpp) || 0 : 0;
+    var rp = function (n) { return 'Rp ' + Math.round(Math.abs(n)).toLocaleString('id-ID'); };
+    var gaya = 'display:inline-block;margin-top:3px;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;';
+    if (!h) return '';
+    if (!lama) return '<div><span style="' + gaya + 'background:#eef6fb;color:#1a78a0">HPP baru ' + rp(h) + ' (belum ada HPP sebelumnya)</span></div>';
+    var beda = h - lama, pr = beda / lama * 100;
+    if (Math.abs(pr) < 0.5) return '<div><span style="' + gaya + 'background:#eef2f6;color:#4a5566">= HPP tetap ' + rp(lama) + '</span></div>';
+    var naik = beda > 0;
+    return '<div><span style="' + gaya + (naik ? 'background:#fdecea;color:#b3261e' : 'background:#e7f6ec;color:#157347') + '">' + (naik ? '&#9650; naik ' : '&#9660; turun ') +
+      (Math.round(Math.abs(pr) * 10) / 10).toLocaleString('id-ID') + '% (' + (naik ? '+' : '&minus;') + rp(beda) + ')</span>' +
+      '<div style="font-size:12px;color:#6b7686">HPP sekarang ' + rp(lama) + ' &rarr; harga beli PO ini ' + rp(h) + '</div></div>';
+  };
+
   // 12 Nov 2026: tanda asal di daftar barang & daftar pengajuan
   window.__asalTanda = function (kel, k) {
     var j = jenis(kel, k);
