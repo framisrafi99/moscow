@@ -1500,6 +1500,20 @@
     if (APP === 'gudang' && (C.peran === 'gudang' || (C.peran === 'manajemen' && C.lihatStaf))) gaya += '<style>.s > button[data-s="po"], .tile[data-ke="po"]{display:none!important}</style>';
     // 12 Nov 2026: blok "Mulai cepat" di Ringkasan dihapus (isinya sama dengan menu Stok / Pengajuan / Penyaluran).
     if (APP === 'gudang') html = html.replace("h += '<div class=\"card\"><h3>Mulai cepat</h3>' +", "if (0) h += '<div class=\"card\"><h3>Mulai cepat</h3>' +");
+    // 12 Nov 2026: HPP & Harga (Gudang Utama). HPP diperbarui otomatis saat Terima barang, jadi staf hanya melihat HPP
+    // dan mengajukan harga jual baru; barang dengan HPP > 35% harga jual (standar margin Moscow Supplies) diberi tanda merah
+    // dan ditaruh paling atas. Manajemen (mode manajemen) tetap bisa mengubah HPP & harga jual seperti biasa.
+    if (APP === 'gudang') {
+      html = html.replace("return D.mgmt ? ['hpp', 'harga'] : ['hpp']; }", "return D.mgmt ? ['hpp', 'harga'] : ['harga']; }");
+      html = html.replace(": 'Perubahan HPP dikirim sebagai usulan dan baru berlaku setelah di-ACC manajemen Moscow Supplies.');",
+        ": 'HPP diperbarui otomatis setiap barang PO diterima (harga beli + ongkir). Kalau HPP sudah lebih dari 35% harga jual (tanda merah), tekan Ajukan harga jual; harga baru berlaku setelah di-ACC manajemen Moscow Supplies.');");
+      html = html.replace("var tot = L.length; L = L.slice(0, 80);\n    var JB = jenisBoleh();",
+        "if (!D.toko) { var tipis = function (b) { return b.hpp > 0 && b.hj > 0 && b.hpp / b.hj > 0.35 ? 0 : 1; }; L.sort(function (a, b) { return tipis(a) - tipis(b); }); }\n    var tot = L.length; L = L.slice(0, 80);\n    var JB = jenisBoleh();");
+      html = html.replace("(D.toko ? ['hd', 'harga'] : ['hpp', 'harga']).forEach(function (j) { var t = D.tunggu[",
+        "if (!D.toko && b.hpp > 0 && b.hj > 0 && b.hpp / b.hj > 0.35) tg += '<div class=\"tg\" style=\"background:#FDECEA;color:#B3261E;font-weight:600\">HPP ' + (Math.round(b.hpp / b.hj * 1000) / 10).toString().replace(\".\", \",\") + '% dari harga jual (standar maks. 35%). Ajukan harga jual baru.</div>';\n      (D.toko ? ['hd', 'harga'] : ['hpp', 'harga']).forEach(function (j) { var t = D.tunggu[");
+      html = html.replace("'\">' + (buka === b.k ? 'Tutup' : 'Ubah') + '</button>", "'\">' + (buka === b.k ? 'Tutup' : (D.mgmt || D.toko ? 'Ubah' : 'Ajukan harga jual')) + '</button>");
+      html = html.replace("placeholder=\"' + (D.toko ? 'Contoh: harga pasaran di marketplace turun' : 'Contoh: harga beli dari supplier naik') + '\"", "placeholder=\"' + (D.toko ? 'Contoh: harga pasaran di marketplace turun' : 'Contoh: HPP naik jadi lebih dari 35% harga jual') + '\"");
+    }
     html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (x) { return x + JEMBATAN + gaya; }) : JEMBATAN + gaya + html;
     var fr = $('bingkai'); C.frame = fr;
     fr.onload = function () {
