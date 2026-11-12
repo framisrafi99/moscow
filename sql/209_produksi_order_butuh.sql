@@ -1,0 +1,3 @@
+-- 12 Nov 2026: produksi_order_butuh() -> kebutuhan produksi dari order untuk tanda "untuk order" di Rencana produksi.
+-- Per produk Moscow / Kenka (kode|warna): [sisa order disetujui yang belum dikirim, jumlah di request menunggu ACC,
+-- stok Gudang Utama, daftar pelanggan]. Sudah terpasang di database (teks lengkap: pg_get_functiondef).

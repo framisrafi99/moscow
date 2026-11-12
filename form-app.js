@@ -231,7 +231,7 @@
       ptrData: function () { return window.Pengadaan.ptrData(sb, 'produksi'); },
       pgsTerbuka: function () { return window.Pengadaan.pgsTerbuka(sb, 'produksi'); },
       pantauProduksi: function (a) { return window.BahanBaku.pantauProduksi(sb, a[0], 'produksi'); },
-      rencanaProduksi: function () { return window.BahanBaku.rencanaProduksi(sb); },
+      rencanaProduksi: function () { return rencanaDenganOrder(); },
       hppStafData: function (a) { return window.Hpp.hppStafData(sb, 'produksi', a[0]); },
       pgsData: function (a) { return window.Pengadaan.pgsData(sb, 'produksi').then(function (r) { if (r && a[0] && a[0].mm) r.mgmt = true; return r; }); },
       stokBahan: function () { return window.Produksi.stokBahan(sb); },
@@ -1362,6 +1362,38 @@
     var skrip = '<script>window.__ACUAN=' + JSON.stringify(r.data.acuan || {}).replace(/</g, '\\u003c') + ';window.__ACUAN_BATAS=' + (Number(r.data.batas) || 35) + ';<\/script>';
     return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (x) { return x + skrip; }) : skrip + html;
   }
+  // 12 Nov 2026: Rencana produksi (Staf Produksi) jadi satu daftar kerja. Barang yang ditunggu order (request toko / consignment /
+  // reseller yang sudah disetujui dan stok Gudang Utama tidak cukup) diberi tanda "untuk order" dan ditaruh paling atas.
+  // x.ord = { s: sisa order disetujui, m: menunggu ACC, kurang: harus diproduksi untuk order, kurangM: tambahan kalau yang menunggu
+  // disetujui, siapa: daftar pelanggan, warna: [{ w, s, kurang }] }.
+  async function rencanaDenganOrder() {
+    var dua = await Promise.all([window.BahanBaku.rencanaProduksi(sb), sb.rpc('produksi_order_butuh').then(function (r) { return r; }, function () { return { data: null }; })]);
+    var rp = dua[0], bt = dua[1] && dua[1].data && dua[1].data.ok ? dua[1].data.butuh : null;
+    if (!rp || !rp.ok || !bt) return rp;
+    var per = {};
+    Object.keys(bt).forEach(function (kw) {
+      var p = kw.split('|'), k = p[0], w = p.slice(1).join('|'), v = bt[kw], s = Number(v[0]) || 0, m = Number(v[1]) || 0, g = Math.max(0, Number(v[2]) || 0);
+      var kurang = Math.max(0, s - g), kurangM = Math.max(0, s + m - g) - kurang;
+      var o = per[k] || (per[k] = { s: 0, m: 0, kurang: 0, kurangM: 0, siapa: [], warna: [] });
+      o.s += s; o.m += m; o.kurang += kurang; o.kurangM += kurangM;
+      String(v[3] || '').split(', ').forEach(function (n) { if (n && o.siapa.indexOf(n) < 0) o.siapa.push(n); });
+      if (w && (kurang > 0 || kurangM > 0)) o.warna.push({ w: w, s: s, kurang: kurang, kurangM: kurangM });
+    });
+    var nBrg = 0, pcs = 0, ada = {};
+    rp.list.forEach(function (x) { ada[x.k] = 1; if (per[x.k] && (per[x.k].s > 0 || per[x.k].m > 0)) { x.ord = per[x.k]; if (x.ord.kurang > 0) { nBrg++; pcs += x.ord.kurang; } } });
+    // Barang di order yang tidak ada di daftar robot tetap ditampilkan supaya tidak terlewat.
+    Object.keys(per).forEach(function (k) {
+      if (ada[k] || !(per[k].kurang > 0)) return;
+      rp.list.push({ k: k, n: k, kat: 'Order', st: 'Kritis', tot: 0, gd: 0, prod: 0, toko: 0, r: 0, cukup: 0, saran: 0, warna: [], ord: per[k] });
+      nBrg++; pcs += per[k].kurang;
+    });
+    rp.list = rp.list.map(function (x, i) { return [x, i]; }).sort(function (a, b) {
+      var ka = a[0].ord ? a[0].ord.kurang : 0, kb = b[0].ord ? b[0].ord.kurang : 0;
+      return (kb > 0) - (ka > 0) || kb - ka || a[1] - b[1];
+    }).map(function (y) { return y[0]; });
+    rp.ordN = nBrg; rp.ordPcs = pcs;
+    return rp;
+  }
   async function asalBarang(html) {
     if (['gudang', 'produksi', 'bahanbaku', 'purchasing'].indexOf(APP) === -1) return html;
     var r = await batasWaktu(sb.from('barang_impor').select('kode,nama,asal'), 6000);
@@ -1537,6 +1569,20 @@
         "'<div class=\"seg\" id=\"psSeg\"><button type=\"button\" data-pb=\"Botol\" class=\"on\">Botol</button>");
       html = html.replace("Dipakai kalau hasil hitung fisik berbeda dengan stok di sistem. Stok baru berubah setelah disetujui manajemen Moscow Supplies.</div>' +\n      '<label class=\"t\">Bagian</label>'",
         "Dipakai kalau hasil hitung fisik botol atau stiker berbeda dengan stok di sistem. Stok baru berubah setelah disetujui manajemen Moscow Supplies. Stok barang jadi ada di Gudang Utama dan disesuaikan dari aplikasi Gudang Utama.</div>' +\n      '<label class=\"t\">Bagian</label>'");
+      // Rencana produksi: tanda "untuk order" (rencanaDenganOrder).
+      html = html.replace("    return '<div class=\"rpd-it\"><div class=\"nm\">' + esc(x.n) + '<small>'",
+        "    var od = '';\n    if (x.ord && (x.ord.kurang > 0 || x.ord.kurangM > 0 || x.ord.s > 0)) {\n" +
+        "      var o = x.ord, wr = o.warna.filter(function (y) { return y.kurang > 0; });\n" +
+        "      od = '<div style=\"margin:0 0 6px;padding:8px 10px;border-radius:10px;font-size:13px;line-height:1.4;' + (o.kurang > 0 ? 'background:#FDECEA;color:#8A1C14' : 'background:#EEF6FB;color:#0F4C6B') + '\">' +\n" +
+        "        (o.kurang > 0 ? '<b>&#128230; Untuk order: buat ' + fmt(o.kurang) + ' pcs dulu</b> (order ' + fmt(o.s) + ' pcs, stok gudang tidak cukup)' : (o.s > 0 ? '<b>&#128230; Ada order ' + fmt(o.s) + ' pcs</b>, stok gudang cukup' : '<b>&#128230; Ada request menunggu ACC</b>')) +\n" +
+        "        (o.kurangM > 0 ? ' &middot; +' + fmt(o.kurangM) + ' pcs kalau request yang menunggu disetujui' : '') +\n" +
+        "        (wr.length ? '<div class=\"rpd-w\" style=\"margin-top:4px\">' + wr.map(function (y) { return '<span>' + esc(y.w) + ' ' + fmt(y.kurang) + '</span>'; }).join('') + '</div>' : '') +\n" +
+        "        '<div style=\"margin-top:2px;opacity:.85\">' + esc(o.siapa.join(', ')) + '</div></div>';\n    }\n" +
+        "    return '<div class=\"rpd-it\"><div class=\"nm\">' + esc(x.n) + (x.ord && x.ord.kurang > 0 ? ' <span style=\"font-size:11px;font-weight:700;color:#fff;background:#B42318;border-radius:999px;padding:1px 7px\">untuk order</span>' : '') + '<small>'");
+      html = html.replace("'<div class=\"rpd-b ' + kelas(x.st) + '\"><i>🤖</i><em><b class=\"rpd-st\">' + esc(x.st) + '</b>' + isi + w + '</em></div></div>';",
+        "od + '<div class=\"rpd-b ' + kelas(x.st) + '\"><i>🤖</i><em><b class=\"rpd-st\">' + esc(x.st) + '</b>' + isi + w + '</em></div></div>';");
+      html = html.replace("      if (F === 'buat') return x.st === 'Kritis' || x.st === 'Perlu dibuat';", "      if (F === 'buat') return x.st === 'Kritis' || x.st === 'Perlu dibuat' || (x.ord && x.ord.kurang > 0);");
+      html = html.replace("      el('rpdKet').innerHTML = 'Total saran produksi: <b>'", "      el('rpdKet').innerHTML = (r.ordN ? '<b style=\"color:#B42318\">' + r.ordN + ' barang ditunggu order (' + fmt(r.ordPcs) + ' pcs harus dibuat dulu)</b>, ada di urutan paling atas. ' : '') + 'Total saran produksi: <b>'");
       // Harga kemasan: stok masuk dari pengajuan terisi otomatis dari pembayaran Purchasing (sql 208).
       html = html.replace("Isi harga total sesuai nota.", "Stok masuk dari pengajuan terisi otomatis dari pembayaran Purchasing; yang tampil di sini hanya stok masuk tanpa pengajuan. Isi harga total sesuai nota.");
     }
