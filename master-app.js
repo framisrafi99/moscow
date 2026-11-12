@@ -2553,17 +2553,50 @@
       return '<div class="cd"><div class="rq-kpl"><h3>' + esc(o.pl) + '</h3><span class="sb">' + esc(o.no) + ' · ' + esc(o.t) + (o.p ? ' · ' + esc(o.p) : '') + '</span></div>' +
         (o.c ? '<div class="sb">Catatan: ' + esc(o.c) + '</div>' : '') +
         '<div class="rq-mt"><span class="label biru">' + fmt(o.q) + ' pcs</span><span class="label abu">nilai HPP ' + rp(o.nilai) + '</span>' + tanda.join('') + '</div>' +
-        '<div class="gulir"><table class="tabel rq-tbl"><thead><tr><th>Barang</th><th class="r">Minta</th><th class="r">Gudang</th><th class="r">Stok toko</th><th class="r">Laku/bln</th><th class="r">Cukup</th><th class="r">Saran</th></tr></thead><tbody>' +
-        o.items.map(function (it) {
+        // 12 Nov 2026: koreksi jumlah sebelum ACC (kolom Disetujui). Tombol cepat mengisi kolom itu; order tersimpan dengan jumlah yang disetujui.
+        (q ? '' : '<div class="aksi-baris" style="flex-wrap:wrap;gap:8px"><span class="sb" style="margin:0">Isi kolom Disetujui:</span>' +
+          '<button type="button" class="tbl" data-cepat="gudang" data-o="' + i + '">Sesuaikan stok gudang</button>' +
+          '<button type="button" class="tbl" data-cepat="saran" data-o="' + i + '">Pakai saran robot</button>' +
+          '<button type="button" class="tbl" data-cepat="minta" data-o="' + i + '">Kembalikan ke permintaan</button>' +
+          '<span class="sb" style="margin:0" data-jml="' + i + '"></span></div>') +
+        '<div class="gulir"><table class="tabel rq-tbl"><thead><tr><th>Barang</th><th class="r">Minta</th><th class="r">Gudang</th><th class="r">Stok toko</th><th class="r">Laku/bln</th><th class="r">Cukup</th><th class="r">Saran</th><th class="r">Disetujui</th></tr></thead><tbody>' +
+        o.items.map(function (it, j) {
           return '<tr><td><b>' + esc(it.n) + '</b>' + (it.w ? '<small>' + esc(it.w) + '</small>' : '') + '<small><span class="label ' + (WARNA_ST[it.st] || 'abu') + '">' + esc(it.st) + '</span></small></td>' +
             '<td class="r' + (it.butuh !== undefined && it.q > it.butuh ? ' kurang' : '') + '"><b>' + fmt(it.q) + '</b></td><td class="r' + (it.q > it.gd ? ' kurang' : '') + '">' + fmt(it.gd) + '</td><td class="r">' + fmt(it.s) + '</td><td class="r">' + fmt(it.j30) + '</td>' +
-            '<td class="r">' + (it.cukup === null || it.cukup === undefined ? '–' : fmt(it.cukup) + ' hr') + '</td><td class="r">' + fmt(it.saran) + '</td></tr>';
+            '<td class="r">' + (it.cukup === null || it.cukup === undefined ? '–' : fmt(it.cukup) + ' hr') + '</td><td class="r">' + fmt(it.saran) + '</td>' +
+            '<td class="r"><input class="isian" type="number" inputmode="numeric" min="0" step="1" data-qs="' + i + '" data-j="' + j + '" value="' + it.q + '" aria-label="Jumlah disetujui ' + esc(it.n) + '" style="width:78px;text-align:right;padding:6px 8px"></td></tr>';
         }).join('') + '</tbody></table></div>' +
         '<p class="sb" style="margin:0">Gudang = stok Gudang Utama yang tersedia. Laku/bln = rata-rata penjualan toko per bulan (' + fmt(o.hari) + ' hari terakhir). Cukup = perkiraan stok toko cukup berapa hari setelah barang diterima. Saran robot = jumlah supaya stok toko cukup paling lama 2 bulan. Angka merah di kolom Minta = melebihi kebutuhan 2 bulan; merah di kolom Gudang = stok gudang tidak cukup.</p>' +
         (q ? '<div class="msg tunggu" style="margin:0">Sedang diterapkan: ' + esc(q) + '</div>'
           : '<div class="aksi-baris"><input class="isian" placeholder="Alasan (wajib kalau ditolak)" maxlength="200" data-alasan="' + i + '"><button type="button" class="tbl pri" data-rq="' + i + '" data-aksi="setuju">Setujui</button><button type="button" class="tbl mer" data-rq="' + i + '" data-aksi="tolak">Tolak</button></div><div data-pesan="' + i + '"></div>') +
         '</div>';
     }).join('');
+    function isianQs(i) { return Array.prototype.slice.call(el.querySelectorAll('[data-qs="' + i + '"]')); }
+    function nilaiQs(inp) { var v = String(inp.value).trim(); return v === '' ? NaN : Number(v); }
+    function ringkasQs(i) {
+      var o = R.list[i], tot = 0, ubah = 0, salah = 0;
+      isianQs(i).forEach(function (inp) {
+        var it = o.items[+inp.getAttribute('data-j')], v = nilaiQs(inp), buruk = !(v >= 0) || Math.floor(v) !== v || v > it.gd;
+        inp.style.borderColor = buruk ? '#B42318' : (v !== it.q ? '#1E78A8' : '');
+        if (buruk) salah++; else { tot += v; if (v !== it.q) ubah++; }
+      });
+      var sp = el.querySelector('[data-jml="' + i + '"]');
+      if (sp) sp.innerHTML = salah ? '<b style="color:#B42318">' + salah + ' barang melebihi stok gudang atau belum diisi</b>'
+        : 'Disetujui <b>' + fmt(tot) + ' pcs</b> dari ' + fmt(o.q) + ' pcs' + (ubah ? ' · ' + ubah + ' barang dikoreksi' : '');
+      return { tot: tot, ubah: ubah, salah: salah };
+    }
+    R.list.forEach(function (o, i) { ringkasQs(i); });
+    el.querySelectorAll('[data-qs]').forEach(function (inp) { inp.oninput = function () { ringkasQs(+inp.getAttribute('data-qs')); }; });
+    el.querySelectorAll('[data-cepat]').forEach(function (b) {
+      b.onclick = function () {
+        var i = +b.getAttribute('data-o'), o = R.list[i], cara = b.getAttribute('data-cepat');
+        isianQs(i).forEach(function (inp) {
+          var it = o.items[+inp.getAttribute('data-j')];
+          inp.value = cara === 'minta' ? it.q : cara === 'saran' ? Math.max(0, Math.min(it.saran || 0, it.gd)) : Math.max(0, Math.min(it.q, it.gd));
+        });
+        ringkasQs(i);
+      };
+    });
     el.querySelectorAll('[data-rq]').forEach(function (b) {
       b.onclick = async function () {
         var i = +b.getAttribute('data-rq'), o = R.list[i], aksi = b.getAttribute('data-aksi');
@@ -2572,7 +2605,13 @@
         if (aksi === 'tolak' && !alasan) { tempat.innerHTML = '<div class="msg bad">Isi alasan penolakan dulu.</div>'; return; }
         b.disabled = true;
         // Langsung tersimpan di Supabase (order_status = rpPutus); Telegram dikirim Apps Script.
-        var r = await sb.rpc('order_status', { p_no: o.no, p_status: '', p_rp: aksi, p_alasan: alasan });
+        var r, rk = aksi === 'setuju' ? ringkasQs(i) : null;
+        if (rk && rk.salah) { tempat.innerHTML = '<div class="msg bad">Periksa kolom Disetujui: ada jumlah yang melebihi stok Gudang Utama atau belum diisi. Tekan "Sesuaikan stok gudang" untuk memperbaikinya sekaligus.</div>'; b.disabled = false; return; }
+        if (rk && rk.ubah) {
+          if (!confirm('Setujui ' + o.no + ' dengan koreksi: ' + fmt(rk.tot) + ' pcs dari ' + fmt(o.q) + ' pcs yang diminta (' + rk.ubah + ' barang diubah)?')) { b.disabled = false; return; }
+          r = await sb.rpc('order_setuju_koreksi', { p_no: o.no, p_alasan: alasan,
+            p_items: isianQs(i).map(function (inp) { var it = o.items[+inp.getAttribute('data-j')]; return { k: it.w ? it.k + '-' + it.w : it.k, q: String(nilaiQs(inp)) }; }) });
+        } else r = await sb.rpc('order_status', { p_no: o.no, p_status: '', p_rp: aksi, p_alasan: alasan });
         var gagal = r.error ? r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
         if (gagal) { tempat.innerHTML = '<div class="msg bad">' + esc(gagal) + '</div>'; b.disabled = false; return; }
         salinKeSheetGaji();

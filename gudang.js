@@ -183,6 +183,8 @@
         }
         var o = map[no];
         o.sub += Number(r[9]) || 0; o.disk += Number(r[10]) || 0; o.tot += Number(r[11]) || 0;
+        // 12 Nov 2026: barang yang jumlahnya dikoreksi manajemen menjadi 0 (order_setuju_koreksi) tidak ikut order.
+        if (!(Number(r[6]) > 0) && /^Dikoreksi|\| Dikoreksi/.test(String(map[no].c)) ) return;
         o.items.push({ k: String(r[4]), n: String(r[5]), q: Number(r[6]) || 0, h: Number(r[7]) || 0, s: Number(r[9]) || 0 });
       });
       urut.sort(function (a, b) { return a.t < b.t ? 1 : a.t > b.t ? -1 : b.ms - a.ms; });
