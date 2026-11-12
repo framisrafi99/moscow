@@ -17,6 +17,39 @@
   function e(s) { return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
   window.__asalAmbil = ambil;
+  // 12 Nov 2026: tanda asal di daftar barang & daftar pengajuan
+  window.__asalTanda = function (kel, k) {
+    var j = jenis(kel, k);
+    if (j === 'impor') return ' <span style="display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:#fff1e6;color:#9a3412">&#127759; Impor</span>';
+    if (j === 'campuran') return ' <span style="display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:#fdf6d8;color:#8a6100">&#128256; Impor / lokal</span>';
+    return ' <span style="display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:#e7f6ec;color:#157347">&#127968; Lokal</span>';
+  };
+  // Daftar "perlu diajukan": tanpa kata kunci, yang tampil hanya barang dengan saran beli dari robot
+  // (Kritis / Saatnya pesan) yang belum sedang diajukan (Menunggu / Disetujui). Tombol "Tampilkan semua barang" untuk melihat semuanya.
+  window.__perluSemua = false;
+  function terbuka(D, kel, k) {
+    return (D && D.ajuan || []).some(function (a) { return a.kel === kel && a.k === k && (a.st === 'Menunggu' || a.st === 'Disetujui'); });
+  }
+  window.__perluSaring = function (L, D, kel, q) {
+    if (q || window.__perluSemua || kel === 'Packaging & lainnya') return L;
+    return L.filter(function (x) { return x.saran > 0 && (x.st === 'Kritis' || x.st === 'Saatnya pesan') && !terbuka(D, kel, x.k); });
+  };
+  window.__perluKepala = function (D, kel, q, idCari) {
+    if (q || kel === 'Packaging & lainnya') return '';
+    var semua = (D && D.items || []).filter(function (x) { return x.kel === kel; });
+    var perlu = semua.filter(function (x) { return x.saran > 0 && (x.st === 'Kritis' || x.st === 'Saatnya pesan'); });
+    var sudah = perlu.filter(function (x) { return terbuka(D, kel, x.k); }).length;
+    var n = perlu.length - sudah;
+    var teks = window.__perluSemua
+      ? 'Menampilkan semua ' + semua.length + ' barang. '
+      : (n ? '<b>' + n + ' barang perlu diajukan</b> (stok Gudang Utama tidak cukup)' : '<b>Tidak ada barang yang perlu diajukan sekarang.</b>') +
+        (sudah ? ' &middot; ' + sudah + ' barang sudah diajukan dan menunggu ACC, tidak ditampilkan.' : '') + ' ';
+    return '<div style="margin:4px 0 8px;padding:10px 12px;border-radius:10px;background:#eef6fb;color:#1c2430;font-size:13px">' + teks +
+      '<a href="#" onclick="window.__perluSemua=!window.__perluSemua;var q=document.getElementById(\'' + idCari + '\');if(q)q.dispatchEvent(new Event(\'input\'));return false;" style="color:#1a78a0;font-weight:700">' +
+      (window.__perluSemua ? 'Tampilkan yang perlu diajukan saja' : 'Tampilkan semua barang') + '</a>' +
+      '<div style="color:#6b7686;margin-top:4px">Diperbarui robot tiap 10 menit dari stok Gudang Utama, barang dalam perjalanan, dan penjualan.</div></div>';
+  };
+
   // 12 Nov 2026: stok di daftar pengajuan = stok Gudang Utama saja; stok Kantor Packing & toko hanya keterangan.
   window.__stokLain = function (x) {
     if (!x || (!x.kp && !x.toko)) return '';

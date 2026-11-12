@@ -1326,7 +1326,7 @@
     var peta = {};
     r.data.forEach(function (x) { peta[String(x.kode).trim().toUpperCase()] = { a: x.asal, n: x.nama }; });
     var skrip = '<script>window.__ASAL=' + JSON.stringify(peta).replace(/</g, '\\u003c') + ';<\/script>' +
-      '<script src="' + location.origin + '/asal-barang.js?v=2"><\/script>';
+      '<script src="' + location.origin + '/asal-barang.js?v=3"><\/script>';
     // 1) tebakan awal per barang
     html = html.replace("function tebakImp(kl, k) {", "function tebakImp(kl, k) { if (window.__asalTebak) return window.__asalTebak(kl, k);");
     // 2) pilihan asal di kartu pengajuan (hanya barang campuran yang bisa dipilih)
@@ -1340,6 +1340,11 @@
     html = html.replace("function infoItem(x) { return 'stok ' + f(x.stok, 1) + ' ' + esc(x.s)", "function infoItem(x) { return 'stok gudang ' + f(x.stok, 1) + ' ' + esc(x.s) + (window.__stokLain ? window.__stokLain(x) : '')");
     html = html.replace("'<div class=\"ks\">stok ' + f(x.stok) + (x.transit", "'<div class=\"ks\">stok gudang ' + f(x.stok) + (window.__stokLain ? window.__stokLain(x) : '') + (x.transit");
     html = html.replace("Dihitung dari stok, barang dalam perjalanan, dan rata-rata terjual.", "Dihitung dari stok Gudang Utama, barang dalam perjalanan, dan rata-rata keluar dari gudang atau terjual (yang lebih besar).");
+    // 3c) Gudang Utama: daftar barang di pengajuan = yang perlu diajukan saja (bisa tampilkan semua), tanda Impor / Lokal
+    html = html.replace("var L = D.items.filter(function (x) { return x.kel === kel && (!q || (x.k + ' ' + x.n).toLowerCase().indexOf(q) !== -1); });\n    L.sort(function (a, b) { return (URUT[a.st] !== undefined ? URUT[a.st] : 9) - (URUT[b.st] !== undefined ? URUT[b.st] : 9); });\n    var tot = L.length; L = L.slice(0, 60);\n    $('gdxHs').innerHTML = L.map(",
+      "var L = D.items.filter(function (x) { return x.kel === kel && (!q || (x.k + ' ' + x.n).toLowerCase().indexOf(q) !== -1); });\n    if (window.__perluSaring) L = window.__perluSaring(L, D, kel, q);\n    L.sort(function (a, b) { return (URUT[a.st] !== undefined ? URUT[a.st] : 9) - (URUT[b.st] !== undefined ? URUT[b.st] : 9); });\n    var tot = L.length; L = L.slice(0, 60);\n    $('gdxHs').innerHTML = (window.__perluKepala ? window.__perluKepala(D, kel, q, 'gdxQ') : '') + L.map(");
+    html = html.split("'</b> <span class=\"ks\">' + esc(x.k) + '</span><div class=\"ks\">' + infoItem(x)").join("'</b> <span class=\"ks\">' + esc(x.k) + '</span>' + (window.__asalTanda ? window.__asalTanda(x.kel, x.k) : '') + '<div class=\"ks\">' + infoItem(x)");
+    html = html.split("(a.imp ? ' <span class=\"ch Impor\">&#127759; Impor</span>' : '')").join("(a.imp ? ' <span class=\"ch Impor\">&#127759; Impor</span>' : ' <span class=\"ch\" style=\"background:#e7f6ec;color:#157347\">&#127968; Lokal</span>')");
     // 4) form PO: asal ditetapkan dari barangnya
     var po = "'<div><label>Asal barang</label><select data-po=\"asal\">' + opsi(['Impor', 'Lokal'], S.po.asal) + '</select></div>'";
     html = html.split(po).join("(window.__asalPo ? window.__asalPo(S.po, " + po + ") : " + po + ")");
