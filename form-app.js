@@ -36,8 +36,8 @@
         { k: 'sesuai', nm: 'Penyesuaian stok', ik: 'atur', l: ['#pgsT1', '#tabPS'] },
         { k: 'kemasan', nm: 'Harga kemasan', ik: 'harga', l: ['#pgsT1', '#tabKms'] },
         { k: 'hpp', nm: 'HPP & Harga jual', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox', pendek: 'HPP' },
-        { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' },
-        { k: 'lapajuan', nm: 'Laporan pengajuan (PDF)', ik: 'nota', panel: 'ajuan', pendek: 'Lap. ajuan' }
+        { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' }
+        // 12 Nov 2026: "Laporan pengajuan (PDF)" jadi tombol di daftar pengajuan (lapAjuanDiDaftar), sama dengan Gudang Utama.
       ],
       bawah: ['isi', 'data', 'order', 'botol', 'lain']
     },
@@ -57,8 +57,8 @@
         { k: 'laporan', nm: 'Laporan', ik: 'laporan', l: ['#pgsT1', 'Laporan@#tabs'] },
         { k: 'pantau', nm: 'Pantau produksi', ik: 'dasbor', l: ['#pgsT1', '#tabPP'] },
         { k: 'rencana', nm: 'Rencana bahan', ik: 'setuju', l: ['#pgsT1', '#tabRBB'] },
-        { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' },
-        { k: 'lapajuan', nm: 'Laporan pengajuan (PDF)', ik: 'nota', panel: 'ajuan', pendek: 'Lap. ajuan' }
+        { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' }
+        // 12 Nov 2026: "Laporan pengajuan (PDF)" jadi tombol di daftar pengajuan (lapAjuanDiDaftar), sama dengan Gudang Utama.
       ],
       bawah: ['produksi', 'pigment', 'pakai', 'stok', 'lain']
     },
@@ -1136,9 +1136,12 @@
   // Gudang › Pengajuan › Daftar pengajuan: tombol "Laporan PDF / WhatsApp" (dulu menu terpisah "Laporan pengajuan (PDF)").
   // Laporan dibuka sebagai jendela di atas aplikasi; ditutup kembali ke Daftar pengajuan.
   function lapAjuanDiDaftar(dok) {
-    var isi = dok.getElementById('gdxIsi'); if (!isi) return;
+    // Gudang Utama memakai panel gdx (#gdxIsi, tab di #gdxBar .s); Staf Produksi & Bahan Baku memakai panel pgs (#pgsIsi, #pgsSg).
+    var gd = !!dok.getElementById('gdxIsi');
+    var isi = dok.getElementById(gd ? 'gdxIsi' : 'pgsIsi'); if (!isi) return;
+    var pilihOn = gd ? '#gdxBar .s button.on[data-s="daftar"]' : '#pgsSg button.on[data-s="daftar"]';
     function pasang() {
-      var on = dok.querySelector('#gdxBar .s button.on[data-s="daftar"]');
+      var on = dok.querySelector(pilihOn);
       if (!on || dok.getElementById('lapAjBtn') || !isi.firstElementChild) return;
       isi.insertAdjacentHTML('afterbegin', '<div class="c" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">' +
         '<span class="ks">Laporan pengajuan per tanggal untuk Purchasing.</span>' +
@@ -1147,7 +1150,7 @@
     }
     pasang();
     new MutationObserver(pasang).observe(isi, { childList: true });
-    var bar = dok.getElementById('gdxBar'); if (bar) new MutationObserver(pasang).observe(bar, { childList: true });
+    var bar = dok.getElementById(gd ? 'gdxBar' : 'pgsSg'); if (bar) new MutationObserver(pasang).observe(bar, { childList: true, attributes: true, subtree: true });
   }
   function bukaLapAjuan() {
     if (!window.AjuanPdf) return;
@@ -1551,6 +1554,7 @@
       ukur(); tekan(C.aktif);
       if (APP === 'gudang') { try { cariKodeKirim(dok); } catch (e) { } try { ikonGd(dok); } catch (e) { } try { tanggalOpname(dok); } catch (e) { } try { lapAjuanDiDaftar(dok); } catch (e) { } }
       if (APP === 'gudang' || APP === 'produksi' || APP === 'bahanbaku') { try { koreksiAjuan(dok); } catch (e) { } try { terimaDiDaftar(dok); } catch (e) { } }
+      if (APP === 'produksi' || APP === 'bahanbaku') { try { lapAjuanDiDaftar(dok); } catch (e) { } }
       if (APP === 'produksi') { try { produksiKeGudang(dok); } catch (e) { } }
       if (BUKA.length) jalankanBuka(dok);
       // Stok di dalam tampilan simpanan bisa sudah lama: langsung dimuat ulang (form produksi).
