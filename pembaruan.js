@@ -1,4 +1,4 @@
-/* Moscow Supplies - Pembaruan aplikasi (12 Nov 2026).
+/* Moscow Supplies - Sistem terupdate (pembaruan aplikasi) (12 Nov 2026).
  * Catatan "apa yang baru" per aplikasi staf (tabel app_pembaruan). Tampil sebagai menu "Pembaruan aplikasi" di menu samping,
  * angka merah kecil di menu (dan di tombol Menu bawah di HP) untuk pembaruan yang belum dibaca.
  * Manajemen Moscow Supplies bisa menulis pembaruan baru dari jendela yang sama.
@@ -61,7 +61,7 @@
       var lm = document.getElementById('mLembar'); if (!lm || document.getElementById('pbLembar')) return;
       var isi = lm.querySelector('.isi'), h3 = isi && isi.querySelector('h3'); if (!h3) return;
       var svg = window.Moscow && window.Moscow.svg ? window.Moscow.svg('laporan', 20) : '';
-      h3.insertAdjacentHTML('afterend', '<button type="button" class="it" id="pbLembar">' + svg + '<span>Pembaruan aplikasi</span><span class="pbBd" style="' + MERAH + '"></span></button>');
+      h3.insertAdjacentHTML('afterend', '<button type="button" class="it" id="pbLembar">' + svg + '<span>Sistem terupdate</span><span class="pbBd" style="' + MERAH + '"></span></button>');
       var b = document.getElementById('pbLembar');
       b.onclick = function (e) { e.stopPropagation(); lm.remove(); buka(); };
       perbarui();
@@ -72,8 +72,8 @@
     gaya();
     var lama = document.getElementById('pbLatar'); if (lama) lama.remove();
     var batas = S.baca, n = belum();
-    var h = '<div id="pbJendela" role="dialog" aria-label="Pembaruan aplikasi"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px">' +
-      '<h2>&#128276; Pembaruan aplikasi ' + esc(NAMA[S.app] || '') + '</h2><button type="button" class="pbTb abu" id="pbTutup">Tutup</button></div>' +
+    var h = '<div id="pbJendela" role="dialog" aria-label="Sistem terupdate"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px">' +
+      '<h2>&#128276; Sistem terupdate' + (NAMA[S.app] ? ' &middot; ' + esc(NAMA[S.app]) : '') + '</h2><button type="button" class="pbTb abu" id="pbTutup">Tutup</button></div>' +
       '<div class="pbTg" style="margin-top:4px">Fitur baru dan perubahan di aplikasi ini' + (n ? ' &middot; <b>' + n + ' belum dibaca</b>' : '') + '.</div>';
     if (S.peran === 'manajemen') {
       h += '<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;color:#1E78A8">+ Tulis pembaruan baru (manajemen)</summary>' +
@@ -116,7 +116,7 @@
       var nav = document.querySelector('#mSide nav');
       if (nav && !document.getElementById('pbMenu')) {
         var svg = window.Moscow && window.Moscow.svg ? window.Moscow.svg('laporan') : '';
-        nav.insertAdjacentHTML('afterbegin', '<a class="it" href="#" id="pbMenu">' + svg + '<span class="nm">Pembaruan aplikasi</span><span class="pbBd" style="' + MERAH + '"></span></a>');
+        nav.insertAdjacentHTML('afterbegin', '<a class="it" href="#" id="pbMenu">' + svg + '<span class="nm">Sistem terupdate</span><span class="pbBd" style="' + MERAH + '"></span></a>');
         document.getElementById('pbMenu').onclick = function (e) { e.preventDefault(); buka(); };
       }
       try { await muat(); } catch (e) { return; }
