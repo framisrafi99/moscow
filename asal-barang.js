@@ -45,8 +45,14 @@
   window.__hppTanda = function (it, hrg, no, peta) {
     var dasar = window.__hppTandaDasar(it, hrg, no, peta), x = hrg && it ? hrg[it.k] : null, hj = x ? Number(x.hj) || 0 : 0;
     var p = peta && no && it ? peta[no + '|' + it.k] : null, baru = p ? Number(p.baru) || 0 : Number(it && it.h) || 0;
-    if (hj > 0 && baru > 0 && baru / hj > 0.35) dasar += '<div style="margin-top:3px;font-size:12px;font-weight:700;color:#9a3412">&#9888; HPP ' + (Math.round(baru / hj * 1000) / 10).toLocaleString('id-ID') +
-      '% dari harga jual Rp ' + Math.round(hj).toLocaleString('id-ID') + ' (standar maks. 35%): ajukan harga jual baru</div>';
+    // Batas kenaikan dibanding HPP acuan (HPP saat harga jual terakhir ditetapkan), bukan dibanding harga jual.
+    var acu = it ? Number((window.__ACUAN || {})[it.k]) || 0 : 0, bts = window.__ACUAN_BATAS || 35;
+    if (acu > 0 && baru >= acu * (1 + bts / 100)) {
+      var saran = hj > 0 ? Math.ceil(hj * baru / acu / 100) * 100 : 0;
+      dasar += '<div style="margin-top:3px;font-size:12px;font-weight:700;color:#9a3412">&#9888; Naik ' + (Math.round((baru / acu - 1) * 1000) / 10).toLocaleString('id-ID') +
+        '% dari HPP acuan Rp ' + Math.round(acu).toLocaleString('id-ID') + ' (batas ' + bts + '%). Setelah disimpan, laporan harga jual baru' +
+        (saran ? ' (saran Rp ' + saran.toLocaleString('id-ID') + ')' : '') + ' otomatis dikirim ke manajemen Moscow Supplies.</div>';
+    }
     return dasar;
   };
   window.__hppTandaDasar = function (it, hrg, no, peta) {

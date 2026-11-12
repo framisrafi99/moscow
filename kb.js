@@ -209,6 +209,14 @@
       return { no: MM_rapi_(r[0], 30), wk: ok ? fmt(w, 'dd/MM/yyyy HH:mm') : MM_rapi_(r[1], 20), ms: ok ? w.getTime() : 0, dari: MM_rapi_(r[2], 120), nama: MM_rapi_(r[3], 60),
         j: MM_rapi_(r[4], 30), k: MM_rapi_(r[6], 30).toUpperCase(), n: MM_rapi_(r[7], 120),
         lama: Number(r[8]) || 0, baru: Number(r[9]) || 0, al: MM_rapi_(r[10], 300), st: MM_rapi_(r[11], 30) };
+    }).map(function (x) {
+      // 12 Nov 2026: laporan otomatis "HPP naik 35% atau lebih dari HPP acuan" (jenis Harga Jual). HPP sudah berlaku;
+      // ditampilkan dengan HPP acuan -> HPP baru supaya Mike langsung mengisi harga jual baru (saran ada di rincian).
+      if (x.j !== 'Harga Jual' || !/^Otomatis/.test(x.dari)) return x;
+      var m = /acuan Rp ([\d.]+) menjadi Rp ([\d.]+)/.exec(x.al), angka = function (t) { return Number(String(t).replace(/\./g, '')) || 0; };
+      if (!m) return x;
+      x.j = 'HPP'; x.lama = angka(m[1]); x.baru = angka(m[2]); x.dari = 'Otomatis: HPP sudah berlaku, tentukan harga jual baru'; x.otomatis = true;
+      return x;
     }).filter(function (x) { return x.no && x.st === 'Menunggu' && x.j === 'HPP'; })
       .sort(function (a, b) { return a.ms - b.ms; }).map(function (x) {
         var b = brg.idx[x.k] !== undefined ? brg.list[brg.idx[x.k]] : null, hj = b ? (b.h || 0) : 0;
@@ -216,7 +224,7 @@
         return {
           no: x.no, wk: x.wk, dari: x.dari, nama: x.nama, k: x.k, n: x.n, lama: x.lama, baru: x.baru, al: x.al, hj: hj, naik: naik,
           mLama: x.lama ? CHR_margin_(hj, x.lama) : null, mBaru: CHR_margin_(hj, x.baru),
-          tinjau: (x.lama > 0 && naik >= CHR_BATAS_NAIK_) || (hj > 0 && x.baru >= hj)
+          tinjau: x.otomatis || (x.lama > 0 && naik >= CHR_BATAS_NAIK_) || (hj > 0 && x.baru >= hj)
         };
       });
     var batas = fmt(new Date(Date.now() - 60 * 86400000), 'yyyy-MM-dd'), beli = [];

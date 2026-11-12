@@ -1341,10 +1341,19 @@
       }
     } catch (e) { }
     try { html = await asalBarang(html); } catch (e) { }
+    try { html = await acuanHpp(html); } catch (e) { }
     return html;
   }
   // 11 Nov 2026: asal barang (Impor / Lokal) di form pengajuan & PO mengikuti daftar barang impor manajemen (tabel barang_impor).
   // impor = tetap Impor; campuran (baris kuning) = staf wajib memilih Impor atau Lokal; selain itu = tetap Lokal. Aturan di asal-barang.js.
+  // 12 Nov 2026: HPP acuan (HPP saat harga jual terakhir ditetapkan) untuk tanda "HPP naik 35% atau lebih" di Gudang Utama.
+  async function acuanHpp(html) {
+    if (APP !== 'gudang') return html;
+    var r = await batasWaktu(sb.rpc('hpp_acuan_daftar'), 6000);
+    if (!r || r.error || !r.data || !r.data.ok) return html;
+    var skrip = '<script>window.__ACUAN=' + JSON.stringify(r.data.acuan || {}).replace(/</g, '\\u003c') + ';window.__ACUAN_BATAS=' + (Number(r.data.batas) || 35) + ';<\/script>';
+    return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (x) { return x + skrip; }) : skrip + html;
+  }
   async function asalBarang(html) {
     if (['gudang', 'produksi', 'bahanbaku', 'purchasing'].indexOf(APP) === -1) return html;
     var r = await batasWaktu(sb.from('barang_impor').select('kode,nama,asal'), 6000);
@@ -1352,7 +1361,7 @@
     var peta = {};
     r.data.forEach(function (x) { peta[String(x.kode).trim().toUpperCase()] = { a: x.asal, n: x.nama }; });
     var skrip = '<script>window.__ASAL=' + JSON.stringify(peta).replace(/</g, '\\u003c') + ';<\/script>' +
-      '<script src="' + location.origin + '/asal-barang.js?v=6"><\/script>';
+      '<script src="' + location.origin + '/asal-barang.js?v=7"><\/script>';
     // 1) tebakan awal per barang
     html = html.replace("function tebakImp(kl, k) {", "function tebakImp(kl, k) { if (window.__asalTebak) return window.__asalTebak(kl, k);");
     // 2) pilihan asal di kartu pengajuan (hanya barang campuran yang bisa dipilih)
@@ -1501,18 +1510,18 @@
     // 12 Nov 2026: blok "Mulai cepat" di Ringkasan dihapus (isinya sama dengan menu Stok / Pengajuan / Penyaluran).
     if (APP === 'gudang') html = html.replace("h += '<div class=\"card\"><h3>Mulai cepat</h3>' +", "if (0) h += '<div class=\"card\"><h3>Mulai cepat</h3>' +");
     // 12 Nov 2026: HPP & Harga (Gudang Utama). HPP diperbarui otomatis saat Terima barang, jadi staf hanya melihat HPP
-    // dan mengajukan harga jual baru; barang dengan HPP > 35% harga jual (standar margin Moscow Supplies) diberi tanda merah
+    // dan mengajukan harga jual baru; barang yang HPP-nya naik 35% atau lebih dari HPP acuan (sql 203) diberi tanda merah
     // dan ditaruh paling atas. Manajemen (mode manajemen) tetap bisa mengubah HPP & harga jual seperti biasa.
     if (APP === 'gudang') {
       html = html.replace("return D.mgmt ? ['hpp', 'harga'] : ['hpp']; }", "return D.mgmt ? ['hpp', 'harga'] : ['harga']; }");
       html = html.replace(": 'Perubahan HPP dikirim sebagai usulan dan baru berlaku setelah di-ACC manajemen Moscow Supplies.');",
-        ": 'HPP diperbarui otomatis setiap barang PO diterima (harga beli + ongkir). Kalau HPP sudah lebih dari 35% harga jual (tanda merah), tekan Ajukan harga jual; harga baru berlaku setelah di-ACC manajemen Moscow Supplies.');");
+        ": 'HPP diperbarui otomatis setiap barang PO diterima (harga beli + ongkir). Kalau HPP naik 35% atau lebih dari HPP acuan (HPP saat harga jual terakhir ditetapkan), barang diberi tanda merah dan laporan harga jual baru otomatis dikirim ke manajemen Moscow Supplies.');");
       html = html.replace("var tot = L.length; L = L.slice(0, 80);\n    var JB = jenisBoleh();",
-        "if (!D.toko) { var tipis = function (b) { return b.hpp > 0 && b.hj > 0 && b.hpp / b.hj > 0.35 ? 0 : 1; }; L.sort(function (a, b) { return tipis(a) - tipis(b); }); }\n    var tot = L.length; L = L.slice(0, 80);\n    var JB = jenisBoleh();");
+        "if (!D.toko) { var tipis = function (b) { var acu = (window.__ACUAN || {})[b.k]; return acu > 0 && b.hpp >= acu * (1 + (window.__ACUAN_BATAS || 35) / 100) ? 0 : 1; }; L.sort(function (a, b) { return tipis(a) - tipis(b); }); }\n    var tot = L.length; L = L.slice(0, 80);\n    var JB = jenisBoleh();");
       html = html.replace("(D.toko ? ['hd', 'harga'] : ['hpp', 'harga']).forEach(function (j) { var t = D.tunggu[",
-        "if (!D.toko && b.hpp > 0 && b.hj > 0 && b.hpp / b.hj > 0.35) tg += '<div class=\"tg\" style=\"background:#FDECEA;color:#B3261E;font-weight:600\">HPP ' + (Math.round(b.hpp / b.hj * 1000) / 10).toString().replace(\".\", \",\") + '% dari harga jual (standar maks. 35%). Ajukan harga jual baru.</div>';\n      (D.toko ? ['hd', 'harga'] : ['hpp', 'harga']).forEach(function (j) { var t = D.tunggu[");
+        "var acu = (window.__ACUAN || {})[b.k], bts = window.__ACUAN_BATAS || 35; if (!D.toko && acu > 0 && b.hpp >= acu * (1 + bts / 100)) tg += '<div class=\"tg\" style=\"background:#FDECEA;color:#B3261E;font-weight:600\">HPP naik ' + (Math.round((b.hpp / acu - 1) * 1000) / 10).toString().replace(\".\", \",\") + '% dari HPP acuan Rp ' + Math.round(acu).toLocaleString(\"id-ID\") + ' (batas ' + bts + '%). Laporan harga jual baru sudah dikirim ke manajemen; bisa juga ajukan sendiri.</div>';\n      (D.toko ? ['hd', 'harga'] : ['hpp', 'harga']).forEach(function (j) { var t = D.tunggu[");
       html = html.replace("'\">' + (buka === b.k ? 'Tutup' : 'Ubah') + '</button>", "'\">' + (buka === b.k ? 'Tutup' : (D.mgmt || D.toko ? 'Ubah' : 'Ajukan harga jual')) + '</button>");
-      html = html.replace("placeholder=\"' + (D.toko ? 'Contoh: harga pasaran di marketplace turun' : 'Contoh: harga beli dari supplier naik') + '\"", "placeholder=\"' + (D.toko ? 'Contoh: harga pasaran di marketplace turun' : 'Contoh: HPP naik jadi lebih dari 35% harga jual') + '\"");
+      html = html.replace("placeholder=\"' + (D.toko ? 'Contoh: harga pasaran di marketplace turun' : 'Contoh: harga beli dari supplier naik') + '\"", "placeholder=\"' + (D.toko ? 'Contoh: harga pasaran di marketplace turun' : 'Contoh: HPP naik 40% dari acuan, margin menipis') + '\"");
     }
     html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (x) { return x + JEMBATAN + gaya; }) : JEMBATAN + gaya + html;
     var fr = $('bingkai'); C.frame = fr;
