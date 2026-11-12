@@ -1366,7 +1366,7 @@
     var peta = {};
     r.data.forEach(function (x) { peta[String(x.kode).trim().toUpperCase()] = { a: x.asal, n: x.nama }; });
     var skrip = '<script>window.__ASAL=' + JSON.stringify(peta).replace(/</g, '\\u003c') + ';<\/script>' +
-      '<script src="' + location.origin + '/asal-barang.js?v=7"><\/script>';
+      '<script src="' + location.origin + '/asal-barang.js?v=8"><\/script>';
     // 1) tebakan awal per barang
     html = html.replace("function tebakImp(kl, k) {", "function tebakImp(kl, k) { if (window.__asalTebak) return window.__asalTebak(kl, k);");
     // 2) pilihan asal di kartu pengajuan (hanya barang campuran yang bisa dipilih)
@@ -1514,6 +1514,18 @@
     if (APP === 'gudang' && (C.peran === 'gudang' || (C.peran === 'manajemen' && C.lihatStaf))) gaya += '<style>.s > button[data-s="po"], .tile[data-ke="po"]{display:none!important}</style>';
     // 12 Nov 2026: blok "Mulai cepat" di Ringkasan dihapus (isinya sama dengan menu Stok / Pengajuan / Penyaluran).
     if (APP === 'gudang') html = html.replace("h += '<div class=\"card\"><h3>Mulai cepat</h3>' +", "if (0) h += '<div class=\"card\"><h3>Mulai cepat</h3>' +");
+    if (APP === 'gudang') {
+      // 12 Nov 2026: Riwayat gudang bisa disaring per jenis (Kirim / Terima supplier / Terima produksi / Bonus).
+      html = html.replace("<span class=\"kecil\">80 transaksi gudang terakhir.</span></div>';", "<span class=\"kecil\">80 transaksi gudang terakhir.</span>' + (window.__rwChip ? window.__rwChip(d.riwayat) : '') + '</div>';");
+      html = html.replace("d.riwayat.forEach(function (x) {\n    var pcs = 0, rs = 0;", "d.riwayat.filter(function (x) { return window.__rwCocok ? window.__rwCocok(x) : true; }).forEach(function (x) {\n    var pcs = 0, rs = 0;");
+      html = html.replace("if (el.id === 'rwMuat') { muat(); return; }", "if (el.hasAttribute('data-rwf')) { window.__rwF = el.getAttribute('data-rwf'); gambarRiwayat(); return; }\n  if (el.id === 'rwMuat') { muat(); return; }");
+      // 12 Nov 2026: Robot stok gudang: satu tombol "Ajukan semua saran robot"; tombol per barang diperpendek jadi "+ Ajukan".
+      html = html.replace("Tekan + Buat pengajuan untuk mengajukan restok (barang lokal di-ACC Viory, barang impor di-ACC Mike).</div>' +",
+        "Tekan Ajukan semua untuk memasukkan semua saran ke daftar pengajuan (jumlah masih bisa diubah sebelum dikirim), atau + Ajukan per barang. Barang lokal di-ACC Purchasing, barang impor di-ACC Mike.</div>' +\n      (function () { var P = window.__robotPerlu ? window.__robotPerlu(D, hb.concat(tp)) : []; return P.length ? '<button type=\"button\" class=\"btn\" id=\"gdxRbSemua\" style=\"margin:10px 0 4px\">Ajukan semua saran robot (' + P.length + ' barang)</button>' : ''; })() +");
+      html = html.replace("'<button type=\"button\" data-k=\"' + esc(x.k) + '\">+ Buat pengajuan</button></div>'; }).join('') +\n      (hb.length + tp.length > 15", "'<button type=\"button\" data-k=\"' + esc(x.k) + '\">+ Ajukan</button></div>'; }).join('') +\n      (hb.length + tp.length > 15");
+      html = html.replace("b.onclick = function () { kel = 'Barang jualan'; tambah('Barang jualan', b.getAttribute('data-k'), true); pilih('beli', 'ajukan'); }; });\n  }",
+        "b.onclick = function () { kel = 'Barang jualan'; tambah('Barang jualan', b.getAttribute('data-k'), true); pilih('beli', 'ajukan'); }; });\n    var sm = $('gdxRbSemua'); if (sm) sm.onclick = function () { kel = 'Barang jualan'; (window.__robotPerlu ? window.__robotPerlu(D, hb.concat(tp)) : []).forEach(function (y) { tambah('Barang jualan', y.x.k, true); }); pilih('beli', 'ajukan'); };\n  }");
+    }
     // 12 Nov 2026: HPP & Harga (Gudang Utama). HPP diperbarui otomatis saat Terima barang, jadi staf hanya melihat HPP
     // dan mengajukan harga jual baru; barang yang HPP-nya naik 35% atau lebih dari HPP acuan (sql 203) diberi tanda merah
     // dan ditaruh paling atas. Manajemen (mode manajemen) tetap bisa mengubah HPP & harga jual seperti biasa.

@@ -88,6 +88,29 @@
     if (q || window.__perluSemua || kel === 'Packaging & lainnya') return L;
     return L.filter(function (x) { return x.saran > 0 && (x.st === 'Kritis' || x.st === 'Saatnya pesan') && !terbuka(D, kel, x.k); });
   };
+  // 12 Nov 2026: tombol "Ajukan semua saran robot" di Ringkasan: barang habis / menipis yang punya saran beli dan belum diajukan.
+  window.__robotPerlu = function (D, list) {
+    return (list || []).filter(function (y) { return y && y.x && y.x.saran > 0 && !terbuka(D, 'Barang jualan', y.x.k); });
+  };
+  // 12 Nov 2026: saringan jenis di Riwayat gudang (Kirim / Terima supplier / Terima produksi / Bonus).
+  function rwJenis(x) {
+    if (/bonus/i.test(String(x.j || '')) || /^BN-/.test(String(x.no || ''))) return 'bonus';
+    if (/^SJ-/.test(x.no)) return 'kirim';
+    if (/^TB-/.test(x.no)) return 'supplier';
+    if (/^TP-/.test(x.no)) return 'produksi';
+    return 'lain';
+  }
+  window.__rwCocok = function (x) { var f = window.__rwF || ''; return !f || rwJenis(x) === f; };
+  window.__rwChip = function (L) {
+    var n = { '': (L || []).length }; (L || []).forEach(function (x) { var j = rwJenis(x); n[j] = (n[j] || 0) + 1; });
+    var P = [['', 'Semua'], ['kirim', 'Kirim'], ['supplier', 'Terima supplier'], ['produksi', 'Terima produksi'], ['bonus', 'Bonus'], ['lain', 'Lainnya']];
+    if (window.__rwF && !n[window.__rwF]) window.__rwF = '';
+    return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">' + P.filter(function (p) { return p[0] === '' || n[p[0]]; }).map(function (p) {
+      var on = (window.__rwF || '') === p[0];
+      return '<button type="button" data-rwf="' + p[0] + '" style="border:1px solid ' + (on ? '#1E78A8' : '#D5DCE5') + ';background:' + (on ? '#1E78A8' : '#fff') + ';color:' + (on ? '#fff' : '#1c2430') +
+        ';border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer">' + p[1] + ' ' + (n[p[0]] || 0) + '</button>';
+    }).join('') + '</div>';
+  };
   window.__perluKepala = function (D, kel, q, idCari) {
     if (q || kel === 'Packaging & lainnya') return '';
     var semua = (D && D.items || []).filter(function (x) { return x.kel === kel; });
