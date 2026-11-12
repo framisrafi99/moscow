@@ -126,9 +126,19 @@
       };
       var hpp = {};
       try { hpp = H.peta(); } catch (e) { hpp = {}; }
-      // Pemakaian = barang yang keluar dari Gudang Utama (ke Kantor Packing, toko, consignment, reseller), supaya sejalan dengan stoknya.
-      var pakai = {};
-      log.forEach(function (x) { if (/^keluar/i.test(x.j)) { catatAwal('Barang jualan', x.t); tambahPakai(pakai, x.k, x.t, x.q); } });
+      // Pemakaian: yang lebih besar antara barang keluar dari Gudang Utama (ke Kantor Packing, toko, consignment, reseller)
+      // dan penjualan semua saluran (marketplace + reseller). Barang yang laku tapi jarang dikirim dari gudang tetap terbaca kebutuhannya.
+      var pakaiGd = {}, pakaiJual = {}, pakai = {};
+      log.forEach(function (x) { if (/^keluar/i.test(x.j)) { catatAwal('Barang jualan', x.t); tambahPakai(pakaiGd, x.k, x.t, x.q); } });
+      h[3].forEach(function (r) { var t = tgl(r.tanggal); tambahPakai(pakaiJual, kodeDasar(r.kode === null ? '' : r.kode), t, Number(r.qty_terjual) || 0); });
+      window.Lembar.baca(L, 'order_log', 13).forEach(function (r) {
+        if (!/resel|putus/i.test(String(r[3])) || !/^(Dikirim|Selesai)$/.test(String(r[12]).trim())) return;
+        tambahPakai(pakaiJual, kodeDasar(r[4]), tgl(r[1]), Number(r[6]) || 0);
+      });
+      Object.keys(pakaiGd).concat(Object.keys(pakaiJual)).forEach(function (k) {
+        var a = pakaiGd[k] || { q30: 0, q90: 0 }, b = pakaiJual[k] || { q30: 0, q90: 0 };
+        pakai[k] = { q30: Math.max(a.q30, b.q30), q90: Math.max(a.q90, b.q90) };
+      });
       brg.list.forEach(function (b) {
         if (produksi[b.k]) return;
         items.push({ kel: 'Barang jualan', k: b.k, n: b.n, kat: b.kat, s: 'pcs', stok: stok[b.k] || 0, kp: stokKp[b.k] || 0, toko: stokToko[b.k] || 0, transit: transit[b.k] || 0, p: pakai[b.k] || null, h: harga[b.k] || hpp[b.k] || 0, asal: asalBarang(b.k) });

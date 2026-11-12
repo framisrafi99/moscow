@@ -1339,7 +1339,7 @@
     // 3b) stok di daftar pengajuan = Gudang Utama; stok Kantor Packing & toko ditampilkan terpisah sebagai keterangan
     html = html.replace("function infoItem(x) { return 'stok ' + f(x.stok, 1) + ' ' + esc(x.s)", "function infoItem(x) { return 'stok gudang ' + f(x.stok, 1) + ' ' + esc(x.s) + (window.__stokLain ? window.__stokLain(x) : '')");
     html = html.replace("'<div class=\"ks\">stok ' + f(x.stok) + (x.transit", "'<div class=\"ks\">stok gudang ' + f(x.stok) + (window.__stokLain ? window.__stokLain(x) : '') + (x.transit");
-    html = html.replace("Dihitung dari stok, barang dalam perjalanan, dan rata-rata terjual.", "Dihitung dari stok Gudang Utama, barang dalam perjalanan, dan rata-rata barang keluar dari gudang.");
+    html = html.replace("Dihitung dari stok, barang dalam perjalanan, dan rata-rata terjual.", "Dihitung dari stok Gudang Utama, barang dalam perjalanan, dan rata-rata keluar dari gudang atau terjual (yang lebih besar).");
     // 4) form PO: asal ditetapkan dari barangnya
     var po = "'<div><label>Asal barang</label><select data-po=\"asal\">' + opsi(['Impor', 'Lokal'], S.po.asal) + '</select></div>'";
     html = html.split(po).join("(window.__asalPo ? window.__asalPo(S.po, " + po + ") : " + po + ")");
