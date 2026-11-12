@@ -15,8 +15,8 @@
         { k: 'ajuan', nm: 'Pengajuan', ik: 'purch', l: ['Pengajuan@.m'] },
         { k: 'salur', nm: 'Penyaluran', ik: 'pemasok', l: ['Penyaluran@.m'] },
         { k: 'riwayat', nm: 'Riwayat', ik: 'riwayat', l: ['Riwayat@.m'] },
-        { k: 'hpp', nm: 'HPP & Harga', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox' },
-        { k: 'lapajuan', nm: 'Laporan pengajuan (PDF)', ik: 'nota', panel: 'ajuan', pendek: 'Lap. ajuan' }
+        { k: 'hpp', nm: 'HPP & Harga', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox' }
+        // 12 Nov 2026: "Laporan pengajuan (PDF)" pindah jadi tombol di Pengajuan > Daftar pengajuan (lapAjuanDiDaftar).
       ],
       bawah: ['stok', 'order', 'salur', 'ajuan', 'lain']
     },
@@ -1131,6 +1131,32 @@
     new MutationObserver(function () { if (tunda) return; tunda = requestAnimationFrame(function () { tunda = 0; ganti(); }); })
       .observe(dok.body, { childList: true, subtree: true });
   }
+  // Gudang › Pengajuan › Daftar pengajuan: tombol "Laporan PDF / WhatsApp" (dulu menu terpisah "Laporan pengajuan (PDF)").
+  // Laporan dibuka sebagai jendela di atas aplikasi; ditutup kembali ke Daftar pengajuan.
+  function lapAjuanDiDaftar(dok) {
+    var isi = dok.getElementById('gdxIsi'); if (!isi) return;
+    function pasang() {
+      var on = dok.querySelector('#gdxBar .s button.on[data-s="daftar"]');
+      if (!on || dok.getElementById('lapAjBtn') || !isi.firstElementChild) return;
+      isi.insertAdjacentHTML('afterbegin', '<div class="c" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">' +
+        '<span class="ks">Laporan pengajuan per tanggal untuk Purchasing.</span>' +
+        '<button type="button" id="lapAjBtn" class="btn" style="width:auto;margin:0">&#128196; Laporan PDF / WhatsApp</button></div>');
+      dok.getElementById('lapAjBtn').onclick = bukaLapAjuan;
+    }
+    pasang();
+    new MutationObserver(pasang).observe(isi, { childList: true });
+    var bar = dok.getElementById('gdxBar'); if (bar) new MutationObserver(pasang).observe(bar, { childList: true });
+  }
+  function bukaLapAjuan() {
+    if (!window.AjuanPdf) return;
+    var lama = $('lapAjLatar'); if (lama) lama.remove();
+    var lt = document.createElement('div'); lt.id = 'lapAjLatar';
+    lt.style.cssText = 'position:fixed;inset:0;z-index:70;background:var(--latar,#F4F6F9);overflow:auto';
+    lt.innerHTML = '<div style="max-width:900px;margin:0 auto;padding:12px 16px 0"><button type="button" id="lapAjTutup" style="border:0;background:none;color:#1E78A8;font:inherit;font-weight:700;cursor:pointer;padding:6px 0">&larr; Kembali ke Daftar pengajuan</button></div><div id="lapAjIsi"></div>';
+    document.body.appendChild(lt);
+    $('lapAjTutup').onclick = function () { lt.remove(); };
+    AjuanPdf.gambar($('lapAjIsi'), M.sb, APP);
+  }
   // Gudang › Penyaluran: tiap baris barang dapat kotak "ketik kode / nama" (tidak perlu menggulir daftar panjang).
   // Kotak ini hanya memilih barang di daftar lama lalu memicu 'change', jadi cara simpan form tidak berubah.
   function cariKodeKirim(dok) {
@@ -1472,6 +1498,8 @@
     var gaya = GAYA + '<style>' + F.sembunyi + '{display:none!important}</style>';
     // 12 Nov 2026: staf Gudang Utama cukup lewat "+ Buat pengajuan"; tab "PO impor" (buat / catat PO) hanya untuk Purchasing & manajemen.
     if (APP === 'gudang' && (C.peran === 'gudang' || (C.peran === 'manajemen' && C.lihatStaf))) gaya += '<style>.s > button[data-s="po"], .tile[data-ke="po"]{display:none!important}</style>';
+    // 12 Nov 2026: blok "Mulai cepat" di Ringkasan dihapus (isinya sama dengan menu Stok / Pengajuan / Penyaluran).
+    if (APP === 'gudang') html = html.replace("h += '<div class=\"card\"><h3>Mulai cepat</h3>' +", "if (0) h += '<div class=\"card\"><h3>Mulai cepat</h3>' +");
     html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (x) { return x + JEMBATAN + gaya; }) : JEMBATAN + gaya + html;
     var fr = $('bingkai'); C.frame = fr;
     fr.onload = function () {
@@ -1481,7 +1509,7 @@
       var nm = dok.getElementById('nama');
       if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
       ukur(); tekan(C.aktif);
-      if (APP === 'gudang') { try { cariKodeKirim(dok); } catch (e) { } try { ikonGd(dok); } catch (e) { } try { tanggalOpname(dok); } catch (e) { } }
+      if (APP === 'gudang') { try { cariKodeKirim(dok); } catch (e) { } try { ikonGd(dok); } catch (e) { } try { tanggalOpname(dok); } catch (e) { } try { lapAjuanDiDaftar(dok); } catch (e) { } }
       if (APP === 'gudang' || APP === 'produksi' || APP === 'bahanbaku') { try { koreksiAjuan(dok); } catch (e) { } try { terimaDiDaftar(dok); } catch (e) { } }
       if (APP === 'produksi') { try { produksiKeGudang(dok); } catch (e) { } }
       if (BUKA.length) jalankanBuka(dok);
