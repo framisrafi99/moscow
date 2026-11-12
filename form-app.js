@@ -1458,7 +1458,7 @@
     // Bilah tab lama disembunyikan lewat aturan gaya (tetap berlaku walau form menggambar ulang isinya).
     var gaya = GAYA + '<style>' + F.sembunyi + '{display:none!important}</style>';
     // 12 Nov 2026: staf Gudang Utama cukup lewat "+ Buat pengajuan"; tab "PO impor" (buat / catat PO) hanya untuk Purchasing & manajemen.
-    if (APP === 'gudang' && C.peran === 'gudang') gaya += '<style>.s > button[data-s="po"], .tile[data-ke="po"]{display:none!important}</style>';
+    if (APP === 'gudang' && (C.peran === 'gudang' || (C.peran === 'manajemen' && C.lihatStaf))) gaya += '<style>.s > button[data-s="po"], .tile[data-ke="po"]{display:none!important}</style>';
     html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (x) { return x + JEMBATAN + gaya; }) : JEMBATAN + gaya + html;
     var fr = $('bingkai'); C.frame = fr;
     fr.onload = function () {
@@ -1494,9 +1494,18 @@
     },
     siap: function (ctx) {
       C.mgmt = ctx.peran === 'manajemen'; C.peran = ctx.peran || '';
+      C.lihatStaf = true; try { C.lihatStaf = localStorage.getItem('lihatStaf') !== '0'; } catch (x) { }
       if (ctx.peran === 'manajemen') {
         var nav = document.querySelector('#mSide nav');
         if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + M.svg('beranda') + '<span class="nm">Master Data</span></a>');
+        // 12 Nov 2026: manajemen melihat aplikasi persis seperti staf yang memegangnya (bawaan), supaya mudah mengontrol kesalahan.
+        // Bisa diganti ke "Tampilan lengkap manajemen" (menu tambahan seperti PO impor) lewat tombol di menu samping.
+        if (nav) {
+          nav.insertAdjacentHTML('beforeend', '<div class="grp">TAMPILAN</div><a class="it" href="#" id="mTampil">' + M.svg('atur') + '<span class="nm">' +
+            (C.lihatStaf ? 'Tampilan staf (aktif) &middot; ganti ke lengkap' : 'Tampilan lengkap manajemen &middot; ganti ke staf') + '</span></a>');
+          var tb = document.getElementById('mTampil');
+          if (tb) tb.onclick = function (e) { e.preventDefault(); try { localStorage.setItem('lihatStaf', C.lihatStaf ? '0' : '1'); } catch (x) { } location.reload(); };
+        }
       }
       C.aktif = M.aktif() || F.menu[0].k;
       if (F.menu.some(function (x) { return x.k === C.aktif && x.modal; })) { C.aktif = F.menu[0].k; M.buka(C.aktif, true); }
