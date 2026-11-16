@@ -8,7 +8,7 @@
 //   - Viory / Mike belanja barang: tunggu input aplikasi s.d. 3 hari (dicek tiap jam, periksaTunggu)
 //   - pengajuan impor: kode I dari AI, atau (transfer tanpa rincian) centang pengajuan impor -> _impor_bayar_inti
 //   - pindah dana antar akun Moscow (PT -> Belanja -> ShopeePay / Kas): dicatat Pindah (bb_catat_pindah), bukan pengeluaran
-// Semua tombol hanya bisa ditekan oleh pengirim bukti.
+// Semua tombol hanya bisa ditekan oleh pengirim bukti atau akun Telegram manajemen Moscow Supplies.
 // Perintah grup: /grup_bukti (manajemen, sekali) · /saya NAMA (tiap anggota, sekali)
 // =====================================================================
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
@@ -730,7 +730,9 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     const b = await ambil(id);
     if (!b) return jawab('Bukti tidak ditemukan.', true);
     const uid = String(q.from?.id || '');
-    if (uid !== String(b.uid)) return jawab('Hanya ' + (b.pengirim || 'pengirim bukti ini') + ' (yang mengirim bukti) yang bisa menekan tombol ini.', true);
+    // 16 Nov 2026: selain pengirim bukti, akun Telegram manajemen Moscow Supplies juga boleh menekan tombol kartu bukti
+    // (mis. ✅ Catat saat pengirim tidak menekannya). Yang menekan tetap tercatat di "oleh".
+    if (uid !== String(b.uid) && (await peran(uid)) !== 'manajemen') return jawab('Hanya ' + (b.pengirim || 'pengirim bukti ini') + ' (yang mengirim bukti) atau manajemen Moscow Supplies yang bisa menekan tombol ini.', true);
     if (['dicatat', 'cocok', 'sama', 'bukan'].indexOf(b.status) > -1) return jawab('Sudah diproses.');
     const oleh = (await anggota(uid)) || t(q.from?.first_name, 40);
     // pembayar sebenarnya (caption "dibayar Junior" / nama rekening di bukti) dicatat di accounting: "Junior via Viory"
