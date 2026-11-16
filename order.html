@@ -245,7 +245,7 @@ table.ord tr.s td{font-weight:800;border-bottom:0}
     var p = D.pelanggan;
     $('gate').className = 'wrap hide'; $('app').className = '';
     $('pNama').textContent = p.n;
-    $('pInfo').textContent = p.d ? 'Diskon reseller ' + pct(p.d) + '%' : 'Reseller';
+    $('pInfo').textContent = p.th ? 'Daftar rencana order · harga menyusul' : (p.d ? 'Diskon reseller ' + pct(p.d) + '%' : 'Reseller');
     $('tgl').value = D.tanggal;
     $('nama').value = baca(SIMPAN_NAMA);
     var per = {}; KAT = [];
@@ -259,6 +259,8 @@ table.ord tr.s td{font-weight:800;border-bottom:0}
   }
 
   // ---------- Daftar barang ----------
+  // 16 Nov 2026: pelanggan "tanpa harga" (th) = form hanya mengumpulkan barang, warna & jumlah; harga menyusul lewat penawaran.
+  function TH() { return !!(D && D.pelanggan && D.pelanggan.th); }
   function hargaDisk(h) { var d = Number(D.pelanggan.d) || 0; return d ? Math.round(h * (100 - d) / 100) : h; }
   function isiKat(k) {
     var n = 0, q = 0;
@@ -276,7 +278,7 @@ table.ord tr.s td{font-weight:800;border-bottom:0}
   function baris(kode, nama, harga, mati, sub) {
     var hd = (D.pelanggan.d && harga > 0) ? ' · <em>' + rp(hargaDisk(harga)) + '</em> setelah diskon' : '';
     return '<div class="row' + (mati ? ' off' : '') + '"><div class="n">' + (sub ? '<b>' + esc(nama) + '</b>' :
-      '<b><span class="kd">' + esc(kode) + '</span>' + esc(nama) + '</b><span class="h">' + (mati ? 'Harga belum tersedia' : rp(harga) + hd) + '</span>') + '</div>' +
+      '<b><span class="kd">' + esc(kode) + '</span>' + esc(nama) + '</b><span class="h">' + (TH() ? '' : (mati ? 'Harga belum tersedia' : rp(harga) + hd)) + '</span>') + '</div>' +
       '<input type="number" inputmode="numeric" min="0" step="1" placeholder="0" aria-label="Jumlah ' + esc(nama) + '" data-k="' + esc(kode) + '" value="' + (Q[kode] || '') + '"' + (mati ? ' disabled' : '') + '></div>';
   }
   function gambar() {
@@ -289,12 +291,12 @@ table.ord tr.s td{font-weight:800;border-bottom:0}
         if (q && teks.indexOf(q) < 0) return;
         cocok++;
         if (!buka) return;
-        var mati = !(it.harga > 0);
+        var mati = !TH() && !(it.harga > 0);
         if (!adaW) { isi += baris(it.kode, it.nama, it.harga, mati); return; }
         var wb = !!WBUKA[it.kode] || (q && it.w.join(' ').toLowerCase().indexOf(q) >= 0), t = terisiW(it);
         var hd = (D.pelanggan.d && it.harga > 0) ? ' · <em>' + rp(hargaDisk(it.harga)) + '</em> setelah diskon' : '';
         isi += '<div class="row' + (mati ? ' off' : '') + '"><div class="n"><b><span class="kd">' + esc(it.kode) + '</span>' + esc(it.nama) + '</b>' +
-          '<span class="h">' + (mati ? 'Harga belum tersedia' : rp(it.harga) + hd) + ' · ' + it.w.length + ' warna</span>' +
+          '<span class="h">' + (TH() ? '' : (mati ? 'Harga belum tersedia' : rp(it.harga) + hd) + ' · ') + it.w.length + ' warna</span>' +
           '<span class="terisi" id="ws_' + esc(it.kode) + '">' + esc(t) + '</span></div>' +
           '<button type="button" class="wbtn" data-w="' + esc(it.kode) + '" aria-expanded="' + (wb ? 'true' : 'false') + '"' + (mati ? ' disabled' : '') + '>' + (wb ? 'Tutup' : 'Pilih warna') + '</button></div>';
         if (wb && !mati) {
@@ -337,7 +339,7 @@ table.ord tr.s td{font-weight:800;border-bottom:0}
   function hitung() {
     var r = rinci();
     $('barQ').textContent = r.items.length ? r.items.length + ' barang · ' + fmt(r.pcs) + ' pcs' + (r.disk ? ' · diskon ' + pct(r.d) + '%' : '') : 'Belum ada barang';
-    $('barRp').textContent = rp(r.tot);
+    $('barRp').textContent = TH() ? '' : rp(r.tot);
     $('periksa').disabled = !r.items.length;
     KAT.forEach(function (k, n) { var el = $('kc_' + n); if (el) el.textContent = isiKat(k); });
   }
@@ -360,6 +362,11 @@ table.ord tr.s td{font-weight:800;border-bottom:0}
 
   // ---------- Periksa & kirim ----------
   function tabel(o) {
+    if (TH()) {
+      var t = '<table class="ord"><thead><tr><th>Barang</th><th class="a">Qty</th></tr></thead><tbody>', pcs = 0;
+      o.items.forEach(function (it) { pcs += Number(it.q) || 0; t += '<tr><td>' + esc(it.n) + '</td><td class="a">' + fmt(it.q) + '</td></tr>'; });
+      return t + '<tr class="s"><td>Total</td><td class="a">' + fmt(pcs) + ' pcs</td></tr></tbody></table><p class="sub">Harga akan disampaikan lewat penawaran dari Moscow Supplies.</p>';
+    }
     var h = '<table class="ord"><thead><tr><th>Barang</th><th class="a">Qty</th><th class="a">Harga</th><th class="a">Jumlah</th></tr></thead><tbody>';
     o.items.forEach(function (it) { h += '<tr><td>' + esc(it.n) + '</td><td class="a">' + fmt(it.q) + '</td><td class="a">' + fmt(it.h) + '</td><td class="a">' + fmt(it.s) + '</td></tr>'; });
     h += '<tr><td colspan="3">Subtotal</td><td class="a">' + rp(o.sub) + '</td></tr>' +
@@ -438,12 +445,12 @@ table.ord tr.s td{font-weight:800;border-bottom:0}
     }).catch(function () { $('rwIsi').innerHTML = '<div class="msg bad">Gagal terhubung. Periksa internet lalu buka lagi tab ini.</div>'; });
   }
   function gambarRiwayat() {
-    var r = RW, h = '<div class="ringkas"><div><b>' + fmt(r.jumlah) + '</b><span>order (tanpa yang batal)</span></div><div><b>' + rp(r.total) + '</b><span>total belanja</span></div></div>';
+    var r = RW, h = '<div class="ringkas"><div><b>' + fmt(r.jumlah) + '</b><span>order (tanpa yang batal)</span></div>' + (TH() ? '' : '<div><b>' + rp(r.total) + '</b><span>total belanja</span></div>') + '</div>';
     if (!r.orders.length) h += '<div class="kosong">Belum ada order. Order pertama kamu akan muncul di sini.</div>';
     r.orders.forEach(function (o, i) {
       var b = !!RWBUKA[o.no];
       h += '<div class="ro"><button type="button" data-ro="' + esc(o.no) + '" aria-expanded="' + b + '"><div><div class="no">' + esc(o.no) + '</div><div class="tg">' + esc(tglIndo(o.t)) + ' · ' + o.items.length + ' barang</div></div>' +
-        '<div class="nil">' + rp(o.tot) + '<br><span class="st ' + esc(o.st) + '">' + esc(o.st) + '</span></div></button>' +
+        '<div class="nil">' + (TH() ? '' : rp(o.tot) + '<br>') + '<span class="st ' + esc(o.st) + '">' + esc(o.st) + '</span></div></button>' +
         (b ? '<div class="isi">' + (o.c ? '<p class="sub">Catatan: ' + esc(o.c) + '</p>' : '') + tabel(o) + '</div>' : '') + '</div>';
     });
     if (r.terpotong) h += '<p class="sub">Menampilkan 200 order terbaru.</p>';
