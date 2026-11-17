@@ -213,6 +213,14 @@
     if (O.pindah) O.pindah(k, m);
   }
 
+  // Refresh aplikasi: periksa versi terbaru lalu muat ulang seluruh halaman (halaman selalu diambil dari server).
+  function segarkan(b) {
+    if (b) { b.disabled = true; b.lastChild.textContent = 'Memuat…'; }
+    var jalan = false, muatLagi = function () { if (jalan) return; jalan = true; location.reload(); };
+    setTimeout(muatLagi, 2500);
+    try { navigator.serviceWorker.getRegistration().then(function (r) { return r && r.update(); }).then(muatLagi, muatLagi); } catch (x) { muatLagi(); }
+  }
+
   function aksi(daftar) {
     var el = $('mAksi'); if (!el) return;
     el.innerHTML = (daftar || []).map(function (a, i) {
@@ -272,7 +280,7 @@
     sb: sb, esc: esc, fmt: fmt, rp: rp, jt: jt, svg: svg,
     // Dipakai halaman masuk satu link (index.html) supaya tampilannya sama.
     logoPutih: logoPutih, muat: muat, ILUS: ILUS, KUNCI_IK: KUNCI_IK, GOOGLE: GOOGLE, cekSistem: cekSistem,
-    buka: buka, aksi: aksi, badge: badge, judul: function (t) { $('mJudul').textContent = t; },
+    buka: buka, aksi: aksi, segarkan: segarkan, badge: badge, judul: function (t) { $('mJudul').textContent = t; },
     aktif: function () { return S.aktif; },
     mulai: function (opsi) {
       O = opsi;

@@ -40,7 +40,7 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="moscow.js?v=17"></script>
+<script src="moscow.js?v=18"></script>
 <script src="lembar.js?v=2"></script>
 <script src="gudang.js?v=6"></script>
 <script src="kp.js?v=7"></script>
@@ -63,7 +63,7 @@
     menu: [{ k: 'stok', nm: 'Stok per lokasi', ik: 'stok', judul: 'Stok barang' }],
     siap: function (ctx) {
       peran = ctx.peran;
-      M.aksi([{ nm: 'Refresh aplikasi', ik: 'muat', klik: function () { muat(LENGKAP.indexOf(ctx.peran) > -1); } }]);
+      M.aksi([{ nm: 'Refresh aplikasi', ik: 'muat', klik: function (b) { M.segarkan(b); } }]);
       if (ctx.peran === 'manajemen') {
         var nav = document.querySelector('#mSide nav');
         if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + M.svg('beranda') + '<span class="nm">Master Data</span></a>');

@@ -47,7 +47,7 @@
       D.email = String((ctx && ctx.email) || '').toLowerCase();
       var um = (ctx && ctx.sesi && ctx.sesi.user && ctx.sesi.user.user_metadata) || {}; D.nama = um.full_name || um.name || '';
       M.aksi([
-        { nm: 'Refresh aplikasi', ik: 'muat', klik: function () { muat(); } }
+        { nm: 'Refresh aplikasi', ik: 'muat', klik: function (b) { M.segarkan(b); } }
       ]);
       BR.janji = ambilBeranda(''); // mulai bersamaan dengan data lain, tidak menunggu
       muat();
@@ -247,7 +247,7 @@
         M.buka(b);
       },
       ekor: ekor, kpi: (BR.kpi || {})[k], pengguna: { nama: D.namaTim || D.nama, email: D.email },
-      menuAkun: [{ nm: 'Refresh aplikasi', klik: function () { muat(); } }, { nm: 'Hitung ulang semua angka', klik: function () { hitungUlang(null); } },
+      menuAkun: [{ nm: 'Refresh aplikasi', klik: function () { M.segarkan(); } }, { nm: 'Hitung ulang semua angka', klik: function () { hitungUlang(null); } },
         { nm: 'Upload penjualan harian', k: 'upload' }, { nm: 'Upload dana cair', k: 'upload' }, { nm: 'Report konsultan pajak', k: 'laporan' },
         { nm: 'Keluar / ganti akun', klik: function () { sb.auth.signOut({ scope: 'local' }).then(function () { location.href = 'index.html'; }); } }],
       aksi: [{ nm: 'Upload penjualan harian', k: 'upload' }, { nm: 'Upload dana cair', k: 'upload' }]

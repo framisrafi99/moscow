@@ -116,7 +116,7 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="moscow.js?v=17"></script>
+<script src="moscow.js?v=18"></script>
 <script>
 (function () {
   'use strict';
@@ -206,7 +206,7 @@
     var a = [];
     if (k === 'papan' && D.kelola) a.push({ nm: 'Konten baru', ik: 'plus', kelas: 'pri', klik: function () { formKonten(null); } });
     if (k === 'laporan') { a.push({ nm: 'Unduh Excel', ik: 'nota', klik: unduhLaporan }); a.push({ nm: 'Cetak / PDF', ik: 'nota', klik: function () { window.print(); } }); }
-    a.push({ nm: 'Refresh aplikasi', ik: 'muat', klik: muatSemua });
+    a.push({ nm: 'Refresh aplikasi', ik: 'muat', klik: function (b) { Moscow.segarkan(b); } });
     Moscow.aksi(a);
     if (k === 'papan') papan();
     else if (k === 'kalender') kalender();
