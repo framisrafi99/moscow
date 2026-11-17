@@ -206,7 +206,7 @@
     var a = [];
     if (k === 'papan' && D.kelola) a.push({ nm: 'Konten baru', ik: 'plus', kelas: 'pri', klik: function () { formKonten(null); } });
     if (k === 'laporan') { a.push({ nm: 'Unduh Excel', ik: 'nota', klik: unduhLaporan }); a.push({ nm: 'Cetak / PDF', ik: 'nota', klik: function () { window.print(); } }); }
-    a.push({ nm: 'Muat ulang', ik: 'muat', klik: muatSemua });
+    a.push({ nm: 'Ambil data terbaru', ik: 'muat', klik: muatSemua });
     Moscow.aksi(a);
     if (k === 'papan') papan();
     else if (k === 'kalender') kalender();
