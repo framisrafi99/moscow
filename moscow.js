@@ -106,11 +106,30 @@
     if ($('mApp')) $('mApp').hidden = true;
   }
 
+  // 17 Nov 2026: kelompok menu bisa dilipat ({ grup: 'NAMA', lipat: true }). Judul kelompok jadi tombol; menu di bawahnya
+  // (sampai kelompok berikutnya) tersembunyi sampai judulnya ditekan. Dipakai Master Data untuk kelompok MENU STAF.
+  function tandaiLipat() {
+    var id = '';
+    O.menu.forEach(function (m, i) { if (m.grup) { id = m.lipat ? 'lp' + i : ''; m._lpId = id; } else m._lp = id; });
+  }
+  function grupMenu(m) {
+    if (!m.lipat) return '<div class="grp">' + esc(m.grup) + '</div>';
+    return '<button type="button" class="grp grp-lp" data-lipat="' + m._lpId + '" aria-expanded="false">' + esc(m.grup) + '<span class="pn" aria-hidden="true">&#9656;</span></button>';
+  }
+  function lp(m) { return m._lp ? ' data-lp="' + m._lp + '" hidden' : ''; }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-lipat]') : null;
+    if (!b) return;
+    var buka = b.getAttribute('aria-expanded') !== 'true', id = b.getAttribute('data-lipat');
+    b.setAttribute('aria-expanded', buka ? 'true' : 'false');
+    var pn = b.querySelector('.pn'); if (pn) pn.innerHTML = buka ? '&#9662;' : '&#9656;';
+    (b.parentNode || document).querySelectorAll('[data-lp="' + id + '"]').forEach(function (x) { x.hidden = !buka; });
+  });
   function itemMenu(m, kelas) {
-    if (m.grup) return '<div class="grp">' + esc(m.grup) + '</div>';
+    if (m.grup) return grupMenu(m);
     var isi = svg(m.ik || m.k) + '<span class="nm">' + esc(m.nm) + '</span>' + (m.tanda ? '<span class="tg">' + esc(m.tanda) + '</span>' : '') + '<span class="bd" data-bd="' + esc(m.k) + '" hidden></span>';
-    if (m.href) return '<a class="' + kelas + '" href="' + esc(m.href) + '" title="' + esc(m.nm) + '">' + isi + '</a>';
-    return '<button type="button" class="' + kelas + '" data-k="' + esc(m.k) + '" title="' + esc(m.nm) + '">' + isi + '</button>';
+    if (m.href) return '<a class="' + kelas + '" href="' + esc(m.href) + '" title="' + esc(m.nm) + '"' + lp(m) + '>' + isi + '</a>';
+    return '<button type="button" class="' + kelas + '" data-k="' + esc(m.k) + '" title="' + esc(m.nm) + '"' + lp(m) + '>' + isi + '</button>';
   }
 
   function bangun(ctx) {
@@ -119,6 +138,7 @@
     // Menu samping
     var side = document.createElement('aside'); side.id = 'mSide'; side.setAttribute('aria-label', 'Menu utama');
     var h = '<span class="lg" role="img" aria-label="Moscow Supplies"></span><nav>';
+    tandaiLipat();
     O.menu.forEach(function (m) { h += itemMenu(m, 'it'); });
     h += '</nav><div class="bw"><span class="vr">' + esc(ctx.email) + '</span>' +
       '<button type="button" class="it" id="mKeluar">' + svg('keluar', 18) + '<span class="nm">Keluar</span></button>' +
@@ -156,10 +176,11 @@
   function lembar() {
     var el = document.createElement('div'); el.id = 'mLembar';
     var h = '<div class="isi" role="dialog" aria-label="Menu"><h3>Menu</h3>';
+    tandaiLipat();
     O.menu.forEach(function (m) {
-      if (m.grup) { h += '<div class="grp">' + esc(m.grup) + '</div>'; return; }
+      if (m.grup) { h += grupMenu(m); return; }
       var isi = svg(m.ik || m.k, 20) + '<span>' + esc(m.nm) + '</span>' + (m.tanda ? '<span class="tg">' + esc(m.tanda) + '</span>' : '');
-      h += m.href ? '<a class="it" href="' + esc(m.href) + '">' + isi + '</a>' : '<button type="button" class="it' + (m.k === S.aktif ? ' on' : '') + '" data-k="' + esc(m.k) + '">' + isi + '</button>';
+      h += m.href ? '<a class="it" href="' + esc(m.href) + '"' + lp(m) + '>' + isi + '</a>' : '<button type="button" class="it' + (m.k === S.aktif ? ' on' : '') + '" data-k="' + esc(m.k) + '"' + lp(m) + '>' + isi + '</button>';
     });
     h += '<div class="grp">Akun</div><button type="button" class="it" data-k="__keluar">' + svg('keluar', 20) + '<span>Keluar</span><span class="tg">' + esc(S.email || '') + '</span></button></div>';
     el.innerHTML = h;

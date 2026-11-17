@@ -28,7 +28,7 @@
       { k: 'app-kreatif', nm: 'Manager Kreatif', ik: 'produksi', href: 'kreatif.html' },
       { k: 'app-akunting', nm: 'Form accounting', ik: 'uang', href: 'form.html?f=akunting' },
       { k: 'app-payroll', nm: 'Payroll & absensi', ik: 'pelanggan', href: 'form.html?f=payroll' },
-      { grup: 'FORM STAF' },
+      { grup: 'MENU STAF', lipat: true },   // dilipat: tekan judulnya untuk membuka daftar aplikasi staf
       { k: 'f-gudang', nm: 'Gudang Utama', ik: 'gudang', href: 'form.html?f=gudang' },
       { k: 'f-purch', nm: 'Purchasing', ik: 'purch', href: 'form.html?f=purchasing' },
       { k: 'f-produksi', nm: 'Staf Produksi', ik: 'produksi', href: 'form.html?f=produksi' },
