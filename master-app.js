@@ -2555,7 +2555,7 @@
         (o.c ? '<div class="sb">Catatan: ' + esc(o.c) + '</div>' : '') +
         '<div class="rq-mt"><span class="label biru">' + fmt(o.q) + ' pcs</span><span class="label abu">nilai HPP ' + rp(o.nilai) + '</span>' + tanda.join('') + '</div>' +
         // 12 Nov 2026: koreksi jumlah sebelum ACC (kolom Disetujui). Tombol cepat mengisi kolom itu; order tersimpan dengan jumlah yang disetujui.
-        (q ? '' : '<div class="aksi-baris" style="flex-wrap:wrap;gap:8px"><span class="sb" style="margin:0">Kolom Disetujui sudah terisi saran robot (sesuai penjualan bulanan toko). Ganti dengan:</span>' +
+        (q ? '' : '<div class="aksi-baris" style="flex-wrap:wrap;gap:8px"><span class="sb" style="margin:0">Kolom Disetujui berisi jumlah yang diminta toko. Saran robot hanya saran. Kalau mau mengganti jumlahnya:</span>' +
           '<button type="button" class="tbl" data-cepat="gudang" data-o="' + i + '">Sesuaikan stok gudang</button>' +
           '<button type="button" class="tbl" data-cepat="saran" data-o="' + i + '">Pakai saran robot</button>' +
           '<button type="button" class="tbl" data-cepat="minta" data-o="' + i + '">Kembalikan ke permintaan</button>' +
@@ -2594,12 +2594,9 @@
         : 'Disetujui <b>' + fmt(tot) + ' pcs</b> dari ' + fmt(o.q) + ' pcs' + (ubah ? ' · ' + ubah + ' barang dikoreksi' : '');
       return { tot: tot, ubah: ubah, salah: salah };
     }
-    // 12 Nov 2026: aturan manajemen: barang ke toko & consignment diberikan sesuai data penjualan bulanan. Kolom Disetujui
-    // awalnya terisi saran robot (kebutuhan paling lama 2 bulan), bukan jumlah yang diminta; manajemen masih bisa mengubahnya.
-    R.list.forEach(function (o, i) {
-      isianQs(i).forEach(function (inp) { inp.value = saranAcc(o.items[+inp.getAttribute('data-j')]); });
-      ringkasQs(i);
-    });
+    // 17 Nov 2026: kolom Disetujui awalnya = jumlah yang DIMINTA toko. Saran robot hanya saran (kolom Saran + tombol "Pakai saran robot"),
+    // tidak lagi mengisi otomatis: sebelumnya request yang disetujui tanpa diperiksa ikut berubah menjadi saran robot (RO-261116-001).
+    R.list.forEach(function (o, i) { ringkasQs(i); });
     el.querySelectorAll('[data-qs]').forEach(function (inp) { inp.oninput = function () { ringkasQs(+inp.getAttribute('data-qs')); }; });
     el.querySelectorAll('[data-cepat]').forEach(function (b) {
       b.onclick = function () {
