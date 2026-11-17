@@ -18,7 +18,7 @@
     menu: [
       { k: 'beranda', nm: 'Beranda' }, { k: 'setuju', nm: 'Persetujuan' },
       { k: 'produksi', nm: 'Produksi' }, { k: 'gudang', nm: 'Gudang Utama', pendek: 'Gudang' }, { k: 'purch', nm: 'Purchasing' },
-      { k: 'jual', nm: 'Penjualan' }, { k: 'upload', nm: 'Upload laporan', ik: 'nota' }, { k: 'uang', nm: 'Accounting' }, { k: 'laporan', nm: 'Laporan', ik: 'laporan' }, { k: 'riwayat', nm: 'Riwayat' }, { k: 'jaga', nm: 'Pusat agen', ik: 'laporan' }, { k: 'atur', nm: 'Pengaturan' },
+      { k: 'jual', nm: 'Penjualan' }, { k: 'upload', nm: 'Upload laporan', ik: 'nota' }, { k: 'uang', nm: 'Accounting' }, { k: 'laporan', nm: 'Report konsultan pajak', ik: 'laporan' }, { k: 'riwayat', nm: 'Riwayat' }, { k: 'jaga', nm: 'Pusat agen', ik: 'laporan' }, { k: 'atur', nm: 'Pengaturan' },
       // 17 Nov 2026: menu dirapikan. Jalan pintas Produk / Pemasok / Pelanggan dihapus (isinya ada di Pengaturan dan Purchasing),
       // Payroll + Absensi staf digabung, Master Data lama dipindah ke dalam Pengaturan.
       { grup: 'BUKA APLIKASI LAIN' },
@@ -249,7 +249,7 @@
       },
       ekor: ekor, kpi: (BR.kpi || {})[k], pengguna: { nama: D.namaTim || D.nama, email: D.email },
       menuAkun: [{ nm: 'Muat ulang data', klik: function () { muat(); } }, { nm: 'Hitung ulang sekarang', klik: function () { var b = document.querySelector('#mAksi .pri'); if (b) b.click(); } },
-        { nm: 'Upload penjualan harian', k: 'upload' }, { nm: 'Upload dana cair', k: 'upload' }, { nm: 'Laporan bulanan', k: 'laporan' },
+        { nm: 'Upload penjualan harian', k: 'upload' }, { nm: 'Upload dana cair', k: 'upload' }, { nm: 'Report konsultan pajak', k: 'laporan' },
         { nm: 'Keluar / ganti akun', klik: function () { sb.auth.signOut({ scope: 'local' }).then(function () { location.href = 'index.html'; }); } }],
       aksi: [{ nm: 'Upload penjualan harian', k: 'upload' }, { nm: 'Upload dana cair', k: 'upload' }]
     });
