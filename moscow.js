@@ -141,6 +141,7 @@
     tandaiLipat();
     O.menu.forEach(function (m) { h += itemMenu(m, 'it'); });
     h += '</nav><div class="bw"><span class="vr">' + esc(ctx.email) + '</span>' +
+      '<button type="button" class="it" id="mSegar">' + svg('muat', 18) + '<span class="nm">Refresh aplikasi</span></button>' +
       '<button type="button" class="it" id="mKeluar">' + svg('keluar', 18) + '<span class="nm">Keluar</span></button>' +
       '<button type="button" class="it" id="mMini">' + svg('kiri', 18) + '<span class="nm">Sembunyikan menu</span></button></div>';
     side.innerHTML = h;
@@ -161,6 +162,7 @@
     side.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
       if (b.id === 'mMini') { root.classList.toggle('m-mini'); try { localStorage.setItem('mMini', root.classList.contains('m-mini') ? '1' : ''); } catch (x) { } return; }
+      if (b.id === 'mSegar') { segarkan(); return; }
       if (b.id === 'mKeluar') { keluar(); return; }
       buka(b.getAttribute('data-k'));
     });
@@ -182,12 +184,12 @@
       var isi = svg(m.ik || m.k, 20) + '<span>' + esc(m.nm) + '</span>' + (m.tanda ? '<span class="tg">' + esc(m.tanda) + '</span>' : '');
       h += m.href ? '<a class="it" href="' + esc(m.href) + '"' + lp(m) + '>' + isi + '</a>' : '<button type="button" class="it' + (m.k === S.aktif ? ' on' : '') + '" data-k="' + esc(m.k) + '"' + lp(m) + '>' + isi + '</button>';
     });
-    h += '<div class="grp">Akun</div><button type="button" class="it" data-k="__keluar">' + svg('keluar', 20) + '<span>Keluar</span><span class="tg">' + esc(S.email || '') + '</span></button></div>';
+    h += '<div class="grp">Akun</div><button type="button" class="it" data-k="__segar">' + svg('muat', 20) + '<span>Refresh aplikasi</span></button><button type="button" class="it" data-k="__keluar">' + svg('keluar', 20) + '<span>Keluar</span><span class="tg">' + esc(S.email || '') + '</span></button></div>';
     el.innerHTML = h;
     document.body.appendChild(el);
     el.addEventListener('click', function (e) {
       var b = e.target.closest ? e.target.closest('[data-k]') : null;
-      if (b) { var k = b.getAttribute('data-k'); el.remove(); if (k === '__keluar') keluar(); else buka(k); return; }
+      if (b) { var k = b.getAttribute('data-k'); el.remove(); if (k === '__keluar') keluar(); else if (k === '__segar') segarkan(); else buka(k); return; }
       if (e.target === el) el.remove();
     });
   }
