@@ -47,7 +47,7 @@
       D.email = String((ctx && ctx.email) || '').toLowerCase();
       var um = (ctx && ctx.sesi && ctx.sesi.user && ctx.sesi.user.user_metadata) || {}; D.nama = um.full_name || um.name || '';
       M.aksi([
-        { nm: 'Ambil data terbaru', ik: 'muat', klik: function () { muat(); } }
+        { nm: 'Refresh aplikasi', ik: 'muat', klik: function () { muat(); } }
       ]);
       BR.janji = ambilBeranda(''); // mulai bersamaan dengan data lain, tidak menunggu
       muat();
@@ -247,7 +247,7 @@
         M.buka(b);
       },
       ekor: ekor, kpi: (BR.kpi || {})[k], pengguna: { nama: D.namaTim || D.nama, email: D.email },
-      menuAkun: [{ nm: 'Ambil data terbaru', klik: function () { muat(); } }, { nm: 'Hitung ulang semua angka', klik: function () { hitungUlang(null); } },
+      menuAkun: [{ nm: 'Refresh aplikasi', klik: function () { muat(); } }, { nm: 'Hitung ulang semua angka', klik: function () { hitungUlang(null); } },
         { nm: 'Upload penjualan harian', k: 'upload' }, { nm: 'Upload dana cair', k: 'upload' }, { nm: 'Report konsultan pajak', k: 'laporan' },
         { nm: 'Keluar / ganti akun', klik: function () { sb.auth.signOut({ scope: 'local' }).then(function () { location.href = 'index.html'; }); } }],
       aksi: [{ nm: 'Upload penjualan harian', k: 'upload' }, { nm: 'Upload dana cair', k: 'upload' }]
@@ -2489,7 +2489,7 @@
     var r = await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang semua data Master Data' }); segarLangsung();
     if (b) b.disabled = false;
     await muatAksi(); gambarSetuju();
-    alertMsg(r.error ? 'Gagal meminta hitung ulang: ' + r.error.message : 'Hitung ulang diminta. Angka baru muncul paling lambat 10 menit lagi (tekan Ambil data terbaru).', !r.error);
+    alertMsg(r.error ? 'Gagal meminta hitung ulang: ' + r.error.message : 'Hitung ulang diminta. Angka baru muncul paling lambat 10 menit lagi (tekan Refresh aplikasi).', !r.error);
   }
   function alertMsg(t, ok) {
     var tujuan = document.querySelector('#mIsi > section.on');

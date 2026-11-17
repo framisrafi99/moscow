@@ -63,7 +63,7 @@
     menu: [{ k: 'stok', nm: 'Stok per lokasi', ik: 'stok', judul: 'Stok barang' }],
     siap: function (ctx) {
       peran = ctx.peran;
-      M.aksi([{ nm: 'Ambil data terbaru', ik: 'muat', klik: function () { muat(LENGKAP.indexOf(ctx.peran) > -1); } }]);
+      M.aksi([{ nm: 'Refresh aplikasi', ik: 'muat', klik: function () { muat(LENGKAP.indexOf(ctx.peran) > -1); } }]);
       if (ctx.peran === 'manajemen') {
         var nav = document.querySelector('#mSide nav');
         if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + M.svg('beranda') + '<span class="nm">Master Data</span></a>');
