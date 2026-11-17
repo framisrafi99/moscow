@@ -609,7 +609,7 @@
   // Titipan staf (ttpPemilikData / ttpPutus / ttpBarangUbah lama)
   function isiTitip() {
     var t = D.titip;
-    if (!t) return '<div class="msg w">Data titipan belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    if (!t) return '<div class="msg w">Data titipan belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>';
     var ms = new Date(D.waktu.titip || 0).getTime(), antre = antreTtp(), rk = t.ringkas || { tot: {}, per: [] }, tot = rk.tot || {};
     var stokTot = (t.barang || []).reduce(function (s, b) { return s + (Number(b.stok) || 0); }, 0);
     var h = '<p class="tl">Barang titipan staf di ' + esc(t.toko) + ' · ' + esc(namaBulan(t.bulan)) + ' · diperbarui ' + waktuPotret('titip') + '</p>';
@@ -688,7 +688,7 @@
   // Laporan marketplace toko official (mpRingkasOfficial lama)
   function isiMkt() {
     var d = J.mktB === 'ini' ? D.mkt : D.mktLalu, h = pilihBulan('mb', J.mktB);
-    if (!d) return h + '<div class="msg w">Laporan marketplace belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    if (!d) return h + '<div class="msg w">Laporan marketplace belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>';
     var L = d.list || [], t = { psn: 0, batal: 0, pcs: 0, omzet: 0, hpp: 0, laba: 0, nret: 0, tanpaHpp: 0, belumKenal: 0 };
     L.forEach(function (x) { Object.keys(t).forEach(function (k) { t[k] += Number(x[k]) || 0; }); });
     var tgl = function (s) { return esc(String(s).split('-').reverse().join('/')); };
@@ -1143,7 +1143,7 @@
     // Bulan lalu sudah final, jadi dibuka lebih dulu bila ada penjualannya.
     if (!J.bhB) J.bhB = D.bhLalu && (D.bhLalu.toko || []).some(function (t) { return t.omzet; }) ? 'lalu' : 'ini';
     var d = J.bhB === 'ini' ? D.bh : D.bhLalu, h = pilihBulan('bb', J.bhB);
-    if (!d) return h + '<div class="msg w">Hitungan bagi hasil belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    if (!d) return h + '<div class="msg w">Hitungan bagi hasil belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>';
     var T = d.toko || [];
     if (!J.bhToko || !T.some(function (x) { return x.toko === J.bhToko; })) J.bhToko = T.length ? T[0].toko : null;
     h += '<p class="tl">' + esc(namaBulan(d.bulan)) + (J.bhB === 'ini' ? ' sampai hari ini (belum final)' : '') + ' · diperbarui ' + waktuPotret(J.bhB === 'ini' ? 'bh' : 'bhLalu') + '</p>';
@@ -1213,7 +1213,7 @@
     if (on && on.parentNode.scrollWidth > on.parentNode.clientWidth) on.parentNode.scrollLeft = Math.max(0, on.offsetLeft - on.parentNode.offsetLeft - 16);
   }
   function isiStafProd() {
-    var d = D.prod; if (!d) return '<div class="msg w">Data staf produksi belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var d = D.prod; if (!d) return '<div class="msg w">Data staf produksi belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>';
     var pr = d.produk || [], botol = (D.botol && D.botol.barang) || [], tp = 0, ts = 0, tsisa = 0, nsisa = 0, minus = 0, kj = [];
     pr.forEach(function (x) { tp += x.pr; ts += x.sa; tsisa += x.sisa; nsisa += x.sisa * (x.h || 0); if (x.sisa < 0) minus++; (x.kj || []).forEach(function (v, j) { kj[j] = (kj[j] || 0) + v; }); });
     var beli = botol.filter(minBahan);
@@ -1251,7 +1251,7 @@
     return h;
   }
   function isiStafBbk() {
-    var d = D.bbk; if (!d) return '<div class="msg w">Data staf bahan baku belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var d = D.bbk; if (!d) return '<div class="msg w">Data staf bahan baku belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>';
     var br = d.barang || [], prod = d.prod || [], wl = d.warnaLog || [], b0 = (d.bulan || '').split('/'), bln = b0.length === 2 ? b0[1] + '-' + b0[0] : '';
     var diBulan = function (t) { return String(t || '').slice(0, 7) === bln; };
     var beli = br.filter(function (x) { return x.ss >= 0 && minBahan(x); }), minus = br.filter(function (x) { return x.ss < 0; });
@@ -1299,7 +1299,7 @@
   }
   var WARNA_RPD = { 'Kritis': 'no', 'Perlu dibuat': 'w', 'Aman': 'ok', 'Berlebih': 'abu', 'Belum laku': 'abu', 'Belum ada data': 'abu', 'Kurang': 'no', 'Tunggu barang': 'biru', 'Mepet': 'w', 'Cukup': 'ok' };
   function isiRpd() {
-    var d = D.rpd; if (!d) return '<div class="msg w">Rencana produksi belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var d = D.rpd; if (!d) return '<div class="msg w">Rencana produksi belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>';
     var h = '<div class="kp"><div class="kt"><span class="l">Kritis</span><span class="v angka' + (d.n['Kritis'] ? ' mn' : '') + '">' + d.n['Kritis'] + '</span><span class="k">stok cukup &lt; ' + d.batas.kritis + ' hari</span></div><div class="kt"><span class="l">Perlu dibuat</span><span class="v angka">' + d.n['Perlu dibuat'] + '</span><span class="k">cukup &lt; ' + d.batas.perlu + ' hari</span></div>' +
       '<div class="kt"><span class="l">Aman</span><span class="v angka">' + d.n['Aman'] + '</span><span class="k">barang</span></div><div class="kt"><span class="l">Berlebih</span><span class="v angka">' + d.n['Berlebih'] + '</span><span class="k">cukup &gt; ' + d.batas.aman + ' hari</span></div></div>';
     h += '<p class="tl">Total saran produksi <b>' + fmt(d.totSaran) + ' pcs</b> supaya stok cukup ' + d.target + ' hari · dari penjualan ' + d.hari + ' hari terakhir · dihitung ' + esc(d.diperbarui) + '</p>';
@@ -1317,7 +1317,7 @@
     return h + '<p class="sb">Stok total = gudang + semua toko. Penjualan online diperkirakan dari kiriman ke Kantor Packing.</p>';
   }
   function isiRbb() {
-    var d = D.rbb; if (!d) return '<div class="msg w">Rencana bahan baku belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var d = D.rbb; if (!d) return '<div class="msg w">Rencana bahan baku belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>';
     var h = '<div class="kp"><div class="kt"><span class="l">Kurang</span><span class="v angka' + (d.n['Kurang'] ? ' mn' : '') + '">' + d.n['Kurang'] + '</span><span class="k">harus dibeli / dibuat</span></div><div class="kt"><span class="l">Tunggu barang</span><span class="v angka">' + d.n['Tunggu barang'] + '</span><span class="k">cukup kalau pesanan datang</span></div>' +
       '<div class="kt"><span class="l">Mepet</span><span class="v angka">' + d.n['Mepet'] + '</span><span class="k">di bawah stok minimum</span></div><div class="kt"><span class="l">Cukup</span><span class="v angka">' + d.n['Cukup'] + '</span><span class="k">bahan</span></div></div>';
     h += '<p class="tl">Untuk membuat <b>' + fmt(d.totPcs) + ' pcs</b> sesuai saran produksi (stok cukup ' + d.target + ' hari) · dihitung ' + esc(d.diperbarui) + '</p>';
@@ -1349,7 +1349,7 @@
   }
   function isiPantauProd() {
     var d = PR.pp === 'produksi' ? D.ppProd : D.ppBahan, h = pilihSub('ppj', PR.pp, [['produksi', 'Staf produksi (pcs)'], ['bahan', 'Staf bahan baku (kg)']]);
-    if (!d) return h + '<div class="msg w">Data pantau produksi belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    if (!d) return h + '<div class="msg w">Data pantau produksi belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>';
     var pct = function (a, b) { if (!b) return a ? '<span class="sb">belum ada data pembanding</span>' : ''; var p = Math.round((a - b) / b * 1000) / 10; return '<b style="color:var(--' + (p >= 0 ? 'hijau' : 'merah') + ')">' + (p >= 0 ? '▲ +' : '▼ ') + String(p).replace('.', ',') + '%</b>'; };
     var dp = d.sat === 'kg' ? 2 : 0;
     h += '<div class="kp"><div class="kt"><span class="l">' + esc(d.lblIni) + '</span><span class="v angka">' + dec(d.ini, dp) + '</span><span class="k">' + esc(d.sat) + ' · ' + pct(d.ini, d.lalu) + '</span></div><div class="kt"><span class="l">' + esc(d.lblLalu) + '</span><span class="v angka">' + dec(d.lalu, dp) + '</span><span class="k">' + esc(d.sat) + ' (tanggal yang sama)</span></div>' +
@@ -1404,7 +1404,7 @@
     if (!G2) return '<div class="ksg">Memuat data gaji…</div>';
     if (G2.galat) return '<div class="msg bad">Data gaji gagal dimuat: ' + esc(G2.galat) + '</div>';
     var d = G2[U.gp], h = pilihSub('gjp', U.gp, [['lalu', 'Bulan lalu'], ['ini', 'Bulan ini']]);
-    if (!d) return h + '<div class="msg w">Data gaji belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    if (!d) return h + '<div class="msg w">Data gaji belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>';
     var T = d.total || {}, st = d.status, warna = { Disetujui: 'ok', Menunggu: 'w', Draft: 'abu', Ditolak: 'no', Kosong: 'abu' }[st] || 'abu';
     var antre = null; D.aksi.forEach(function (a) { if (!antre && a.fungsi === 'gjPutus' && a.param && a.param.per === d.per) antre = a; });
     var tunggu = antre && antre.status === 'menunggu';
@@ -1465,7 +1465,7 @@
   function lapPilih() { return U.b === 'ini' ? D.acc : D.accLalu; }
   function isiLapUang() {
     var d = lapPilih(), h = pilihSub('ubl', U.b, [['ini', 'Bulan ini'], ['lalu', 'Bulan lalu']]);
-    if (!d) return h + '<div class="msg w">Laporan accounting belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    if (!d) return h + '<div class="msg w">Laporan accounting belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>';
     var L = d.lr;
     h += '<p class="tl">' + esc(namaBulan(d.bulan)) + ' · dihitung ' + esc(d.diperbarui) + '</p>';
     h += '<div class="kp"><div class="kt"><span class="l">Pendapatan</span><span class="v angka">' + jt(L.pend) + '</span><span class="k">' + rp(L.pend) + '</span></div><div class="kt"><span class="l">Pembelian barang &amp; bahan</span><span class="v angka">' + jt(L.beli) + '</span><span class="k">laba kotor ' + rp(L.kotor) + '</span></div>' +
@@ -1497,7 +1497,7 @@
     return h + '</div><p class="sb">Penjualan otomatis (marketplace, toko, reseller) tidak muncul satu per satu di sini; totalnya ada di Laporan bulanan.</p>';
   }
   function isiHbb() {
-    var d = D.hbb; if (!d) return '<div class="msg w">Data harga belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var d = D.hbb; if (!d) return '<div class="msg w">Data harga belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>';
     var l = (d.harga || []).filter(function (x) { return cocok(x.n + ' ' + (x.k || '') + ' ' + (x.kel || '') + ' ' + (x.sup || ''), U.qh); });
     var h = '<div class="cd"><div class="kpl"><h3>Harga beli terakhir</h3><span class="sb">' + (d.harga || []).length + ' bahan &amp; kemasan</span></div><div class="aksi-baris" style="margin-bottom:8px"><input class="isian" id="uQh" placeholder="Cari bahan, kelompok, supplier" value="' + esc(U.qh) + '"></div>';
     h += l.length ? '<div class="gulir"><table class="tabel"><thead><tr><th>Bahan / kemasan</th><th class="r">Harga terakhir</th><th class="r">Sebelumnya</th></tr></thead><tbody>' + l.map(function (x) {
@@ -1759,7 +1759,7 @@
     // Perangkat link lama
     var A = D.akses;
     h += '<div class="cd"><div class="kpl"><h3>Izin perangkat link lama</h3><span class="sb">Diperbarui ' + waktuPotret('akses') + '</span></div>';
-    if (!A) return h + '<div class="msg w">Daftar perangkat belum tersedia. Tekan "Hitung ulang sekarang".</div></div>';
+    if (!A) return h + '<div class="msg w">Daftar perangkat belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div></div>';
     var hit = function (st) { return A.list.filter(function (x) { return st === 'lain' ? (x.st === 'Ditolak' || x.st === 'Dicabut') : x.st === st; }).length; };
     h += pilihSub('akf', AT.akf, [['Menunggu', 'Minta izin (' + hit('Menunggu') + ')'], ['Diizinkan', 'Diizinkan (' + hit('Diizinkan') + ')'], ['lain', 'Ditolak / dicabut (' + hit('lain') + ')']]);
     var antre = {}, ms = new Date(D.waktu.akses || 0).getTime();
@@ -1828,7 +1828,7 @@
   function antreBarang() { var o = {}; D.aksi.forEach(function (a) { if (a.fungsi === 'mdeSimpanBaru' && a.param && !(a.param.k in o)) o[a.param.k] = a; }); return o; }
   function stokBarang(k) { var S2 = AT.stok; if (!S2) return null; for (var i = 0; i < S2.barang.length; i++) if (S2.barang[i].k === k) return S2.barang[i]; return null; }
   function isiEditBarang() {
-    var B = D.barang; if (!B) return '<div class="msg w">Daftar barang belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    var B = D.barang; if (!B) return '<div class="msg w">Daftar barang belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>';
     var antre = antreBarang(), ms = new Date(D.waktu.barang || 0).getTime();
     var list = B.barang.filter(function (x) { return (!AT.kat || x.kat === AT.kat) && cocok(x.k + ' ' + x.n, AT.q); });
     var h = '<div class="cd"><div class="aksi-baris" style="margin-bottom:8px"><input class="isian" id="ebQ" placeholder="Cari kode atau nama barang" value="' + esc(AT.q) + '"><select class="st-order" id="ebKat"><option value="">Semua kategori</option>' + B.kategori.map(function (k) { return '<option' + (AT.kat === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select>' +
@@ -1968,7 +1968,7 @@
   function kelompok(list) { var g = {}, u = []; list.forEach(function (x) { var k = x.kat || 'Lainnya'; if (!g[k]) { g[k] = []; u.push(k); } g[k].push(x); }); return u.map(function (k) { return { kat: k, list: g[k] }; }); }
   function gambarGudang() {
     var el = $('bGudang'), d = D.gudang;
-    if (!d) { el.innerHTML = '<div class="msg w">Data gudang utama belum tersedia. Tekan "Hitung ulang sekarang".</div>'; return; }
+    if (!d) { el.innerHTML = '<div class="msg w">Data gudang utama belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>'; return; }
     var O = d.online || {}, nKirim = (d.masukProd || []).length;
     var h = '<p class="tl">Diperbarui ' + waktuPotret('gudang') + ' · perubahan dari staf gudang masuk paling lambat 30 menit</p>';
     h += '<div class="chip" role="group" aria-label="Bagian gudang">' + [['stok', 'Stok gudang utama', fmt(d.stok.reduce(function (a, x) { return a + x.q; }, 0)) + ' pcs'], ['online', 'Stok online Kantor Packing', O.tot ? fmt(O.tot.pcs) + ' pcs' : ''], ['riwayat', 'Masuk & keluar', nKirim ? nKirim + ' kiriman menunggu' : (d.riwayat || []).length + ' catatan']].map(function (b) {
@@ -2087,7 +2087,7 @@
     var el = $('bPurch'), d = D.gudang;
     M.badge('purch', nTindakPo() + nAjuanTunggu());
     if (P.bagian === 'ajuan' || P.bagian === 'acc' || P.bagian === 'rencana') { gambarPengadaan(el); return; }
-    if (!d) { el.innerHTML = '<div class="msg w">Data purchasing belum tersedia. Tekan "Hitung ulang sekarang".</div>'; return; }
+    if (!d) { el.innerHTML = '<div class="msg w">Data purchasing belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>'; return; }
     var nT = nTindakPo();
     var h = '<div id="msgPurch"></div><p class="tl">Diperbarui ' + waktuPotret('gudang') + '</p>';
     h += chipPurch();
@@ -2156,7 +2156,7 @@
   }
   function isiBeli(d) {
     var L = P.beliB === 'ini' ? d.laporan : (D.beliLalu && D.beliLalu.laporan), h = pilihBulan('bl', P.beliB);
-    if (!L) return h + '<div class="msg w">Laporan bulan lalu belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    if (!L) return h + '<div class="msg w">Laporan bulan lalu belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>';
     h += '<p class="tl">' + esc(namaBulan(L.bulan)) + '</p><div class="kp"><div class="kt"><span class="l">Total pembelian</span><span class="v angka">' + jt(L.barang + L.biaya) + '</span><span class="k">' + rp(L.barang + L.biaya) + '</span></div>' +
       '<div class="kt"><span class="l">Nilai barang</span><span class="v angka">' + jt(L.barang) + '</span><span class="k">' + L.n + ' PO</span></div>' +
       '<div class="kt"><span class="l">Biaya tambahan</span><span class="v angka">' + jt(L.biaya) + '</span><span class="k">ongkir cargo, pajak, dll.</span></div></div>';
@@ -2191,7 +2191,7 @@
   function gambarPengadaan(el) {
     var g = D.pengadaan;
     var h = '<div id="msgPurch"></div><p class="tl">Diperbarui ' + waktuPotret('pengadaan') + '</p>' + chipPurch();
-    if (!g) h += '<div class="msg w">Data pengadaan belum tersedia. Tekan "Hitung ulang sekarang".</div>';
+    if (!g) h += '<div class="msg w">Data pengadaan belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>';
     else h += P.bagian === 'ajuan' ? isiAjuan(g, false) : P.bagian === 'acc' ? isiAjuan(g, true) : isiRencana(g);
     el.innerHTML = h;
     el.querySelectorAll('[data-pb]').forEach(function (b) { b.onclick = function () { P.bagian = b.getAttribute('data-pb'); gambarPurch(); }; });
@@ -2536,7 +2536,7 @@
   var WARNA_ST = { 'Kritis': 'no', 'Segera isi': 'w', 'Aman': 'ok', 'Berlebih': 'w', 'Belum laku': 'no', 'Belum dicoba': 'abu', 'Belum ada data': 'abu' };
   function gambarRequest() {
     var R = D.request, el = $('bgRequest'); if (!el) return;
-    if (!R) { el.innerHTML = '<div class="msg w">Daftar request belum tersedia. Tekan "Hitung ulang sekarang".</div>'; return; }
+    if (!R) { el.innerHTML = '<div class="msg w">Daftar request belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>'; return; }
     var antre = antreNo();
     if (!R.list || !R.list.length) { el.innerHTML = '<div class="cd"><div class="aman">Tidak ada request barang yang menunggu.</div></div>'; return; }
     el.innerHTML = R.list.map(function (o, i) {
@@ -2632,7 +2632,7 @@
   // ---------- Pantau pengiriman (rpPantau / rpTandai) ----------
   function gambarPantau() {
     var P = D.pantau, el = $('bgPantau'); if (!el) return;
-    if (!P) { el.innerHTML = '<div class="msg w">Data pengiriman belum tersedia. Tekan "Hitung ulang sekarang".</div>'; return; }
+    if (!P) { el.innerHTML = '<div class="msg w">Data pengiriman belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div>'; return; }
     var antre = antreNo();
     var h = '<p class="tl">Diperbarui ' + esc(P.diperbarui || '') + (P.nTahan ? ' · <b style="color:#B42318">' + P.nTahan + ' tertahan</b>' : '') + (P.nSelisih ? ' · ' + P.nSelisih + ' ada selisih terima' : '') + '</p>';
     if (!P.aktif || !P.aktif.length) h += '<div class="cd"><div class="aman">Tidak ada pengiriman yang sedang berjalan.</div></div>';
