@@ -19,19 +19,15 @@
       { k: 'beranda', nm: 'Beranda' }, { k: 'setuju', nm: 'Persetujuan' },
       { k: 'produksi', nm: 'Produksi' }, { k: 'gudang', nm: 'Gudang Utama', pendek: 'Gudang' }, { k: 'purch', nm: 'Purchasing' },
       { k: 'jual', nm: 'Penjualan' }, { k: 'upload', nm: 'Upload laporan', ik: 'nota' }, { k: 'uang', nm: 'Accounting' }, { k: 'laporan', nm: 'Laporan', ik: 'laporan' }, { k: 'riwayat', nm: 'Riwayat' }, { k: 'jaga', nm: 'Pusat agen', ik: 'laporan' }, { k: 'atur', nm: 'Pengaturan' },
-      { grup: 'MASTER DATA' },
-      { k: 'mdproduk', nm: 'Produk', ik: 'produk', bagian: 'atur', judul: 'Produk · edit barang & HPP' },
-      { k: 'mdpemasok', nm: 'Pemasok', ik: 'pemasok', bagian: 'purch', judul: 'Pemasok · pembelian per supplier' },
-      { k: 'mdpelanggan', nm: 'Pelanggan', ik: 'pelanggan', bagian: 'atur', judul: 'Pelanggan & link' },
-      { grup: 'APLIKASI LAIN' },
+      // 17 Nov 2026: menu dirapikan. Jalan pintas Produk / Pemasok / Pelanggan dihapus (isinya ada di Pengaturan dan Purchasing),
+      // Payroll + Absensi staf digabung, Master Data lama dipindah ke dalam Pengaturan.
+      { grup: 'BUKA APLIKASI LAIN' },
       { k: 'app-kb', nm: 'Kendali Bisnis', ik: 'laporan', href: 'kendali.html' },
       { k: 'app-stok', nm: 'Stok', ik: 'stok', href: 'stok.html' },
       { k: 'app-kasir', nm: 'Kasir Toko Offline', ik: 'kasir', href: 'kasir.html' },
       { k: 'app-kreatif', nm: 'Manager Kreatif', ik: 'produksi', href: 'kreatif.html' },
       { k: 'app-akunting', nm: 'Form accounting', ik: 'uang', href: 'form.html?f=akunting' },
-      { k: 'app-payroll', nm: 'Payroll', ik: 'pelanggan', href: 'form.html?f=payroll' },
-      { k: 'app-absensi', nm: 'Absensi staf', ik: 'setuju', href: 'form.html?f=payroll#absensi' },
-      { k: 'app-mdlama', nm: 'Master Data lama', ik: 'dasbor', href: 'form.html?f=mdlama' },
+      { k: 'app-payroll', nm: 'Payroll & absensi', ik: 'pelanggan', href: 'form.html?f=payroll' },
       { grup: 'FORM STAF' },
       { k: 'f-gudang', nm: 'Gudang Utama', ik: 'gudang', href: 'form.html?f=gudang' },
       { k: 'f-purch', nm: 'Purchasing', ik: 'purch', href: 'form.html?f=purchasing' },
@@ -46,8 +42,6 @@
     ],
     bawah: ['beranda', 'setuju', 'gudang', 'uang', 'lain'],
     pindah: function (k, m) { document.documentElement.classList.toggle('m-bx', k === 'beranda');
-      if (k === 'mdproduk' || k === 'mdpelanggan') { AT.bagian = k === 'mdproduk' ? 'brg' : 'pel'; if (!AT.mulai) { AT.mulai = true; muatAtur(); } else gambarAtur(); }
-      if (k === 'mdpemasok') { P.bagian = 'beli'; gambarPurch(); }
       if (k === 'upload') gambarUpload(); if (k === 'laporan' && window.LaporanPajak && !LaporanPajak.dimuat) { LaporanPajak.dimuat = true; LaporanPajak.gambar($('bLaporan'), { sb: sb }); } if ($('lamaJudul')) $('lamaJudul').textContent = m.nm + ' masih di Master Data lama'; if (k === 'jual' && !J.mulai) { J.mulai = true; siapJual(); } if (k === 'riwayat' && !RW.mulai) { RW.mulai = true; siapRiwayat(); } if (k === 'atur' && !AT.mulai) { AT.mulai = true; muatAtur(); } if (k === 'jaga' && window.PenjagaSistem) window.PenjagaSistem.gambar($('bJaga'), { sb: sb }); },
     siap: function (ctx) {
       D.email = String((ctx && ctx.email) || '').toLowerCase();
@@ -1680,6 +1674,8 @@
       return '<button type="button" data-atb="' + x[0] + '" aria-pressed="' + (AT.bagian === x[0]) + '"><span>' + x[1] + '</span><b>' + (x[2] || '&nbsp;') + '</b></button>'; }).join('') + '</div>';
     try { h += AT.bagian === 'pel' ? isiPelanggan() : AT.bagian === 'brg' ? isiEditBarang() : AT.bagian === 'akses' ? isiAkses() : isiLogBarang(); }
     catch (e) { h += '<div class="msg bad">Bagian ini gagal ditampilkan: ' + esc(e.message) + '</div>'; }
+    h += '<div class="cd" style="margin-top:14px"><h3 style="margin-top:0">Master Data lama</h3><p class="sb" style="margin:4px 0 10px">Versi lama sebelum aplikasi ini. Disimpan sebagai cadangan, tidak perlu dibuka untuk pekerjaan sehari-hari.</p>' +
+      '<a class="tbl" style="display:inline-block;text-decoration:none" href="form.html?f=mdlama">Buka Master Data lama</a></div>';
     el.innerHTML = h;
     el.querySelectorAll('[data-atb]').forEach(function (b) { b.onclick = function () { AT.bagian = b.getAttribute('data-atb'); gambarAtur(); }; });
     var salin = function (teks) { var ok = function () { $('msgAtur').innerHTML = '<div class="msg ok">Link disalin.</div>'; }; if (navigator.clipboard) navigator.clipboard.writeText(teks).then(ok, function () { prompt('Salin link ini:', teks); }); else prompt('Salin link ini:', teks); };
