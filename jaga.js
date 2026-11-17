@@ -269,6 +269,8 @@
     else if (tab === 'asisten') h += asisten() + tindakan();
     else h += ringkasan(D);
     S.el.innerHTML = h;
+    // 17 Nov 2026: kartu daftar akun Telegram Admin Accounting (kode daftar untuk Mike / Viory) di tab Sistem.
+    if (tab === 'sistem' && window.TgDaftar) window.TgDaftar.pasang(S.el, S.sb);
     // Tab yang aktif digeser supaya terlihat di layar HP (baris tab bisa digeser ke samping).
     var on = S.el.querySelector && S.el.querySelector('.jg-tab .on');
     if (on && on.parentNode) on.parentNode.scrollLeft = Math.max(0, on.offsetLeft - on.parentNode.offsetLeft - 12);
