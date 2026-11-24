@@ -311,6 +311,38 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     return pas && mirip ? 'sama' : mirip ? 'tanya' : 'beda';
   }
 
+  // 24 Nov 2026 (SQL 215): bukti jadi patokan. Barang di bukti yang sudah dibayar lewat Purchasing (kode Bn) -> harganya disesuaikan
+  // dengan rincian bukti; barang tambahan di bukti (sisa) dicatat terpisah. Contoh: amplas (Purchasing) + tisu (tambahan) di satu pesanan Shopee.
+  function rencanaPecah(b: Any, r: Any, items: Any[], nominal: number) {
+    const cocok: Any[] = [], notaPakai: string[] = [];
+    let jumlah = 0;
+    for (const x of (Array.isArray(r && r.sistem) ? r.sistem : [])) {
+      const mk = /^B(\d+)$/i.exec(String((x && x.kode) || '').trim()), it = mk ? items[Number(mk[1]) - 1] : null, tot = Math.round(Number(x && x.total) || 0);
+      if (!it || !(tot > 0) || cocok.some((c) => c.pg === it.pg)) continue;
+      if (Math.abs(tot - Number(it.v)) > Math.max(20000, Number(it.v) * 0.15)) continue;   // harga terlalu jauh: bukan barang yang sama
+      cocok.push({ pg: it.pg, n: it.n, total: tot, lama: Number(it.v), tr: it.tr }); jumlah += tot; notaPakai.push(String(x.nota || '').toLowerCase().slice(0, 40));
+    }
+    if (!cocok.length || !miripBelanja(teksBukti(b), cocok.map((c) => c.n).join(' '))) return null;
+    const sisa = Math.round(nominal - jumlah);
+    if (sisa < -1000) return null;
+    const lain = (Array.isArray(r && r.barang) ? r.barang : []).map((x: Any) => t(x && x.nama, 50)).filter((n: string) => n && notaPakai.indexOf(n.toLowerCase().slice(0, 40)) === -1);
+    if (sisa > 1000 && !lain.length) return null;
+    const ubahHarga = cocok.some((c) => c.total !== c.lama);
+    if (sisa <= 1000 && !ubahHarga) return null;   // sama persis: ditangani jalur tempel biasa
+    return { cocok, sisa: sisa > 1000 ? sisa : 0, ket: lain.join(', ') };
+  }
+  async function jalankanPecah(b: Any, pc: Any, oleh: string) {
+    if (pc.sisa > 0 && !b.akun) return false;
+    const r = await sb.rpc('bb_pecah', { p_id: b.id, p_cocok: pc.cocok.map((c: Any) => ({ pg: c.pg, total: c.total, tr: c.tr })), p_sisa: pc.sisa, p_sisa_ket: pc.ket, p_oleh: oleh });
+    if (r.error || !r.data || !r.data.ok) { console.error('bb_pecah', r.error?.message || r.data?.pesan); return false; }
+    await tempelLampiran(b, r.data.trs);
+    let h = '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n✅ <b>Sudah tercatat lewat Purchasing</b>, harga disesuaikan dengan bukti:';
+    pc.cocok.forEach((c: Any) => { h += '\n• ' + esc(c.pg) + ' ' + esc(c.n) + ' · ' + (c.total !== c.lama ? rp(c.lama) + ' → ' : '') + '<b>' + rp(c.total) + '</b>'; });
+    if (r.data.baru) h += '\n➕ <b>Barang tambahan</b>' + (pc.ket ? ' (' + esc(pc.ket) + ')' : '') + ' · ' + rp(pc.sisa) + ' dicatat <b>' + esc(r.data.baru) + '</b>';
+    await tampil(b, h + '\n📎 Bukti dilampirkan, tidak dicatat dua kali.');
+    return true;
+  }
+
   // Pasangan dari AI (kode Bn) dulu; kalau tidak ada / jumlahnya jauh, cadangan: kombinasi harga + kata nama.
   function cocokBarang(r: Any, items: Any[], nominal: number, teks: string) {
     let h: Any = null;
@@ -604,6 +636,8 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     }
     // cocokkan ke rincian barang yang dibayar lewat aplikasi (satu screenshot bisa berisi beberapa barang dari beberapa transaksi)
     if (nominal && items.length) {
+      const pc = rencanaPecah(b, r, items, nominal);
+      if (pc && await jalankanPecah(b, pc, nama)) return;
       const hasil = cocokBarang(r, items, nominal, teks);
       if (hasil && !hasil.yakin) {
         const pt = putusMirip(b, nominal, hasil.kd.beda, (hasil.kd.n || []).join(' '));
@@ -903,6 +937,11 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
         if (pt === 'sama') cand = { ...cand, yakin: true };
         else if (pt === 'beda') cand = null;
         else { const baru = await ubah(b.id, { status: 'usul', baca: { ...b.baca, kandidat: kp } }); await tampil(baru); tanya++; continue; }
+      }
+      if (!cand && b.nominal) {
+        const its = await barangSistem(String(b.tanggal || hariWita()));
+        const pc = its.length ? rencanaPecah(b, b.baca || {}, its, Number(b.nominal)) : null;
+        if (pc && await jalankanPecah(b, pc, String(b.pengirim || ''))) { tempel++; continue; }
       }
       if (cand) { await sb.rpc('bb_tempel', { p_id: b.id, p_nos: cand.no }); await tempelLampiran(b, cand.no); await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n' + teksCocok(cand)); tempel++; continue; }
       if (Date.now() - new Date(b.waktu).getTime() > 3 * 86400e3) {
