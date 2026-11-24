@@ -3,6 +3,7 @@
 //   Dari Telegram (webhook, header X-Telegram-Bot-Api-Secret-Token):
 //     - tombol "a|ID|s" (setujui) / "a|ID|t" (tolak, minta alasan lewat balasan)
 //     - /daftar KODE di chat pribadi: mendaftarkan akun Telegram manajemen / Mike / Viory
+//     - /start daftar (tombol undangan di grup, tanpa kode): Mike / Viory yang diundang (robot: { undang: true })
 //   Dari aplikasi (akun manajemen):
 //     - { aksi: 'kode', peran }  : kode daftar 6 angka (30 menit)
 //     - { aksi: 'pasang' }       : sambungkan webhook robot ke fungsi ini
@@ -151,6 +152,8 @@ async function pesan(m: any, upd: number) {
   }
   if (chat.type === 'group' || chat.type === 'supergroup') { if (await bukti.grup(m)) return; }
   if (!teks) return;
+  if (chat.type === 'private' && /^\/start(?:@\w+)?\s+daftar\b/i.test(teks)) return daftarUndangan(m);
+  if (chat.type === 'private' && /^\/daftar(?:@\w+)?$/i.test(teks)) return daftarUndangan(m);
   if (chat.type === 'private' && /^\/daftar\b/i.test(teks)) return daftar(m, teks);
   if (chat.type === 'private' && /^\/start\b/i.test(teks)) return balas(chat.id, m.message_id, 'Halo! Ini Admin Accounting Moscow Supplies. ACC dilakukan lewat tombol di grup pemberitahuan.');
   const rt = m.reply_to_message;
@@ -186,6 +189,46 @@ async function daftar(m: any, teks: string) {
   await sb.from('tg_akun').upsert({ peran: d.peran, uid: String(dari.id), nama: t([dari.first_name, dari.last_name].join(' '), 60), waktu: new Date().toISOString() }, { onConflict: 'peran' });
   await sb.from('tg_sementara').delete().eq('kunci', 'daftar');
   return balas(chat.id, m.message_id, '✅ Akun ini terdaftar sebagai <b>' + esc(LABEL_DAFTAR[d.peran] || d.peran) + '</b>. Tombol Setujui / Tolak di grup pemberitahuan sekarang bisa kamu pakai.');
+}
+
+// 24 Nov 2026: undangan daftar tanpa kode. Admin Accounting menyebut Mike / Viory di grup Bukti Bayar dengan tombol
+// "Daftar sekarang" (membuka chat pribadi + /start daftar). Hanya akun Telegram yang sudah dikenal di grup (bb_anggota,
+// dipotret saat undangan dibuat) yang bisa memakai undangan untuk perannya; berlaku 7 hari.
+const UNDANG: Record<string, string> = { mike: 'Mike', viory: 'Viory' };
+async function undang() {
+  const sudah = new Set(((await sb.from('tg_akun').select('peran')).data || []).map((x: { peran: string }) => x.peran));
+  const ang = (await sb.from('bb_anggota').select('uid,nama').in('nama', Object.values(UNDANG))).data || [];
+  const peta: Record<string, string> = {};
+  Object.keys(UNDANG).forEach((p) => { const a = ang.filter((x: { nama: string }) => x.nama === UNDANG[p])[0]; if (a && a.uid && !sudah.has(p)) peta[p] = String(a.uid); });
+  if (!Object.keys(peta).length) return { ok: true, pesan: 'Semua sudah terdaftar.' };
+  await simpanSementara('undang', peta, 7 * 86400e3);
+  const g = await sb.from('bb_atur').select('nilai').eq('kunci', 'grup').maybeSingle();
+  const chat = g.data && g.data.nilai ? g.data.nilai.chat : null;
+  const saya = await api('getMe', {});
+  const nama = saya && saya.result ? saya.result.username : '';
+  if (!chat || !nama) return { ok: false, pesan: 'Grup atau nama robot belum terbaca.' };
+  const sebut = Object.keys(peta).map((p) => '<a href="tg://user?id=' + Number(peta[p]) + '">' + UNDANG[p] + '</a>').join(', ');
+  const guna = (peta.mike ? '• <b>Mike</b>: kabar pengajuan pembelian yang perlu di-ACC langsung masuk ke chat pribadi, dan tombol Setujui / Tolak bisa dipakai dari Telegram.\n' : '')
+    + (peta.viory ? '• <b>Viory</b>: kabar untuk Purchasing (misalnya pengajuan yang sudah disetujui atau perlu ditindaklanjuti) langsung masuk ke chat pribadi.\n' : '');
+  const teks = '🔑 <b>Sambungkan akun Telegram ke Admin Accounting</b>\n\n' + sebut + ', akun Telegram kalian perlu disambungkan sekali saja ke Admin Accounting supaya pesan pribadi bisa sampai.\n\n'
+    + '<b>Gunanya:</b>\n' + guna + '\nSelama belum tersambung, pesan pribadi seperti ini bisa terlambat atau tidak sampai.\n\n'
+    + '<b>Caranya:</b> tekan tombol <b>Daftar sekarang</b> di bawah, lalu tekan <b>Mulai / Start</b> di chat Admin Accounting. Selesai, tanpa kode.\n\n'
+    + '<i>Tombol ini hanya bisa dipakai akun yang disebut di atas dan berlaku 7 hari.</i>';
+  const r = await api('sendMessage', { chat_id: chat, text: teks, parse_mode: 'HTML', disable_web_page_preview: true,
+    reply_markup: { inline_keyboard: [[{ text: '🔑 Daftar sekarang', url: 'https://t.me/' + nama + '?start=daftar' }]] } });
+  return { ok: !!(r && r.ok), diundang: Object.keys(peta), pesan: r && r.ok ? 'Undangan terkirim.' : ('Telegram menolak: ' + (r?.description || '?')) };
+}
+// deno-lint-ignore no-explicit-any
+async function daftarUndangan(m: any) {
+  const chat = m.chat || {}, dari = m.from || {};
+  const peta = (await sementara('undang')) || {};
+  const p = Object.keys(peta).filter((k) => String(peta[k]) === String(dari.id))[0];
+  if (!p) return balas(chat.id, m.message_id, 'Undangan ini bukan untuk akun kamu atau sudah tidak berlaku. Kalau perlu didaftarkan, minta kode ke manajemen Moscow Supplies lalu kirim: /daftar KODE');
+  await sb.from('tg_akun').upsert({ peran: p, uid: String(dari.id), nama: t([dari.first_name, dari.last_name].join(' '), 60), waktu: new Date().toISOString() }, { onConflict: 'peran' });
+  delete peta[p];
+  if (Object.keys(peta).length) await simpanSementara('undang', peta, 7 * 86400e3); else await sb.from('tg_sementara').delete().eq('kunci', 'undang');
+  return balas(chat.id, m.message_id, '✅ Akun ini sudah tersambung sebagai <b>' + esc(LABEL_DAFTAR[p] || p) + '</b>. Mulai sekarang pesan pribadi dari Admin Accounting masuk ke sini'
+    + (p === 'mike' ? ', dan tombol Setujui / Tolak pengajuan bisa kamu pakai.' : '.') + ' Terima kasih!');
 }
 
 async function dariAplikasi(req: Request) {
@@ -231,6 +274,7 @@ Deno.serve(async (req) => {
     if (isi && isi.tanya) return json(await bukti.tanyaKirim(isi.tanya));
     if (isi && isi.kartu) return json(await bukti.kartuTeks(Number(isi.kartu.id), String(isi.kartu.teks || '')));
     if (isi && isi.nama_bot) return json(await api('setMyName', { name: String(isi.nama_bot).slice(0, 64) }));
+    if (isi && isi.undang) return json(await undang());
     if (isi && isi.umumkan) return json(await bukti.umumkan(String(isi.umumkan), isi.sematkan !== false, Number(isi.balas) || 0));
     const a =await bukti.periksaTunggu(), n = await bukti.bacaUlang();
     return json({ ok: true, ...a, bacaUlang: n });
