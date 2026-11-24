@@ -809,6 +809,22 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       // pengirim menekan ✅ Catat: hanya ditempel kalau benar-benar sama (yakin); yang mirip sudah ditanyakan di kartu
       const cand = b.nominal && !(b.baca && b.baca.kandidat && b.baca.kandidat.acc) ? await cariTercatat(b) : null;
       if (cand && cand.yakin) { await sb.rpc('bb_tempel', { p_id: id, p_nos: cand.no }); await tempelLampiran(b, cand.no); await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n' + teksCocok(cand)); return jawab('Sudah tercatat sebelumnya — bukti ditempel.'); }
+      // 24 Nov 2026: bukti yang mirip catatan lain (terutama belanja yang sudah dicatat lewat Purchasing) tidak langsung
+      // dicatat baru. Tekan pertama hanya memperingatkan; ✅ Catat ditekan sekali lagi dalam 2 menit = memang belanja lain.
+      let mirip: Any = b.baca && b.baca.kandidat;
+      if (!mirip && b.nominal) {
+        const its = await barangSistem(String(b.tanggal || hariWita()));
+        const hs = its.length ? cocokBarang(b.baca || {}, its, Number(b.nominal), b.caption || '') : null;
+        if (hs) { mirip = hs.kd; const baru = await ubah(id, { baca: { ...(b.baca || {}), kandidat: mirip } }); await tampil(baru); }
+      }
+      if (mirip && Array.isArray(mirip.tr) && mirip.tr.length) {
+        const kk = 'catat2|' + id, sdh = await sb.from('tg_sementara').select('kedaluwarsa').eq('kunci', kk).maybeSingle();
+        if (!(sdh.data && new Date(sdh.data.kedaluwarsa).getTime() > Date.now())) {
+          await sb.from('tg_sementara').upsert({ kunci: kk, data: { tr: mirip.tr }, kedaluwarsa: new Date(Date.now() + 120e3).toISOString() }, { onConflict: 'kunci' });
+          return jawab('⚠️ Mirip catatan yang sudah ada: ' + mirip.tr.join(', ') + ' (' + rp(Number(mirip.sum) || 0) + '). Kalau sama, tekan 📎 Sudah tercatat. Kalau benar-benar belanja lain, tekan ✅ Catat sekali lagi.', true);
+        }
+        await sb.from('tg_sementara').delete().eq('kunci', kk);
+      }
       const r = await sb.rpc('bb_catat', { p_id: id, p_oleh: pengisi });
       if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal mencatat.'), true);
       await tempelLampiran(b, r.data.no);
