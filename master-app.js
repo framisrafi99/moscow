@@ -1671,7 +1671,7 @@
   function gambarAtur() {
     var el = $('bAtur'); if (!el) return;
     var B = D.barang;
-    var h = '<div id="msgAtur"></div><div class="chip" role="group" aria-label="Bagian pengaturan">' + [['pel', 'Pelanggan & link', AT.data && AT.data.length ? AT.data.length + ' pelanggan' : ''], ['brg', 'Edit barang', B ? B.barang.length + ' barang' : ''], ['log', 'Riwayat perubahan', B ? B.log.length + ' catatan' : ''], ['akses', 'Akses & perangkat', D.akses && D.akses.tunggu ? D.akses.tunggu + ' minta izin' : (AT.peng ? AT.peng.length + ' akun' : '')]].map(function (x) {
+    var h = '<div id="msgAtur"></div><div class="chip" role="group" aria-label="Bagian pengaturan">' + [['pel', 'Pelanggan & link', AT.data && AT.data.length ? AT.data.length + ' pelanggan' : ''], ['brg', 'Edit barang', B ? B.barang.length + ' barang' : ''], ['log', 'Riwayat perubahan', B ? B.log.length + ' catatan' : ''], ['akses', AKSES_LAMA ? 'Akses & perangkat' : 'Akun pengguna', AKSES_LAMA && D.akses && D.akses.tunggu ? D.akses.tunggu + ' minta izin' : (AT.peng ? AT.peng.length + ' akun' : '')]].map(function (x) {
       return '<button type="button" data-atb="' + x[0] + '" aria-pressed="' + (AT.bagian === x[0]) + '"><span>' + x[1] + '</span><b>' + (x[2] || '&nbsp;') + '</b></button>'; }).join('') + '</div>';
     try { h += AT.bagian === 'pel' ? isiPelanggan() : AT.bagian === 'brg' ? isiEditBarang() : AT.bagian === 'akses' ? isiAkses() : isiLogBarang(); }
     catch (e) { h += '<div class="msg bad">Bagian ini gagal ditampilkan: ' + esc(e.message) + '</div>'; }
@@ -1731,6 +1731,7 @@
   var PERAN = [['manajemen', 'Manajemen Moscow Supplies', 'Semua aplikasi'], ['kendali_bisnis', 'Kendali Bisnis', 'Kendali Bisnis, Stok'], ['accounting', 'Accounting', 'Stok, laporan keuangan'], ['gudang', 'Gudang Utama', 'Stok'], ['purchasing_shopeepay', 'Purchasing', 'Stok'], ['produksi', 'Staf produksi', 'Stok'], ['bahan_baku', 'Staf bahan baku', 'Stok'], ['payroll', 'Admin gaji', '–'], ['toko', 'Staf toko', 'Stok tokonya sendiri, Kasir (toko offline)'], ['kreatif_manager', 'Manager kreatif', 'Manager Kreatif (semua fitur)'], ['kreatif', 'Tim kreatif', 'Manager Kreatif (papan, tugas, catatan)']];
   function namaPeran(p) { for (var i = 0; i < PERAN.length; i++) if (PERAN[i][0] === p) return PERAN[i][1]; return p || '–'; }
   function emailSaya() { return D.email || ''; }
+  var AKSES_LAMA = false; // true = tampilkan lagi daftar izin perangkat link lama
   function isiAkses() {
     var h = '', P2 = AT.peng, toko = (AT.data && !AT.data.galat ? AT.data : []).filter(function (x) { return x.tipe === 'Consignment'; }).map(function (x) { return x.nama_pelanggan; });
     // Akun aplikasi baru
@@ -1758,7 +1759,8 @@
       h += '<p class="sb">Akun baru juga perlu didaftarkan sebagai pengguna uji di Google selama aplikasi masih tahap uji; beri tahu saya emailnya. Akun sendiri tidak bisa diubah dari sini supaya tidak terkunci.</p>';
     }
     h += '</div>';
-    // Perangkat link lama
+    // Perangkat link lama: disembunyikan 24 Nov 2026 (link lama tidak dipakai lagi sejak 29 Okt; data tetap di sheet AKSES_PERANGKAT).
+    if (!AKSES_LAMA) return h;
     var A = D.akses;
     h += '<div class="cd"><div class="kpl"><h3>Izin perangkat link lama</h3><span class="sb">Diperbarui ' + waktuPotret('akses') + '</span></div>';
     if (!A) return h + '<div class="msg w">Daftar perangkat belum tersedia. Buka menu akun lalu tekan "Hitung ulang semua angka".</div></div>';
