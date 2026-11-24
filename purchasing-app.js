@@ -10,7 +10,7 @@
   function f(n) { n = Math.round((Number(n) || 0) * 100) / 100; var p = String(Math.abs(n)).split('.'); return (n < 0 ? '-' : '') + p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (p[1] ? ',' + p[1] : ''); }
   function rp(n) { return 'Rp' + f(Math.round(Number(n) || 0)); }
   function tgl(s) { var p = String(s || '').slice(0, 10).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(s || ''); }
-  function angka(v) { return Number(String(v == null ? '' : v).trim().replace(/\./g, '').replace(',', '.')); }
+  function angka(v) { if (typeof v === 'number') return v; var s = String(v == null ? '' : v).trim().replace(/\s/g, ''); if (s.indexOf(',') > -1) s = s.replace(/\./g, '').replace(',', '.'); else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, ''); return Number(s); }
   function qOf(a) { return a.qs !== null && a.qs !== undefined ? a.qs : a.q; }
   var WARNA = { Menunggu: 'w', Disetujui: 'biru', Dipesan: 'biru', Dibayar: 'biru', Diterima: 'ok', Ditolak: 'no', Batal: 'no', 'Dikirim supplier': 'biru', Selesai: 'ok' };
   function chip(s) { return '<span class="label ' + (WARNA[s] || 'abu') + '">' + esc(s) + '</span>'; }

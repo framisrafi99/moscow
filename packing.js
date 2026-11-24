@@ -10,7 +10,7 @@
   function rp(n) { return 'Rp' + Math.round(Number(n) || 0).toLocaleString('id-ID'); }
   function tgl(d) { var p = String(d || '').slice(0, 10).split('-'); return p.length < 3 ? '' : Number(p[2]) + ' ' + BLS[Number(p[1]) - 1] + ' ' + p[0]; }
   function hariIni() { var d = new Date(Date.now() + 8 * 3600e3); return d.toISOString().slice(0, 10); }
-  function angka(v) { v = String(v || '').trim().replace(/\./g, '').replace(',', '.'); return v === '' ? null : Number(v); }
+  function angka(v) { if (typeof v === 'number') return v; var s = String(v == null ? '' : v).trim().replace(/\s/g, ''); if (s === '') return null; if (s.indexOf(',') > -1) s = s.replace(/\./g, '').replace(',', '.'); else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, ''); return Number(s); }
 
   var CSS = '' +
     '.pk-tab{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}' +

@@ -592,6 +592,8 @@
     await muatAksi(); J.ubahTtp = null; gambarJual(); gambarJualIsi();
     $('msgJual').innerHTML = '<div class="msg ok">' + esc(r.data.pesan) + ' Daftar di halaman ini diperbarui dalam beberapa detik.</div>';
   }
+  // Angka desimal: 15,9 dan 15.9 sama-sama 15,9; 1.500 dibaca seribu lima ratus.
+  function angkaDes(v) { if (typeof v === 'number') return v; var s = String(v == null ? '' : v).trim().replace(/\s/g, ''); if (s.indexOf(',') > -1) s = s.replace(/\./g, '').replace(',', '.'); else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, ''); return Number(s); }
   function angkaIsian(el) { var v = String(el.value).replace(/[^\d]/g, ''); return v === '' ? '' : Number(v); }
 
   function gambarPotretJual(el) {
@@ -2312,7 +2314,7 @@
     var p = { nos: [no], aksi: a, catatan: nilai('cat') }, ringkas;
     if (a === 'kqBuka') { P.buka['kq:' + no] = !P.buka['kq:' + no]; gambarPurch(); return; }
     if (a === 'koreksi') {
-      var kq = Number(nilai('kq').replace(/\./g, '').replace(',', '.')), al = nilai('kqAlasan');
+      var kq = angkaDes(nilai('kq')), al = nilai('kqAlasan');
       if (!(kq > 0)) { salah('Qty dibeli ' + x.n + ' harus lebih dari 0.'); return; }
       if (al.length < 3) { salah('Tulis alasan koreksi qty ' + x.n + '.'); return; }
       b.disabled = true;
@@ -2326,7 +2328,7 @@
       return;
     }
     if (a === 'setuju') {
-      var qs = Number(nilai('qs').replace(/\./g, '').replace(',', '.'));
+      var qs = angkaDes(nilai('qs'));
       if (!(qs > 0)) { salah('Qty disetujui ' + x.n + ' harus lebih dari 0.'); return; }
       p.qty = {}; p.qty[no] = qs;
       ringkas = 'Setujui pengajuan ' + x.n + ' ' + angkaId(qs, 2) + ' ' + x.s + ' (' + no + ')';
