@@ -88,3 +88,5 @@ where not exists (select 1 from sql_terpasang where file = '216_perlu_tindakan_p
 --   * _plx_bayar_inti: bila p_tr dipakai ulang (bukti Telegram yang sudah tercatat), catatan accounting itu ikut memuat nomor pengajuan;
 --   * audit.peringatan: cabang 'dobel_barang' = catatan Telegram yang nominal & nama barangnya sama dengan SATU barang
 --     (harga_beli_log) di dalam catatan Purchasing yang berisi beberapa barang (contoh: kardus & sticker di TR-261119-002).
+--   * (24 Nov sore) bagian "Sudah dibayar, barang belum ditandai diterima" dihapus atas permintaan manajemen (staf menekan terima sendiri);
+--     uang keluar yang tercantum di bahan_baku_beli (supplier/catatan "tercatat TR-…") tidak dihitung sebagai belum tersambung.
