@@ -252,6 +252,8 @@
     var r = await rpc(fn, arg);
     S.sibuk = false; bt.disabled = false; bt.innerHTML = lama;
     if (r && r.perluAlasan) { S.PERLU = r.perluAlasan; gambar(); pesan('bad', r.pesan); return; }
+    // 24 Nov 2026: pembayaran yang sepertinya sudah tercatat dari bukti Telegram (SQL 212) — tanya dulu, jangan dicatat dua kali.
+    if (r && r.sambung && S.tanyaSambung) { var f = S.tanyaSambung; S.tanyaSambung = null; f(r, bt); return; }
     if (!r || !r.ok) { pesan('bad', (r && r.pesan) || 'Gagal menyimpan.'); return; }
     salinKeSheet();
     if (sukses) sukses();
@@ -264,6 +266,7 @@
     var L = terpilih(), f0 = S.IN.__f, toko = String(f0.toko || '').trim(), items = [], err = '';
     if (!L.length) { pesan('bad', 'Centang barang yang sudah dibelanjakan.'); return; }
     if (toko.length < 2) { pesan('bad', 'Isi nama toko / supplier.'); return; }
+    if (!S.lanjutSambung) L.forEach(function (a) { if (S.IN[a.no]) delete S.IN[a.no].s; });
     var R = rinciBayar();
     L.forEach(function (a) {
       if (err) return;
@@ -271,10 +274,23 @@
       if (!(qq > 0)) err = 'Isi qty dibeli untuk ' + a.n + '.';
       else if (!(totalBarang(a) > 0)) err = 'Isi total yang dibayar untuk ' + a.n + '.';
       else if (((a.dobel && a.dobel.length) || S.PERLU[a.no]) && al.length < 5) err = 'Isi alasan belanja lagi untuk ' + a.n + ' (minimal 5 huruf).';
-      items.push({ no: a.no, q: qq, t: t, alasan: al });
+      var it = { no: a.no, q: qq, t: t, alasan: al }; if (v.s) it.sambung = v.s; items.push(it);
     });
     if (err) { pesan('bad', err); return; }
-    if (!window.confirm('Tandai ' + items.length + ' barang sudah dibayar ' + rp(total()) + ' lewat ' + f0.by + ' di ' + toko + '? Akan tercatat di accounting.')) return;
+    if (!S.lanjutSambung && !window.confirm('Tandai ' + items.length + ' barang sudah dibayar ' + rp(total()) + ' lewat ' + f0.by + ' di ' + toko + '? Akan tercatat di accounting.')) return;
+    S.lanjutSambung = false;
+    S.tanyaSambung = function (r, bt2) {
+      var nama = {}; L.forEach(function (a) { nama[a.no] = a.n; });
+      r.sambung.forEach(function (c) {
+        var brg = (c.nos || []).map(function (no) { return '• ' + (nama[no] || no); }).join('\n');
+        var ya = window.confirm('Pembayaran ini sepertinya SUDAH TERCATAT dari bukti Telegram:\n\n' + c.tr + ' · ' + tgl(c.tanggal) + ' · ' + c.akun + ' · ' + rp(c.nominal) + '\n' + (c.ket || '') +
+          '\n\nBarang yang cocok (' + rp(c.total) + '):\n' + brg +
+          '\n\nOK = sambungkan ke catatan itu (tidak dicatat dua kali)\nBatal = ini belanja lain, catat baru');
+        (c.nos || []).forEach(function (no) { (S.IN[no] = S.IN[no] || {}).s = ya ? c.tr : 'baru'; });
+      });
+      L.forEach(function (a) { var v = S.IN[a.no] = S.IN[a.no] || {}; if (!v.s) v.s = 'baru'; });
+      S.lanjutSambung = true; bayar(bt2);
+    };
     jalan(bt, 'plx_bayar', { p_toko: toko, p_bayar: f0.by, p_tanggal: f0.tg, p_nama: S.nama, p_items: items, p_token: 'plx' + Date.now() + Math.random().toString(36).slice(2, 6) }, function () {
       L.forEach(function (a) { delete S.PIL[a.no]; delete S.IN[a.no]; delete S.PERLU[a.no]; }); S.IN.__f.toko = ''; S.IN.__f.ong = '';
     });
