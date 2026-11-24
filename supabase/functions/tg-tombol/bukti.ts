@@ -288,6 +288,29 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     const r = await sb.from('bb_padanan').select('nota,sistem').in('sistem', Array.from(new Set(items.map((x: Any) => String(x.n))))).order('waktu', { ascending: false }).limit(40);
     return r.data || [];
   }
+  // 24 Nov 2026: tanpa bertanya. Nominal sama + nama barang / toko mirip = belanja yang sama; nominal sama tapi barangnya lain = belanja berbeda.
+  const KATA_UMUM = new Set(['untuk','dengan','pesan','pesanan','shope','shopepay','transfer','pembelian','pembayaran','belanja','lokal','invoice','faktur','penjualan','total',
+    'barang','bayar','dibayar','tokopedia','rekening','saldo','ongkir','ongkos','kirim','paket','telegram','viory','erdanela','purchasing','status','dikemas','model','ukuran',
+    'warna','kemasan','sudah','belum','tempo','jatuh','lewat','tagihan','nomor','biaya','admin','virtual','acount','account','tanpa','keterangan','sebesar','melalui','cargo',
+    'ekspedisi','supplier','store','official','mandiri','danamon']);
+  function kataBelanja(x: string) {
+    return Array.from(new Set(String(x || '').toLowerCase().replace(/[^a-z]+/g, ' ').split(/\s+/).filter((w) => w.length >= 5)
+      .map((w) => w.replace(/(.)\1+/g, '$1')).filter((w) => w.length >= 5 && !KATA_UMUM.has(w))));
+  }
+  function miripBelanja(a: string, b: string) {
+    const A = kataBelanja(a), B = kataBelanja(b);
+    return A.some((x) => B.some((y) => x === y || y.startsWith(x) || x.startsWith(y)));
+  }
+  function teksBukti(b: Any) {
+    const r = b.baca || {};
+    return [b.keterangan, b.caption, r.penerima, r.ringkasan].concat(Array.isArray(r.barang) ? r.barang.map((x: Any) => x && x.nama) : []).filter(Boolean).join(' ');
+  }
+  // keputusan: 'sama' (tempel otomatis), 'beda' (abaikan pembanding, catat sebagai belanja lain), 'tanya' (ragu: nominal beda tapi barang mirip)
+  function putusMirip(b: Any, nominal: number, beda: number, teksPembanding: string) {
+    const pas = Math.abs(Number(beda) || 0) <= Math.max(1000, nominal * 0.005), mirip = miripBelanja(teksBukti(b), teksPembanding);
+    return pas && mirip ? 'sama' : mirip ? 'tanya' : 'beda';
+  }
+
   // Pasangan dari AI (kode Bn) dulu; kalau tidak ada / jumlahnya jauh, cadangan: kombinasi harga + kata nama.
   function cocokBarang(r: Any, items: Any[], nominal: number, teks: string) {
     let h: Any = null;
@@ -541,11 +564,16 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     }
     // cocokkan dengan accounting
     if (nominal) {
-      const cand = await cariTercatat(b);
+      let cand = await cariTercatat(b);
       if (cand && !cand.yakin) {
-        // mirip tapi ada yang beda (akun / kategori / tanggal / nominal): tanyakan, jangan tempel sendiri
-        b = await ubah(id, { baca: { ...b.baca, kandidat: kandidatAcc(cand) } });
-        await tampil(b); return;
+        const kp = kandidatAcc(cand), pt = putusMirip(b, nominal, kp.beda, kp.n.join(' '));
+        if (pt === 'sama') cand = { ...cand, yakin: true };
+        else if (pt === 'beda') cand = null;
+        else {
+          // nominal beda tapi barangnya mirip: tanyakan, jangan tempel sendiri
+          b = await ubah(id, { baca: { ...b.baca, kandidat: kp } });
+          await tampil(b); return;
+        }
       }
       if (cand) {
         // uang sudah tercatat, tapi barangnya masih ada di pengajuan yang belum dibayar -> tawarkan "Tandai sudah dibayar"
@@ -577,7 +605,11 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     // cocokkan ke rincian barang yang dibayar lewat aplikasi (satu screenshot bisa berisi beberapa barang dari beberapa transaksi)
     if (nominal && items.length) {
       const hasil = cocokBarang(r, items, nominal, teks);
-      if (hasil) {
+      if (hasil && !hasil.yakin) {
+        const pt = putusMirip(b, nominal, hasil.kd.beda, (hasil.kd.n || []).join(' '));
+        if (pt === 'sama') hasil.yakin = true;
+      }
+      if (hasil && (hasil.yakin || putusMirip(b, nominal, hasil.kd.beda, (hasil.kd.n || []).join(' ')) === 'tanya')) {
         const kand = hasil.kd;
         if (hasil.yakin) {
           await sb.rpc('bb_tempel', { p_id: id, p_nos: kand.tr }); await tempelLampiran(b, kand.tr);
@@ -811,12 +843,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       if (cand && cand.yakin) { await sb.rpc('bb_tempel', { p_id: id, p_nos: cand.no }); await tempelLampiran(b, cand.no); await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n' + teksCocok(cand)); return jawab('Sudah tercatat sebelumnya — bukti ditempel.'); }
       // 24 Nov 2026: bukti yang mirip catatan lain (terutama belanja yang sudah dicatat lewat Purchasing) tidak langsung
       // dicatat baru. Tekan pertama hanya memperingatkan; ✅ Catat ditekan sekali lagi dalam 2 menit = memang belanja lain.
-      let mirip: Any = b.baca && b.baca.kandidat;
-      if (!mirip && b.nominal) {
-        const its = await barangSistem(String(b.tanggal || hariWita()));
-        const hs = its.length ? cocokBarang(b.baca || {}, its, Number(b.nominal), b.caption || '') : null;
-        if (hs) { mirip = hs.kd; const baru = await ubah(id, { baca: { ...(b.baca || {}), kandidat: mirip } }); await tampil(baru); }
-      }
+      const mirip: Any = b.baca && b.baca.kandidat;
       if (mirip && Array.isArray(mirip.tr) && mirip.tr.length) {
         const kk = 'catat2|' + id, sdh = await sb.from('tg_sementara').select('kedaluwarsa').eq('kunci', kk).maybeSingle();
         if (!(sdh.data && new Date(sdh.data.kedaluwarsa).getTime() > Date.now())) {
@@ -870,8 +897,13 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     const r = await sb.from('bb_bukti').select('*').eq('status', 'tunggu').limit(50);
     let tempel = 0, tanya = 0;
     for (const b of r.data || []) {
-      const cand = await cariTercatat(b);
-      if (cand && !cand.yakin) { const baru = await ubah(b.id, { status: 'usul', baca: { ...b.baca, kandidat: kandidatAcc(cand) } }); await tampil(baru); tanya++; continue; }
+      let cand = await cariTercatat(b);
+      if (cand && !cand.yakin) {
+        const kp = kandidatAcc(cand), pt = putusMirip(b, Number(b.nominal) || 0, kp.beda, kp.n.join(' '));
+        if (pt === 'sama') cand = { ...cand, yakin: true };
+        else if (pt === 'beda') cand = null;
+        else { const baru = await ubah(b.id, { status: 'usul', baca: { ...b.baca, kandidat: kp } }); await tampil(baru); tanya++; continue; }
+      }
       if (cand) { await sb.rpc('bb_tempel', { p_id: b.id, p_nos: cand.no }); await tempelLampiran(b, cand.no); await tampil(b, '🧾 <b>' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + '\n' + teksCocok(cand)); tempel++; continue; }
       if (Date.now() - new Date(b.waktu).getTime() > 3 * 86400e3) {
         const baru = await ubah(b.id, { status: 'usul', catatan: '⏳ Sudah 3 hari belum ada di aplikasi. Kalau memang bukan dari pengajuan, tekan ✅ Catat.' });
