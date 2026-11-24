@@ -2,7 +2,7 @@
 // pengganti CADANG_harian Apps Script (salinan file Sheets ke Drive). Disimpan 30 hari.
 // Isi: cadangan/<yyyy-MM-dd>/<tabel>/<urutan>.json.gz (array baris JSON, dipotong per 1.000 baris = batas baca API).
 // Dipanggil jadwal (cron) dengan header x-moscow-robot-kunci. Panggilan induk membagi pekerjaan ke panggilan kecil per tabel
-// (tiap panggilan robot dibatasi ±2 detik kerja prosesor): 3 pekerja, tiap panggilan mengerjakan beberapa tabel sekaligus.
+// (tiap panggilan robot dibatasi ±2 detik kerja prosesor): 2 pekerja + putaran kedua, tiap panggilan mengerjakan beberapa tabel sekaligus.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const URL_SB = Deno.env.get('SUPABASE_URL')!;
@@ -80,35 +80,54 @@ Deno.serve(async (req) => {
     return json({ ok: true, hasil, baris, sisa: tugas });
   }
 
-  // Panggilan induk: 3 pekerja, masing-masing membawa sebagian tabel dan memanggil ulang sampai habis.
-  const mulai = Date.now(), hari = hariWita();
+  // Panggilan induk: 2 pekerja, masing-masing membawa sebagian tabel dan memanggil ulang sampai habis.
+  // 24 Nov 2026: dulu 3 pekerja dan berhenti sesudah 4 kali gagal beruntun (server penuh, 546), sehingga tiap malam
+  // 8–44 dari 127 tabel tertinggal. Sekarang menunggu makin lama tiap gagal, sampai 10 kali, lalu ada putaran kedua.
+  const mulai = Date.now(), hari = hariWita(), BATAS = 140000; // di bawah batas waktu robot (150 detik)
   const d = await sb.rpc('cadang_daftar');
   if (d.error) return json({ ok: false, pesan: d.error.message }, 500);
   const semua = (d.data as { t: string; n: number }[]).sort((a, b) => b.n - a.n);
-  const bagian: { t: string; dari: number }[][] = [[], [], []];
-  semua.forEach((x, i) => bagian[i % 3].push({ t: x.t, dari: 0 }));
   const hasil: Record<string, string> = {};
-  let baris = 0;
-  await Promise.all(bagian.map(async (tugas) => {
+  let baris = 0, coba = 0;
+  const tidur = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
+  async function kerja(tugas: { t: string; dari: number }[]) {
     let gagalBeruntun = 0;
-    while (tugas.length && Date.now() - mulai < 280000) {
+    while (tugas.length && Date.now() - mulai < BATAS) {
       let j: { ok?: boolean; hasil?: Record<string, string>; baris?: number; sisa?: { t: string; dari: number }[] } = {};
       try {
         const r = await fetch(URL_SB + '/functions/v1/cadang-harian', { method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-moscow-robot-kunci': tanda }, body: JSON.stringify({ tugas, hari }) });
         j = await r.json().catch(() => ({}));
-      } catch (e) { j = {}; await new Promise((ok) => setTimeout(ok, 3000)); }
-      if (!j.ok || !Array.isArray(j.sisa)) { if (++gagalBeruntun >= 4) break; continue; }
+      } catch (_) { j = {}; }
+      if (!j.ok || !Array.isArray(j.sisa)) {
+        coba++;
+        if (++gagalBeruntun >= 10) break;
+        await tidur(Math.min(1500 * gagalBeruntun, 8000));
+        continue;
+      }
       gagalBeruntun = 0;
       Object.assign(hasil, j.hasil || {}); baris += Number(j.baris) || 0;
       tugas.splice(0, tugas.length, ...j.sisa);
     }
-    tugas.forEach((x) => { if (!hasil[x.t]) hasil[x.t] = 'gagal: belum selesai'; });
-  }));
+    tugas.forEach((x) => { if (!hasil[x.t] || !hasil[x.t].startsWith('ok')) hasil[x.t] = 'gagal: belum selesai'; });
+  }
+  const bagian: { t: string; dari: number }[][] = [[], []];
+  semua.forEach((x, i) => bagian[i % 2].push({ t: x.t, dari: 0 }));
+  await Promise.all(bagian.map(kerja));
+  // Putaran kedua: tabel yang belum selesai atau gagal dikerjakan ulang oleh satu pekerja dari awal.
+  const ulang = Object.keys(hasil).filter((t) => !hasil[t].startsWith('ok')).map((t) => ({ t, dari: 0 }));
+  const putaran2 = ulang.length;
+  if (ulang.length) await kerja(ulang);
   let buang: unknown = null;
   try { buang = await buangLama(); } catch (e) { buang = 'gagal: ' + String((e as Error)?.message || e); }
   const gagal = Object.keys(hasil).filter((t) => !hasil[t].startsWith('ok'));
-  const ringkas = { hari, tabel: Object.keys(hasil).length, baris, gagal: gagal.map((t) => t + ' ' + hasil[t]), buang, detik: (Date.now() - mulai) / 1000 };
+  const ringkas = { hari, tabel: Object.keys(hasil).length, baris, gagal: gagal.map((t) => t + ' ' + hasil[t]), putaran2, coba, buang, detik: (Date.now() - mulai) / 1000 };
   await sb.from('robot_log').insert({ jenis: 'cadangan', detik: ringkas.detik, hasil: ringkas });
+  // Masih ada yang tertinggal: beri tahu grup lewat Admin Accounting supaya tidak diam-diam.
+  if (gagal.length) {
+    const teks = '⚠️ Cadangan harian ' + hari + ' belum lengkap: ' + gagal.length + ' dari ' + Object.keys(hasil).length + ' tabel gagal dicadangkan ('
+      + gagal.slice(0, 8).join(', ').replace(/ gagal: belum selesai/g, '') + (gagal.length > 8 ? ', …' : '') + '). Data di sistem aman; yang belum lengkap hanya salinan cadangannya.';
+    await sb.from('efek_antre').insert({ jenis: 'tg', data: { teks, asal: { e: '🛟', n: 'Cadangan harian' } } });
+  }
   return json({ ok: gagal.length === 0, ...ringkas });
 });
