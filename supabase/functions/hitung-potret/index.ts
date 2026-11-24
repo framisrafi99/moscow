@@ -156,8 +156,10 @@ const RUMUS: Record<string, (o: Opsi) => Promise<Isi>> = {
 // laporan:<bulan> sama dengan potret Apps Script (KB_laporan_).
 // Bagian accounting memakai potret md:acc / md:acc:lalu bila bulannya sama dan umurnya <= 30 menit (dihitung jadwal 10 menit
 // dengan rumus yang sama), supaya satu panggilan tidak lewat batas prosesor (7 Nov 2026). Kalau tidak ada, dihitung seperti biasa.
-async function laporan(b: string, o: Opsi = {}) {
-  return await W.Dasbor.laporanBulan(sb, b, { acc: await potretSegar(['md:acc', 'md:acc:lalu'], b), mpDb: !!o.mpDb });
+// 24 Nov 2026: laporan bulanan selalu menjumlah penjualan marketplace di database (mpDb). Uji berdampingan 285 kali
+// tanpa gagal dan hasilnya sama persis dengan cara lama (Okt & Nov dicocokkan); cara lama sering kehabisan tenaga (546).
+async function laporan(b: string, _o: Opsi = {}) {
+  return await W.Dasbor.laporanBulan(sb, b, { acc: await potretSegar(['md:acc', 'md:acc:lalu'], b), mpDb: true });
 }
 // Potret jadwal 10 menit (untuk bulan tertentu, atau tanpa bulan bila null) yang umurnya <= 30 menit (null bila tidak ada).
 async function potretSegar(kunci: string[], bulan: string | null): Promise<unknown> {
