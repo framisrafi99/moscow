@@ -279,7 +279,7 @@
     muatan.catch(function () { muatan = null; });
     return muatan;
   }
-  function lupakan() { muatan = null; }
+  function lupakan() { muatan = null; if (window.Lembar && window.Lembar.lupakan) window.Lembar.lupakan(); }
 
   async function gdxKp(sb) {
     var S = await siap(sb), A = S.A;

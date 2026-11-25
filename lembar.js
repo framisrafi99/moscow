@@ -88,11 +88,25 @@
     return pola.replace('yyyy', Y).replace('MM', M).replace('dd', D).replace('HH', h).replace('mm', m).replace('ss', s);
   }
 
+  // 25 Nov 2026 (gm_tindakan #28): beberapa bagian halaman yang memuat bersamaan tidak lagi masing-masing meminta
+  // tabel yang sama. Tiap tabel diminta sekali; hasilnya dipakai bersama selama 3 detik (cukup untuk bagian yang memuat bersamaan).
+  var SIMPAN = {}, UMUR = 3000;
   async function muat(sb, tabel) {
-    var r = await sb.rpc('lembar_baca', { p_tabel: tabel });
-    if (r.error) throw new Error(r.error.message);
-    return siapkan(r.data);
+    var kini = Date.now(), minta = [];
+    (tabel || []).forEach(function (t) { var x = SIMPAN[t]; if (!x || kini - x.ms > UMUR) minta.push(t); });
+    if (minta.length) {
+      var janji = sb.rpc('lembar_baca', { p_tabel: minta }).then(function (r) { if (r.error) throw new Error(r.error.message); return r.data || {}; });
+      minta.forEach(function (t) {
+        var x = { ms: kini, p: janji.then(function (d) { return d[t]; }) };
+        x.p.catch(function () { if (SIMPAN[t] === x) delete SIMPAN[t]; });
+        SIMPAN[t] = x;
+      });
+    }
+    var isi = await Promise.all((tabel || []).map(function (t) { return SIMPAN[t].p; })), data = {};
+    (tabel || []).forEach(function (t, i) { if (isi[i] !== undefined) data[t] = isi[i]; });
+    return siapkan(data);
   }
+  function lupakanSemua() { SIMPAN = {}; }
 
-  window.Lembar = { muat: muat, siapkan: siapkan, baca: baca, format: format };
+  window.Lembar = { muat: muat, siapkan: siapkan, baca: baca, format: format, lupakan: lupakanSemua };
 })();

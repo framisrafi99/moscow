@@ -455,6 +455,6 @@
   async function gdData(sb) { return buat(await lembar(sb)).gdData(); }
   async function gdxOrderMasuk(sb) { return buat(await lembar(sb)).gdxOrderMasuk(); }
   async function prodKebutuhan(sb) { return buat(await lembar(sb)).prodKebutuhan(); }
-  function lupakan() { muatan = null; selesai = true; }
+  function lupakan() { muatan = null; selesai = true; if (window.Lembar && window.Lembar.lupakan) window.Lembar.lupakan(); }
   window.Gudang = { gdData: gdData, gdxOrderMasuk: gdxOrderMasuk, prodKebutuhan: prodKebutuhan, lupakan: lupakan, buat: buat, TABEL: TABEL };
 })();
