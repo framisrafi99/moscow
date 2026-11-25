@@ -122,7 +122,10 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       '{"bukti":true|false, "belum_bayar":true|false, "nominal":angka total yang dibayar (rupiah, bulat), "tanggal":"YYYY-MM-DD" atau null, "tgl_invoice":"YYYY-MM-DD" atau null, ' +
       '"penerima":"toko / penerima", "ringkasan":"apa yang dibayar, singkat, maks 110 huruf, bahasa Indonesia", "kategori":"salah satu kategori", ' +
       '"sumber":"Rekening Belanja|Rekening PT|Rekening Danamon|ShopeePay|Kas Tunai|Dana Shopee (belum cair)|Dana Tokopedia/TikTok (belum cair)|" , "ref":"nomor referensi / no pesanan atau \\"\\"", "barang":[{"nama":"nama barang","total":angka}], "sistem":[{"kode":"B1|P1|I1|O1","nota":"nama barang di bukti","total":angka}], "pindah":null atau {"dari":"akun asal","ke":"akun tujuan","biaya":angka biaya admin}, ' +
-      '"jenis_bayar":"transfer_bank|shopeepay|tunai|lainnya|", "dokumen":"transfer|invoice|nota|lainnya", "atas_nama":"nama pemilik rekening / akun yang MEMBAYAR (pengirim uang) kalau terlihat, atau \\"\\"", "yakin":0-1}\n' +
+      '"jenis_bayar":"transfer_bank|shopeepay|tunai|lainnya|", "dokumen":"transfer|invoice|nota|lainnya", "atas_nama":"nama pemilik rekening / akun yang MEMBAYAR (pengirim uang) kalau terlihat, atau \\"\\"", ' +
+      '"arah":"keluar|masuk", "tujuan":"Rekening PT|Rekening Belanja|Rekening Danamon|", "pengirim_dana":"nama pengirim uang kalau arah masuk, atau \\"\\"", "yakin":0-1}\n' +
+      'arah: masuk = bukti uang MASUK ke rekening Moscow dari pihak luar (pembeli / pelanggan mentransfer ke rekening TOENTOENAN LANGKAH ELOHIM / Moscow, mis. pembayaran order, DP, pelunasan); ' +
+      'keluar = Moscow membayar ke pihak lain (paling sering). Transfer antar akun Moscow sendiri tetap "pindah" (arah keluar). Untuk arah masuk: tujuan = rekening Moscow penerima, pengirim_dana = nama pengirim, kategori boleh "Biaya lain-lain".\n' +
       'jenis_bayar: transfer_bank = transfer / m-banking / virtual account / QRIS dari rekening bank; shopeepay = pesanan Shopee / saldo ShopeePay (kecuali terlihat dibayar dengan transfer bank / VA); ' +
       'tunai = nota / struk tanpa info pembayaran non-tunai atau tertulis cash; "" kalau tidak jelas. ' +
       'dokumen: transfer = bukti transfer / m-banking / BI-FAST / VA / QRIS dari aplikasi bank (ada rekening pengirim & penerima); invoice = invoice / tagihan / commercial invoice / sales order dari penjual (lunas atau belum); ' +
@@ -182,6 +185,22 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
   // ---------- kartu ----------
   function kartu(b: Any): { text: string; markup: Any } {
     const r = b.baca || {};
+    if (r.masuk) {
+      const ms = r.masuk, cb = (op: string) => 'b|' + b.id + '|' + op;
+      let hm = '💰 <b>Uang masuk</b> (bukti dari ' + esc(b.pengirim) + ')\n💵 <b>' + (b.nominal ? rp(b.nominal) : 'nominal belum terbaca') + '</b> · ' + tglId(b.tanggal) +
+        '\n🏦 Masuk ke <b>' + esc(ms.tujuan) + '</b>' + (ms.dari ? ' · dari <b>' + esc(ms.dari) + '</b>' : '');
+      if (ms.calon && ms.calon.length) {
+        hm += '\n\n🧾 <b>Order yang belum lunas</b> — pilih order yang dibayar dengan uang ini:';
+        ms.calon.forEach((c: Any) => { hm += '\n• <b>' + esc(c.no) + '</b> ' + esc(c.pl) + ' · total ' + rp(c.tot) + (Number(c.dibayar) ? ' · sudah dibayar ' + rp(c.dibayar) : '') + ' · sisa <b>' + rp(c.sisa) + '</b>' +
+          (Math.abs(Number(c.sisa) - Number(b.nominal)) <= 1000 ? ' ✅ <i>pas dengan sisa</i>' : ''); });
+        hm += '\n\n<i>Pembayaran dicatat ke order (DP / pelunasan) dan otomatis masuk kuitansinya di Master Data. Penjualannya sendiri masuk accounting saat order dikirim, jadi tidak dobel.</i>';
+      } else hm += '\n\n<i>Tidak ada order yang belum lunas. Kalau ini penjualan di luar order, tekan 📒 Penjualan lain — dicatat sebagai uang masuk di accounting.</i>';
+      if (b.catatan) hm += '\n\n<i>' + esc(b.catatan) + '</i>';
+      const rows: Any[] = (ms.calon || []).map((c: Any, k: number) => [{ text: '✅ Bayar ' + c.no + ' · ' + t(c.pl, 18), callback_data: cb('O|' + k) }]);
+      rows.push([{ text: '📒 Penjualan lain', callback_data: cb('L') }, { text: '✏️ Ubah', callback_data: cb('u') }]);
+      rows.push([{ text: '🏦 Rekening tujuan', callback_data: cb('a') }, { text: '❌ Bukan', callback_data: cb('x') }]);
+      return { text: hm, markup: { inline_keyboard: rows } };
+    }
     if (r.tandai) {
       const td = r.tandai, cb = (op: string) => 'b|' + b.id + '|' + op;
       let ht = '🧾 <b>Bukti dari ' + esc(b.pengirim) + '</b> · ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) +
@@ -531,6 +550,16 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
         return;
       }
     }
+    // 25 Nov 2026: bukti UANG MASUK (pembeli transfer ke rekening Moscow): dicocokkan ke order yang masih punya sisa tagihan.
+    if (r.arah === 'masuk' && nominal && !pindahValid(r.pindah, pembayar)) {
+      const tujuan = ['Rekening PT', 'Rekening Belanja', 'Rekening Danamon'].indexOf(String(r.tujuan)) > -1 ? String(r.tujuan) : 'Rekening PT';
+      const dariN = t(r.pengirim_dana || r.atas_nama || '', 60);
+      const oc = await sb.rpc('bb_order_terbuka', { p_nominal: nominal, p_teks: [teks, dariN, r.ringkasan || ''].join(' ') });
+      const calon = Array.isArray(oc.data) ? oc.data : [];
+      b = await ubah(id, { baca: { ...r, masuk: { tujuan, dari: dariN, calon } }, akun: tujuan, kategori: 'Penjualan lain di luar sistem',
+        keterangan: t('Uang masuk' + (dariN ? ' dari ' + dariN : '') + (teks ? ' - ' + teks : ''), 150), catatan: null });
+      await tampil(b); return;
+    }
     // invoice + bukti transfer dikirim bersamaan (album / berurutan): satu pembayaran, dicatat sekali, keduanya dilampirkan
     if (nominal) {
       const inv = adalahInvoice(r) && !adalahTransfer(r), sib = (inv || adalahTransfer(r)) ? await saudara(id, uid, nominal, inv) : null;
@@ -835,6 +864,24 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       td.p.forEach((x: Any) => { h += '\n• <b>' + esc(x.no) + ' ' + esc(x.n) + '</b> · ' + x.q + ' ' + esc(x.s) + ' · ' + rp(x.t); });
       await tampil(b, h + '\n📎 Bukti dilampirkan. Staf: terima barangnya di form masing-masing.');
       return jawab('Pengajuan ditandai dibayar.');
+    }
+    if (op === 'O') {
+      const ms = b.baca && b.baca.masuk, c = ms && ms.calon && ms.calon[Number(p[3])];
+      if (!c) return jawab('Order tidak dikenal.');
+      const r = await sb.rpc('bb_order_bayar', { p_id: id, p_no: c.no, p_oleh: oleh });
+      if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal menyimpan.'), true);
+      const d = r.data;
+      await tampil(b, '💰 <b>Pembayaran order ' + esc(d.no) + '</b> dicatat oleh ' + esc(oleh) + '\n💵 ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + ' · ' + esc(d.ket) +
+        '\n🧾 Total ' + rp(d.total) + ' · sudah dibayar ' + rp(d.dibayar) + (Number(d.sisa) > 0 ? ' · <b>sisa ' + rp(d.sisa) + '</b>' : ' · <b>LUNAS</b> ✅') +
+        '\n📄 Kuitansi: Master Data › Penjualan › Order reseller › ' + esc(d.no) + ' › Kuitansi.' + '\n📎 Bukti tersimpan.');
+      return jawab(Number(d.sisa) > 0 ? 'Tercatat. Sisa ' + rp(d.sisa) : 'Tercatat. Order lunas.');
+    }
+    if (op === 'L') {
+      const r = await sb.rpc('bb_catat_masuk', { p_id: id, p_oleh: oleh });
+      if (r.error || !r.data?.ok) return jawab('⚠️ ' + (r.data?.pesan || r.error?.message || 'Gagal mencatat.'), true);
+      await tempelLampiran(b, r.data.no);
+      await tampil(b, '📒 <b>Uang masuk dicatat ' + esc(r.data.no) + '</b> oleh ' + esc(oleh) + '\n💵 ' + rp(b.nominal) + ' · ' + tglId(b.tanggal) + ' · ' + esc(b.akun || 'Rekening PT') + '\n📝 Penjualan lain di luar sistem · ' + esc(b.keterangan || ''));
+      return jawab('Tercatat di accounting: ' + r.data.no);
     }
     if (op === 'I') {
       const rc = b.baca && b.baca.rencana; if (!rc || !rc.calon) return jawab('Tidak ada pilihan impor.');
