@@ -596,6 +596,14 @@
     w.onclick = function (e) { if (e.target === w) w.remove(); };
     gambar();
   }
+  // PNG berpalet tidak terbaca jsPDF: gambar ulang lewat kanvas menjadi PNG RGBA biasa.
+  function gambarUlang(src) {
+    return new Promise(function (ok, gagal) {
+      var im = new Image();
+      im.onload = function () { var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d').drawImage(im, 0, 0); ok({ data: c.toDataURL('image/png'), w: c.width, h: c.height }); };
+      im.onerror = function () { gagal(new Error('gambar')); }; im.src = src;
+    });
+  }
   async function qrDataUrl(teks) {
     if (!window.qrcode) await muatSkripPdf('https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js');
     var q = window.qrcode(0, 'M'); q.addData(teks); q.make();
@@ -647,7 +655,7 @@
     doc.setFont('helvetica', 'normal'); doc.setFontSize(6); doc.setTextColor.apply(doc, abu); doc.text('Pindai: data pembayaran', L + 117, y + 15.5, { align: 'center' });
     var sx = R - 30;
     doc.setFontSize(8); doc.setTextColor.apply(doc, tinta); doc.text('Badung, ' + tglId(tglKw), sx, y - 8, { align: 'center' });
-    if (st.ttd) { try { doc.addImage(st.ttd, 'PNG', sx - 14, y - 6, 28, 28 * 177 / 240); } catch (e) { } }
+    if (st.ttd) { try { var tt = await gambarUlang(st.ttd); doc.addImage(tt.data, 'PNG', sx - 14, y - 6, 28, 28 * tt.h / tt.w); } catch (e) { } }
     doc.setDrawColor(150, 160, 170); doc.setLineWidth(0.3); doc.line(sx - 26, y + 15.5, sx + 26, y + 15.5);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.text('Manajemen Moscow Supplies', sx, y + 19.5, { align: 'center' });
     doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor.apply(doc, abu); doc.text('Moscow Supplies · ' + noKw + ' · untuk order ' + o.no + ' (invoice ' + noInv + ')', L, 143);
