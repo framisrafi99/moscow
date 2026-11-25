@@ -48,6 +48,10 @@
         var nv = document.querySelector('#mSide nav');
         if (nv) nv.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="consignment.html">' + Moscow.svg('toko') + '<span class="nm">Form toko</span></a>');
       }
+      if (D.toko === 'Consignment Renon') {   // 25 Nov 2026: uang Renon dipegang Renon, disetor lewat bagi hasil
+        $('ksKetTunai').textContent = 'Dipegang admin Renon'; $('ksKetQris').textContent = 'Masuk rekening Renon';
+        $('ksPetunjuk').textContent = 'Setiap nota langsung tercatat sebagai report penjualan Renon. Re-stock, biaya, stok, return, dan hitung stok tetap lewat Form toko.';
+      }
       mulai();
     }
   });

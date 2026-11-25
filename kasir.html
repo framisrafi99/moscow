@@ -144,7 +144,7 @@
       <div id="ksHasil"></div>
     </section>
 
-    <p class="petunjuk" style="margin-top:-4px">Re-stock, biaya, stok toko, return, hitung stok, dan pinjaman masih lewat formulir toko yang lama.</p>
+    <p class="petunjuk" id="ksPetunjuk" style="margin-top:-4px">Re-stock, biaya, stok toko, return, hitung stok, dan pinjaman masih lewat formulir toko yang lama.</p>
     <section class="kartu" id="kartuNota">
       <h2>Isi nota</h2>
       <label class="disc" id="ksSemuaL"><input type="checkbox" id="ksSemua"> Disc 15% untuk semua barang</label>
@@ -155,8 +155,8 @@
         <label>Uang diterima (boleh kosong)<input class="isian" type="number" id="ksBayar" inputmode="numeric" min="0" placeholder="Untuk menghitung kembalian"></label>
       </div>
       <div class="metode" role="group" aria-label="Metode bayar">
-        <button type="button" data-m="Tunai" aria-pressed="false">Tunai<small>Masuk Kas Tunai</small></button>
-        <button type="button" data-m="QRIS" aria-pressed="false">QRIS<small>Masuk rekening PT</small></button>
+        <button type="button" data-m="Tunai" aria-pressed="false">Tunai<small id="ksKetTunai">Masuk Kas Tunai</small></button>
+        <button type="button" data-m="QRIS" aria-pressed="false">QRIS<small id="ksKetQris">Masuk rekening PT</small></button>
       </div>
       <div class="aksi">
         <button type="button" class="btn" id="ksSimpanCetak">Simpan &amp; cetak struk</button>
@@ -212,6 +212,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="moscow.js?v=19"></script>
-<script src="kasir-app.js?v=4"></script>
+<script src="kasir-app.js?v=5"></script>
 </body>
 </html>
