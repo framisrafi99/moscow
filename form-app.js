@@ -28,6 +28,7 @@
         { k: 'data', nm: 'Data produksi', ik: 'dasbor', l: ['#pgsT1', '#tab2'], pendek: 'Data' },
         { k: 'kirimkp', nm: 'Kirim ke Kantor Packing', ik: 'pemasok', panel: 'pkp', pendek: 'Kirim KP' },
         { k: 'stokgu', nm: 'Stok Gudang Utama', ik: 'gudang', panel: 'pkp', pendek: 'Stok GU' },
+        { k: 'sesuaigu', nm: 'Penyesuaian stok Gudang Utama', ik: 'atur', panel: 'pkp', pendek: 'Sesuai GU' },
         { k: 'riwayat', nm: 'Riwayat', ik: 'riwayat', l: ['#pgsT1', '#tab3'] },
         { k: 'order', nm: 'Order masuk', ik: 'nota', l: ['#pgsT1', '#tab4'], pendek: 'Order' },
         { k: 'botol', nm: 'Botol, stiker & packaging', ik: 'stok', l: ['#pgsT1', '#tab5'], pendek: 'Botol & packing' },
