@@ -464,6 +464,9 @@
       (r.data || []).forEach(function (x) { if (x.aksi === 'Dikirim') ongkir += Number(x.ongkir) || 0; });
     } catch (e) { }
     var ingat = {}; try { ingat = JSON.parse(localStorage.getItem('invoiceOrderIsian') || '{}'); } catch (e) { }
+    if (!ingat.rek) {   // rekening bawaan disimpan di Supabase (kasir_setelan 'Invoice order'), tidak ditulis di kode
+      try { var st = await sb.from('kasir_setelan').select('data').eq('toko', 'Invoice order').maybeSingle(); if (st.data && st.data.data && st.data.data.rek) ingat.rek = st.data.data.rek; } catch (e) { }
+    }
     var w = document.createElement('div'); w.id = 'lembarPdfMd';
     w.setAttribute('style', 'position:fixed;inset:0;background:rgba(11,35,64,.45);z-index:80;display:flex;align-items:center;justify-content:center;padding:16px');
     w.innerHTML = '<div style="background:#fff;border-radius:16px;padding:18px 16px;width:100%;max-width:420px"><b>Invoice ' + esc(no) + '</b><div class="sb">' + esc(o.pl) + ' · ' + rp(o.tot) + '</div>' +
