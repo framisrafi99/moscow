@@ -508,7 +508,7 @@
     var body = o.items.map(function (x, i) { return [String(i + 1), x.k, x.n, String(x.q), rpPdf(x.h), rpPdf(x.s)]; });
     doc.autoTable({ startY: y, head: [['No', 'Kode', 'Nama barang', 'Qty', 'Harga', 'Jumlah']], body: body, theme: 'grid', margin: { left: L, right: L },
       styles: { fontSize: 8.5, cellPadding: 1.6, textColor: tinta }, headStyles: { fillColor: biru, textColor: 255 },
-      columnStyles: { 0: { halign: 'center', cellWidth: 9 }, 1: { cellWidth: 30 }, 3: { halign: 'right', cellWidth: 12 }, 4: { halign: 'right', cellWidth: 26 }, 5: { halign: 'right', cellWidth: 28 } },
+      columnStyles: { 0: { halign: 'center', cellWidth: 9 }, 1: { cellWidth: 36 }, 3: { halign: 'right', cellWidth: 11 }, 4: { halign: 'right', cellWidth: 26 }, 5: { halign: 'right', cellWidth: 28 } },
       didParseCell: function (h) { if (h.section === 'head' && h.column.index >= 3) h.cell.styles.halign = 'right'; } });
     y = doc.lastAutoTable.finalY + 6;
     var pcs = o.items.reduce(function (s, x) { return s + x.q; }, 0), total = Math.round(o.tot) + ongkir;
