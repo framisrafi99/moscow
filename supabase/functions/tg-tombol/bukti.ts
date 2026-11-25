@@ -978,7 +978,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     const belum = (await sb.rpc('bb_belum_bayar')).data || { p: [], o: [] };
     const r = await baca({ data, mime: b.file_jenis === 'pdf' ? 'application/pdf' : 'image/jpeg', teks: b.caption || '', tglPesan, daftar: items, padanan: await padananUntuk(items), belum });
     const nominal = Math.round(Number(r.nominal) || 0);
-    return { ok: true, nominal, barang: r.barang, sistem: r.sistem, pindah: pindahValid(r.pindah, b.pengirim || ''), rencana: nominal ? rencanaBayar(r, belum, items, nominal) : null,
+    return { ok: true, nominal, sumber: r.sumber, atas_nama: r.atas_nama, dokumen: r.dokumen, ref: r.ref, barang: r.barang, sistem: r.sistem, pindah: pindahValid(r.pindah, b.pengirim || ''), rencana: nominal ? rencanaBayar(r, belum, items, nominal) : null,
       hasil: nominal && items.length ? cocokBarang(r, items, nominal, b.caption || '') : null };
   }
 
