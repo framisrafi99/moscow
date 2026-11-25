@@ -569,7 +569,8 @@
       var tot = Math.round(o.tot) + (Math.round(Number(w.querySelector('#kwOngkir') && w.querySelector('#kwOngkir').value) || 0) || 0);
       var dib = bayar.reduce(function (s, b) { return s + (Number(b.v) || 0); }, 0);
       w.innerHTML = '<div style="background:#fff;border-radius:16px;padding:18px 16px;width:100%;max-width:440px;max-height:92vh;overflow:auto"><b>Kuitansi ' + esc(no) + '</b><div class="sb">' + esc(o.pl) + '</div>' +
-        '<label class="sb" style="display:block;margin-top:10px">Ongkos kirim (boleh 0)<input class="isian" id="kwOngkir" type="number" min="0" inputmode="numeric" value="' + (ongkir || '') + '"></label>' +
+        '<label class="sb" style="display:block;margin-top:10px">Diterima dari (nama di kuitansi)<input class="isian" id="kwNama" value="' + esc(kw.nama || o.pl) + '"></label>' +
+        '<label class="sb" style="display:block;margin-top:8px">Ongkos kirim (boleh 0)<input class="isian" id="kwOngkir" type="number" min="0" inputmode="numeric" value="' + (ongkir || '') + '"></label>' +
         '<div class="sb" style="margin-top:8px">Total tagihan <b id="kwTot">' + rp(Math.round(o.tot) + ongkir) + '</b> · sudah dibayar <b id="kwDib">' + rp(dib) + '</b></div>' +
         bayar.map(baris).join('') +
         '<button type="button" class="tbl" id="kwTambah" style="margin-top:8px">+ Tambah pembayaran</button>' +
@@ -582,15 +583,15 @@
       w.querySelector('#kwOngkir').oninput = function () { ongkir = Math.round(Number(this.value) || 0); w.querySelector('#kwTot').textContent = rp(Math.round(o.tot) + ongkir); };
       w.querySelector('#kwBuat').onclick = buat;
     }
-    function simpanIsian() { bayar = ambil(); kw.pengirim = w.querySelector('#kwPengirim').value.trim(); kw.via = w.querySelector('#kwVia').value.trim(); ongkir = Math.round(Number(w.querySelector('#kwOngkir').value) || 0); }
+    function simpanIsian() { bayar = ambil(); kw.nama = w.querySelector('#kwNama').value.trim(); kw.pengirim = w.querySelector('#kwPengirim').value.trim(); kw.via = w.querySelector('#kwVia').value.trim(); ongkir = Math.round(Number(w.querySelector('#kwOngkir').value) || 0); }
     async function buat() {
       var b = this; simpanIsian();
-      var data = { bayar: bayar, pengirim: kw.pengirim, via: kw.via, ongkir: ongkir };
+      var data = { bayar: bayar, nama: kw.nama && kw.nama !== o.pl ? kw.nama : '', pengirim: kw.pengirim, via: kw.via, ongkir: ongkir };
       b.disabled = true; b.textContent = 'Menyimpan…';
       var r; try { r = await sb.rpc('order_kuitansi_simpan', { p_no: no, p_data: data }); } catch (e) { r = { error: e }; }
       if (r.error || !(r.data && r.data.ok)) { b.disabled = false; b.textContent = 'Simpan & buat PDF kuitansi'; alertMsg((r.data && r.data.pesan) || (r.error && r.error.message) || 'Gagal menyimpan.', false); return; }
       b.textContent = 'Menyiapkan PDF…';
-      try { var doc = await pdfKuitansi(o, data, st); w.remove(); tampilPdfMd(doc, 'Kuitansi ' + o.no.replace(/^RO-/, 'KW-') + ' ' + o.pl + '.pdf'); }
+      try { var doc = await pdfKuitansi(o, data, st); w.remove(); tampilPdfMd(doc, 'Kuitansi ' + o.no.replace(/^RO-/, 'KW-') + ' ' + (data.nama || o.pl) + '.pdf'); }
       catch (e) { b.disabled = false; b.textContent = 'Simpan & buat PDF kuitansi'; alertMsg('PDF gagal dibuat: ' + (e.message || e), false); }
     }
     w.onclick = function (e) { if (e.target === w) w.remove(); };
@@ -631,7 +632,7 @@
     doc.setDrawColor.apply(doc, tosca); doc.setLineWidth(0.7); doc.line(L, 37, R, 37);
     y = 45;
     var pcs = o.items.reduce(function (s, x) { return s + x.q; }, 0);
-    var rows = [['Telah terima dari', o.pl, true], ['Untuk pembayaran', 'Pembelian barang order ' + o.no + ' (' + tglId(o.t) + ')'],
+    var rows = [['Telah terima dari', d.nama || o.pl, true], ['Untuk pembayaran', 'Pembelian barang order ' + o.no + ' (' + tglId(o.t) + ')'],
       ['', o.items.length + ' jenis barang, ' + fmt(pcs) + ' pcs · subtotal ' + rpPdf(o.sub) + (o.disk ? ' · diskon' + (o.d ? ' ' + o.d + '%' : '') + ' ' + rpPdf(o.disk) : '') + (ongkir ? ' · ongkir ' + rpPdf(ongkir) : '')],
       ['Diterima melalui', (d.via || 'Transfer bank') + (st.rek ? ' ke ' + st.rek : '')]];
     bayar.forEach(function (b, i) { rows.push([i ? '' : 'Rincian bayar', tglId(b.t) + '  ' + rpPdf(b.v) + (b.k ? '  (' + b.k + ')' : '')]); });
@@ -649,7 +650,7 @@
     if (!lunas) { doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor.apply(doc, abu); doc.text('dari total ' + rpPdf(total) + ' · sisa ' + rpPdf(total - dibayar), L, y + 10.5); }
     doc.setDrawColor(lunas ? 30 : 200, lunas ? 142 : 120, lunas ? 62 : 0); doc.setTextColor(lunas ? 30 : 200, lunas ? 142 : 120, lunas ? 62 : 0); doc.setLineWidth(0.5);
     doc.roundedRect(L + 72, y - 5, lunas ? 24 : 32, 9, 1.5, 1.5); doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text(lunas ? 'LUNAS' : 'SEBAGIAN', L + 74.5, y + 1.6);
-    var qr = await qrDataUrl('MOSCOW SUPPLIES | KUITANSI ' + noKw + ' | ORDER ' + o.no + ' | INVOICE ' + noInv + ' | ' + o.pl + ' | DIBAYAR ' + rpPdf(dibayar) + ' DARI ' + rpPdf(total) + ' | ' + (lunas ? 'LUNAS' : 'BELUM LUNAS') + ' ' + tglKw +
+    var qr = await qrDataUrl('MOSCOW SUPPLIES | KUITANSI ' + noKw + ' | ORDER ' + o.no + ' | INVOICE ' + noInv + ' | ' + (d.nama || o.pl) + ' | DIBAYAR ' + rpPdf(dibayar) + ' DARI ' + rpPdf(total) + ' | ' + (lunas ? 'LUNAS' : 'BELUM LUNAS') + ' ' + tglKw +
       (bayar.length ? ' | ' + bayar.map(function (b) { return b.t + ' ' + b.v + (b.k ? ' ' + b.k : ''); }).join('; ') : ''));
     doc.addImage(qr, 'PNG', L + 106, y - 9, 22, 22);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(6); doc.setTextColor.apply(doc, abu); doc.text('Pindai: data pembayaran', L + 117, y + 15.5, { align: 'center' });
