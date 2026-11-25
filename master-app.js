@@ -452,6 +452,104 @@
     else el.innerHTML = isiPinjam();
     el.querySelectorAll('[data-tk]').forEach(function (b) { b.onclick = function () { J.toko = b.getAttribute('data-tk'); gambarJualIsi(); }; });
     el.querySelectorAll('[data-ord]').forEach(function (b) { b.onclick = function () { ubahStatus(b.getAttribute('data-ord'), b); }; });
+    el.querySelectorAll('[data-inv]').forEach(function (b) { b.onclick = function () { bukaInvoiceOrder(b.getAttribute('data-inv')); }; });
+  }
+
+  // 25 Nov 2026: invoice order reseller langsung dari Master Data baru (dulu lewat menu Order Master Data lama).
+  async function bukaInvoiceOrder(no) {
+    var o = (J.orderRes || []).filter(function (x) { return x.no === no; })[0]; if (!o) return;
+    var ongkir = 0;
+    try {
+      var r = await sb.from('order_proses').select('ongkir,aksi').eq('no_order', no);
+      (r.data || []).forEach(function (x) { if (x.aksi === 'Dikirim') ongkir += Number(x.ongkir) || 0; });
+    } catch (e) { }
+    var ingat = {}; try { ingat = JSON.parse(localStorage.getItem('invoiceOrderIsian') || '{}'); } catch (e) { }
+    var w = document.createElement('div'); w.id = 'lembarPdfMd';
+    w.setAttribute('style', 'position:fixed;inset:0;background:rgba(11,35,64,.45);z-index:80;display:flex;align-items:center;justify-content:center;padding:16px');
+    w.innerHTML = '<div style="background:#fff;border-radius:16px;padding:18px 16px;width:100%;max-width:420px"><b>Invoice ' + esc(no) + '</b><div class="sb">' + esc(o.pl) + ' · ' + rp(o.tot) + '</div>' +
+      '<label class="sb" style="display:block;margin-top:12px">Ongkos kirim (boleh 0)<input class="isian" type="number" min="0" inputmode="numeric" id="ivOngkir" value="' + (ongkir || '') + '"></label>' +
+      '<label class="sb" style="display:block;margin-top:8px">Pembayaran ke (bank, no. rekening, atas nama)<textarea class="isian" id="ivRek" rows="2">' + esc(ingat.rek || '') + '</textarea></label>' +
+      '<label class="sb" style="display:block;margin-top:8px">Catatan di invoice (boleh kosong)<input class="isian" id="ivCat" value="' + esc(o.c || '') + '"></label>' +
+      '<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px"><button type="button" class="tbl pri" id="ivBuat">Buat PDF invoice</button><button type="button" class="tbl" id="ivTutup">Tutup</button></div></div>';
+    document.body.appendChild(w);
+    w.onclick = function (e) { if (e.target === w) w.remove(); };
+    $('ivTutup').onclick = function () { w.remove(); };
+    $('ivBuat').onclick = async function () {
+      var b = this, ok = Math.max(0, Math.round(Number($('ivOngkir').value) || 0)), rek = $('ivRek').value.trim(), cat = $('ivCat').value.trim();
+      try { localStorage.setItem('invoiceOrderIsian', JSON.stringify({ rek: rek })); } catch (e) { }
+      b.disabled = true; b.textContent = 'Menyiapkan PDF…';
+      try { var doc = await pdfInvoiceOrder(o, ok, rek, cat); w.remove(); tampilPdfMd(doc, 'Invoice ' + o.no + ' ' + o.pl + '.pdf'); }
+      catch (e) { b.disabled = false; b.textContent = 'Buat PDF invoice'; alertMsg('PDF gagal dibuat: ' + (e.message || e), false); }
+    };
+  }
+  async function pdfInvoiceOrder(o, ongkir, rek, cat) {
+    var JsPDF = await siapPdfMd(), logo = await logoPdfMd();
+    var doc = new JsPDF({ unit: 'mm', format: 'a4' }), L = 14, W = 182, y;
+    var biru = [11, 35, 64], abu = [100, 110, 125], tosca = [18, 190, 230], tinta = [30, 36, 48];
+    var tglId = function (iso) { var p = String(iso || '').split('-'); return p.length === 3 ? Number(p[2]) + ' ' + BLN[Number(p[1]) - 1] + ' ' + p[0] : iso; };
+    var kini = new Date(Date.now() + 8 * 3600e3), tgl = kini.getUTCDate() + ' ' + BLN[kini.getUTCMonth()] + ' ' + kini.getUTCFullYear();
+    var noInv = 'INV-' + o.no.replace(/^RO-/, '');
+    if (logo) doc.addImage(logo.data, 'PNG', L, 10, 46, 46 * logo.h / logo.w);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor.apply(doc, abu);
+    doc.text('PT. Toentoenan Langkah Elohim', L, 32.5); doc.text('Jl. Raya Kerobokan No. 8, Kuta Utara, Badung, Bali', L, 36);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor.apply(doc, biru);
+    doc.text('INVOICE', L + W, 17, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor.apply(doc, tinta);
+    doc.text('No. ' + noInv, L + W, 24, { align: 'right' });
+    doc.text('Order ' + o.no + ' · ' + tglId(o.t), L + W, 28.5, { align: 'right' });
+    doc.setFontSize(8); doc.setTextColor.apply(doc, abu); doc.text('Tanggal invoice ' + tgl, L + W, 33, { align: 'right' });
+    doc.setDrawColor.apply(doc, tosca); doc.setLineWidth(0.8); doc.line(L, 40, L + W, 40);
+    y = 47; doc.setFontSize(8); doc.text('KEPADA', L, y); doc.text('STATUS ORDER', L + W / 2 + 6, y);
+    y += 5.5; doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor.apply(doc, tinta);
+    doc.text(o.pl, L, y); doc.text(o.st, L + W / 2 + 6, y);
+    y += 5; doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor.apply(doc, abu);
+    doc.text((o.tp || 'Reseller') + (o.tp === 'Reseller' ? ' (beli putus)' : ''), L, y);
+    y += 7;
+    var body = o.items.map(function (x, i) { return [String(i + 1), x.k, x.n, String(x.q), rpPdf(x.h), rpPdf(x.s)]; });
+    doc.autoTable({ startY: y, head: [['No', 'Kode', 'Nama barang', 'Qty', 'Harga', 'Jumlah']], body: body, theme: 'grid', margin: { left: L, right: L },
+      styles: { fontSize: 8.5, cellPadding: 1.6, textColor: tinta }, headStyles: { fillColor: biru, textColor: 255 },
+      columnStyles: { 0: { halign: 'center', cellWidth: 9 }, 1: { cellWidth: 30 }, 3: { halign: 'right', cellWidth: 12 }, 4: { halign: 'right', cellWidth: 26 }, 5: { halign: 'right', cellWidth: 28 } },
+      didParseCell: function (h) { if (h.section === 'head' && h.column.index >= 3) h.cell.styles.halign = 'right'; } });
+    y = doc.lastAutoTable.finalY + 6;
+    var pcs = o.items.reduce(function (s, x) { return s + x.q; }, 0), total = Math.round(o.tot) + ongkir;
+    if (y > 240) { doc.addPage(); y = 20; }
+    var baris = [['Jumlah barang', fmt(pcs) + ' pcs'], ['Subtotal', rpPdf(o.sub)]];
+    if (o.disk) baris.push(['Diskon' + (o.d ? ' ' + o.d + '%' : ''), '-' + rpPdf(o.disk)]);
+    if (ongkir) baris.push(['Ongkos kirim', rpPdf(ongkir)]);
+    doc.setFontSize(9.5); doc.setTextColor.apply(doc, tinta);
+    baris.forEach(function (b) { doc.text(b[0], L + W - 70, y); doc.text(b[1], L + W, y, { align: 'right' }); y += 5.5; });
+    y += 1; doc.setFillColor(11, 35, 64); doc.rect(L + W - 80, y - 4, 80, 11, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text('TOTAL', L + W - 76, y + 3.2);
+    doc.setFontSize(13); doc.text(rpPdf(total), L + W - 3, y + 3.5, { align: 'right' });
+    y += 14; doc.setTextColor.apply(doc, tinta); doc.setFont('helvetica', 'italic'); doc.setFontSize(9);
+    var tb = terbilang(total); tb = tb ? tb.charAt(0).toUpperCase() + tb.slice(1) + ' rupiah' : 'Nol rupiah';
+    var tl = doc.splitTextToSize('Terbilang: ' + tb, W); doc.text(tl, L, y); y += tl.length * 4.5 + 3;
+    doc.setFont('helvetica', 'normal');
+    if (cat) { var cl = doc.splitTextToSize('Catatan: ' + cat, W); doc.text(cl, L, y); y += cl.length * 4.5 + 3; }
+    if (rek) { doc.setFont('helvetica', 'bold'); doc.text('Pembayaran ke:', L, y); doc.setFont('helvetica', 'normal'); var rl = doc.splitTextToSize(rek, W - 30); doc.text(rl, L + 28, y); y += rl.length * 4.5 + 3; }
+    if (y > 250) { doc.addPage(); y = 20; }
+    y = Math.max(y + 8, 245);
+    doc.setFontSize(9); doc.setTextColor.apply(doc, tinta); doc.text('Hormat kami,', L + W - 30, y, { align: 'center' });
+    doc.setDrawColor(150, 160, 170); doc.setLineWidth(0.3); doc.line(L + W - 60, y + 20, L + W, y + 20);
+    doc.setFont('helvetica', 'bold'); doc.text('Manajemen Moscow Supplies', L + W - 30, y + 25, { align: 'center' });
+    var hal = doc.getNumberOfPages();
+    for (var i = 1; i <= hal; i++) { doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor.apply(doc, abu); doc.text('Moscow Supplies · ' + noInv + ' · halaman ' + i + '/' + hal, L, 289); }
+    return doc;
+  }
+  function tampilPdfMd(doc, berkas) {
+    var blob = doc.output('blob'), file = null; try { file = new File([blob], berkas, { type: 'application/pdf' }); } catch (e) { file = null; }
+    var url = URL.createObjectURL(blob), w = document.createElement('div'); w.id = 'lembarPdfMd';
+    w.setAttribute('style', 'position:fixed;inset:0;background:rgba(11,35,64,.45);z-index:80;display:flex;align-items:center;justify-content:center;padding:16px');
+    w.innerHTML = '<div style="background:#fff;border-radius:16px;padding:18px 16px;width:100%;max-width:420px"><b>' + esc(berkas) + '</b><div class="aksi" style="display:flex;flex-direction:column;gap:8px;margin-top:14px"></div></div>';
+    var aksi = w.querySelector('.aksi');
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      var bg = document.createElement('button'); bg.type = 'button'; bg.className = 'tbl pri'; bg.textContent = 'Simpan / bagikan PDF';
+      bg.onclick = function () { navigator.share({ files: [file], title: berkas }).catch(function () { }); }; aksi.appendChild(bg);
+    }
+    var a = document.createElement('a'); a.className = 'tbl'; a.href = url; a.download = berkas; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Buka / unduh PDF'; aksi.appendChild(a);
+    var t = document.createElement('button'); t.type = 'button'; t.className = 'tbl'; t.textContent = 'Tutup'; t.onclick = function () { w.remove(); }; aksi.appendChild(t);
+    w.onclick = function (e) { if (e.target === w) w.remove(); };
+    document.body.appendChild(w);
   }
   function rentang() { return esc(J.dari.split('-').reverse().join('/')) + ' – ' + esc(J.sampai.split('-').reverse().join('/')); }
 
@@ -513,14 +611,14 @@
         (o.c ? '<div class="sb">Catatan: ' + esc(o.c) + '</div>' : '') +
         '<details><summary class="sb" style="cursor:pointer">Rincian ' + o.items.length + ' barang</summary><table class="tabel"><tbody>' + o.items.map(function (x) {
           return '<tr><td>' + esc(x.n) + '<small>' + esc(x.k) + '</small></td><td class="r angka">' + fmt(x.q) + ' × ' + rp(x.h) + '<small>' + rp(x.s) + '</small></td></tr>'; }).join('') + '</tbody></table></details>' +
-        (a && a.status === 'menunggu' ? catatanA : catatanA + '<div class="aksi-baris"><select class="st-order" data-st="' + esc(o.no) + '">' + STATUS.map(function (x) { return '<option' + (x === st ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select><button type="button" class="tbl pri" data-ord="' + esc(o.no) + '">Simpan status</button></div>') +
+        (a && a.status === 'menunggu' ? catatanA : catatanA + '<div class="aksi-baris"><select class="st-order" data-st="' + esc(o.no) + '">' + STATUS.map(function (x) { return '<option' + (x === st ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select><button type="button" class="tbl pri" data-ord="' + esc(o.no) + '">Simpan status</button><button type="button" class="tbl" data-inv="' + esc(o.no) + '">Cetak invoice</button></div>') +
         '</div>';
     }
     h += '<div class="cd" style="background:#F7F9FB"><div class="kpl"><h3>Perlu ditindak</h3><span class="sb">' + berjalan.length + ' order Menunggu / Disetujui / Dikirim</span></div></div>';
     h += berjalan.length ? berjalan.map(kartu).join('') : '<div class="cd"><div class="aman">Tidak ada order reseller yang berjalan.</div></div>';
     h += '<div class="cd" style="background:#F7F9FB"><div class="kpl"><h3>Selesai / batal</h3><span class="sb">' + rentang() + '</span></div></div>';
     h += lain.length ? lain.map(kartu).join('') : '<div class="cd"><div class="ksg">Tidak ada order lain pada periode ini.</div></div>';
-    return h + '<p class="sb">Cetak invoice dan ceklis packing masih lewat menu Order di Master Data lama.</p>';
+    return h + '<p class="sb">Ceklis packing masih lewat menu Order di Master Data lama.</p>';
   }
   async function ubahStatus(no, b) {
     var sel = $('jIsi').querySelector('[data-st="' + no + '"]'); if (!sel) return;
