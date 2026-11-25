@@ -24,11 +24,12 @@
 
   // ----- masuk (bingkai bersama) -----
   Moscow.mulai({
-    aplikasi: 'KASIR TOKO OFFLINE', masukJudul: 'Kasir toko offline', masukTeks: 'Catat penjualan dan cetak struk. Masuk memakai akun Google yang sudah didaftarkan.',
+    aplikasi: 'KASIR TOKO', masukJudul: 'Kasir toko', masukTeks: 'Catat penjualan dan cetak struk. Masuk memakai akun Google yang sudah didaftarkan.',
     izin: async function (ctx) {
-      var r = await sb.rpc('kasir_toko_saya', { minta: null });
+      var minta = null; try { minta = new URLSearchParams(location.search).get('toko'); } catch (e) { }
+      var r = await sb.rpc('kasir_toko_saya', { minta: minta });
       if (r.error) return 'Tidak bisa memeriksa akses: ' + r.error.message;
-      if (!r.data) return 'Akun ' + ctx.email + ' tidak punya akses kasir toko offline.';
+      if (!r.data) return 'Akun ' + ctx.email + ' tidak punya akses kasir.';
       D.toko = r.data; return true;
     },
     menu: [{ k: 'kasir', nm: 'Kasir', judul: 'Nota baru' }, { k: 'nota', nm: 'Nota per hari' }, { k: 'atur', nm: 'Pengaturan nota', ik: 'atur' }],
@@ -37,7 +38,15 @@
       document.querySelector('#mHead .ey').textContent = 'KASIR · ' + D.toko.toUpperCase();
       if (ctx.peran === 'manajemen') {
         var nav = document.querySelector('#mSide nav');
-        if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + Moscow.svg('beranda') + '<span class="nm">Master Data</span></a>');
+        if (nav) nav.insertAdjacentHTML('beforeend', '<div class="grp">KASIR TOKO</div>' +
+          [['Toko Offline', 'kasir.html'], ['Consignment Renon', 'kasir.html?toko=' + encodeURIComponent('Consignment Renon')]].map(function (x) {
+            return '<a class="it' + (x[0] === D.toko ? ' on' : '') + '" href="' + x[1] + '">' + Moscow.svg('kasir') + '<span class="nm">' + x[0] + '</span></a>';
+          }).join('') +
+          '<div class="grp">APLIKASI LAIN</div><a class="it" href="master.html">' + Moscow.svg('beranda') + '<span class="nm">Master Data</span></a>');
+      } else if (ctx.peran === 'toko' && !/offline/i.test(D.toko)) {
+        // 25 Nov 2026: Renon membuka kasir dari form toko consignment -> jalan kembali ke form toko.
+        var nv = document.querySelector('#mSide nav');
+        if (nv) nv.insertAdjacentHTML('beforeend', '<div class="grp">APLIKASI LAIN</div><a class="it" href="consignment.html">' + Moscow.svg('toko') + '<span class="nm">Form toko</span></a>');
       }
       mulai();
     }
@@ -485,7 +494,7 @@
       items.push({ k: b.k, n: b.n, w: b.w.length ? b.w[0] : '', q: q, h: b.h, d: d, tot: tot }); bruto += q * b.h; total += tot;
     }
     var akhir = total + 10000;
-    return { no: 'TO-CONTOH', t: hariIni(), jam: '10:30', kasir: st.kasir || 'Nama kasir', pembeli: 'Nama pembeli', metode: 'Tunai', items: items,
+    return { no: (D.toko === 'Consignment Renon' ? 'RN' : 'TO') + '-CONTOH', t: hariIni(), jam: '10:30', kasir: st.kasir || 'Nama kasir', pembeli: 'Nama pembeli', metode: 'Tunai', items: items,
       bruto: bruto, diskon: bruto - total, total: total, ongkir: 10000, bayar: Math.ceil(akhir / 50000) * 50000 };
   }
   function tampilContoh() { if ($('ksSetPrevC').hidden) return; $('ksSetPrev').className = kelasStruk(); $('ksSetPrev').innerHTML = strukHtml(contohNota()); }

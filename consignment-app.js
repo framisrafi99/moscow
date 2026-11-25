@@ -604,24 +604,30 @@
       m.hidden = true; fr.hidden = false;
       var dok = fr.contentDocument;
       // Pengingat lapor penjualan harian + notifikasi HP (7 Nov 2026).
-      if (window.TokoLapor && C.toko) window.TokoLapor.pasang({ sb: sb, toko: function () { return C.toko; }, nama: function () { return C.nama; }, isi: function () { M.buka('jual'); }, ubah: function () { setTimeout(ukur, 0); } });
+      if (window.TokoLapor && C.toko) window.TokoLapor.pasang({ sb: sb, toko: function () { return C.toko; }, nama: function () { return C.nama; }, isi: function () { if (C.toko === 'Consignment Renon') location.href = 'kasir.html'; else M.buka('jual'); }, ubah: function () { setTimeout(ukur, 0); } });
       // Barang titipan hanya ada di Medan.
       var adaTitip = !!(dok && dok.getElementById('tabTtp'));
       document.querySelectorAll('[data-k="titip"]').forEach(function (x) { x.hidden = !adaTitip; });
       // Kasir, pinjaman, dan penyesuaian hanya ada di Toko Offline.
       var offline = !!(dok && dok.getElementById('ksNavO'));
-      document.querySelectorAll('[data-k="pinjam"],[data-k="sesuai"],[data-k="kas"],a[href="kasir.html"]').forEach(function (x) { x.hidden = !offline; });
+      document.querySelectorAll('[data-k="pinjam"],[data-k="sesuai"],[data-k="kas"]').forEach(function (x) { x.hidden = !offline; });
+      // 25 Nov 2026: Renon memakai Kasir (Tunai / QRIS) sebagai pengganti report penjualan harian manual.
+      var renon = C.toko === 'Consignment Renon', adaKasir = offline || renon;
+      document.querySelectorAll('a[href="kasir.html"]').forEach(function (x) { x.hidden = !adaKasir; });
+      document.querySelectorAll('#mSide [data-k="jual"]').forEach(function (x) { x.hidden = renon; });
+      kasirBawah(renon);
       // Bukti transfer setoran hanya untuk toko consignment (bukan Toko Offline).
       document.querySelectorAll('[data-k="setoran"]').forEach(function (x) { x.hidden = offline || C.adaSetoran === false; });
       // Menu yang tidak ada di toko ini juga dibuang dari lembar "Menu" (HP).
       for (var i = MENU.length - 1; i >= 0; i--) {
         var mk = MENU[i].k;
-        if ((mk === 'titip' && !adaTitip) || ((mk === 'pinjam' || mk === 'sesuai' || mk === 'kasir' || mk === 'kas') && !offline) || (mk === 'setoran' && (offline || C.adaSetoran === false))) MENU.splice(i, 1);
+        if ((mk === 'titip' && !adaTitip) || ((mk === 'pinjam' || mk === 'sesuai' || mk === 'kas') && !offline) || (mk === 'kasir' && !adaKasir) || (mk === 'jual' && renon) || (mk === 'setoran' && (offline || C.adaSetoran === false))) MENU.splice(i, 1);
       }
       // Nama pengisi otomatis dari akun yang masuk.
       var nm = dok && dok.getElementById('nama');
       if (nm && !nm.value && C.nama) { nm.value = C.nama; nm.dispatchEvent(new Event('input', { bubbles: true })); }
-      if (C.aktif === 'kas' && !offline) { C.aktif = 'jual'; M.buka('jual', true); }
+      if (C.aktif === 'kas' && !offline) { C.aktif = renon ? 'dasbor' : 'jual'; M.buka(C.aktif, true); }
+      if (C.aktif === 'jual' && renon) { C.aktif = 'dasbor'; M.buka('dasbor', true); }
       if (C.aktif === 'koreksi' || C.aktif === 'setoran' || C.aktif === 'kas') document.documentElement.classList.remove('berbingkai');
       if (C.aktif === 'kas') { window.TokoKas.buka($('kkIsi'), sb, C.toko); return; }
       if (C.aktif === 'koreksi') { window.KoreksiJual.bukaToko($('kjIsi'), C.toko, C.nama); return; }
@@ -630,6 +636,19 @@
       if (C.aktif === 'riwayat') tekan('riwayat');
     };
     fr.srcdoc = html;
+  }
+
+  // Menu bawah (HP): untuk Renon tombol "Jual" diganti tombol Kasir (membuka kasir.html).
+  function kasirBawah(renon) {
+    var b = document.querySelector('#mBawah button[data-k="jual"], #mBawah button[data-kasir]'); if (!b) return;
+    if (!b.hasAttribute('data-asli')) b.setAttribute('data-asli', b.innerHTML);
+    if (renon) {
+      b.setAttribute('data-kasir', '1'); b.setAttribute('data-k', 'kasirB');
+      b.innerHTML = M.svg('kasir', 22) + '<span>Kasir</span>';
+      if (!b._kasir) { b._kasir = true; b.addEventListener('click', function (e) { if (b.getAttribute('data-kasir')) { e.stopPropagation(); location.href = 'kasir.html'; } }); }
+    } else if (b.getAttribute('data-kasir')) {
+      b.removeAttribute('data-kasir'); b.setAttribute('data-k', 'jual'); b.innerHTML = b.getAttribute('data-asli');
+    }
   }
 
   function pilihToko() {
