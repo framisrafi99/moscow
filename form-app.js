@@ -182,7 +182,7 @@
     'if(p==="withSuccessHandler")return function(fn){return buat(fn,f,u);};' +
     'if(p==="withFailureHandler")return function(fn){return buat(s,fn,u);};' +
     'if(p==="withUserObject")return function(o){return buat(s,f,o);};' +
-    'return function(){var a=JSON.parse(JSON.stringify([].slice.call(arguments)));window.parent.__formPanggil(p,a).then(function(t){if(s)s(JSON.parse(t),u);},function(e){if(f)f(new Error(String(e&&e.message||e)),u);else console.error(e);});};' +
+    'return function(){var a=JSON.parse(JSON.stringify([].slice.call(arguments)));try{window.parent.__formTombol=document.activeElement;}catch(e){}window.parent.__formPanggil(p,a).then(function(t){if(s)s(JSON.parse(t),u);},function(e){if(f)f(new Error(String(e&&e.message||e)),u);else console.error(e);});};' +
     '}});}' +
     'window.google={script:{run:buat(null,null,undefined),host:{close:function(){}},url:{getLocation:function(cb){cb({parameter:{},hash:""});}}}};' +
     '})();<\/script>';
@@ -954,7 +954,16 @@
     return JSON.stringify(hasil);
   }
 
-  window.__formPanggil = function (f, a) {
+  // 26 Nov 2026: pengaman klik ganda untuk SEMUA fungsi simpan form staf.
+  // 1) Simpan yang isinya sama dan masih berjalan tidak dikirim lagi (memakai hasil yang sama).
+  // 2) Simpan yang isinya sama dan baru berhasil < 60 detik lalu tidak dikirim lagi.
+  // 3) Tombol yang diklik dinonaktifkan selama proses. Token per klik diabaikan saat membandingkan isi.
+  var SIMPAN_JALAN = {}, SIMPAN_BARU = {};
+  function adalahTulis(f) { return !!((TULIS_SUPABASE[APP] && TULIS_SUPABASE[APP][f]) || TULIS_RE.test(f)); }
+  function kunciSimpan(f, a) {
+    return APP + '|' + f + '|' + JSON.stringify(a || [], function (k, v) { return /^token$/i.test(k) ? undefined : v; });
+  }
+  var panggilAsli = function (f, a) {
     // Tiket akses perangkat (file 48) hanya berlaku dengan tanda perangkat link lama; di aplikasi selalu { ok: false } (sama dengan Apps Script).
     if ((APP === 'mdlama' || APP === 'akunting') && f === 'aksesTiket' && !(a && a[0] && a[0].dev)) return Promise.resolve(JSON.stringify({ ok: false }));
     if (TULIS_SUPABASE[APP] && TULIS_SUPABASE[APP][f]) return tulisSupabase(f, a);
@@ -962,6 +971,25 @@
       if (r) return JSON.stringify(r);
       return kirimLama(f, a);
     });
+  };
+  window.__formPanggil = function (f, a) {
+    var bt = window.__formTombol; window.__formTombol = null;
+    if (!adalahTulis(f)) return panggilAsli(f, a);
+    var k = kunciSimpan(f, a), kini = Date.now();
+    if (SIMPAN_JALAN[k]) return SIMPAN_JALAN[k];
+    var lalu = SIMPAN_BARU[k];
+    if (lalu && kini - lalu.w < 60000) return Promise.resolve(lalu.t);
+    var kunciBt = bt && /^(BUTTON|INPUT)$/.test(bt.tagName) && !bt.disabled ? bt : null;
+    if (kunciBt) kunciBt.disabled = true;
+    var jalan = Promise.resolve().then(function () { return panggilAsli(f, a); }).then(function (t) {
+      var d = null; try { d = JSON.parse(t); } catch (e) { }
+      if (!(d && d.ok === false)) SIMPAN_BARU[k] = { w: Date.now(), t: t };
+      return t;
+    });
+    SIMPAN_JALAN[k] = jalan;
+    jalan.then(selesai, selesai);
+    function selesai() { delete SIMPAN_JALAN[k]; if (kunciBt) kunciBt.disabled = false; }
+    return jalan;
   };
   function kirimLama(f, a) {
     return kirim(f, a).then(function (d) {

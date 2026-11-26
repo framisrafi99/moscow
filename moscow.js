@@ -23,6 +23,28 @@
 
   var root = document.documentElement, O = null, S = { aktif: '', badge: {} };
   var sb = window.supabase.createClient(URL_SB, KUNCI_SB, { auth: { persistSession: true, detectSessionInUrl: true, flowType: 'pkce' } });
+  // 26 Nov 2026: pengaman klik ganda untuk semua aplikasi. Panggilan RPC yang isinya persis sama:
+  // - selagi masih berjalan -> tidak dikirim lagi, memakai hasil yang sama;
+  // - fungsi simpan yang baru berhasil < 60 detik lalu -> tidak dikirim lagi (hasil sebelumnya dipakai).
+  (function () {
+    var asli = sb.rpc.bind(sb), jalan = {}, baru = {};
+    var TULIS = /(simpan|catat|terima|kirim|bayar|ajukan|ajuan|beli|sampai|tandai|putus|sesuai|batal|tambah|ubah|proses|setuju|terapkan|tempel|opname)/i;
+    sb.rpc = function (nm, arg, opsi) {
+      if (opsi) return asli(nm, arg, opsi);
+      var k; try { k = nm + '|' + JSON.stringify(arg || {}); } catch (e) { return asli(nm, arg); }
+      if (jalan[k]) return jalan[k];
+      var tulis = TULIS.test(nm), lalu = baru[k];
+      if (tulis && lalu && Date.now() - lalu.w < 60000) return Promise.resolve(lalu.r);
+      var p = Promise.resolve(asli(nm, arg)).then(function (r) {
+        delete jalan[k];
+        var d = r && r.data;
+        if (tulis && r && !r.error && !(d && typeof d === 'object' && d.ok === false)) baru[k] = { w: Date.now(), r: r };
+        return r;
+      }, function (e) { delete jalan[k]; throw e; });
+      jalan[k] = p;
+      return p;
+    };
+  })();
   function $(i) { return document.getElementById(i); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function svg(k, w) { return '<svg width="' + (w || 20) + '" height="' + (w || 20) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (IK[k] || IK.lain) + '"></path></svg>'; }
