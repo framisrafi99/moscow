@@ -2372,6 +2372,15 @@
     var bisaBatal = ['Batal', 'Ditolak'].indexOf(o.st) === -1 && !o.items.some(function (it) { return it.d > 0; });
     ak += '<div class="aksi-baris" style="margin-top:8px">' + (perlu ? '' : '<button type="button" class="tbl" data-po-a="detail">' + (buka ? 'Tutup rincian' : 'Rincian') + '</button>') +
       (bisaBatal ? '<button type="button" class="tbl" data-po-a="batal">Batalkan PO</button>' : '') + '</div>';
+    // 26 Nov 2026: PO yang datang sebagian dan sisanya tidak akan datang -> Tutup sisa (PO Selesai, pengajuan terkait ikut beres).
+    if (o.st === 'Diterima sebagian') {
+      ak += '<div class="aksi-baris" style="margin-top:8px"><button type="button" class="tbl" data-po-a="tutup">Tutup sisa (' + fmt(o.sisa || 0) + ' pcs tidak datang)</button></div>';
+      if (P.buka['tutup:' + o.no]) ak += '<div class="mini" style="background:#FFF8EC;padding:10px;border-radius:12px"><label>Alasan sisa tidak datang<select class="isian" data-f="tutupAl">' +
+        ['', 'Supplier tidak punya stok', 'Barang datang lewat PO lain', 'Uang dikembalikan supplier', 'Pesanan dibatalkan ke supplier', 'Lainnya'].map(function (x) { return '<option value="' + esc(x) + '">' + (x || 'Pilih alasan…') + '</option>'; }).join('') +
+        '</select></label><label>Keterangan (wajib bila Lainnya)<input class="isian" data-f="tutupKet" maxlength="150"></label>' +
+        '<div class="sb">Pengajuan barang yang sudah datang sebagian / lewat PO lain otomatis ditandai diterima; yang belum datang sama sekali dibatalkan. Semua tercatat di riwayat PO.</div>' +
+        '<div class="aksi-baris" style="align-self:end"><button type="button" class="tbl pri" data-po-a="tutupYa">Ya, tutup sisa PO ini</button></div></div>';
+    }
     if (bisaBatal && P.buka['batal:' + o.no]) ak += '<div class="mini" style="background:#FDF3F2;padding:10px;border-radius:12px"><label>Alasan pembatalan<input class="isian" data-f="alasan" maxlength="200"></label>' +
       (o.wb || (o.biaya || []).some(function (b) { return b.tr; }) ? '<label class="cek"><input type="checkbox" data-f="batalUang" checked> Batalkan juga uang keluarnya di accounting</label>' : '') +
       '<div class="aksi-baris" style="align-self:end"><button type="button" class="tbl pri" data-po-a="batalYa">Ya, batalkan PO ini</button></div></div>';
@@ -2631,6 +2640,20 @@
     var pesanP = function (t, ok) { $('msgPurch').innerHTML = '<div class="msg ' + (ok ? 'ok' : 'bad') + '">' + esc(t) + '</div>'; window.scrollTo(0, 0); };
     if (a === 'detail') { P.buka[no] = !P.buka[no]; gambarPurch(); return; }
     if (a === 'batal') { P.buka['batal:' + no] = !P.buka['batal:' + no]; gambarPurch(); return; }
+    if (a === 'tutup') { P.buka['tutup:' + no] = !P.buka['tutup:' + no]; gambarPurch(); return; }
+    if (a === 'tutupYa') {
+      var alT = nilai('tutupAl'), ketT = nilai('tutupKet');
+      if (!alT) { pesanP('Pilih alasan sisa ' + no + ' tidak datang.'); return; }
+      if (alT === 'Lainnya' && ketT.length < 3) { pesanP('Tulis keterangan alasan menutup sisa ' + no + '.'); return; }
+      var alasanT = alT === 'Lainnya' ? ketT : (ketT ? alT + ' (' + ketT + ')' : alT);
+      if (!confirm('Tutup sisa ' + no + ' (' + fmt(o.sisa || 0) + ' pcs belum datang)? PO menjadi Selesai dan pengajuan terkait ikut diselesaikan.')) return;
+      b.disabled = true;
+      var rT = await sb.rpc('po_tutup_sisa', { p_no: no, p_alasan: alasanT });
+      if (rT.error || !rT.data || !rT.data.ok) { b.disabled = false; pesanP((rT.data && rT.data.pesan) || (rT.error && rT.error.message) || 'Gagal menutup sisa PO.'); return; }
+      o.st = 'Selesai'; P.buka['tutup:' + no] = false;
+      try { await sb.from('md_aksi').insert({ fungsi: 'segarkan', param: {}, ringkas: 'Hitung ulang sesudah sisa ' + no + ' ditutup' }); segarLangsung(); } catch (e) { }
+      gambarPurch(); pesanP(rT.data.pesan, true); return;
+    }
     var tok = function () { return 'md' + Date.now() + '-' + Math.random().toString(36).slice(2, 7); };
     var kirim = [];
     if (a === 'setuju' || a === 'setujuBayar') {

@@ -1,0 +1,8 @@
+-- 26 Nov 2026 (diterapkan langsung lewat MCP; definisi lengkap di database).
+-- 1. public.mp_ringkas_kelompok(dari, sampai): ringkasan marketplace Official (md:mkt) dijumlah di database untuk rentang
+--    tanggal saja (dulu md:mkt membaca seluruh mp_pesanan dan kehabisan tenaga 56% jadwal). Hasil dicocokkan sama persis.
+-- 2. lembar_baca: tabel semu 'mp_kirim' = mp_pesanan Official terkirim, tidak batal/belum bayar, qty bersih > 0, sejak
+--    min(online_stok_awal.per_tanggal) - 2 hari, kolom ringkas (12 MB -> 5 MB). Dipakai kp.js (stok Kantor Packing) dan
+--    md.js gdPemilikData (md:gudang).
+-- 3. public.po_tutup_sisa(no, alasan): PO "Diterima sebagian" -> Selesai dengan catatan; pengajuan terkait: datang sebagian /
+--    lewat PO lain -> Diterima, tidak datang -> Batal; Telegram. Tombol "Tutup sisa" di Master Data > Purchasing (kartu PO).
