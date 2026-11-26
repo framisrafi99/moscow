@@ -9,6 +9,8 @@
   var JENIS = {
     barang_order: 'kode,nama_barang,harga_jual:n,kategori,varian_warna',
     mp_pesanan: 'kunci,toko,platform,no_pesanan,status,waktu_dibuat:t,waktu_kirim:t,waktu_selesai:t,nama_produk,variasi,qty:n,qty_return:n,harga_awal:n,harga_setelah_diskon:n,subtotal:n,upload,waktu_upload:t',
+    // 26 Nov 2026: mp_kirim = mp_pesanan Official terkirim, tidak batal, kolom ringkas (lembar_baca). Untuk stok Kantor Packing & ringkasan Gudang.
+    mp_kirim: 'kunci,toko,platform,no_pesanan,status,waktu_dibuat:t,waktu_kirim:t,waktu_selesai:t,nama_produk,variasi,qty:n,qty_return:n,harga_awal:n,harga_setelah_diskon:n,subtotal:n,upload,waktu_upload:t',
     mp_padanan: 'nama_produk,variasi,kode,warna,status,diubah_oleh,waktu:t',
     gudang_stok_awal: 'kode,nama_barang,warna,qty:n',
     online_stok_awal: 'kode,nama_barang,kategori,warna,qty:n,hpp:n,harga_jual:n,per_tanggal:d,catatan',

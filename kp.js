@@ -6,7 +6,8 @@
  */
 (function () {
   'use strict';
-  var TABEL = ['barang_order', 'online_stok_awal', 'gudang_log', 'produksi_sesuai_log', 'mp_pesanan', 'mp_padanan'];
+  // 26 Nov 2026: mp_kirim (pesanan Official terkirim, kolom ringkas) menggantikan mp_pesanan utuh: jauh lebih ringan, hasil sama.
+  var TABEL = ['barang_order', 'online_stok_awal', 'gudang_log', 'produksi_sesuai_log', 'mp_kirim', 'mp_padanan'];
   var KP = 'Kantor Packing';
   var ALASAN = ['Barang rusak', 'Barang hilang', 'Sampel / promosi', 'Salah input', 'Barang ditemukan', 'Retur dari pelanggan', 'Lainnya'];
   var PAKET = { M02D5: { k: 'M02', w: ['RED', 'YELLOW', 'BLUE', 'WHITE', 'BLACK'] }, M03D5: { k: 'M03', w: ['RED', 'YELLOW', 'BLUE', 'WHITE', 'BLACK'] } };
@@ -132,7 +133,7 @@
         if (!jamHitung[x.k] || t > jamHitung[x.k]) jamHitung[x.k] = t;
       });
       var jualSesudah = {};
-      baca('mp_pesanan', 17).forEach(function (r) {
+      baca('mp_kirim', 17).forEach(function (r) {
         if (rapi(r[1], 40) !== 'Official' || !rapi(r[3], 40)) return;
         var st = rapi(r[4], 160);
         if (/batal|cancel/i.test(st) || /belum bayar|unpaid/i.test(st)) return;

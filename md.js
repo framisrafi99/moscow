@@ -700,9 +700,9 @@
       return memo[key];
     };
   }
-  function MP_bacaPsn_(L) {
+  function MP_bacaPsn_(L, tabel) {
     var out = [];
-    window.Lembar.baca(L, 'mp_pesanan', 17).forEach(function (r) {
+    window.Lembar.baca(L, tabel || 'mp_pesanan', 17).forEach(function (r) {
       var no = MP_t_(r[3], 40);
       if (!no) return;
       var st = MP_t_(r[4], 160);
@@ -716,7 +716,46 @@
   }
   var TABEL_MP = ['barang_order', 'mp_pesanan', 'mp_padanan'];
 
+  // 26 Nov 2026: pesanan dijumlah di database untuk rentang tanggal saja (rpc mp_ringkas_kelompok), tidak membaca seluruh
+  // mp_pesanan; dulu robot hitung md:mkt kehabisan tenaga lebih dari separuh jadwal. Rumus & pencocokan nama sama.
+  // Kalau rpc gagal, kembali ke cara lama di bawah.
+  async function mpRingkasDb(sb, dari, sampai) {
+    var h = await Promise.all([window.Lembar.muat(sb, ['barang_order', 'mp_padanan']), bahanHpp(sb), sb.rpc('mp_ringkas_kelompok', { p_dari: dari, p_sampai: sampai })]);
+    if (h[2].error || !h[2].data) return null;
+    var L = h[0], H = h[1], d = h[2].data, B = MP_barang_(L), P = MP_padananFn_(L, B), hpp = H.peta();
+    var hppK = function (k, t) { return Number(H.pada(k, t, hpp[k] || 0) || 0) || 0; };
+    (d.p || []).forEach(function (x) { P(MP_t_(x[0], 250), MP_t_(x[1], 120), MP_n_(x[2])); });
+    var PF = MP_TOKO_[MP_TOKO_POTONG_], per = {}, brg = {};
+    PF.forEach(function (pf) { per[pf] = { psn: 0, batal: 0, pcs: 0, ret: 0, nret: 0, omzet: 0, hpp: 0, tanpaHpp: 0, belumKenal: 0, terakhir: '' }; });
+    (d.st || []).forEach(function (x) { var st = per[MP_t_(x[0], 20)]; if (!st) return; st.psn = MP_n_(x[1]); st.batal = MP_n_(x[2]); st.ret = MP_n_(x[3]); st.nret = MP_n_(x[4]); st.terakhir = MP_t_(x[5], 20); });
+    (d.g || []).forEach(function (x) {
+      var st = per[MP_t_(x[5], 20)], q = MP_n_(x[6]); if (!st || !(q > 0)) return;
+      var t = MP_t_(x[0], 10), ha = MP_n_(x[3]), hd = MP_n_(x[4]), harga = hd || ha, om = harga * q;
+      st.pcs += q; st.omzet += om;
+      var m = P(MP_t_(x[1], 250), MP_t_(x[2], 120), ha);
+      if (!m.k || m.k === '-') { if (m.k !== '-') st.belumKenal += q; return; }
+      var hh = hppK(m.k, t);
+      if (!(hh > 0)) st.tanpaHpp += q;
+      st.hpp += hh * q;
+      var b = brg[m.k] || (brg[m.k] = { k: m.k, n: B.nama(m.k), q: {}, pcs: 0, omzet: 0, hpp: 0 });
+      var pf = MP_t_(x[5], 20);
+      b.q[pf] = (b.q[pf] || 0) + q; b.pcs += q; b.omzet += om; b.hpp += hh * q;
+    });
+    var list = PF.map(function (pf) {
+      var st = per[pf];
+      return { pf: pf, psn: st.psn, batal: st.batal, pcs: st.pcs, ret: st.ret, nret: Math.round(st.nret), omzet: Math.round(st.omzet), hpp: Math.round(st.hpp),
+        laba: Math.round(st.omzet - st.hpp), tanpaHpp: st.tanpaHpp, belumKenal: st.belumKenal, terakhir: st.terakhir };
+    });
+    var top = Object.keys(brg).map(function (k) { var b = brg[k]; b.omzet = Math.round(b.omzet); b.hpp = Math.round(b.hpp); return b; })
+      .sort(function (a, b) { return b.omzet - a.omzet; }).slice(0, 50);
+    return { ok: true, dari: dari, sampai: sampai, pf: PF, list: list, top: top };
+  }
   async function mpRingkasOfficial(sb, p) {
+    var kini0 = fmt(new Date(), 'yyyy-MM-dd'), dari0 = MP_tgl_(p && p.dari), sampai0 = MP_tgl_(p && p.sampai), t0;
+    if (!sampai0) sampai0 = kini0;
+    if (!dari0) dari0 = sampai0.slice(0, 8) + '01';
+    if (dari0 > sampai0) { t0 = dari0; dari0 = sampai0; sampai0 = t0; }
+    if (!(p && p.lama)) { try { var cepat = await mpRingkasDb(sb, dari0, sampai0); if (cepat) return cepat; } catch (e) { } }
     var h = await Promise.all([window.Lembar.muat(sb, TABEL_MP), bahanHpp(sb)]), L = h[0], H = h[1];
     var kini = fmt(new Date(), 'yyyy-MM-dd'), dari = MP_tgl_(p && p.dari), sampai = MP_tgl_(p && p.sampai), tt;
     if (!sampai) sampai = kini;
@@ -910,7 +949,8 @@
 
   // ======================= GUDANG UTAMA & PURCHASING (file 12 gdPemilikData + bungkus GD_online_ file 14/15/36, GD_hpp_ file 15/61) =======================
   async function gdPemilikData(sb, bulan) {
-    var h = await Promise.all([bahanHpp(sb), window.KantorPacking.siap(sb), window.Lembar.muat(sb, TABEL_MP),
+    // 26 Nov 2026: cukup mp_kirim (pesanan Official terkirim, kolom ringkas), bukan seluruh mp_pesanan.
+    var h = await Promise.all([bahanHpp(sb), window.KantorPacking.siap(sb), window.Lembar.muat(sb, ['barang_order', 'mp_kirim', 'mp_padanan']),
       sb.from('hasil_hitung').select('data').eq('kunci', 'md:gudang').maybeSingle()]);
     var H = h[0], A = h[1].A, LM = h[2], lama = h[3] && h[3].data ? h[3].data.data : null, G = H.G, L = H.L;
     var hariIni = fmt(new Date(), 'yyyy-MM-dd');
@@ -982,7 +1022,7 @@
         var t = new Date(x.wa.getTime() + 7 * 3600000).toISOString().slice(0, 16).replace('T', ' ');
         if (!batas[x.k] || t > batas[x.k]) batas[x.k] = t;
       });
-      MP_bacaPsn_(LM).forEach(function (x) {
+      MP_bacaPsn_(LM, 'mp_kirim').forEach(function (x) {
         if (x.toko !== MP_TOKO_POTONG_ || x.batal || x.belum || !x.kirim) return;
         var q = x.q - x.ret; if (!(q > 0)) return;
         var pm = P(x.nm, x.vr, x.ha), tgl = x.kirim.slice(0, 10);
