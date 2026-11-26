@@ -1675,7 +1675,7 @@
       if (F.peran.indexOf(ctx.peran) > -1) return true;
       return ctx.peran ? 'Akun ' + ctx.email + ' tidak punya akses ke form ini.' : false;
     },
-    menu: F.menu.map(function (x) { return x.grup ? { grup: x.grup } : x.href ? { k: x.k, nm: x.nm, ik: x.ik, href: x.href } : { k: x.k, nm: x.nm, ik: x.ik, bagian: 'isi', pendek: x.pendek }; }),
+    menu: F.menu.map(function (x) { return x.grup ? { grup: x.grup } : x.href ? { k: x.k, nm: x.nm, ik: x.ik, href: x.href } : { k: x.k, nm: x.nm, ik: x.ik, bagian: 'isi', pendek: x.pendek, ket: x.ket }; }),
     bawah: F.bawah,
     pindah: function (k) {
       var mm = F.menu.filter(function (x) { return x.k === k; })[0];
