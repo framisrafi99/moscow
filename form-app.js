@@ -10,12 +10,12 @@
       judul: 'GUDANG UTAMA', masuk: 'Gudang Utama & Purchasing', peran: ['gudang', 'purchasing_shopeepay', 'manajemen'],
       sembunyi: '.m:has(> [data-m]), #mmhBtn',
       menu: [
-        { k: 'stok', nm: 'Stok', ik: 'stok', l: ['Stok@.m'] },
-        { k: 'order', nm: 'Order masuk', ik: 'nota', l: ['Order Masuk@.m'], pendek: 'Order' },
-        { k: 'ajuan', nm: 'Pengajuan', ik: 'purch', l: ['Pengajuan@.m'] },
-        { k: 'salur', nm: 'Penyaluran', ik: 'pemasok', l: ['Penyaluran@.m'] },
-        { k: 'riwayat', nm: 'Riwayat', ik: 'riwayat', l: ['Riwayat@.m'] },
-        { k: 'hpp', nm: 'HPP & Harga', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox' }
+        { k: 'stok', nm: 'Stok', ket: 'Sisa stok barang di Gudang Utama. Barang minus berarti ada catatan yang terlewat.', ik: 'stok', l: ['Stok@.m'] },
+        { k: 'order', nm: 'Order toko & reseller', ket: 'Order dari toko consignment, Toko Offline, dan reseller. Proses lalu kirim barangnya dari sini.', ik: 'nota', l: ['Order Masuk@.m'], pendek: 'Order' },
+        { k: 'ajuan', nm: 'Pengajuan', ket: 'Ajukan pembelian barang, lihat statusnya, dan tandai diterima saat barang yang sudah dibayar datang.', ik: 'purch', l: ['Pengajuan@.m'] },
+        { k: 'salur', nm: 'Kirim ke saluran', ket: 'Kirim barang dari Gudang Utama ke Kantor Packing, toko, atau consignment.', ik: 'pemasok', l: ['Penyaluran@.m'] },
+        { k: 'riwayat', nm: 'Riwayat', ket: 'Semua catatan barang masuk dan keluar Gudang Utama.', ik: 'riwayat', l: ['Riwayat@.m'] },
+        { k: 'hpp', nm: 'HPP & Harga', ket: 'Modal (HPP) dan harga jual per barang.', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox' }
         // 12 Nov 2026: "Laporan pengajuan (PDF)" pindah jadi tombol di Pengajuan > Daftar pengajuan (lapAjuanDiDaftar).
       ],
       bawah: ['stok', 'order', 'salur', 'ajuan', 'lain']
@@ -24,20 +24,20 @@
       judul: 'STAF PRODUKSI', masuk: 'Form staf produksi', peran: ['produksi', 'manajemen'],
       sembunyi: '.t:has(> #pgsT1), .tabs:has(> #tab1), #mmhBtn',
       menu: [
-        { k: 'isi', nm: 'Isi laporan', ik: 'produksi', l: ['#pgsT1', '#tab1'], pendek: 'Laporan' },
-        { k: 'data', nm: 'Data produksi', ik: 'dasbor', l: ['#pgsT1', '#tab2'], pendek: 'Data' },
-        { k: 'kirimkp', nm: 'Kirim ke Kantor Packing', ik: 'pemasok', panel: 'pkp', pendek: 'Kirim KP' },
-        { k: 'stokgu', nm: 'Stok Gudang Utama', ik: 'gudang', panel: 'pkp', pendek: 'Stok GU' },
-        { k: 'sesuaigu', nm: 'Penyesuaian stok Gudang Utama', ik: 'atur', panel: 'pkp', pendek: 'Sesuai GU' },
-        { k: 'riwayat', nm: 'Riwayat', ik: 'riwayat', l: ['#pgsT1', '#tab3'] },
-        { k: 'order', nm: 'Order masuk', ik: 'nota', l: ['#pgsT1', '#tab4'], pendek: 'Order' },
-        { k: 'botol', nm: 'Botol, stiker & packaging', ik: 'stok', l: ['#pgsT1', '#tab5'], pendek: 'Botol & packing' },
+        { k: 'isi', nm: 'Isi laporan', ket: 'Laporan hasil produksi hari ini. Stok botol, stiker, dan bahan terpotong otomatis.', ik: 'produksi', l: ['#pgsT1', '#tab1'], pendek: 'Laporan' },
+        { k: 'data', nm: 'Data produksi', ket: 'Rekap produksi per hari dan per produk.', ik: 'dasbor', l: ['#pgsT1', '#tab2'], pendek: 'Data' },
+        { k: 'kirimkp', nm: 'Kirim ke Kantor Packing', ket: 'Kirim produk jadi ke Kantor Packing (stok online).', ik: 'pemasok', panel: 'pkp', pendek: 'Kirim KP' },
+        { k: 'stokgu', nm: 'Stok Gudang Utama', ket: 'Sisa stok produk Moscow & Kenka di Gudang Utama.', ik: 'gudang', panel: 'pkp', pendek: 'Stok GU' },
+        { k: 'sesuaigu', nm: 'Penyesuaian stok Gudang Utama', ket: 'Betulkan stok produk Moscow & Kenka di Gudang Utama dari hasil hitung fisik. Berlaku setelah disetujui manajemen.', ik: 'atur', panel: 'pkp', pendek: 'Sesuai GU' },
+        { k: 'riwayat', nm: 'Riwayat', ket: 'Laporan produksi yang sudah dikirim.', ik: 'riwayat', l: ['#pgsT1', '#tab3'] },
+        { k: 'order', nm: 'Order masuk', ket: 'Order yang menunggu produksi.', ik: 'nota', l: ['#pgsT1', '#tab4'], pendek: 'Order' },
+        { k: 'botol', nm: 'Botol, stiker & packaging', ket: 'Stok botol, stiker, dan packaging, serta catat barang masuk.', ik: 'stok', l: ['#pgsT1', '#tab5'], pendek: 'Botol & packing' },
         // 12 Nov 2026: "Pantau produksi" digabung ke dalam Data produksi (gabungPantau).
-        { k: 'rencana', nm: 'Rencana produksi', ik: 'setuju', l: ['#pgsT1', '#tabRPD'] },
-        { k: 'sesuai', nm: 'Penyesuaian stok', ik: 'atur', l: ['#pgsT1', '#tabPS'] },
-        { k: 'kemasan', nm: 'Harga kemasan', ik: 'harga', l: ['#pgsT1', '#tabKms'] },
-        { k: 'hpp', nm: 'HPP & Harga jual', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox', pendek: 'HPP' },
-        { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' }
+        { k: 'rencana', nm: 'Rencana produksi', ket: 'Daftar produk yang perlu dibuat, yang ditunggu order paling atas.', ik: 'setuju', l: ['#pgsT1', '#tabRPD'] },
+        { k: 'sesuai', nm: 'Penyesuaian stok produksi', ket: 'Betulkan stok botol, stiker, packaging, dan Kantor Packing dari hasil hitung fisik.', ik: 'atur', l: ['#pgsT1', '#tabPS'] },
+        { k: 'kemasan', nm: 'Harga kemasan', ket: 'Harga beli botol, stiker, dan packaging.', ik: 'harga', l: ['#pgsT1', '#tabKms'] },
+        { k: 'hpp', nm: 'HPP & Harga jual', ket: 'Modal (HPP) dan harga jual per produk.', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox', pendek: 'HPP' },
+        { k: 'ajuan', nm: 'Pengajuan pembelian', ket: 'Ajukan pembelian, lihat statusnya, dan tandai diterima saat barang yang sudah dibayar datang.', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' }
         // 12 Nov 2026: "Laporan pengajuan (PDF)" jadi tombol di daftar pengajuan (lapAjuanDiDaftar), sama dengan Gudang Utama.
       ],
       bawah: ['isi', 'data', 'order', 'botol', 'lain']
@@ -46,19 +46,19 @@
       judul: 'STAF BAHAN BAKU', masuk: 'Form staf bahan baku', peran: ['bahan_baku', 'manajemen'],
       sembunyi: '.t:has(> #pgsT1), #tabs:has(> #tabBeli), #mmhBtn',
       menu: [
-        { k: 'produksi', nm: 'Produksi', ik: 'produksi', l: ['#pgsT1', 'Produksi@#tabs'] },
-        { k: 'pigment', nm: 'Mixing pigment', ik: 'muat', l: ['#pgsT1', 'Mixing pigment@#tabs'], pendek: 'Pigment' },
-        { k: 'warna', nm: 'Mixing warna', ik: 'muat', l: ['#pgsT1', 'Mixing warna@#tabs'], pendek: 'Warna' },
-        { k: 'pakai', nm: 'Pakai / rusak', ik: 'nota', l: ['#pgsT1', 'Pakai / rusak@#tabs'], pendek: 'Pakai' },
-        { k: 'beli', nm: 'Pembelian', ik: 'purch', l: ['#pgsT1', '#tabBeli'] },
-        { k: 'sesuai', nm: 'Penyesuaian', ik: 'atur', l: ['#pgsT1', 'Penyesuaian@#tabs'] },
-        { k: 'stok', nm: 'Stok bahan', ik: 'stok', l: ['#pgsT1', 'Stok bahan@#tabs'], pendek: 'Stok' },
-        { k: 'harga', nm: 'Harga', ik: 'harga', l: ['#pgsT1', '#tabHarga'] },
-        { k: 'hpp', nm: 'HPP & Harga jual', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox', pendek: 'HPP' },
-        { k: 'laporan', nm: 'Laporan', ik: 'laporan', l: ['#pgsT1', 'Laporan@#tabs'] },
-        { k: 'pantau', nm: 'Pantau produksi', ik: 'dasbor', l: ['#pgsT1', '#tabPP'] },
-        { k: 'rencana', nm: 'Rencana bahan', ik: 'setuju', l: ['#pgsT1', '#tabRBB'] },
-        { k: 'ajuan', nm: 'Pengajuan pembelian', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' }
+        { k: 'produksi', nm: 'Produksi', ket: 'Catat bahan jadi yang dibuat hari ini. Bahan yang dipakai terpotong otomatis sesuai resep.', ik: 'produksi', l: ['#pgsT1', 'Produksi@#tabs'] },
+        { k: 'pigment', nm: 'Mixing pigment', ket: 'Catat pembuatan pigment dari bahan mentah.', ik: 'muat', l: ['#pgsT1', 'Mixing pigment@#tabs'], pendek: 'Pigment' },
+        { k: 'warna', nm: 'Mixing warna', ket: 'Catat pembuatan cat warna dari pigment dan bahan dasar.', ik: 'muat', l: ['#pgsT1', 'Mixing warna@#tabs'], pendek: 'Warna' },
+        { k: 'pakai', nm: 'Pakai / rusak', ket: 'Catat bahan yang dipakai di luar resep atau yang rusak / tumpah.', ik: 'nota', l: ['#pgsT1', 'Pakai / rusak@#tabs'], pendek: 'Pakai' },
+        { k: 'beli', nm: 'Pembelian', ket: 'Pembelian bahan dan tombol tandai diterima saat barang yang sudah dibayar datang. Periksa satuan dan koma sebelum simpan.', ik: 'purch', l: ['#pgsT1', '#tabBeli'] },
+        { k: 'sesuai', nm: 'Penyesuaian', ket: 'Betulkan stok bahan dari hasil hitung fisik. Pilih alasannya dari daftar.', ik: 'atur', l: ['#pgsT1', 'Penyesuaian@#tabs'] },
+        { k: 'stok', nm: 'Stok bahan', ket: 'Sisa stok setiap bahan. Stok minus berarti ada catatan yang terlewat.', ik: 'stok', l: ['#pgsT1', 'Stok bahan@#tabs'], pendek: 'Stok' },
+        { k: 'harga', nm: 'Harga', ket: 'Harga beli bahan terakhir.', ik: 'harga', l: ['#pgsT1', '#tabHarga'] },
+        { k: 'hpp', nm: 'HPP & Harga jual', ket: 'Modal (HPP) dan harga jual produk.', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox', pendek: 'HPP' },
+        { k: 'laporan', nm: 'Laporan', ket: 'Rekap pemakaian dan pembelian bahan.', ik: 'laporan', l: ['#pgsT1', 'Laporan@#tabs'] },
+        { k: 'pantau', nm: 'Pantau produksi', ket: 'Pantau hasil produksi bahan jadi.', ik: 'dasbor', l: ['#pgsT1', '#tabPP'] },
+        { k: 'rencana', nm: 'Rencana bahan', ket: 'Perkiraan bahan yang perlu dibeli untuk rencana produksi.', ik: 'setuju', l: ['#pgsT1', '#tabRBB'] },
+        { k: 'ajuan', nm: 'Pengajuan pembelian', ket: 'Ajukan pembelian bahan dan lihat statusnya sampai diterima.', ik: 'purch', l: ['#pgsT2'], pendek: 'Pengajuan' }
         // 12 Nov 2026: "Laporan pengajuan (PDF)" jadi tombol di daftar pengajuan (lapAjuanDiDaftar), sama dengan Gudang Utama.
       ],
       bawah: ['produksi', 'pigment', 'pakai', 'stok', 'lain']
@@ -468,6 +468,8 @@
       if (!(qty > 0) || qty > 1000000) return { ok: false, pesan: 'Isi jumlah yang diterima.' };
       var cat = teks(p.catatan).replace(/\s+/g, ' ').trim().slice(0, 150);
       if (Math.abs(qty - dibeli) > 1e-9 && cat.length < 3) return { ok: false, pesan: 'Jumlah diterima berbeda dengan yang dibeli (' + dibeli + ' ' + x.s + '). Isi catatannya.' };
+      // 26 Nov 2026: angka yang terlalu jauh hampir pasti salah koma / salah satuan; ditolak sebelum apa pun tersimpan.
+      if (dibeli > 0 && (qty > dibeli * 3 || qty < dibeli / 3)) return { ok: false, pesan: 'Jumlah diterima ' + String(qty).replace('.', ',') + ' ' + x.s + ' terlalu jauh dari yang dibeli (' + String(dibeli).replace('.', ',') + ' ' + x.s + '). Periksa lagi: mungkin salah koma (31,8 bukan 318) atau salah satuan. Kalau memang begitu, hubungi manajemen Moscow Supplies.' };
       var tag = '[' + x.no + ']', token = teks(p.token).slice(0, 60) || ('ptr' + x.no + qty), hari = hariIni();
       var po = (/\b(PO-\d{6}-\d+)\b/.exec(x.ref || '') || [])[1] || '';
       if (x.kel === 'Barang jualan') {
@@ -1657,6 +1659,8 @@
       if (APP === 'produksi' || APP === 'bahanbaku') { try { lapAjuanDiDaftar(dok); } catch (e) { } }
       if (APP === 'produksi') { try { gabungPantau(dok); } catch (e) { } }
       if (APP === 'produksi') { try { produksiKeGudang(dok); } catch (e) { } }
+      // 26 Nov 2026: alasan penyesuaian stok dipilih dari daftar (bukan teks bebas).
+      if (window.PilihAlasan && (APP === 'gudang' || APP === 'produksi' || APP === 'bahanbaku')) { try { window.PilihAlasan.pasang(dok, ['psAl', 'yAl', 'kpwAl', 'skAlasan'], 'stok'); } catch (e) { } }
       if (BUKA.length) jalankanBuka(dok);
       // Stok di dalam tampilan simpanan bisa sudah lama: langsung dimuat ulang (form produksi).
       if (dariSimpanan) try { if (typeof fr.contentWindow.muatStok === 'function') fr.contentWindow.muatStok(); } catch (e) { }

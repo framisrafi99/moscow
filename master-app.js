@@ -750,9 +750,19 @@
     var sel = $('jIsi').querySelector('[data-st="' + no + '"]'); if (!sel) return;
     var o = J.orderRes.filter(function (x) { return x.no === no; })[0], st = sel.value;
     if (o && st === o.st) { $('msgJual').innerHTML = '<div class="msg w">Status ' + esc(no) + ' sudah ' + esc(st) + '.</div>'; return; }
+    // 26 Nov 2026: pembatalan wajib beralasan (disimpan di riwayat proses order).
+    var alasanBatal = '';
+    if (st === 'Batal') {
+      var PIL = ['Stok kosong / tidak bisa dipenuhi', 'Pembeli membatalkan', 'Salah input / order dobel', 'Harga atau pembayaran belum cocok'];
+      var j = window.prompt('Alasan membatalkan ' + no + ' (ketik nomornya, atau tulis alasan lain):\n' + PIL.map(function (x, i) { return (i + 1) + '. ' + x; }).join('\n'), '');
+      if (j === null) return;
+      j = String(j).trim(); alasanBatal = /^[1-4]$/.test(j) ? PIL[Number(j) - 1] : j;
+      if (alasanBatal.length < 3) { $('msgJual').innerHTML = '<div class="msg bad">Isi alasan pembatalan dulu.</div>'; return; }
+    }
     b.disabled = true;
     // Langsung tersimpan di Supabase (order_status = ubahStatusOrder); Telegram request consignment dikirim Apps Script.
     var r = await sb.rpc('order_status', { p_no: no, p_status: st, p_rp: '', p_alasan: '' });
+    if (!r.error && r.data && r.data.ok && alasanBatal) { try { await sb.rpc('order_batal_alasan', { p_no: no, p_alasan: alasanBatal }); } catch (e) { } }
     var gagal = r.error ? r.error.message : (!r.data || !r.data.ok) ? ((r.data && r.data.pesan) || 'Gagal menyimpan.') : '';
     if (gagal) { $('msgJual').innerHTML = '<div class="msg bad">Gagal: ' + esc(gagal) + '</div>'; b.disabled = false; return; }
     salinKeSheetGaji();

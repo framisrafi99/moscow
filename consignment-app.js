@@ -678,6 +678,7 @@
       if (C.aktif === 'koreksi') { window.KoreksiJual.bukaToko($('kjIsi'), C.toko, C.nama); return; }
       if (C.aktif === 'setoran') { window.SetoranBukti.buka($('stIsi'), C.toko, C.nama); return; }
       if (offline) pasangHasil(dok);
+      if (window.PilihAlasan) { try { window.PilihAlasan.pasang(dok, ['saAlasan', 'shAlasan'], 'toko'); } catch (e) { } }
       ukur(); tekan(C.aktif === 'riwayat' ? 'jual' : C.aktif);
       if (C.aktif === 'riwayat') tekan('riwayat');
     };
@@ -718,21 +719,21 @@
       return ctx.peran ? 'Akun ' + ctx.email + ' tidak punya akses ke form toko.' : false;
     },
     menu: MENU = [
-      { k: 'jual', nm: 'Report penjualan', ik: 'jual', bagian: 'isi', pendek: 'Jual' },
-      { k: 'terima', nm: 'Terima barang', ik: 'gudang', bagian: 'isi', pendek: 'Terima' },
-      { k: 'biaya', nm: 'Biaya', ik: 'uang', bagian: 'isi' },
-      { k: 'kas', nm: 'Kas tunai', ik: 'uang', bagian: 'kas', pendek: 'Kas' },
-      { k: 'retur', nm: 'Barang return', ik: 'muat', bagian: 'isi', pendek: 'Return' },
-      { k: 'dasbor', nm: 'Dashboard toko', ik: 'dasbor', bagian: 'isi', pendek: 'Dashboard' },
-      { k: 'hitung', nm: 'Hitung stok', ik: 'stok', bagian: 'isi' },
-      { k: 'restok', nm: 'Re-stock produk', ik: 'purch', bagian: 'isi', pendek: 'Re-stock' },
-      { k: 'titip', nm: 'Barang titipan', ik: 'toko', bagian: 'isi' },
-      { k: 'pinjam', nm: 'Stok dipinjam', ik: 'toko', bagian: 'isi', pendek: 'Pinjaman' },
-      { k: 'sesuai', nm: 'Penyesuaian stok', ik: 'atur', bagian: 'isi', pendek: 'Penyesuaian' },
-      { k: 'bh', nm: 'Penjualan & Bagi Hasil', ik: 'laporan', bagian: 'isi', pendek: 'Bagi hasil' },
-      { k: 'setoran', nm: 'Bukti transfer setoran', ik: 'uang', bagian: 'setoran', pendek: 'Setoran' },
-      { k: 'koreksi', nm: 'Koreksi penjualan', ik: 'atur', bagian: 'koreksi', pendek: 'Koreksi' },
-      { k: 'riwayat', nm: 'Riwayat isi laporan', ik: 'riwayat', bagian: 'isi', pendek: 'Riwayat' },
+      { k: 'jual', nm: 'Report penjualan', ket: 'Catat barang yang terjual hari ini (isi manual atau upload laporan). Toko yang memakai Kasir tidak perlu mengisi ini.', ik: 'jual', bagian: 'isi', pendek: 'Jual' },
+      { k: 'terima', nm: 'Terima barang', ket: 'Tekan Terima saat kiriman dari Gudang Utama datang, supaya stok toko bertambah. Barang masuk jangan dicatat lewat Penyesuaian.', ik: 'gudang', bagian: 'isi', pendek: 'Terima' },
+      { k: 'biaya', nm: 'Biaya', ket: 'Catat biaya operasional toko (listrik, plastik, ongkir, dan lain-lain). Biaya mengurangi profit dan bagi hasil.', ik: 'uang', bagian: 'isi' },
+      { k: 'kas', nm: 'Kas tunai', ket: 'Uang tunai penjualan: masuk, setor, dan sisa di toko.', ik: 'uang', bagian: 'kas', pendek: 'Kas' },
+      { k: 'retur', nm: 'Barang return', ket: 'Catat barang yang dikembalikan pembeli atau dikirim balik ke Gudang Utama.', ik: 'muat', bagian: 'isi', pendek: 'Return' },
+      { k: 'dasbor', nm: 'Dashboard toko', ket: 'Ringkasan bulan ini: barang terlaris, stok, dan hasil penjualan.', ik: 'dasbor', bagian: 'isi', pendek: 'Dashboard' },
+      { k: 'hitung', nm: 'Hitung stok', ket: 'Hitung stok fisik di toko. Selisihnya otomatis diajukan sebagai penyesuaian.', ik: 'stok', bagian: 'isi' },
+      { k: 'restok', nm: 'Re-stock produk', ket: 'Minta kiriman barang dari Gudang Utama.', ik: 'purch', bagian: 'isi', pendek: 'Re-stock' },
+      { k: 'titip', nm: 'Barang titipan', ket: 'Barang titipan pihak lain yang dijual di toko.', ik: 'toko', bagian: 'isi' },
+      { k: 'pinjam', nm: 'Stok dipinjam', ket: 'Catat barang yang dipinjam dari stok toko beserta tanggal kembalinya.', ik: 'toko', bagian: 'isi', pendek: 'Pinjaman' },
+      { k: 'sesuai', nm: 'Penyesuaian stok', ket: 'Betulkan stok toko dari hasil hitung. Pilih alasannya dari daftar. Berlaku setelah disetujui manajemen.', ik: 'atur', bagian: 'isi', pendek: 'Penyesuaian' },
+      { k: 'bh', nm: 'Penjualan & Bagi Hasil', ket: 'Penjualan bulan ini dan pembagian hasil antara toko dan Moscow Supplies.', ik: 'laporan', bagian: 'isi', pendek: 'Bagi hasil' },
+      { k: 'setoran', nm: 'Bukti transfer setoran', ket: 'Unggah bukti transfer setoran bagi hasil ke Moscow Supplies.', ik: 'uang', bagian: 'setoran', pendek: 'Setoran' },
+      { k: 'koreksi', nm: 'Koreksi penjualan', ket: 'Ajukan perbaikan penjualan yang salah input.', ik: 'atur', bagian: 'koreksi', pendek: 'Koreksi' },
+      { k: 'riwayat', nm: 'Riwayat isi laporan', ket: 'Semua laporan yang pernah diisi toko ini.', ik: 'riwayat', bagian: 'isi', pendek: 'Riwayat' },
       { k: 'kasir', nm: 'Kasir', ik: 'kasir', href: 'kasir.html' }
     ],
     bawah: ['jual', 'terima', 'biaya', 'kas', 'dasbor', 'lain'],

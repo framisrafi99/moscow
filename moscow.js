@@ -227,6 +227,14 @@
       if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
     $('mJudul').textContent = m.judul || m.nm;
+    // 26 Nov 2026: satu kalimat penjelasan menu (m.ket) di atas isi halaman.
+    var kt = $('mKet'), isiM = $('mIsi');
+    if (!kt && isiM) {
+      kt = document.createElement('div'); kt.id = 'mKet'; kt.setAttribute('role', 'note');
+      kt.style.cssText = 'font-size:13px;line-height:1.45;color:#4b5563;background:#f4f6f9;border-bottom:1px solid #e3e8ee;padding:8px 16px';
+      isiM.insertBefore(kt, isiM.firstChild);
+    }
+    if (kt) { kt.textContent = m.ket || ''; kt.hidden = !m.ket; }
     var adaBagian = false;
     document.querySelectorAll('#mIsi > section[data-bagian]').forEach(function (s) {
       var on = s.getAttribute('data-bagian') === (m.bagian || k); s.classList.toggle('on', on); if (on) adaBagian = true;
