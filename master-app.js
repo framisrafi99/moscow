@@ -2753,10 +2753,10 @@
     var h = '<div id="msgUtama"></div>';
     if (antre.length) h += '<div class="msg tunggu">' + antre.length + ' keputusan sedang diterapkan ke Google Sheets (paling lambat 10 menit): ' + antre.slice(0, 3).map(function (a) { return esc(a.ringkas); }).join(' · ') + '</div>';
     h += '<div class="chip" role="group" aria-label="Bagian persetujuan">' +
-      [['request', 'Request barang', nR + ' menunggu'], ['pantau', 'Pantau pengiriman', nP + ' berjalan'], ['sesuai', 'Penyesuaian stok', nS + ' menunggu'], ['koreksi', 'Koreksi penjualan', nK + ' menunggu']].map(function (b) {
+      [['request', 'Request barang', nR + ' menunggu'], ['pantau', 'Pantau pengiriman', nP + ' berjalan'], ['sesuai', 'Penyesuaian stok', nS + ' menunggu'], ['koreksi', 'Koreksi penjualan', nK + ' menunggu'], ['otomatis', 'Disetujui otomatis', (OTO ? OTO.length : '…') + ' (30 hari)']].map(function (b) {
         return '<button type="button" data-bg="' + b[0] + '" aria-pressed="' + (BAGIAN === b[0]) + '"><span>' + b[1] + '</span><b>' + b[2] + '</b></button>';
       }).join('') + '</div>';
-    h += '<div id="bgRequest"' + (BAGIAN === 'request' ? '' : ' hidden') + '></div><div id="bgPantau"' + (BAGIAN === 'pantau' ? '' : ' hidden') + '></div><div id="bgSesuai"' + (BAGIAN === 'sesuai' ? '' : ' hidden') + '></div><div id="bgKoreksi"' + (BAGIAN === 'koreksi' ? '' : ' hidden') + '></div>';
+    h += '<div id="bgRequest"' + (BAGIAN === 'request' ? '' : ' hidden') + '></div><div id="bgPantau"' + (BAGIAN === 'pantau' ? '' : ' hidden') + '></div><div id="bgSesuai"' + (BAGIAN === 'sesuai' ? '' : ' hidden') + '></div><div id="bgKoreksi"' + (BAGIAN === 'koreksi' ? '' : ' hidden') + '></div><div id="bgOtomatis"' + (BAGIAN === 'otomatis' ? '' : ' hidden') + '></div>';
     var log = D.aksi.filter(function (a) { return a.fungsi !== 'segarkan'; });
     if (log.length) {
       h += '<div class="cd"><h3>Keputusan dari aplikasi baru</h3><table class="tabel"><tbody>' + log.slice(0, 10).map(function (a) {
@@ -2766,8 +2766,34 @@
     }
     el.innerHTML = h;
     el.querySelectorAll('[data-bg]').forEach(function (b) { b.onclick = function () { BAGIAN = b.getAttribute('data-bg'); gambarSetuju(); }; });
-    gambarRequest(); gambarPantau(); gambarSesuai();
+    gambarRequest(); gambarPantau(); gambarSesuai(); gambarOtomatis();
     if (window.KoreksiJual) window.KoreksiJual.gambarSetuju($('bgKoreksi'));
+  }
+
+  // 26 Nov 2026: riwayat penyesuaian stok yang disetujui otomatis (selisih kecil < Rp100.000; maks Rp300.000 per staf per hari).
+  var OTO = null, OTO_MUAT = false;
+  function gambarOtomatis() {
+    var el = $('bgOtomatis'); if (!el) return;
+    if (!OTO) {
+      el.innerHTML = '<div class="cd"><div class="ksg">Memuat riwayat…</div></div>';
+      if (!OTO_MUAT) {
+        OTO_MUAT = true;
+        sb.rpc('acc_otomatis_riwayat', { p_hari: 30 }).then(function (r) {
+          OTO = r && r.data && r.data.ok ? r.data.list : []; OTO_MUAT = false;
+          var c = document.querySelector('[data-bg="otomatis"] b'); if (c) c.textContent = OTO.length + ' (30 hari)';
+          gambarOtomatis();
+        }, function () { OTO = []; OTO_MUAT = false; gambarOtomatis(); });
+      }
+      return;
+    }
+    var tot = OTO.reduce(function (a, x) { return a + (Number(x.nilai) || 0); }, 0);
+    el.innerHTML = '<div class="cd"><h3>Penyesuaian disetujui otomatis</h3>' +
+      '<p class="sb">Penyesuaian stok dengan nilai selisih di bawah Rp100.000 (barang tanpa harga: selisih maks. 2% stok) disetujui otomatis setiap 10 menit, maksimal Rp300.000 per staf per hari. Yang lebih besar tetap menunggu di tab Penyesuaian stok. Total 30 hari: <b>' + rp(tot) + '</b>.</p>' +
+      (OTO.length ? '<div class="gulir"><table class="tabel"><thead><tr><th>Waktu</th><th>Tempat</th><th>Barang / ajuan</th><th class="r">Selisih</th><th class="r">Nilai</th><th>Diajukan</th></tr></thead><tbody>' +
+        OTO.map(function (x) {
+          return '<tr><td>' + esc(x.w) + '</td><td>' + esc(x.tempat) + '</td><td>' + esc(x.nama) + '<small>' + esc(x.no) + ' · ' + esc(x.dasar) + '</small></td>' +
+            '<td class="r angka">' + (x.sel === null || x.sel === undefined ? '–' : (x.sel > 0 ? '+' : '') + fmt(x.sel)) + '</td><td class="r angka">' + rp(x.nilai) + '</td><td>' + esc(x.pg || '–') + '</td></tr>';
+        }).join('') + '</tbody></table></div>' : '<div class="aman">Belum ada penyesuaian yang disetujui otomatis.</div>') + '</div>';
   }
 
   // ---------- Request barang toko & consignment (rpDaftar / rpPutus) ----------

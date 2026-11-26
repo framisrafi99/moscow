@@ -1,0 +1,8 @@
+-- 26 Nov 2026 (diterapkan langsung lewat MCP; definisi lengkap di database).
+-- 1. public.barang_tertunda_saya(app): barang dibayar > 7 hari belum diterima untuk kotak pengingat (tertunda.js)
+--    di aplikasi Gudang / Produksi / Bahan baku; status: belum datang / baru datang sebagian / datang lewat PO lain.
+-- 2. ACC otomatis penyesuaian stok kecil:
+--    tabel acc_otomatis_log (riwayat; baca: manajemen, kendali_bisnis), public._harga_satuan(bagian, kode, nama),
+--    public._acc_otomatis_jalan() (cron 'acc-otomatis' tiap 10 menit): nilai < Rp100.000 (tanpa harga: selisih <= 2% stok),
+--    maks Rp300.000 per pengaju per hari; efek sama dengan md_setuju_putus (toko: toko_stok_awal), Telegram ringkas.
+--    public.acc_otomatis_riwayat(hari) untuk Master Data > Persetujuan > Disetujui otomatis; ringkasan 24 jam di laporan pagi.
