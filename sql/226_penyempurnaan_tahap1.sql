@@ -1,0 +1,13 @@
+-- 26 Nov 2026 - Penyempurnaan aplikasi tahap 1 (diterapkan langsung lewat MCP; definisi lengkap di database).
+-- 1. public._pg_tutup_dari_po(po): pengajuan Gudang ("Dibayar Viory ... PO-xxx") Diterima per barang begitu jumlah barang itu
+--    yang masuk lewat PO tersebut >= jumlah pengajuan. Dipanggil di gudang_terima_po setiap penerimaan (dulu hanya saat PO Selesai).
+--    Backfill: 5 pengajuan tertutup (PO-261104-001 x4, PO-261116-001 x1).
+-- 2. public._menunggu_tindakan(): pengajuan menunggu ACC >2 hari, disetujui belum dibeli (lokal >3 hari, impor >30 hari),
+--    dibayar belum diterima >7 hari, PO diterima sebagian >7 hari, PO dikirim supplier >30 hari,
+--    kiriman consignment belum dikonfirmasi (3 hari lokal, 10 hari Medan/Sidoarjo).
+-- 3. public.kesehatan_pagi_kirim() dibuat ulang (versi pertama tidak tersimpan karena satu paket dengan uji yang dibatalkan)
+--    + bagian "Menunggu tindakan". Jadwal cron 'kesehatan-pagi' 07.45 WITA.
+-- 4. bbk_sampai & ptr_tandai_terima: tolak jumlah diterima > 3x atau < 1/3 jumlah dibeli (salah koma / satuan).
+--    form-app ptrTerimaRpc memeriksa hal yang sama sebelum mencatat apa pun.
+-- 5. public.order_batal_alasan(no, alasan): alasan pembatalan order reseller disimpan di order_proses (aksi 'Alasan batal').
+-- 6. Aplikasi: pilih-alasan.js (alasan penyesuaian dari daftar), penjelasan menu (m.ket) di moscow.js, nama menu diperjelas.
