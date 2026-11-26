@@ -1661,6 +1661,8 @@
       if (APP === 'produksi') { try { produksiKeGudang(dok); } catch (e) { } }
       // 26 Nov 2026: alasan penyesuaian stok dipilih dari daftar (bukan teks bebas).
       if (window.PilihAlasan && (APP === 'gudang' || APP === 'produksi' || APP === 'bahanbaku')) { try { window.PilihAlasan.pasang(dok, ['psAl', 'yAl', 'kpwAl', 'skAlasan'], 'stok'); } catch (e) { } }
+      // 26 Nov 2026: pengingat barang sudah dibayar > 7 hari tapi belum diterima (tertunda.js).
+      if (window.Tertunda && (APP === 'gudang' || APP === 'produksi' || APP === 'bahanbaku')) { try { window.Tertunda.pasang({ sb: sb, app: APP, ubah: function () { setTimeout(ukur, 0); } }); } catch (e) { } }
       if (BUKA.length) jalankanBuka(dok);
       // Stok di dalam tampilan simpanan bisa sudah lama: langsung dimuat ulang (form produksi).
       if (dariSimpanan) try { if (typeof fr.contentWindow.muatStok === 'function') fr.contentWindow.muatStok(); } catch (e) { }
