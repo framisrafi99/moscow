@@ -1,0 +1,9 @@
+-- 26 Nov 2026
+-- 1. public.kesehatan_pagi_kirim(): laporan Telegram "Penjaga sistem" tiap pagi 07.45 WITA
+--    (catatan kembar/macet 24 jam, stok bahan baku & Gudang Utama minus, proses otomatis gagal).
+--    select cron.schedule('kesehatan-pagi', '45 23 * * *', 'select public.kesehatan_pagi_kirim()');
+-- 2. Koreksi ganda dibetulkan (kesalahan yang sama sudah dikoreksi lewat penyesuaian staf DAN langsung di data):
+--    SP-261116-001 Alkohol 96%: selisih -623,5 -> -23,5 (600 kg dobel sudah Batal di PB-261116-001..003). Stok = 203 kg.
+--    SP-261123-001 Kenka Bond: selisih -296,3 -> -10,1 (286,2 L salah tulis sudah dibetulkan di PB-261114-001). Stok = 3,85 L.
+-- Aturan ke depan: sebelum membetulkan stok/qty langsung, cek dulu produksi_sesuai_log untuk kode itu
+-- (penyesuaian yang sudah disetujui sesudah kejadian) supaya tidak terkoreksi dua kali.
