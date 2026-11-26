@@ -17,3 +17,6 @@ begin
 end $f$;
 revoke all on function public.toko_hasil_saya(text, text) from public, anon;
 grant execute on function public.toko_hasil_saya(text, text) to authenticated;
+
+-- 26 Nov 2026 (lanjutan): untuk peran toko, HPP/laba/biaya/profit hanya untuk Jesta (Toko Offline);
+-- staf toko lain menerima { terbatas: true, omzet, qty, retur } saja. (Ditambal langsung di fungsi di database.)

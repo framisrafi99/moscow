@@ -620,6 +620,11 @@
       var r; try { r = await sb.rpc('toko_hasil_saya', { p_toko: C.toko, p_bulan: b }); } catch (e) { r = { error: e }; }
       var x = r && r.data;
       if (r.error || !x || !x.ok) { isi.innerHTML = '<div class="kecil">' + esc((x && x.pesan) || 'Gagal memuat. Tekan Muat ulang.') + '</div>'; return; }
+      if (x.terbatas) {
+        isi.innerHTML = baris('Omzet', rpI(x.omzet), (Number(x.qty) || 0).toLocaleString('id-ID') + ' pcs terjual' + (x.retur ? ', sudah dikurangi retur ' + rpI(x.retur) : ''), true) +
+          '<div class="kecil" style="margin-top:8px">Diperbarui ' + esc(x.diperbarui || '') + '.</div>';
+        return;
+      }
       var mg = x.omzet ? Math.round(x.profit / x.omzet * 1000) / 10 : 0;
       isi.innerHTML =
         baris('Omzet', rpI(x.omzet), (Number(x.qty) || 0).toLocaleString('id-ID') + ' pcs terjual' + (x.retur ? ', sudah dikurangi retur ' + rpI(x.retur) : '')) +
