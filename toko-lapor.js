@@ -6,7 +6,8 @@
 (function () {
   var HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'], BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
   var O = null, S = { status: null, notif: null, sibuk: false, pesan: '' };
-  var CSS = '#lpKotak{max-width:860px;margin:12px auto 0;padding:0 16px}#lpKotak .lp{border-radius:14px;padding:14px 16px;border:1px solid}' +
+  var CSS = '#lpKotak{max-width:860px;margin:12px auto 0;padding:0 16px}#lpKotak .lp{position:relative;border-radius:14px;padding:14px 44px 14px 16px;border:1px solid}' +
+    '#lpKotak .lpX{position:absolute;top:6px;right:6px;width:36px;height:36px;border:0;background:transparent;font-size:20px;line-height:1;cursor:pointer;opacity:.6;border-radius:10px;padding:0}#lpKotak .lpX:hover{opacity:1;background:rgba(0,0,0,.06)}' +
     '#lpKotak .lp.bad{background:#FDECEA;border-color:#F3C1BA;color:#7A1C12}#lpKotak .lp.ok{background:#EAF6EE;border-color:#BFE3CB;color:#145C34}' +
     '#lpKotak .lp.info{background:#EEF5FB;border-color:#C9DDEE;color:#173E5C}#lpKotak b.j{display:block;font-size:16px;margin-bottom:4px}' +
     '#lpKotak .lpAksi{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}#lpKotak button{border-radius:10px;font-weight:700;padding:9px 14px;border:1px solid #C9D6E2;background:#fff;color:#0F1B2A;font:inherit;font-weight:700;cursor:pointer}' +
@@ -36,22 +37,29 @@
     await cekNotif();
     gambar();
   }
+  // 26 Nov 2026: kotak pengingat bisa ditutup (✕). Tertutup selama 1 jam per toko & jenis, lalu muncul lagi sebagai pengingat.
+  var TUTUP_MS = 60 * 60000;
+  function kunciTutup(j) { return 'lpTutup|' + (O && O.toko ? O.toko() : '') + '|' + j; }
+  function tertutup(j) { try { return Date.now() < Number(localStorage.getItem(kunciTutup(j)) || 0); } catch (e) { return !!S['tt' + j] && Date.now() < S['tt' + j]; } }
+  function tutup(j) { var t = Date.now() + TUTUP_MS; S['tt' + j] = t; try { localStorage.setItem(kunciTutup(j), String(t)); } catch (e) { } gambar(); }
+  function tombolX(j) { return '<button type="button" class="lpX" data-lp="x" data-j="' + j + '" aria-label="Tutup pengingat ini (muncul lagi 1 jam lagi)" title="Tutup (muncul lagi 1 jam lagi)">✕</button>'; }
   function gambar() {
     var el = document.getElementById('lpKotak'); if (!el) return;
     var d = S.status; if (!d) { el.innerHTML = ''; return; }
     var h = '';
-    if (d.status === '') {
-      h = '<div class="lp bad"><b class="j">⚠️ Penjualan hari ini (' + esc(tglId(d.tanggal)) + ') belum diisi</b>' +
+    if (d.status === '' && !tertutup('jual')) {
+      h = '<div class="lp bad">' + tombolX('jual') + '<b class="j">⚠️ Penjualan hari ini (' + esc(tglId(d.tanggal)) + ') belum diisi</b>' +
         'Isi penjualan hari ini di <b>Report penjualan</b> (manual atau upload laporan). Kalau hari ini memang tidak ada penjualan, tekan <b>Tidak ada penjualan</b>.' +
         (d.terakhir ? '<div class="kecil">Penjualan terakhir yang tercatat: ' + esc(tglId(d.terakhir)) + '.</div>' : '') +
         '<div class="lpAksi"><button type="button" class="utama" data-lp="isi">Isi penjualan</button><button type="button" data-lp="nihil"' + (S.sibuk ? ' disabled' : '') + '>Tidak ada penjualan hari ini</button></div></div>';
     } else if (S.pesan) {
       h = '<div class="lp ok">' + esc(S.pesan) + '</div>';
     }
-    if (S.notif === 'mati') h += '<div class="lp info" style="margin-top:8px"><b class="j">🔔 Aktifkan pengingat di HP ini</b>Notifikasi muncul tiap jam 09.00–17.00 WITA kalau penjualan hari ini belum diisi, dan berhenti sendiri setelah diisi.' +
+    if (tertutup('notif')) { }
+    else if (S.notif === 'mati') h += '<div class="lp info" style="margin-top:8px">' + tombolX('notif') + '<b class="j">🔔 Aktifkan pengingat di HP ini</b>Notifikasi muncul tiap jam 09.00–17.00 WITA kalau penjualan hari ini belum diisi, dan berhenti sendiri setelah diisi.' +
       '<div class="lpAksi"><button type="button" data-lp="notif"' + (S.sibuk ? ' disabled' : '') + '>Aktifkan pengingat</button></div></div>';
-    else if (S.notif === 'ios') h += '<div class="lp info" style="margin-top:8px">🔔 Supaya pengingat bisa muncul di iPhone: tekan tombol Bagikan di Safari › <b>Tambahkan ke Layar Utama</b>, lalu buka aplikasi dari ikon itu dan aktifkan pengingat.</div>';
-    else if (S.notif === 'blokir') h += '<div class="lp info" style="margin-top:8px">🔔 Notifikasi diblokir di HP ini. Buka pengaturan browser › Notifikasi › izinkan app.moscowsupplies.com, lalu muat ulang.</div>';
+    else if (S.notif === 'ios') h += '<div class="lp info" style="margin-top:8px">' + tombolX('notif') + '🔔 Supaya pengingat bisa muncul di iPhone: tekan tombol Bagikan di Safari › <b>Tambahkan ke Layar Utama</b>, lalu buka aplikasi dari ikon itu dan aktifkan pengingat.</div>';
+    else if (S.notif === 'blokir') h += '<div class="lp info" style="margin-top:8px">' + tombolX('notif') + '🔔 Notifikasi diblokir di HP ini. Buka pengaturan browser › Notifikasi › izinkan app.moscowsupplies.com, lalu muat ulang.</div>';
     el.innerHTML = h;
     if (O.ubah) O.ubah();
   }
@@ -92,6 +100,7 @@
         el.addEventListener('click', function (e) {
           var b = e.target.closest('[data-lp]'); if (!b || S.sibuk) return;
           var a = b.getAttribute('data-lp');
+          if (a === 'x') { tutup(b.getAttribute('data-j')); return; }
           if (a === 'isi') O.isi(); else if (a === 'nihil') nihil(); else if (a === 'notif') aktifkan();
         });
         document.addEventListener('visibilitychange', function () { if (!document.hidden) cek(); });
