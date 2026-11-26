@@ -36,7 +36,7 @@
           q: Number(r[7]) || 0, h: Number(r[8]) || 0, al: rapi(r[9], 300), pg: rapi(r[10], 60),
           sr: rapi(r[11], 30), an: rapi(r[12], 500), st: rapi(r[13], 20) || PGD_ST_.TUNGGU,
           oleh: rapi(r[14], 40), wp: jam(r[15]), cp: rapi(r[16], 300), qs: (r[17] !== '' && isFinite(qs)) ? qs : null,
-          ref: rapi(r[18], 120), wps: tgl(r[19]), eta: tgl(r[20]), wt: jam(r[21]), w: ''
+          ref: rapi(r[18], 300), wps: tgl(r[19]), eta: tgl(r[20]), wt: jam(r[21]), w: ''
         });
         // File 55: warna (kolom X) dan nama tampil "Nama · WARNA". File 48: asal barang (kolom W) untuk tanda impor.
         var x = out[out.length - 1], v = PW_t_(r[23], 30).toUpperCase();
