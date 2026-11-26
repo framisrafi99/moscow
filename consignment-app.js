@@ -595,6 +595,46 @@
     return n === 5 ? html.replace(/<head[^>]*>/i, function (x) { return x + '<script src="' + location.origin + '/restok.js?v=4"><\/script>'; }) : null;
   }
 
+  // 26 Nov 2026: Dashboard Toko Offline - omzet, HPP barang terjual, biaya toko, dan profit bersih per bulan
+  // (angka sama dengan Hasil penjualan di Master Data: hasil_hitung 'thp:<toko>:<bulan>', dibaca lewat toko_hasil_saya).
+  function pasangHasil(dok) {
+    var v7 = dok.getElementById('v7');
+    if (!v7 || dok.getElementById('hsKartu')) return;
+    var rpI = function (n) { n = Math.round(Number(n) || 0); return (n < 0 ? '-Rp ' : 'Rp ') + Math.abs(n).toLocaleString('id-ID'); };
+    var kini = hariWita().slice(0, 7), d = new Date(kini + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 1);
+    var lalu = d.toISOString().slice(0, 7), NB = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    var nmB = function (b) { return NB[+b.slice(5, 7) - 1] + ' ' + b.slice(0, 4); };
+    var k = dok.createElement('div'); k.className = 'card'; k.id = 'hsKartu';
+    k.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b>Hasil penjualan</b>' +
+      '<select id="hsBulan" style="width:auto;padding:6px 10px;border-radius:10px"><option value="' + kini + '">' + nmB(kini) + ' (bulan ini)</option><option value="' + lalu + '">' + nmB(lalu) + '</option></select></div>' +
+      '<div id="hsIsi" style="margin-top:10px"><div class="kecil">Memuat...</div></div>';
+    v7.insertBefore(k, v7.children[1] || null);
+    function baris(lbl, v, ket, kuat, warna) {
+      return '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:9px 0;border-top:1px solid #e8ecf0">' +
+        '<div><div style="' + (kuat ? 'font-weight:700' : '') + '">' + lbl + '</div>' + (ket ? '<div class="kecil">' + ket + '</div>' : '') + '</div>' +
+        '<div style="white-space:nowrap;font-variant-numeric:tabular-nums;' + (kuat ? 'font-weight:800;font-size:1.1em;' : 'font-weight:600;') + (warna ? 'color:' + warna : '') + '">' + v + '</div></div>';
+    }
+    async function muatHasil() {
+      var isi = dok.getElementById('hsIsi'), b = dok.getElementById('hsBulan').value;
+      isi.innerHTML = '<div class="kecil">Memuat...</div>';
+      var r; try { r = await sb.rpc('toko_hasil_saya', { p_toko: C.toko, p_bulan: b }); } catch (e) { r = { error: e }; }
+      var x = r && r.data;
+      if (r.error || !x || !x.ok) { isi.innerHTML = '<div class="kecil">' + esc((x && x.pesan) || 'Gagal memuat. Tekan Muat ulang.') + '</div>'; return; }
+      var mg = x.omzet ? Math.round(x.profit / x.omzet * 1000) / 10 : 0;
+      isi.innerHTML =
+        baris('Omzet', rpI(x.omzet), (Number(x.qty) || 0).toLocaleString('id-ID') + ' pcs terjual' + (x.retur ? ', sudah dikurangi retur ' + rpI(x.retur) : '')) +
+        baris('HPP barang terjual', '− ' + rpI(x.hpp), 'Modal barang yang terjual') +
+        baris('Laba kotor', rpI(x.kotor), 'Omzet − HPP') +
+        baris('Biaya toko', '− ' + rpI(x.biaya), 'Biaya operasional yang dicatat') +
+        baris('Profit bersih', rpI(x.profit), 'Margin ' + String(mg).replace('.', ',') + '% dari omzet', true, x.profit < 0 ? '#b42318' : '#067647') +
+        ((x.tanpaHpp || []).length ? '<div class="kecil" style="margin-top:8px;color:#b54708">' + x.tanpaHpp.length + ' barang terjual belum punya HPP: ' + esc(x.tanpaHpp.slice(0, 5).join(', ')) + '. Profit bisa terlihat lebih besar.</div>' : '') +
+        '<div class="kecil" style="margin-top:8px">Diperbarui ' + esc(x.diperbarui || '') + ' · dihitung otomatis setiap beberapa menit.</div>';
+    }
+    dok.getElementById('hsBulan').addEventListener('change', muatHasil);
+    ['tab7', 'sRf'].forEach(function (id) { var el = dok.getElementById(id); if (el) el.addEventListener('click', muatHasil); });
+    muatHasil();
+  }
+
   function tampil(html) {
     var m = $('muatan');
     try { var hk = kaitRestok(html); if (hk) html = hk; } catch (e) { }
@@ -632,6 +672,7 @@
       if (C.aktif === 'kas') { window.TokoKas.buka($('kkIsi'), sb, C.toko); return; }
       if (C.aktif === 'koreksi') { window.KoreksiJual.bukaToko($('kjIsi'), C.toko, C.nama); return; }
       if (C.aktif === 'setoran') { window.SetoranBukti.buka($('stIsi'), C.toko, C.nama); return; }
+      if (offline) pasangHasil(dok);
       ukur(); tekan(C.aktif === 'riwayat' ? 'jual' : C.aktif);
       if (C.aktif === 'riwayat') tekan('riwayat');
     };
