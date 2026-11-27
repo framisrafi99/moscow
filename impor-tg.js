@@ -48,12 +48,12 @@
     var c = A.filter(function (w) { return B.some(function (x) { return samaKata(w, x); }); }).length;
     return c / Math.min(A.length, B.length);
   }
-  function cocokkan(bukti, tunggu) {
+  function cocokkan(bukti, tunggu, lepas) {
     var hasil = {}, pakai = {};
     (bukti.barang || []).forEach(function (it) {
       var cal = tunggu.filter(function (a) { return !pakai[a.no]; }).map(function (a) { return { a: a, s: skor(it.nama, a.n + ' ' + (a.w || '')) }; })
         .filter(function (x) { return x.s >= 0.6; }).sort(function (x, y) { return y.s - x.s; });
-      if (!cal.length) return;
+      if (!cal.length) { if (lepas) lepas.push(it); return; }
       var m = /(\d+)\s*warna/i.exec(it.nama || ''), n = m ? Number(m[1]) : 1;
       var top = cal.filter(function (x) { return x.s >= cal[0].s - 0.01; }).slice(0, n);
       if (top.length < n) top = cal.slice(0, n);
@@ -78,25 +78,60 @@
   function siapkan() {
     (D.bukti || []).forEach(function (b) {
       if (PIL[b.tr]) return;
-      var c = cocokkan(b, D.tunggu || []);
+      var lepas = [], c = cocokkan(b, D.tunggu || [], lepas);
       b.cocok = Object.keys(c).length;
+      // Barang di invoice yang belum ada pengajuannya: produk ditebak dari nama, qty diisi Mike.
+      b.baru = lepas.map(function (it, i) {
+        var best = null, sk = 0;
+        (D.produk || []).forEach(function (p) { var x = skor(it.nama, p.n); if (x > sk) { sk = x; best = p; } });
+        return { id: 'n' + i, nama: it.nama, pil: true, pk: best && sk >= 0.6 ? best.k : '', w: '', q: it.qty ? angka(it.qty) : '', v: Math.round(Number(it.total) || 0) };
+      });
       PIL[b.tr] = {}; TOT[b.tr] = {};
       Object.keys(c).forEach(function (no) { PIL[b.tr][no] = true; TOT[b.tr][no] = c[no]; });
       SUP[b.tr] = b.sup || ''; ETA[b.tr] = '';
       TOKEN[b.tr] = b.tr + '|' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     });
-    D.bukti.sort(function (x, y) { return (y.cocok || 0) - (x.cocok || 0); });
+    D.bukti.sort(function (x, y) { return ((y.cocok || 0) + (y.baru || []).length) - ((x.cocok || 0) + (x.baru || []).length); });
   }
-  function jumlah(tr) { var t = 0, P = PIL[tr] || {}, T = TOT[tr] || {}; Object.keys(P).forEach(function (no) { if (P[no]) t += Number(T[no]) || 0; }); return t; }
+  function bukti(tr) { return ((D && D.bukti) || []).filter(function (x) { return x.tr === tr; })[0]; }
+  function baruDipakai(b) { return (b.baru || []).filter(function (x) { return x.pil && x.pk !== '-'; }); }
+  function jumlah(tr) {
+    var t = 0, P = PIL[tr] || {}, T = TOT[tr] || {}, b = bukti(tr);
+    Object.keys(P).forEach(function (no) { if (P[no]) t += Number(T[no]) || 0; });
+    if (b) baruDipakai(b).forEach(function (x) { t += Number(x.v) || 0; });
+    return t;
+  }
+  var JENIS = [['', 'Pilih produk…'], ['@Bahan baku', 'Bahan baku (tanpa kode)'], ['@Botol & stiker', 'Botol & stiker (tanpa kode)'], ['@Packaging & lainnya', 'Lainnya (tanpa kode)'], ['-', 'Bukan barang (biaya) — jangan dicatat']];
+  function pilihProduk(x) {
+    var o = JENIS.map(function (j) { return '<option value="' + esc(j[0]) + '"' + (x.pk === j[0] ? ' selected' : '') + '>' + esc(j[1]) + '</option>'; }).join('');
+    o += '<optgroup label="Produk (Master Data)">' + (D.produk || []).map(function (p) { return '<option value="' + esc(p.k) + '"' + (x.pk === p.k ? ' selected' : '') + '>' + esc(p.k + ' · ' + p.n) + '</option>'; }).join('') + '</optgroup>';
+    return '<select class="tx" data-bpk="' + esc(x.id) + '">' + o + '</select>';
+  }
+  function produk(k) { return (D.produk || []).filter(function (p) { return p.k === k; })[0]; }
+  function kartuBaru(b) {
+    if (!(b.baru || []).length) return '';
+    return '<div style="margin-top:8px;padding-top:6px;border-top:1px dashed #cfe0f3"><b>Belum ada pengajuannya (' + b.baru.length + ')</b>' +
+      '<div class="kc">Barang ini ada di invoice tapi tidak ada di daftar pengajuan. Pilih produknya dan isi qty; pengajuannya dibuat otomatis (disetujui ' + esc(b.oleh || 'Mike') + ') dan langsung ditandai sudah dibayar.</div>' +
+      b.baru.map(function (x) {
+        var p = produk(x.pk), warna = p && p.w && p.w.length ? '<select class="tx" data-bw="' + esc(x.id) + '"><option value="">Pilih warna…</option>' + p.w.map(function (w) { return '<option' + (x.w === w ? ' selected' : '') + '>' + esc(w) + '</option>'; }).join('') + '</select>' : '';
+        return '<div class="it"><input type="checkbox" data-bpil="' + esc(x.id) + '"' + (x.pil ? ' checked' : '') + ' aria-label="' + esc(x.nama) + '">' +
+          '<div class="n"><b>' + esc(x.nama) + '</b><div class="kc">Dari invoice · total ' + rp(x.v) + '</div>' +
+          (x.pil ? '<div style="margin-top:4px">' + pilihProduk(x) + '</div>' + (warna ? '<div style="margin-top:4px">' + warna + '</div>' : '') : '') + '</div>' +
+          (x.pil && x.pk !== '-' ? '<div><input class="rp" inputmode="decimal" data-bq="' + esc(x.id) + '" placeholder="Qty" value="' + esc(x.q) + '" style="width:80px;margin-bottom:4px"><br>' +
+            '<input class="rp" inputmode="numeric" data-bv="' + esc(x.id) + '" placeholder="Total Rp" value="' + (x.v ? Number(x.v).toLocaleString('id-ID') : '') + '"></div>' : '') + '</div>';
+      }).join('') + '</div>';
+  }
 
   function kartuBukti(b) {
     var P = PIL[b.tr], T = TOT[b.tr], tunggu = D.tunggu || [];
     var urut = tunggu.slice().sort(function (x, y) { return (P[y.no] ? 1 : 0) - (P[x.no] ? 1 : 0); });
-    var tot = jumlah(b.tr), selisih = b.v - tot, n = Object.keys(P).filter(function (k) { return P[k]; }).length;
+    var tot = jumlah(b.tr), selisih = b.v - tot, n = Object.keys(P).filter(function (k) { return P[k]; }).length + baruDipakai(b).length;
     var h = '<div class="bk" data-tr="' + esc(b.tr) + '"><h4>🧾 Bukti Telegram ' + esc(b.oleh || '') + ' · ' + tgl(b.t) + ' · ' + rp(b.v) + '</h4>' +
       '<div class="kc">' + esc(b.tr) + ' · ' + esc(b.akun) + (b.sup ? ' · ke ' + esc(b.sup) : '') + '</div>' +
       (b.cocok ? '<div class="kc ok" style="margin-top:4px">Cocok otomatis dengan ' + b.cocok + ' pengajuan dari rincian invoice. Periksa centang dan totalnya.</div>'
-        : '<div class="kc" style="margin-top:4px">Invoice-nya tidak terbaca. Centang barang yang dibayar dengan bukti ini dan isi totalnya.</div>');
+        : (b.baru || []).length ? '' : '<div class="kc" style="margin-top:4px">Invoice-nya tidak terbaca. Centang barang yang dibayar dengan bukti ini dan isi totalnya.</div>');
+    h += kartuBaru(b);
+    if (urut.length && (b.baru || []).length) h += '<div style="margin-top:8px"><b>Pengajuan yang belum dibayar</b></div>';
     h += urut.map(function (a) {
       return '<div class="it"><input type="checkbox" data-no="' + esc(a.no) + '"' + (P[a.no] ? ' checked' : '') + ' aria-label="' + esc(a.n) + '">' +
         '<div class="n"><b>' + esc(a.n) + (a.w && String(a.n).toUpperCase().indexOf(String(a.w).toUpperCase()) < 0 ? ' · ' + esc(a.w) : '') + '</b>' +
@@ -115,12 +150,12 @@
   function gambar() {
     var el = kotak(); if (!el) return;
     var tg = (D && D.tunggu) || [], sd = (D && D.dibayar) || [], bk = (D && D.bukti) || [];
-    if (!D || (!tg.length && !MSG) || tertutup()) { el.innerHTML = ''; if (O.ubah) O.ubah(); return; }
-    var cocok = bk.filter(function (b) { return b.cocok; }), lain = bk.filter(function (b) { return !b.cocok; });
+    var cocok = bk.filter(function (b) { return b.cocok || (b.baru || []).length; }), lain = bk.filter(function (b) { return !b.cocok && !(b.baru || []).length; });
+    if (!D || (!tg.length && !cocok.length && !MSG) || tertutup()) { el.innerHTML = ''; if (O.ubah) O.ubah(); return; }
     var h = '<div class="ip"><button type="button" class="ipX" aria-label="Tutup (muncul lagi 1 jam lagi)" title="Tutup (muncul lagi 1 jam lagi)">✕</button>' +
       '<b class="j">🌏 Status bayar pengajuan impor</b>' +
       '<div class="ringkas"><span class="lbl belum">' + tg.length + ' belum dibayar</span><span class="lbl sudah">' + sd.length + ' sudah dibayar, menunggu barang datang</span></div>';
-    if (cocok.length) h += '<div style="margin-top:6px">Ada bukti bayar dari Telegram yang cocok dengan pengajuan yang belum dibayar. Periksa lalu tekan <b>Tandai sudah dibayar</b>.</div>';
+    if (cocok.length) h += '<div style="margin-top:6px">Ada bukti bayar impor dari Telegram yang belum tercatat di pengajuan. Periksa lalu tekan <b>Tandai sudah dibayar</b>.</div>';
     else h += '<div class="kc" style="margin-top:6px">Setelah membayar supplier, kirim bukti transfer dan invoice-nya ke Telegram Admin Accounting. Bukti itu akan muncul di sini untuk disambungkan ke pengajuannya.</div>';
     h += MSG;
     cocok.forEach(function (b) { h += kartuBukti(b); });
@@ -145,6 +180,12 @@
     var tr = bk.getAttribute('data-tr'), t = e.target;
     if (t.matches('input[type=checkbox][data-no]')) { PIL[tr][t.getAttribute('data-no')] = t.checked; if (e.type === 'change') gambar(); return; }
     if (t.matches('[data-tot]')) { TOT[tr][t.getAttribute('data-tot')] = angka(t.value); if (e.type === 'change') { if (TOT[tr][t.getAttribute('data-tot')] > 0) PIL[tr][t.getAttribute('data-tot')] = true; gambar(); } return; }
+    var b = bukti(tr), cari = function (a) { var id = t.getAttribute(a); return (b.baru || []).filter(function (x) { return x.id === id; })[0]; }, x;
+    if (t.matches('[data-bpil]')) { x = cari('data-bpil'); x.pil = t.checked; if (e.type === 'change') gambar(); return; }
+    if (t.matches('[data-bpk]')) { x = cari('data-bpk'); x.pk = t.value; x.w = ''; if (e.type === 'change') gambar(); return; }
+    if (t.matches('[data-bw]')) { x = cari('data-bw'); x.w = t.value; return; }
+    if (t.matches('[data-bq]')) { x = cari('data-bq'); x.q = t.value; return; }
+    if (t.matches('[data-bv]')) { x = cari('data-bv'); x.v = angka(t.value); if (e.type === 'change') gambar(); return; }
     if (t.matches('[data-sup]')) SUP[tr] = t.value;
     if (t.matches('[data-eta]')) ETA[tr] = t.value;
   }
@@ -158,15 +199,24 @@
   }
   async function simpan(tr) {
     if (SIBUK) return;
-    var b = (D.bukti || []).filter(function (x) { return x.tr === tr; })[0]; if (!b) return;
-    var nos = Object.keys(PIL[tr]).filter(function (k) { return PIL[tr][k]; }), tot = {};
+    var b = bukti(tr); if (!b) return;
+    var nos = Object.keys(PIL[tr]).filter(function (k) { return PIL[tr][k]; }), tot = {}, baru = [], salah = '';
+    baruDipakai(b).forEach(function (x) {
+      var q = Number(String(x.q || '').replace(',', '.')) || 0, p = x.pk && x.pk.charAt(0) !== '@' ? produk(x.pk) : null;
+      if (!x.pk) salah = salah || 'Pilih produk untuk "' + x.nama + '" (atau pilih "Bukan barang").';
+      else if (p && p.w && p.w.length && !x.w) salah = salah || 'Pilih warna untuk ' + p.n + '.';
+      else if (!(q > 0)) salah = salah || 'Isi qty untuk "' + x.nama + '".';
+      else if (!(x.v > 0)) salah = salah || 'Isi total untuk "' + x.nama + '".';
+      baru.push(p ? { k: x.pk, w: x.w, q: q, v: x.v } : { kel: String(x.pk).slice(1), n: x.nama, q: q, v: x.v });
+    });
+    if (salah) { MSG = '<div class="ms bad">' + esc(salah) + '</div>'; return gambar(); }
     var kosong = nos.filter(function (no) { tot[no] = Number(TOT[tr][no]) || 0; return !(tot[no] > 0); });
-    if (!nos.length) { MSG = '<div class="ms bad">Centang barang yang dibayar dengan bukti ini.</div>'; return gambar(); }
+    if (!nos.length && !baru.length) { MSG = '<div class="ms bad">Centang barang yang dibayar dengan bukti ini.</div>'; return gambar(); }
     if (kosong.length) { MSG = '<div class="ms bad">Isi total yang dibayar untuk setiap barang yang dicentang.</div>'; return gambar(); }
     if (String(SUP[tr] || '').trim().length < 2) { MSG = '<div class="ms bad">Isi nama supplier.</div>'; return gambar(); }
     SIBUK = true; MSG = ''; gambar();
     try {
-      var r = await O.sb.rpc('impor_tandai_bayar', { p_nos: nos, p_total: tot, p_tr: tr, p_bukti: b.bukti || null, p_supplier: String(SUP[tr]).trim(),
+      var r = await O.sb.rpc('impor_bukti_catat', { p_nos: nos, p_total: tot, p_baru: baru, p_tr: tr, p_bukti: b.bukti || null, p_supplier: String(SUP[tr]).trim(),
         p_eta: ETA[tr] || '', p_catatan: '', p_token: TOKEN[tr] });
       var d = r && r.data;
       if (r.error || !d || !d.ok) { MSG = '<div class="ms bad">' + esc((d && d.pesan) || (r.error && r.error.message) || 'Gagal menyimpan. Coba lagi.') + '</div>'; }
