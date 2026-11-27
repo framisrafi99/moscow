@@ -66,6 +66,12 @@
   }
 
   function kotak() {
+    // 28 Nov 2026: di halaman Mike kotak ini tampil di dalam menu Impor (O.wadah), bukan di atas form.
+    if (O.wadah) {
+      var w = O.wadah;
+      if (!w._ip) { w._ip = 1; w.id = 'ipKotak'; w.addEventListener('click', klik); w.addEventListener('input', ketik); w.addEventListener('change', ketik); }
+      return w.isConnected ? w : null;
+    }
     var el = document.getElementById('ipKotak');
     if (!el) {
       var fr = document.getElementById('bingkai'); if (!fr || !fr.parentNode) return null;
@@ -190,7 +196,7 @@
         : await O.sb.rpc('impor_biaya_tandai', { p_tr: tr, p_bukti: b.bukti || null, p_po: x.po, p_jenis: x.j, p_nominal: String(x.v || ''), p_catatan: x.c || '', p_token: x.tok });
       var d = r && r.data;
       MSG = r.error || !d || !d.ok ? '<div class="ms bad">' + esc((d && d.pesan) || (r.error && r.error.message) || 'Gagal menyimpan. Coba lagi.') + '</div>' : '<div class="ms ok">✓ ' + esc(d.pesan) + '</div>';
-      if (d && d.ok) { delete BY[tr]; await muat(); }
+      if (d && d.ok) { delete BY[tr]; if (O.selesai) try { O.selesai(); } catch (e3) { } await muat(); }
     } catch (err) { MSG = '<div class="ms bad">Gagal terhubung. Coba lagi.</div>'; }
     SIBUK = false; gambar();
   }
@@ -201,9 +207,12 @@
     var biaya = bk.filter(function (b) { return b.jenis === 'biaya'; }), telat = (D && D.telat) || [];
     bk = bk.filter(function (b) { return b.jenis !== 'biaya'; });
     var cocok = bk.filter(function (b) { return b.cocok || (b.baru || []).length; }), lain = bk.filter(function (b) { return !b.cocok && !(b.baru || []).length; });
-    if (!D || (!tg.length && !cocok.length && !biaya.length && !telat.length && !MSG) || tertutup()) { el.innerHTML = ''; if (O.ubah) O.ubah(); return; }
-    var h = '<div class="ip"><button type="button" class="ipX" aria-label="Tutup (muncul lagi 1 jam lagi)" title="Tutup (muncul lagi 1 jam lagi)">✕</button>' +
-      '<b class="j">🌏 Status bayar pengajuan impor</b>' +
+    if (O.wadah && !D) { el.innerHTML = '<div class="ip"><div class="kc">Memuat…</div></div>'; return; }
+    if (O.wadah && !tg.length && !cocok.length && !biaya.length && !MSG) { el.innerHTML = '<div class="ip"><div class="kc">Tidak ada pengajuan impor yang belum dibayar dan tidak ada bukti Telegram yang perlu disambungkan.</div></div>'; return; }
+    if (!O.wadah && (!D || (!tg.length && !cocok.length && !biaya.length && !telat.length && !MSG) || tertutup())) { el.innerHTML = ''; if (O.ubah) O.ubah(); return; }
+    if (O.wadah) telat = [];
+    var h = '<div class="ip"' + (O.wadah ? ' style="padding-right:14px"' : '') + '>' + (O.wadah ? '' : '<button type="button" class="ipX" aria-label="Tutup (muncul lagi 1 jam lagi)" title="Tutup (muncul lagi 1 jam lagi)">✕</button>') +
+      '<b class="j">' + (O.wadah ? '💳 Belum dibayar & bukti Telegram' : '🌏 Status bayar pengajuan impor') + '</b>' +
       '<div class="ringkas"><span class="lbl belum">' + tg.length + ' belum dibayar</span><span class="lbl sudah">' + sd.length + ' sudah dibayar, menunggu barang datang</span>' +
       (biaya.length ? '<span class="lbl belum">' + biaya.length + ' biaya impor belum masuk PO</span>' : '') + '</div>';
     if (telat.length) h += '<div class="telat"><b>⏰ PO impor belum diterima lebih dari 30 hari</b>' + telat.map(function (o) {
@@ -300,7 +309,7 @@
       if (r.error || !d || !d.ok) { MSG = '<div class="ms bad">' + esc((d && d.pesan) || (r.error && r.error.message) || 'Gagal menyimpan. Coba lagi.') + '</div>'; }
       else {
         MSG = '<div class="ms ok">✓ ' + esc(d.pesan) + '</div>';
-        delete PIL[tr];
+        delete PIL[tr]; if (O.selesai) try { O.selesai(); } catch (e3) { }
         try { var fr = document.getElementById('bingkai'); if (fr && fr.contentWindow) fr.contentWindow.location.reload(); } catch (e2) { }
         await muat();
       }

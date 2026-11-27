@@ -68,11 +68,14 @@
     mike: {
       judul: 'KENDALI BISNIS', masuk: 'Halaman Mike', peran: ['kendali_bisnis', 'manajemen'],
       sembunyi: '#kbTabs, .foot',
+      // 28 Nov 2026: halaman pertama "Perlu keputusan" dan menu Impor satu alur (kendali-impor.js). Tab Impor lama = "Bayar manual, DP & pelunasan".
       menu: [
-        { k: 'impor', nm: 'Impor', ik: 'purch', l: ['Impor@#kbTabs'] },
-        { k: 'laporan', nm: 'Laporan', ik: 'laporan', l: ['Laporan@#kbTabs'] },
-        { k: 'hpp', nm: 'HPP & Harga', ik: 'harga', l: ['HPP & Harga@#kbTabs'], pendek: 'HPP' },
-        { k: 'naik', nm: 'ACC ubah HPP', ik: 'dasbor', l: ['Harga naik@#kbTabs'], pendek: 'ACC HPP' },
+        { k: 'putus', nm: 'Perlu keputusan', ket: 'Semua yang menunggu keputusan Mike. Tekan salah satu untuk membukanya.', ik: 'setuju', panel: 'kputus', pendek: 'Keputusan' },
+        { k: 'impor', nm: 'Impor', ket: 'Barang impor dari ACC, dibayar, dalam perjalanan, sampai diterima gudang.', ik: 'purch', panel: 'kimpor' },
+        { k: 'laporan', nm: 'Laporan', ket: 'Uang masuk, uang keluar, dan laba usaha per bulan.', ik: 'laporan', l: ['Laporan@#kbTabs'] },
+        { k: 'hpp', nm: 'HPP & harga jual', ket: 'HPP, harga jual, dan margin per barang. Barang baru diisi harga jualnya di sini.', ik: 'harga', l: ['HPP & Harga@#kbTabs'], pendek: 'HPP' },
+        { k: 'naik', nm: 'ACC HPP naik', ket: 'HPP baru dari barang yang diterima gudang, menunggu persetujuan Mike.', ik: 'dasbor', l: ['Harga naik@#kbTabs'], pendek: 'ACC HPP' },
+        { k: 'imporlama', nm: 'Bayar manual, DP & pelunasan', ket: 'Pembayaran impor tanpa bukti Telegram, DP, pelunasan, dan biaya PO manual.', ik: 'uang', l: ['Impor@#kbTabs'], pendek: 'Bayar manual' },
         // 12 Nov 2026: catatan pekerjaan sistem per hari dari penanggung jawab sistem (sistem-lap.js, tabel sistem_laporan).
         { k: 'sistem', nm: 'Laporan sistem', ik: 'laporan', panel: 'sistem', pendek: 'Sistem' },
         { grup: 'PERSETUJUAN & LAPORAN' },
@@ -81,7 +84,7 @@
         { k: 'omzet', nm: 'Omzet & Profit', ik: 'uang', href: 'form.html?f=mikelama#omzet' },
         { k: 'stok', nm: 'Stok semua lokasi', ik: 'stok', href: 'stok.html' }
       ],
-      bawah: ['impor', 'laporan', 'hpp', 'naik', 'lain']
+      bawah: ['putus', 'impor', 'laporan', 'hpp', 'lain']
     },
     mikelama: {
       judul: 'PERSETUJUAN & LAPORAN', masuk: 'Persetujuan & laporan Mike', peran: ['kendali_bisnis', 'manajemen'],
@@ -1307,6 +1310,9 @@
     } else if (mm && mm.panel === 'produk') {
       el.hidden = false; C.panel = true; sec.classList.add('pk-mode'); $('muatan').hidden = true; document.documentElement.classList.remove('berbingkai');
       if (window.ProdukGU) ProdukGU.gambar(el, M.sb, { nama: C.nama });
+    } else if (mm && (mm.panel === 'kputus' || mm.panel === 'kimpor')) {
+      el.hidden = false; C.panel = true; sec.classList.add('pk-mode'); $('muatan').hidden = true; document.documentElement.classList.remove('berbingkai');
+      if (window.KendaliImpor) KendaliImpor[mm.panel === 'kputus' ? 'keputusan' : 'impor'](el, M.sb, { buka: function (x) { M.buka(x); } });
     } else if (mm && mm.panel === 'pkp') {
       el.hidden = false; C.panel = true; sec.classList.add('pk-mode'); $('muatan').hidden = true; document.documentElement.classList.remove('berbingkai');
       if (window.ProduksiKP) ProduksiKP.gambar(el, M.sb, k, { nama: C.nama, salin: salinKeSheet });
@@ -1642,8 +1648,9 @@
     // 27 Nov 2026: pengajuan impor di halaman Mike diberi status bayar yang jelas (impor-tg.js menyambungkan bukti Telegram).
     if (APP === 'mike') {
       html = html.replace("<h3>Menunggu dibayar (' + d.tunggu.length + ')</h3><div class=\"ks\">Centang barang yang dibayar, isi total invoice per barang.",
-        "<h3>Belum dibayar (' + d.tunggu.length + ')</h3><div class=\"ks\">Sudah bayar dan kirim buktinya ke Telegram? Pakai kotak biru <b>Status bayar pengajuan impor</b> di atas supaya uang keluar tidak tercatat dua kali. Bayar baru dari sini: centang barang yang dibayar, isi total invoice per barang.");
+        "<h3>Belum dibayar (' + d.tunggu.length + ')</h3><div class=\"ks\">Sudah bayar dan kirim buktinya ke Telegram? Sambungkan di menu <b>Impor</b>, jangan di sini, supaya uang keluar tidak tercatat dua kali. Bayar tanpa bukti Telegram dari sini: centang barang yang dibayar, isi total invoice per barang.");
     }
+    if (APP === 'mike') html = html.replace("<span>Uang masuk (omzet)</span>", "<span>Uang masuk</span>");
     if (APP === 'mikelama') {
       html = html.replace("<h3>&#127759;&#128179; Impor menunggu dibayar</h3><div class=\"k\">Pengajuan impor yang sudah di-ACC.",
         "<h3>&#127759;&#128179; Impor belum dibayar</h3><div class=\"k\">Sudah bayar dan kirim buktinya ke Telegram? Pakai kotak biru <b>Status bayar pengajuan impor</b> di atas. Pengajuan impor yang sudah di-ACC.");
@@ -1680,7 +1687,7 @@
       // 26 Nov 2026: pengingat barang sudah dibayar > 7 hari tapi belum diterima (tertunda.js).
       if (window.Tertunda && (APP === 'gudang' || APP === 'produksi' || APP === 'bahanbaku')) { try { window.Tertunda.pasang({ sb: sb, app: APP, ubah: function () { setTimeout(ukur, 0); } }); } catch (e) { } }
       // 27 Nov 2026: status bayar pengajuan impor + sambung bukti bayar Telegram (impor-tg.js).
-      if (window.ImporTg && (APP === 'mike' || APP === 'mikelama')) { try { window.ImporTg.pasang({ sb: sb, app: APP, ubah: function () { setTimeout(ukur, 0); } }); } catch (e) { } }
+      if (window.ImporTg && APP === 'mikelama') { try { window.ImporTg.pasang({ sb: sb, app: APP, ubah: function () { setTimeout(ukur, 0); } }); } catch (e) { } }
       if (BUKA.length) jalankanBuka(dok);
       // Stok di dalam tampilan simpanan bisa sudah lama: langsung dimuat ulang (form produksi).
       if (dariSimpanan) try { if (typeof fr.contentWindow.muatStok === 'function') fr.contentWindow.muatStok(); } catch (e) { }

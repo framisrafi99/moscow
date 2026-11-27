@@ -1,0 +1,3 @@
+-- 233 (28 Nov 2026): kendali_ringkas() untuk halaman Mike: daftar ACC impor (dengan alasan & analisa robot), jumlah HPP naik menunggu,
+-- barang baru tanpa harga jual, PO impor dalam perjalanan, PO impor terakhir selesai. Dipakai kendali-impor.js
+-- (menu "Perlu keputusan" dan menu "Impor" satu alur). Definisi lengkap ada di database (create or replace function public.kendali_ringkas()).
