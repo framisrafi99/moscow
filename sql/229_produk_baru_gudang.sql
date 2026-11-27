@@ -1,0 +1,7 @@
+-- 27 Nov 2026 (diterapkan langsung lewat MCP; definisi lengkap di database).
+-- Gudang Utama > Daftar produk: tab per kategori + tambah produk baru oleh staf gudang.
+--   public._produk_awalan(kategori): K (Kuas), S (Sikat), R (Retail), M (Moscow), K0 (Kenka), B (Benang), T (Tali Sepatu), E (Electric).
+--   public._produk_kode_berikut(kategori): kode otomatis berikutnya (K20, S27, R59, M12, K019, T26, ...).
+--   public.produk_daftar_gu(): daftar produk per kategori + harga + stok Gudang Utama (gudang, purchasing, manajemen).
+--   public.produk_baru_gu(kat, nama, warna, hj, hpp, staf, yakin, token): insert barang_order, cek nama dobel, harga jual wajib,
+--     HPP opsional (tanya bila kosong / >= harga jual), riwayat md_ubah_log ("<staf> (Gudang Utama)"), Telegram, token anti dobel.

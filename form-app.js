@@ -15,7 +15,9 @@
         { k: 'ajuan', nm: 'Pengajuan', ket: 'Ajukan pembelian barang, lihat statusnya, dan tandai diterima saat barang yang sudah dibayar datang.', ik: 'purch', l: ['Pengajuan@.m'] },
         { k: 'salur', nm: 'Kirim ke saluran', ket: 'Kirim barang dari Gudang Utama ke Kantor Packing, toko, atau consignment.', ik: 'pemasok', l: ['Penyaluran@.m'] },
         { k: 'riwayat', nm: 'Riwayat', ket: 'Semua catatan barang masuk dan keluar Gudang Utama.', ik: 'riwayat', l: ['Riwayat@.m'] },
-        { k: 'hpp', nm: 'HPP & Harga', ket: 'Modal (HPP) dan harga jual per barang.', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox' }
+        { k: 'hpp', nm: 'HPP & Harga', ket: 'Modal (HPP) dan harga jual per barang.', ik: 'harga', l: [], modal: '#mmhBtn', kotak: 'mmhBox' },
+        // 27 Nov 2026: daftar produk per kategori (Kuas, Sikat, Retail, Moscow, Kenka, ...) + tambah produk baru (produk-gu.js).
+        { k: 'produk', nm: 'Daftar produk', ket: 'Daftar produk per kategori beserta harga jual dan stok. Tambah produk baru di kategorinya; kode dibuat otomatis.', ik: 'produk', panel: 'produk', pendek: 'Produk' }
         // 12 Nov 2026: "Laporan pengajuan (PDF)" pindah jadi tombol di Pengajuan > Daftar pengajuan (lapAjuanDiDaftar).
       ],
       bawah: ['stok', 'order', 'salur', 'ajuan', 'lain']
@@ -1302,6 +1304,9 @@
     } else if (mm && mm.panel === 'sistem') {
       el.hidden = false; C.panel = true; sec.classList.add('pk-mode'); $('muatan').hidden = true; document.documentElement.classList.remove('berbingkai');
       if (window.LaporanSistem) LaporanSistem.gambar(el, M.sb, C.peran);
+    } else if (mm && mm.panel === 'produk') {
+      el.hidden = false; C.panel = true; sec.classList.add('pk-mode'); $('muatan').hidden = true; document.documentElement.classList.remove('berbingkai');
+      if (window.ProdukGU) ProdukGU.gambar(el, M.sb, { nama: C.nama });
     } else if (mm && mm.panel === 'pkp') {
       el.hidden = false; C.panel = true; sec.classList.add('pk-mode'); $('muatan').hidden = true; document.documentElement.classList.remove('berbingkai');
       if (window.ProduksiKP) ProduksiKP.gambar(el, M.sb, k, { nama: C.nama, salin: salinKeSheet });
