@@ -1639,6 +1639,17 @@
     // 12 Nov 2026: HPP & Harga (Gudang Utama). HPP diperbarui otomatis saat Terima barang, jadi staf hanya melihat HPP
     // dan mengajukan harga jual baru; barang yang HPP-nya naik 35% atau lebih dari HPP acuan (sql 203) diberi tanda merah
     // dan ditaruh paling atas. Manajemen (mode manajemen) tetap bisa mengubah HPP & harga jual seperti biasa.
+    // 27 Nov 2026: pengajuan impor di halaman Mike diberi status bayar yang jelas (impor-tg.js menyambungkan bukti Telegram).
+    if (APP === 'mike') {
+      html = html.replace("<h3>Menunggu dibayar (' + d.tunggu.length + ')</h3><div class=\"ks\">Centang barang yang dibayar, isi total invoice per barang.",
+        "<h3>Belum dibayar (' + d.tunggu.length + ')</h3><div class=\"ks\">Sudah bayar dan kirim buktinya ke Telegram? Pakai kotak biru <b>Status bayar pengajuan impor</b> di atas supaya uang keluar tidak tercatat dua kali. Bayar baru dari sini: centang barang yang dibayar, isi total invoice per barang.");
+    }
+    if (APP === 'mikelama') {
+      html = html.replace("<h3>&#127759;&#128179; Impor menunggu dibayar</h3><div class=\"k\">Pengajuan impor yang sudah di-ACC.",
+        "<h3>&#127759;&#128179; Impor belum dibayar</h3><div class=\"k\">Sudah bayar dan kirim buktinya ke Telegram? Pakai kotak biru <b>Status bayar pengajuan impor</b> di atas. Pengajuan impor yang sudah di-ACC.");
+      html = html.replace("<span class=\"st ' + stc(a.st) + '\">' + esc(a.st) + '</span>",
+        "<span class=\"st ' + stc(a.st) + '\">' + esc(a.imp && a.st === 'Disetujui' ? 'Disetujui · belum dibayar' : a.imp && a.st === 'Dipesan' ? 'Sudah dibayar' : a.st) + '</span>");
+    }
     if (APP === 'gudang') {
       html = html.replace("return D.mgmt ? ['hpp', 'harga'] : ['hpp']; }", "return D.mgmt ? ['hpp', 'harga'] : ['harga']; }");
       html = html.replace(": 'Perubahan HPP dikirim sebagai usulan dan baru berlaku setelah di-ACC manajemen Moscow Supplies.');",
@@ -1668,6 +1679,8 @@
       if (window.PilihAlasan && (APP === 'gudang' || APP === 'produksi' || APP === 'bahanbaku')) { try { window.PilihAlasan.pasang(dok, ['psAl', 'yAl', 'kpwAl', 'skAlasan'], 'stok'); } catch (e) { } }
       // 26 Nov 2026: pengingat barang sudah dibayar > 7 hari tapi belum diterima (tertunda.js).
       if (window.Tertunda && (APP === 'gudang' || APP === 'produksi' || APP === 'bahanbaku')) { try { window.Tertunda.pasang({ sb: sb, app: APP, ubah: function () { setTimeout(ukur, 0); } }); } catch (e) { } }
+      // 27 Nov 2026: status bayar pengajuan impor + sambung bukti bayar Telegram (impor-tg.js).
+      if (window.ImporTg && (APP === 'mike' || APP === 'mikelama')) { try { window.ImporTg.pasang({ sb: sb, app: APP, ubah: function () { setTimeout(ukur, 0); } }); } catch (e) { } }
       if (BUKA.length) jalankanBuka(dok);
       // Stok di dalam tampilan simpanan bisa sudah lama: langsung dimuat ulang (form produksi).
       if (dariSimpanan) try { if (typeof fr.contentWindow.muatStok === 'function') fr.contentWindow.muatStok(); } catch (e) { }
