@@ -10,7 +10,7 @@
  */
 (function () {
   'use strict';
-  var O = null, D = null, BUKA = {}, MSG = '', SIBUK = false, LIHAT = false, TUTUP_MS = 60 * 60000, PIL = {}, TOT = {}, SUP = {}, ETA = {}, TOKEN = {};
+  var BY = {}, O = null, D = null, BUKA = {}, MSG = '', SIBUK = false, LIHAT = false, TUTUP_MS = 60 * 60000, PIL = {}, TOT = {}, SUP = {}, ETA = {}, TOKEN = {};
   var CSS = '#ipKotak{max-width:860px;margin:10px auto 0;padding:0 16px}' +
     '#ipKotak .ip{position:relative;border:1px solid #b9d3f0;background:#f2f8ff;color:#0f2f52;border-radius:14px;padding:12px 44px 12px 14px;font-size:14px;line-height:1.45}' +
     '#ipKotak b.j{display:block;margin-bottom:4px;font-size:15px}#ipKotak .kc{font-size:12px;color:#46617f}' +
@@ -30,6 +30,8 @@
     '#ipKotak .jml{margin-top:8px;font-size:13px}#ipKotak .ok{color:#14532d}#ipKotak .bad{color:#9b1c1c}' +
     '#ipKotak .ms{margin-top:8px;padding:8px 10px;border-radius:8px;font-size:13px}#ipKotak .ms.ok{background:#e3f6e9}#ipKotak .ms.bad{background:#fdecea}' +
     '#ipKotak ul{margin:6px 0 0;padding-left:18px}#ipKotak li{margin:3px 0}' +
+    '#ipKotak .telat{margin-top:8px;padding:8px 10px;border-radius:10px;background:#fdecea;color:#7f1d1d;font-size:13px}' +
+    '#ipKotak .tb2{margin-top:8px;padding:9px 12px;border:1px solid #1d5fa8;border-radius:10px;background:#fff;color:#1d5fa8;font:inherit;font-weight:600;cursor:pointer}' +
     '@media (max-width:560px){#ipKotak .g2{grid-template-columns:1fr}#ipKotak input.rp{width:110px}}';
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -147,14 +149,66 @@
     return h;
   }
 
+  // Bukti biaya impor (ongkir cargo, bill kedua, bea masuk): dimasukkan ke biaya PO supaya ikut HPP.
+  var JB = ['Ongkir cargo', 'Bill kedua / IMP', 'Pajak & bea masuk', 'Lainnya'];
+  var ALASAN = ['Biaya barang lama tanpa PO', 'Ongkir lokal / bukan impor', 'Transfer uji coba', 'Sudah dicatat dengan cara lain'];
+  function siapBiaya(b) {
+    if (BY[b.tr]) return BY[b.tr];
+    var ket = String(b.ket || '');
+    // PO sengaja tidak dipilih otomatis: salah PO membuat HPP barang lain ikut naik.
+    return (BY[b.tr] = { po: '', j: /bea|pajak/i.test(ket) ? 'Pajak & bea masuk' : /cargo|kargo|ongkir/i.test(ket) ? 'Ongkir cargo' : /bill|bil kedua|\bimp ?\d/i.test(ket) ? 'Bill kedua / IMP' : 'Ongkir cargo',
+      v: b.v, c: '', al: '', mode: '', tok: b.tr + '|' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8) });
+  }
+  function kartuBiaya(b) {
+    var x = siapBiaya(b);
+    var h = '<div class="bk" data-by="' + esc(b.tr) + '"><h4>🧾 ' + esc(b.oleh || 'Telegram') + ' · ' + tgl(b.t) + ' · ' + rp(b.v) + '</h4><div class="kc">' + esc(b.tr) + ' · ' + esc(b.ket) + '</div>';
+    if (x.mode === 'abaikan') {
+      return h + '<label class="k" style="margin-top:6px">Kenapa bukan untuk PO?</label><select class="tx" data-yal><option value="">Pilih alasan…</option>' +
+        ALASAN.map(function (a) { return '<option' + (x.al === a ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join('') + '</select>' +
+        '<button type="button" class="tb" data-yabaikan' + (SIBUK ? ' disabled' : '') + '>Sembunyikan bukti ini</button>' +
+        '<button type="button" class="lk" data-ymode="" style="margin-top:6px">Batal</button><div class="kc" style="margin-top:4px">Uang keluarnya tetap tercatat di accounting; bukti hanya tidak ditampilkan di sini.</div></div>';
+    }
+    h += '<div class="g2"><div><label class="k">PO impor</label><select class="tx" data-ypo><option value="">Pilih PO…</option>' + (D.po || []).map(function (o) {
+        return '<option value="' + esc(o.no) + '"' + (x.po === o.no ? ' selected' : '') + '>' + esc(o.no + ' · ' + o.sup + ' · ' + o.st) + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="k">Jenis biaya</label><select class="tx" data-yj>' + JB.map(function (j) { return '<option' + (x.j === j ? ' selected' : '') + '>' + esc(j) + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="k">Nominal</label><input class="tx" inputmode="numeric" data-yv value="' + Number(x.v || 0).toLocaleString('id-ID') + '"></div>' +
+      '<div><label class="k">Catatan' + (x.j === 'Lainnya' ? ' (wajib)' : '') + '</label><input class="tx" data-yc value="' + esc(x.c) + '"></div></div>' +
+      '<button type="button" class="tb" data-ysimpan' + (SIBUK || !x.po ? ' disabled' : '') + '>Masukkan ke biaya PO</button>' +
+      '<button type="button" class="lk" data-ymode="abaikan" style="margin-top:6px">Bukan untuk PO impor</button>' +
+      '<div class="kc" style="margin-top:4px">Uang keluar tidak dicatat ulang. Biaya ini ikut dihitung ke HPP barang PO yang dipilih.</div></div>';
+    return h;
+  }
+  async function simpanBiaya(tr, abaikan) {
+    if (SIBUK) return;
+    var b = bukti(tr), x = BY[tr]; if (!b || !x) return;
+    if (abaikan && !x.al) { MSG = '<div class="ms bad">Pilih alasannya.</div>'; return gambar(); }
+    if (!abaikan && !x.po) { MSG = '<div class="ms bad">Pilih PO impornya.</div>'; return gambar(); }
+    if (!abaikan && x.j === 'Lainnya' && String(x.c).trim().length < 3) { MSG = '<div class="ms bad">Tulis keterangan untuk biaya "Lainnya".</div>'; return gambar(); }
+    SIBUK = true; MSG = ''; gambar();
+    try {
+      var r = abaikan ? await O.sb.rpc('impor_bukti_abaikan_simpan', { p_tr: tr, p_alasan: x.al })
+        : await O.sb.rpc('impor_biaya_tandai', { p_tr: tr, p_bukti: b.bukti || null, p_po: x.po, p_jenis: x.j, p_nominal: String(x.v || ''), p_catatan: x.c || '', p_token: x.tok });
+      var d = r && r.data;
+      MSG = r.error || !d || !d.ok ? '<div class="ms bad">' + esc((d && d.pesan) || (r.error && r.error.message) || 'Gagal menyimpan. Coba lagi.') + '</div>' : '<div class="ms ok">✓ ' + esc(d.pesan) + '</div>';
+      if (d && d.ok) { delete BY[tr]; await muat(); }
+    } catch (err) { MSG = '<div class="ms bad">Gagal terhubung. Coba lagi.</div>'; }
+    SIBUK = false; gambar();
+  }
+
   function gambar() {
     var el = kotak(); if (!el) return;
     var tg = (D && D.tunggu) || [], sd = (D && D.dibayar) || [], bk = (D && D.bukti) || [];
+    var biaya = bk.filter(function (b) { return b.jenis === 'biaya'; }), telat = (D && D.telat) || [];
+    bk = bk.filter(function (b) { return b.jenis !== 'biaya'; });
     var cocok = bk.filter(function (b) { return b.cocok || (b.baru || []).length; }), lain = bk.filter(function (b) { return !b.cocok && !(b.baru || []).length; });
-    if (!D || (!tg.length && !cocok.length && !MSG) || tertutup()) { el.innerHTML = ''; if (O.ubah) O.ubah(); return; }
+    if (!D || (!tg.length && !cocok.length && !biaya.length && !telat.length && !MSG) || tertutup()) { el.innerHTML = ''; if (O.ubah) O.ubah(); return; }
     var h = '<div class="ip"><button type="button" class="ipX" aria-label="Tutup (muncul lagi 1 jam lagi)" title="Tutup (muncul lagi 1 jam lagi)">✕</button>' +
       '<b class="j">🌏 Status bayar pengajuan impor</b>' +
-      '<div class="ringkas"><span class="lbl belum">' + tg.length + ' belum dibayar</span><span class="lbl sudah">' + sd.length + ' sudah dibayar, menunggu barang datang</span></div>';
+      '<div class="ringkas"><span class="lbl belum">' + tg.length + ' belum dibayar</span><span class="lbl sudah">' + sd.length + ' sudah dibayar, menunggu barang datang</span>' +
+      (biaya.length ? '<span class="lbl belum">' + biaya.length + ' biaya impor belum masuk PO</span>' : '') + '</div>';
+    if (telat.length) h += '<div class="telat"><b>⏰ PO impor belum diterima lebih dari 30 hari</b>' + telat.map(function (o) {
+      return '<div>' + esc(o.no) + ' · ' + esc(o.sup) + ' · ' + esc(o.st) + ' · ' + rp(o.tot) + ' · ' + o.hari + ' hari</div>'; }).join('') +
+      '<div class="kc" style="color:#7f1d1d">Tanyakan ke supplier atau gudang: masih di jalan, sudah datang tapi belum diterima di aplikasi, atau perlu ditutup.</div></div>';
     if (cocok.length) h += '<div style="margin-top:6px">Ada bukti bayar impor dari Telegram yang belum tercatat di pengajuan. Periksa lalu tekan <b>Tandai sudah dibayar</b>.</div>';
     else h += '<div class="kc" style="margin-top:6px">Setelah membayar supplier, kirim bukti transfer dan invoice-nya ke Telegram Admin Accounting. Bukti itu akan muncul di sini untuk disambungkan ke pengajuannya.</div>';
     h += MSG;
@@ -166,6 +220,11 @@
           '<button type="button" class="lk" data-pakai="' + esc(b.tr) + '" style="margin-top:4px">Pakai bukti ini</button></div>';
       });
     }
+    if (biaya.length) {
+      h += '<div style="margin-top:10px"><button type="button" class="tb2" data-biaya>' + (BUKA.biaya ? 'Sembunyikan biaya impor' : 'Masukkan biaya impor ke PO (' + biaya.length + ')') + '</button>' +
+        '<div class="kc" style="margin-top:4px">Ongkir cargo, bill kedua, dan bea masuk dari Telegram yang belum masuk ke PO mana pun, sehingga belum ikut dihitung ke HPP.</div></div>';
+      if (BUKA.biaya) biaya.forEach(function (b) { h += kartuBiaya(b); });
+    }
     h += '<div style="margin-top:8px"><button type="button" class="lk" data-lihat>' + (LIHAT ? 'Sembunyikan daftar' : 'Lihat daftar status (' + (tg.length + sd.length) + ')') + '</button></div>';
     if (LIHAT) {
       h += '<ul>' + tg.map(function (a) { return '<li><b>' + esc(a.n) + '</b> — <span class="lbl belum">Belum dibayar</span><div class="kc">' + esc(a.no) + ' · ' + Number(a.q).toLocaleString('id-ID') + ' ' + esc(a.s) + '</div></li>'; }).join('') +
@@ -176,6 +235,16 @@
   }
 
   function ketik(e) {
+    var by = e.target.closest('.bk[data-by]');
+    if (by) {
+      var x = BY[by.getAttribute('data-by')], t2 = e.target; if (!x) return;
+      if (t2.matches('[data-ypo]')) { x.po = t2.value; if (e.type === 'change') gambar(); }
+      else if (t2.matches('[data-yj]')) { x.j = t2.value; if (e.type === 'change') gambar(); }
+      else if (t2.matches('[data-yv]')) x.v = angka(t2.value);
+      else if (t2.matches('[data-yc]')) x.c = t2.value;
+      else if (t2.matches('[data-yal]')) x.al = t2.value;
+      return;
+    }
     var bk = e.target.closest('.bk[data-tr]'); if (!bk) return;
     var tr = bk.getAttribute('data-tr'), t = e.target;
     if (t.matches('input[type=checkbox][data-no]')) { PIL[tr][t.getAttribute('data-no')] = t.checked; if (e.type === 'change') gambar(); return; }
@@ -194,6 +263,15 @@
     if (t.closest('.ipX')) return tutup();
     if (t.closest('[data-lihat]')) { LIHAT = !LIHAT; return gambar(); }
     if (t.closest('[data-lain]')) { BUKA.lain = !BUKA.lain; return gambar(); }
+    if (t.closest('[data-biaya]')) { BUKA.biaya = !BUKA.biaya; return gambar(); }
+    var yb = t.closest('.bk[data-by]');
+    if (yb) {
+      var tr = yb.getAttribute('data-by');
+      var md = t.closest('[data-ymode]'); if (md) { BY[tr].mode = md.getAttribute('data-ymode'); return gambar(); }
+      if (t.closest('[data-ysimpan]')) return simpanBiaya(tr, false);
+      if (t.closest('[data-yabaikan]')) return simpanBiaya(tr, true);
+      return;
+    }
     var p = t.closest('[data-pakai]'); if (p) { BUKA[p.getAttribute('data-pakai')] = true; return gambar(); }
     var s = t.closest('[data-simpan]'); if (s) return simpan(s.closest('.bk').getAttribute('data-tr'));
   }
@@ -245,6 +323,6 @@
       if (baru) document.addEventListener('visibilitychange', function () { if (!document.hidden && !SIBUK) muat(); });
       muat();
     },
-    _uji: { skor: skor, cocokkan: cocokkan }
+    _uji: { skor: skor, cocokkan: cocokkan, kartuBiaya: function (b) { return kartuBiaya(b); } }
   };
 })();
