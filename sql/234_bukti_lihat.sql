@@ -1,0 +1,6 @@
+-- 234 (28 Nov 2026), disetujui manajemen Moscow Supplies:
+-- 1. Storage: foto bukti bayar Telegram (bucket bukti-bayar) bisa dibaca peran manajemen, kendali_bisnis, accounting.
+--    create policy bukti_bayar_lihat on storage.objects for select to authenticated
+--    using (bucket_id = 'bukti-bayar' and (select public.peran_saya()) = any (array['manajemen','kendali_bisnis','accounting']));
+-- 2. impor_bukti_calon: + 'foto' [{f: path, d: jenis dokumen}] per bukti -> tombol "Lihat bukti transfer / nota / invoice" (impor-tg.js).
+-- 3. acc_kategori: + "Piutang / dana talangan" (Keluar) dan "Pelunasan piutang / talangan" (Masuk), kelompok Di luar laba rugi.

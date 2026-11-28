@@ -65,6 +65,19 @@
     return hasil;
   }
 
+  // 28 Nov 2026: foto bukti/invoice dari Telegram bisa dibuka langsung (tanpa mencari di Telegram).
+  var NAMA_DOK = { transfer: 'bukti transfer', invoice: 'invoice', nota: 'nota', lainnya: 'foto' };
+  function tombolFoto(b) {
+    return (b.foto || []).map(function (x) { return '<button type="button" class="lk" data-foto="' + esc(x.f) + '" style="margin-right:12px">Lihat ' + esc(NAMA_DOK[x.d] || 'foto') + '</button>'; }).join('');
+  }
+  async function bukaFoto(path) {
+    var w = window.open('', '_blank');
+    try {
+      var r = await O.sb.storage.from('bukti-bayar').createSignedUrl(path, 600);
+      if (r.error || !r.data) throw new Error(r.error ? r.error.message : 'gagal');
+      if (w) w.location.href = r.data.signedUrl; else window.location.href = r.data.signedUrl;
+    } catch (e) { if (w) w.close(); MSG = '<div class="ms bad">Foto tidak bisa dibuka (' + esc(e.message || e) + ').</div>'; gambar(); }
+  }
   function kotak() {
     // 28 Nov 2026: di halaman Mike kotak ini tampil di dalam menu Impor (O.wadah), bukan di atas form.
     if (O.wadah) {
@@ -137,7 +150,7 @@
     var urut = tunggu.slice().sort(function (x, y) { return (P[y.no] ? 1 : 0) - (P[x.no] ? 1 : 0); });
     var tot = jumlah(b.tr), selisih = b.v - tot, n = Object.keys(P).filter(function (k) { return P[k]; }).length + baruDipakai(b).length;
     var h = '<div class="bk" data-tr="' + esc(b.tr) + '"><h4>🧾 Bukti Telegram ' + esc(b.oleh || '') + ' · ' + tgl(b.t) + ' · ' + rp(b.v) + '</h4>' +
-      '<div class="kc">' + esc(b.tr) + ' · ' + esc(b.akun) + (b.sup ? ' · ke ' + esc(b.sup) : '') + '</div>' +
+      '<div class="kc">' + esc(b.tr) + ' · ' + esc(b.akun) + (b.sup ? ' · ke ' + esc(b.sup) : '') + '</div>' + (b.foto ? '<div style="margin-top:4px">' + tombolFoto(b) + '</div>' : '') +
       (b.cocok ? '<div class="kc ok" style="margin-top:4px">Cocok otomatis dengan ' + b.cocok + ' pengajuan dari rincian invoice. Periksa centang dan totalnya.</div>'
         : (b.baru || []).length ? '' : '<div class="kc" style="margin-top:4px">Invoice-nya tidak terbaca. Centang barang yang dibayar dengan bukti ini dan isi totalnya.</div>');
     h += kartuBaru(b);
@@ -169,7 +182,7 @@
   }
   function kartuBiaya(b) {
     var x = siapBiaya(b);
-    var h = '<div class="bk" data-by="' + esc(b.tr) + '"><h4>🧾 ' + esc(b.oleh || 'Telegram') + ' · ' + tgl(b.t) + ' · ' + rp(b.v) + '</h4><div class="kc">' + esc(b.tr) + ' · ' + esc(b.ket) + '</div>';
+    var h = '<div class="bk" data-by="' + esc(b.tr) + '"><h4>🧾 ' + esc(b.oleh || 'Telegram') + ' · ' + tgl(b.t) + ' · ' + rp(b.v) + '</h4><div class="kc">' + esc(b.tr) + ' · ' + esc(b.ket) + '</div>' + (b.foto ? '<div style="margin-top:4px">' + tombolFoto(b) + '</div>' : '');
     if (x.mode === 'abaikan') {
       return h + '<label class="k" style="margin-top:6px">Kenapa bukan untuk PO?</label><select class="tx" data-yal><option value="">Pilih alasan…</option>' +
         ALASAN.map(function (a) { return '<option' + (x.al === a ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join('') + '</select>' +
@@ -272,6 +285,7 @@
   function klik(e) {
     var t = e.target;
     if (t.closest('.ipX')) return tutup();
+    var ft = t.closest('[data-foto]'); if (ft) return bukaFoto(ft.getAttribute('data-foto'));
     if (t.closest('[data-lihat]')) { LIHAT = !LIHAT; return gambar(); }
     if (t.closest('[data-lain]')) { BUKA.lain = !BUKA.lain; return gambar(); }
     if (t.closest('[data-biaya]')) { BUKA.biaya = !BUKA.biaya; return gambar(); }
