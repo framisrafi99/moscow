@@ -50,14 +50,39 @@
       { n: R.hppNaik || 0, t: 'HPP naik menunggu ACC', k: 'naik', c: 'pen', s: 'Dari barang yang baru diterima gudang' },
       { n: R.barangBaru || 0, t: 'Barang baru belum punya harga jual', k: 'hpp', c: 'pen', s: 'Belum bisa dijual sebelum harga jualnya diisi' }
     ];
-    var total = item.reduce(function (a, x) { return a + (x.n ? 1 : 0); }, 0);
-    el.innerHTML = '<div class="ki"><div class="kc">' + (total ? total + ' hal menunggu keputusan Mike. Tekan salah satu untuk membukanya.' : 'Tidak ada yang menunggu keputusan saat ini.') + '</div>' +
+    var asal = R.asal || [];
+    var total = item.reduce(function (a, x) { return a + (x.n ? 1 : 0); }, 0) + (asal.length ? 1 : 0);
+    // 28 Nov 2026: bukti Telegram yang ditanya Admin Accounting "Impor atau Lokal?" bisa dijawab di sini juga.
+    var hAsal = asal.length ? '<div class="kt"><h3>🧾 Bukti Telegram: impor atau lokal? (' + asal.length + ')</h3><div class="kc">Admin Accounting tidak bisa memastikan. Pilih salah satu; setelah itu selesaikan di kartu Telegram (centang pengajuan atau ✅ Catat).</div>' +
+      asal.map(function (b) {
+        return '<div class="row"><div class="n"><b>' + rp(b.nom) + (b.ke ? ' · ' + esc(b.ke) : '') + '</b><div class="kc">#' + b.id + ' · ' + esc(b.w) + (b.kat ? ' · ' + esc(b.kat) : '') + (b.ket ? ' · ' + esc(b.ket) : '') + '</div>' +
+          (b.bk ? '<button type="button" class="lk" data-lihat="' + esc(b.bk) + '">Lihat bukti</button>' : '') +
+          '<div class="g2"><button type="button" class="bt" data-asal="impor" data-id="' + b.id + '">🌏 Impor</button><button type="button" class="bt" data-asal="lokal" data-id="' + b.id + '">🏠 Lokal</button></div><div class="ms" hidden></div></div></div>';
+      }).join('') + '</div>' : '';
+    el.innerHTML = '<div class="ki"><div class="kc">' + (total ? total + ' hal menunggu keputusan Mike. Tekan salah satu untuk membukanya.' : 'Tidak ada yang menunggu keputusan saat ini.') + '</div>' + hAsal +
       item.map(function (x, i) {
         return '<button type="button" class="kp ' + (x.n ? x.c : 'nol') + '" data-ke="' + x.k + '"><b class="a">' + x.n + '</b><span class="t"><b>' + esc(x.t) + '</b>' +
           (x.n && x.s ? '<div class="kc">' + esc(x.s) + '</div>' : '') + '</span><span aria-hidden="true">›</span></button>';
       }).join('') +
       '<div class="kc" style="margin-top:14px">Laporan bulanan ada di menu Laporan. Barang impor dari ACC sampai diterima ada di menu Impor.</div></div>';
-    el.onclick = function (e) { var b = e.target.closest('[data-ke]'); if (b && opsi && opsi.buka) opsi.buka(b.getAttribute('data-ke')); };
+    el.onclick = async function (e) {
+      var lh = e.target.closest('[data-lihat]');
+      if (lh) { var w = window.open('', '_blank'); var u = await sb.storage.from('bukti-bayar').createSignedUrl(lh.getAttribute('data-lihat'), 600);
+        if (u.error || !u.data) { if (w) w.close(); alert('Bukti tidak bisa dibuka.'); } else if (w) w.location = u.data.signedUrl; else location.href = u.data.signedUrl; return; }
+      var ba = e.target.closest('[data-asal]');
+      if (ba) {
+        if (ba.disabled) return;
+        var row = ba.closest('.row'), bts = row.querySelectorAll('[data-asal]'), ms = row.querySelector('.ms');
+        bts.forEach(function (x) { x.disabled = true; });   // cegah klik ganda
+        try {
+          var r = await rpc(sb, 'bukti_asal_pilih', { p_id: Number(ba.getAttribute('data-id')), p_asal: ba.getAttribute('data-asal') });
+          ms.hidden = false; ms.className = 'ms ' + (r && r.ok ? 'ok' : 'bad'); ms.textContent = (r && r.pesan) || 'Gagal menyimpan.';
+          if (!(r && r.ok)) bts.forEach(function (x) { x.disabled = false; });
+        } catch (er) { ms.hidden = false; ms.className = 'ms bad'; ms.textContent = 'Gagal menyimpan. Periksa internet lalu coba lagi.'; bts.forEach(function (x) { x.disabled = false; }); }
+        return;
+      }
+      var b = e.target.closest('[data-ke]'); if (b && opsi && opsi.buka) opsi.buka(b.getAttribute('data-ke'));
+    };
   }
 
   // ---------- Impor: satu alur ----------

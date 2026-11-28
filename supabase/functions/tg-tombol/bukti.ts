@@ -425,12 +425,16 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     return { toko: t(r.penerima, 60), p, i: im, o, b: bTr, bps: bPs, sisa: sisa > tol ? Math.round(sisa) : 0, sisa_ket: t(sisaKet, 120), kurang: sisa < -tol ? Math.round(-sisa) : 0 };
   }
   // 28 Nov 2026: kenali belanja impor vs lokal dari isi bukti (penerima, ringkasan, keterangan pengirim).
-  const RE_LOKAL = /shopee|tokopedia|tiktok|lazada|blibli|bukalapak|virtual account|\bva\b|indomaret|alfamart|toko |\bqris\b|gopay|\bovo\b|\bdana\b|cod\b/i;
-  const RE_IMPOR = /impor|import|china|cina|tiongkok|mitraco|lintas nusa|melani puspa|procurement|sinovar|forwarder|\bimp ?\d{3,}|\brmb\b|\bcny\b|\busd\b/i;
+  // 28 Nov 2026 (rev): QRIS / VA / e-wallet / minimarket = CARA BAYAR, bukan asal barang -> tidak dipakai sebagai tanda lokal.
+  // Urutan: tanda impor kuat (forwarder, kode IMP, mata uang) -> marketplace/toko lokal -> kata umum impor -> ragu.
+  const RE_IMPOR_KUAT = /mitraco|lintas nusa|melani puspa|sinovar|sentral cargo|central cargo|var express|forwarder|\bimp ?\d{3,}|\brmb\b|\bcny\b/i;
+  const RE_LOKAL = /shopee|tokopedia|tiktok ?shop|lazada|blibli|bukalapak|\btoko /i;
+  const RE_IMPOR = /\bimpor|\bimport|china|cina|tiongkok|procurement|\busd\b/i;
   function asalBukti(b: Any, r: Any, kategori: string): string {
     const teks = [r && r.penerima, r && r.ringkasan, r && r.ref, b && b.caption, b && b.keterangan].map((x: Any) => String(x || '')).join(' ');
     if (r && (r.asal === 'impor' || r.asal === 'lokal')) return r.asal;   // sudah dipilih pengirim (tombol 🌏 Impor / 🏠 Lokal)
-    if (RE_LOKAL.test(teks)) return 'lokal';   // marketplace / toko / QRIS = beli lokal, walau barangnya "import"
+    if (RE_IMPOR_KUAT.test(teks)) return 'impor';
+    if (RE_LOKAL.test(teks)) return 'lokal';   // marketplace / toko = beli lokal, walau nama barangnya "import"
     if (RE_IMPOR.test(teks)) return 'impor';
     // 28 Nov 2026 (usul manajemen): tanpa petunjuk = ragu -> bukti Mike ditanyakan dengan tombol Impor / Lokal, tidak ditebak.
     return /^mike/i.test(String((b && b.pengirim) || '')) && (BELANJA.indexOf(kategori) > -1 || kategori === 'Ongkos kirim & ekspedisi') ? 'ragu' : 'lokal';
@@ -865,6 +869,8 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     const pengisi = pb && pb !== oleh ? pb + ' via ' + oleh : oleh;
     // 28 Nov 2026: jawaban "impor atau lokal?" untuk bukti yang tidak bisa dibedakan Admin Accounting.
     if (op === 'J' || op === 'H') {
+      // sudah dijawab (mis. lewat aplikasi Mike): jangan ditimpa, cukup segarkan kartunya
+      if (!(b.baca && b.baca.tanya_asal)) { await tampil(b); return jawab('Sudah dipilih: ' + (b.baca && b.baca.asal === 'impor' ? '🌏 Impor' : '🏠 Lokal') + '.'); }
       const r0: Any = { ...(b.baca || {}), tanya_asal: false, asal: op === 'J' ? 'impor' : 'lokal' };
       if (op === 'H') { const baru = await ubah(id, { baca: { ...r0, rencana: null } }); await tampil(baru); return jawab('Dicatat sebagai belanja lokal. Cek kartunya lalu tekan ✅ Catat.'); }
       const belum = (await sb.rpc('bb_belum_bayar')).data || {};
@@ -1121,5 +1127,16 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     await tampil(b, String(teks).slice(0, 3500)); return { ok: true };
   }
 
-  return { grup, tombol, periksaTunggu, bacaUlang, uji, umumkan, pengingat, tanyaKirim, tanyaTombol, kartuTeks };
+  // 28 Nov 2026: jawaban Impor/Lokal dari aplikasi Mike (RPC bukti_asal_pilih) -> kartu Telegram disegarkan.
+  async function segarAsal(id: number) {
+    let b = await ambil(id); if (!b) return { ok: false, pesan: 'Bukti tidak ditemukan.' };
+    const r = b.baca || {};
+    if (r.asal === 'impor' && !r.rencana && ['dicatat', 'cocok', 'sama', 'bukan'].indexOf(b.status) < 0) {
+      const ri = pilihImpor(r, (await sb.rpc('bb_belum_bayar')).data || {});
+      if (ri) b = await ubah(id, { baca: { ...r, rencana: ri } });
+    }
+    if (b.robot_msg) await tampil(b);
+    return { ok: true };
+  }
+  return { grup, tombol, periksaTunggu, bacaUlang, uji, umumkan, pengingat, tanyaKirim, tanyaTombol, kartuTeks, segarAsal };
 }

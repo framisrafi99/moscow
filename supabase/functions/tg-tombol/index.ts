@@ -272,6 +272,7 @@ Deno.serve(async (req) => {
     if (isi && isi.uji) return json(await bukti.uji(Number(isi.uji)));
     if (isi && isi.pengingat) return json(await bukti.pengingat());
     if (isi && isi.tanya) return json(await bukti.tanyaKirim(isi.tanya));
+    if (isi && isi.asal) return json(await bukti.segarAsal(Number(isi.asal)));
     if (isi && isi.kartu) return json(await bukti.kartuTeks(Number(isi.kartu.id), String(isi.kartu.teks || '')));
     if (isi && isi.nama_bot) return json(await api('setMyName', { name: String(isi.nama_bot).slice(0, 64) }));
     if (isi && isi.undang) return json(await undang());
