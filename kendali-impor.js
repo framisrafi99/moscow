@@ -82,7 +82,21 @@
     };
     if (window.ImporTg) window.ImporTg.pasang({ sb: sb, app: 'mike', wadah: el.querySelector('#kiBayar'), selesai: function () { muatAlur(el, sb); } });
     try { window.scrollTo(0, 0); } catch (e) { }
+    jagaAtas();
     await muatAlur(el, sb);
+  }
+  // 28 Nov 2026: sekali terlihat halaman Impor terlompat ke tengah saat dibuka (belum bisa diulang).
+  // Pengaman: selama 4 detik pertama, kalau Mike belum menggulir sendiri dan halaman bergeser, kembalikan ke atas.
+  function jagaAtas() {
+    var sendiri = false, mulai = Date.now();
+    function tandai() { sendiri = true; }
+    ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(function (ev) { window.addEventListener(ev, tandai, { once: true, passive: true }); });
+    function cek() {
+      if (sendiri || Date.now() - mulai > 4000) return;
+      if (window.scrollY > 0) { try { console.warn('[KendaliImpor] halaman bergeser sendiri ke', window.scrollY, '- dikembalikan ke atas'); window.scrollTo(0, 0); } catch (e) { } }
+      setTimeout(cek, 250);
+    }
+    setTimeout(cek, 250);
   }
   async function muatAlur(el, sb) {
     var R;
