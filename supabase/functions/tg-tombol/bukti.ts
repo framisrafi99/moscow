@@ -569,7 +569,8 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     // bukti kembar (foto yang sama dikirim dua kali)
     if (nominal) {
       const q = sb.from('bb_bukti').select('id,acc_no,status,pengirim,tanggal,baca').neq('id', id).not('status', 'in', '(gagal,bukan)').gte('waktu', new Date(Date.now() - 20 * 86400e3).toISOString());
-      const kemb = r.ref ? await q.contains('baca', { ref: r.ref }).limit(5) : await q.eq('nominal', nominal).eq('tanggal', tanggal).eq('uid', uid).limit(5);
+      // 28 Nov 2026: nomor ref saja tidak cukup (nomor VA Shopee bisa sama untuk banyak pesanan): nominal juga harus sama.
+      const kemb = r.ref ? await q.contains('baca', { ref: r.ref }).eq('nominal', nominal).limit(5) : await q.eq('nominal', nominal).eq('tanggal', tanggal).eq('uid', uid).limit(5);
       // invoice dan bukti transfernya bukan kembar (dipasangkan di bawah)
       const k = (kemb.data || []).filter((x: Any) => adalahInvoice(x.baca) === adalahInvoice(r))[0];
       if (k) {
