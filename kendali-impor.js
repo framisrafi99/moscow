@@ -8,10 +8,10 @@
  */
 (function () {
   'use strict';
-  var CSS = '.ki{max-width:860px;margin:0 auto;padding:12px 16px 40px;color:#1c2430;font-size:14.5px;line-height:1.45}' +
+  var CSS = '.ki{max-width:860px;margin:0 auto;padding:10px 16px 40px;color:#1c2430;font-size:14.5px;line-height:1.45}' +
     '.ki h2{font-size:18px;margin:4px 0 2px}.ki .kc{font-size:12.5px;color:#5b6777}' +
     '.ki .kt{background:#fff;border:1px solid #e3e7ee;border-radius:14px;padding:12px 14px;margin-top:12px}' +
-    '.ki .kt h3{margin:0 0 4px;font-size:15.5px;display:flex;gap:8px;align-items:center}.ki .no{display:inline-flex;width:24px;height:24px;border-radius:50%;background:#1a78a0;color:#fff;font-size:13px;align-items:center;justify-content:center;flex:none}' +
+    '.ki .kt h3{margin:0 0 4px;font-size:15.5px;display:flex;gap:8px;align-items:center}.ki .nr{display:inline-flex;width:24px;height:24px;border-radius:50%;background:#1a78a0;color:#fff;font-size:13px;align-items:center;justify-content:center;flex:none}' +
     '.ki .row{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid #eef1f5}.ki .row:first-of-type{border-top:0}.ki .row .n{flex:1;min-width:0}' +
     '.ki input[type=checkbox]{width:20px;height:20px;margin-top:2px;flex:none}.ki input.q{width:84px;padding:7px 8px;border:1px solid #cfd8e3;border-radius:8px;font:inherit;text-align:right}' +
     '.ki input.tx{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cfd8e3;border-radius:8px;font:inherit;margin-top:8px}' +
@@ -51,7 +51,7 @@
       { n: R.barangBaru || 0, t: 'Barang baru belum punya harga jual', k: 'hpp', c: 'pen', s: 'Belum bisa dijual sebelum harga jualnya diisi' }
     ];
     var total = item.reduce(function (a, x) { return a + (x.n ? 1 : 0); }, 0);
-    el.innerHTML = '<div class="ki"><h2>Perlu keputusan</h2><div class="kc">' + (total ? total + ' hal menunggu keputusan Mike. Tekan salah satu untuk membukanya.' : 'Tidak ada yang menunggu keputusan saat ini.') + '</div>' +
+    el.innerHTML = '<div class="ki"><div class="kc">' + (total ? total + ' hal menunggu keputusan Mike. Tekan salah satu untuk membukanya.' : 'Tidak ada yang menunggu keputusan saat ini.') + '</div>' +
       item.map(function (x, i) {
         return '<button type="button" class="kp ' + (x.n ? x.c : 'nol') + '" data-ke="' + x.k + '"><b class="a">' + x.n + '</b><span class="t"><b>' + esc(x.t) + '</b>' +
           (x.n && x.s ? '<div class="kc">' + esc(x.s) + '</div>' : '') + '</span><span aria-hidden="true">›</span></button>';
@@ -65,9 +65,9 @@
   async function impor(el, sb, opsi) {
     css();
     S = { pil: {}, qty: {}, cat: '', msg: '', sibuk: false, tok: '' };
-    el.innerHTML = '<div class="ki"><h2>Impor</h2><div class="kc">Alur barang impor: ACC → dibayar → dalam perjalanan → diterima gudang.</div>' +
-      '<div class="kt" id="kiAcc"><div class="kc">Memuat…</div></div>' +
-      '<div class="kt"><h3><span class="no">2</span>Belum dibayar</h3><div class="kc">Bayar supplier, kirim bukti transfer + invoice ke Telegram Admin Accounting, lalu sambungkan di sini.</div><div id="kiBayar" style="margin-top:8px"></div></div>' +
+    el.innerHTML = '<div class="ki">' +
+      '<div class="kt" id="kiAcc" style="margin-top:0"><div class="kc">Memuat…</div></div>' +
+      '<div class="kt"><h3><span class="nr">2</span>Belum dibayar</h3><div class="kc">Bayar supplier, kirim bukti transfer + invoice ke Telegram Admin Accounting, lalu sambungkan di sini.</div><div id="kiBayar" style="margin-top:8px"></div></div>' +
       '<div class="kt" id="kiJalan"><div class="kc">Memuat…</div></div>' +
       '<div class="kt" id="kiSelesai"></div>' +
       '<div class="kc" style="margin-top:12px">Bayar tanpa bukti Telegram, DP, pelunasan, atau biaya PO manual: <button type="button" class="lk" data-ke="imporlama">menu Bayar manual, DP &amp; pelunasan</button>.</div></div>';
@@ -81,6 +81,7 @@
       if (e.target.id === 'kiCat') S.cat = e.target.value;
     };
     if (window.ImporTg) window.ImporTg.pasang({ sb: sb, app: 'mike', wadah: el.querySelector('#kiBayar'), selesai: function () { muatAlur(el, sb); } });
+    try { window.scrollTo(0, 0); } catch (e) { }
     await muatAlur(el, sb);
   }
   async function muatAlur(el, sb) {
@@ -91,7 +92,7 @@
     if (!R || !R.ok) { A.innerHTML = '<div class="ms bad">Gagal memuat. Coba buka lagi menu ini.</div>'; return; }
     S.R = R; gambarAcc(el);
     var jl = R.dalamJalan || [];
-    J.innerHTML = '<h3><span class="no">3</span>Sudah dibayar, dalam perjalanan (' + jl.length + ')</h3><div class="kc">PO impor yang belum diterima penuh oleh Gudang Utama. Resi dan penerimaan diisi Daffa di aplikasi Gudang Utama.</div>' +
+    J.innerHTML = '<h3><span class="nr">3</span>Sudah dibayar, dalam perjalanan (' + jl.length + ')</h3><div class="kc">PO impor yang belum diterima penuh oleh Gudang Utama. Resi dan penerimaan diisi Daffa di aplikasi Gudang Utama.</div>' +
       (jl.length ? jl.map(function (o) {
         var tel = o.hari > 30 && o.st !== 'Disetujui';
         return '<div class="row"><div class="n"><b>' + esc(o.no) + ' · ' + esc(o.sup) + '</b><div class="kc">' + tgl(o.t) + ' · ' + rp(o.tot) + (o.resi ? ' · resi ' + esc(o.resi) : ' · belum ada resi') + '</div></div>' +
@@ -99,13 +100,13 @@
           (tel ? '<div class="kc" style="color:#9b1c1c">' + o.hari + ' hari</div>' : '') + '</div></div>';
       }).join('') : '<div class="kc" style="margin-top:6px">Tidak ada.</div>');
     var sl = R.selesai || [];
-    Z.innerHTML = '<h3><span class="no">4</span>Diterima gudang (terakhir)</h3>' +
+    Z.innerHTML = '<h3><span class="nr">4</span>Diterima gudang (terakhir)</h3>' +
       (sl.length ? sl.map(function (o) { return '<div class="row"><div class="n"><b>' + esc(o.no) + ' · ' + esc(o.sup) + '</b><div class="kc">' + tgl(o.t) + ' · ' + rp(o.tot) + '</div></div><span class="chip ok">Selesai</span></div>'; }).join('')
         : '<div class="kc">Belum ada.</div>');
   }
   function gambarAcc(el) {
     var A = el.querySelector('#kiAcc'), acc = (S.R && S.R.acc) || [];
-    var h = '<h3><span class="no">1</span>Perlu ACC (' + acc.length + ')</h3>';
+    var h = '<h3><span class="nr">1</span>Perlu ACC (' + acc.length + ')</h3>';
     if (!acc.length) h += '<div class="kc">Tidak ada pengajuan impor yang menunggu ACC.</div>';
     else {
       h += '<div class="kc">Centang pengajuan, ubah qty kalau perlu, lalu Setujui atau Tolak.</div>' + acc.map(function (a) {

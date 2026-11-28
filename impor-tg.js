@@ -10,7 +10,7 @@
  */
 (function () {
   'use strict';
-  var BY = {}, O = null, D = null, BUKA = {}, MSG = '', SIBUK = false, LIHAT = false, TUTUP_MS = 60 * 60000, PIL = {}, TOT = {}, SUP = {}, ETA = {}, TOKEN = {};
+  var CK = {}, BY = {}, O = null, D = null, BUKA = {}, MSG = '', SIBUK = false, LIHAT = false, TUTUP_MS = 60 * 60000, PIL = {}, TOT = {}, SUP = {}, ETA = {}, TOKEN = {};
   var CSS = '#ipKotak{max-width:860px;margin:10px auto 0;padding:0 16px}' +
     '#ipKotak .ip{position:relative;border:1px solid #b9d3f0;background:#f2f8ff;color:#0f2f52;border-radius:14px;padding:12px 44px 12px 14px;font-size:14px;line-height:1.45}' +
     '#ipKotak b.j{display:block;margin-bottom:4px;font-size:15px}#ipKotak .kc{font-size:12px;color:#46617f}' +
@@ -85,7 +85,8 @@
   }
   function siapkan() {
     (D.bukti || []).forEach(function (b) {
-      if (PIL[b.tr]) return;
+      // 28 Nov 2026: hasil pencocokan disimpan per bukti; data baru (muat ulang) tetap memakai hasil & pilihan Mike sebelumnya.
+      if (PIL[b.tr] && CK[b.tr]) { b.cocok = CK[b.tr].cocok; b.baru = CK[b.tr].baru; return; }
       var lepas = [], c = cocokkan(b, D.tunggu || [], lepas);
       b.cocok = Object.keys(c).length;
       // Barang di invoice yang belum ada pengajuannya: produk ditebak dari nama, qty diisi Mike.
@@ -94,6 +95,7 @@
         (D.produk || []).forEach(function (p) { var x = skor(it.nama, p.n); if (x > sk) { sk = x; best = p; } });
         return { id: 'n' + i, nama: it.nama, pil: true, pk: best && sk >= 0.6 ? best.k : '', w: '', q: it.qty ? angka(it.qty) : '', v: Math.round(Number(it.total) || 0) };
       });
+      CK[b.tr] = { cocok: b.cocok, baru: b.baru };
       PIL[b.tr] = {}; TOT[b.tr] = {};
       Object.keys(c).forEach(function (no) { PIL[b.tr][no] = true; TOT[b.tr][no] = c[no]; });
       SUP[b.tr] = b.sup || ''; ETA[b.tr] = '';
@@ -309,7 +311,7 @@
       if (r.error || !d || !d.ok) { MSG = '<div class="ms bad">' + esc((d && d.pesan) || (r.error && r.error.message) || 'Gagal menyimpan. Coba lagi.') + '</div>'; }
       else {
         MSG = '<div class="ms ok">✓ ' + esc(d.pesan) + '</div>';
-        delete PIL[tr]; if (O.selesai) try { O.selesai(); } catch (e3) { }
+        delete PIL[tr]; delete CK[tr]; if (O.selesai) try { O.selesai(); } catch (e3) { }
         try { var fr = document.getElementById('bingkai'); if (fr && fr.contentWindow) fr.contentWindow.location.reload(); } catch (e2) { }
         await muat();
       }
