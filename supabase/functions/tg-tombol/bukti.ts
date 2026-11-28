@@ -228,7 +228,7 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       (r.pembayar && r.pembayar !== b.pengirim ? '\n👤 Dibayar <b>' + esc(r.pembayar) + '</b> (bukti dikirim ' + esc(b.pengirim) + ')' : '');
     if (r.belum_bayar) h += '\n\n⚠️ <i>Sepertinya ini pesanan / tagihan yang belum lunas. Catat hanya kalau sudah dibayar.</i>';
     if (r.bukti === false) h += '\n\n⚠️ <i>Sepertinya bukan bukti pembayaran. Abaikan kalau memang bukan.</i>';
-    if (r.rencana && r.rencana.calon) h += '\n\n🌏 <b>Pengajuan impor yang menunggu dibayar</b> — centang yang dibayar dengan bukti ini' +
+    if (r.rencana && r.rencana.calon) h += '\n\n🌏 <b>Bukti ini terbaca sebagai pembayaran IMPOR.</b> Centang pengajuan impor yang dibayar dengan bukti ini. <i>Kalau ini belanja lokal, jangan centang apa pun, tekan 📝 Catat biasa.</i>' +
       ' <i>(total bukti dibagi sebanding perkiraan harga)</i>:' + (r.rencana.i.length ? teksRencana(r.rencana) + '\n\n<i>Kalau benar, ' + esc(b.pengirim) + ' tekan ✅ Sudah dibayar.</i>' : '\n<i>Belum ada yang dicentang.</i>');
     else if (r.rencana) h += '\n\n🛒 <b>Pengajuan yang dibayar dengan bukti ini</b> (nota → sistem):' + teksRencana(r.rencana) +
       (r.rencana.kurang ? '' :'\n\n<i>Kalau benar, ' + esc(b.pengirim) + ' tekan ✅ Sudah dibayar. Pengajuan langsung berstatus dibayar dan tercatat di accounting.</i>');
@@ -411,6 +411,16 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     }
     const sisaKet = (Array.isArray(r.barang) ? r.barang : []).map((x: Any) => t(x && x.nama, 40)).filter((n: string) => n && !notaPakai.some((u) => u.indexOf(n.toLowerCase().slice(0, 12)) > -1)).join(', ');
     return { toko: t(r.penerima, 60), p, i: im, o, b: bTr, bps: bPs, sisa: sisa > tol ? Math.round(sisa) : 0, sisa_ket: t(sisaKet, 120), kurang: sisa < -tol ? Math.round(-sisa) : 0 };
+  }
+  // 28 Nov 2026: kenali belanja impor vs lokal dari isi bukti (penerima, ringkasan, keterangan pengirim).
+  const RE_LOKAL = /shopee|tokopedia|tiktok|lazada|blibli|bukalapak|virtual account|\bva\b|indomaret|alfamart|toko |\bqris\b|gopay|\bovo\b|\bdana\b|cod\b/i;
+  const RE_IMPOR = /impor|import|china|cina|tiongkok|mitraco|lintas nusa|melani puspa|procurement|sinovar|forwarder|\bimp ?\d{3,}|\brmb\b|\bcny\b|\busd\b/i;
+  function asalBukti(b: Any, r: Any, kategori: string): string {
+    const teks = [r && r.penerima, r && r.ringkasan, r && r.ref, b && b.caption, b && b.keterangan].map((x: Any) => String(x || '')).join(' ');
+    if (RE_LOKAL.test(teks)) return 'lokal';   // marketplace / toko / QRIS = beli lokal, walau barangnya "import"
+    if (RE_IMPOR.test(teks)) return 'impor';
+    // tanpa petunjuk: impor hanya kalau kategorinya barang dagang / impor DAN dibayar Mike (barang lokal dibeli Viory / Purchasing)
+    return kategori === 'Pembelian barang dagang / impor' && /^mike/i.test(String((b && b.pengirim) || '')) ? 'impor' : 'lokal';
   }
   // Bukti impor biasanya hanya transfer (tanpa rincian barang): tampilkan pengajuan impor yang menunggu dibayar untuk dicentang.
   function pilihImpor(r: Any, belum: Any) {
@@ -658,7 +668,9 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
         await tampil(b); return;
       }
       // transfer impor tanpa rincian barang: centang pengajuan impor yang dibayar
-      if ((nama === 'Mike' || kategori === 'Pembelian barang dagang / impor') && !r.belum_bayar) {
+      // 28 Nov 2026: hanya bukti yang memang impor (supplier / forwarder impor, kode IMP, China) yang ditawari daftar pengajuan impor.
+      // Belanja lokal Mike (Shopee, toko, QRIS, VA) tidak lagi memunculkan daftar ini.
+      if (asalBukti(b, r, kategori) === 'impor' && !r.belum_bayar) {
         const ri = pilihImpor(r, belum);
         if (ri) { b = await ubah(id, { baca: { ...r, rencana: ri } }); await tampil(b); return; }
       }
