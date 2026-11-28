@@ -227,10 +227,10 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       const cb = (op: string) => 'b|' + b.id + '|' + op;
       let hq = '🧾 <b>Bukti dari ' + esc(b.pengirim) + '</b>\n💸 <b>' + (b.nominal ? rp(b.nominal) : 'nominal belum terbaca') + '</b> · ' + tglId(b.tanggal) +
         '\n📝 ' + esc(b.keterangan || '-') + '\n🏷️ ' + esc(b.kategori || '-') + '\n🏦 ' + esc(b.akun) +
-        '\n\n❓ <b>Ini belanja IMPOR atau LOKAL?</b>\nAdmin Accounting belum bisa memastikan dari buktinya. ' + esc(b.pengirim) + ', pilih salah satu:' +
-        '\n• <b>🌏 Impor</b>: barang dari luar negeri / lewat Mitraco, forwarder, bill kedua, ongkir kiriman impor.' +
-        '\n• <b>🏠 Lokal</b>: beli di toko / marketplace / supplier dalam negeri.' +
-        '\n<i>Lain kali tulis "impor" atau kode IMP di keterangan bukti supaya tidak ditanya.</i>';
+        '\n\n❓ <b>Ini belanja impor atau lokal?</b>' +
+        '\n🌏 Impor = barang dari luar negeri, atau ongkir cargo impor' +
+        '\n🏠 Lokal = beli di toko / online dalam negeri' +
+        '\n\n<i>Tips: tulis "impor" di caption, nanti tidak ditanya.</i>';
       if (b.catatan) hq += '\n\n<i>' + esc(b.catatan) + '</i>';
       return { text: hq, markup: { inline_keyboard: [[{ text: '🌏 Impor', callback_data: cb('J') }, { text: '🏠 Lokal', callback_data: cb('H') }],
         [{ text: '✏️ Ubah', callback_data: cb('u') }, { text: '❌ Bukan', callback_data: cb('x') }]] } };
@@ -240,8 +240,9 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       (r.pembayar && r.pembayar !== b.pengirim ? '\n👤 Dibayar <b>' + esc(r.pembayar) + '</b> (bukti dikirim ' + esc(b.pengirim) + ')' : '');
     if (r.belum_bayar) h += '\n\n⚠️ <i>Sepertinya ini pesanan / tagihan yang belum lunas. Catat hanya kalau sudah dibayar.</i>';
     if (r.bukti === false) h += '\n\n⚠️ <i>Sepertinya bukan bukti pembayaran. Abaikan kalau memang bukan.</i>';
-    if (r.rencana && r.rencana.calon) h += '\n\n🌏 <b>Bukti ini terbaca sebagai pembayaran IMPOR.</b> Centang pengajuan impor yang dibayar dengan bukti ini. <i>Kalau ini belanja lokal, jangan centang apa pun, tekan 📝 Catat biasa.</i>' +
-      ' <i>(total bukti dibagi sebanding perkiraan harga)</i>:' + (r.rencana.i.length ? teksRencana(r.rencana) + '\n\n<i>Kalau benar, ' + esc(b.pengirim) + ' tekan ✅ Sudah dibayar.</i>' : '\n<i>Belum ada yang dicentang.</i>');
+    if (r.rencana && r.rencana.calon) h += '\n\n🌏 <b>Pembayaran barang impor</b>' +
+      '\n1. Tekan ⬜ barang yang dibayar dengan bukti ini.\n2. Tekan ✅ Sudah dibayar.' +
+      '\n<i>Bukan barang impor? Tekan 📝 Catat biasa.</i>' + (r.rencana.i.length ? '\n\nDipilih:' + teksRencana(r.rencana) : '');
     else if (r.rencana) h += '\n\n🛒 <b>Pengajuan yang dibayar dengan bukti ini</b> (nota → sistem):' + teksRencana(r.rencana) +
       (r.rencana.kurang ? '' :'\n\n<i>Kalau benar, ' + esc(b.pengirim) + ' tekan ✅ Sudah dibayar. Pengajuan langsung berstatus dibayar dan tercatat di accounting.</i>');
     if (r.kandidat) h +='\n\n🔎 <b>Mungkin sudah tercatat</b> ' + (r.kandidat.acc ? 'di accounting' + (r.kandidat.alasan ? ' <i>(' + esc(r.kandidat.alasan) + ')</i>' : '') + ':'
@@ -872,12 +873,12 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       // sudah dijawab (mis. lewat aplikasi Mike): jangan ditimpa, cukup segarkan kartunya
       if (!(b.baca && b.baca.tanya_asal)) { await tampil(b); return jawab('Sudah dipilih: ' + (b.baca && b.baca.asal === 'impor' ? '🌏 Impor' : '🏠 Lokal') + '.'); }
       const r0: Any = { ...(b.baca || {}), tanya_asal: false, asal: op === 'J' ? 'impor' : 'lokal' };
-      if (op === 'H') { const baru = await ubah(id, { baca: { ...r0, rencana: null } }); await tampil(baru); return jawab('Dicatat sebagai belanja lokal. Cek kartunya lalu tekan ✅ Catat.'); }
+      if (op === 'H') { const baru = await ubah(id, { baca: { ...r0, rencana: null } }); await tampil(baru); return jawab('Lokal. Tekan ✅ Catat.'); }
       const belum = (await sb.rpc('bb_belum_bayar')).data || {};
       const ri = pilihImpor(r0, belum);
       const baru = await ubah(id, { baca: { ...r0, rencana: ri }, ...(b.kategori === 'Biaya lain-lain' ? { kategori: 'Pembelian barang dagang / impor' } : {}) });
       await tampil(baru);
-      return jawab(ri ? 'Impor. Centang pengajuan impor yang dibayar dengan bukti ini, atau 📝 Catat biasa kalau bukan untuk pengajuan.' : 'Impor. Tidak ada pengajuan impor yang menunggu dibayar: tekan ✅ Catat. Biaya ini muncul di menu Impor untuk disambungkan ke PO.', true);
+      return jawab(ri ? 'Impor. Pilih barang yang dibayar, lalu tekan ✅ Sudah dibayar.' : 'Impor. Tekan ✅ Catat.', true);
     }
     if (op === 'p') {
       const rc = b.baca && b.baca.rencana;
