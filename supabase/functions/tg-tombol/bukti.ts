@@ -223,6 +223,18 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
         [{ text: '🏦 Dari', callback_data: cb('d') }, { text: '🏦 Ke', callback_data: cb('e') }],
         [{ text: '📝 Ini pengeluaran', callback_data: cb('g') }, { text: '❌ Bukan', callback_data: cb('x') }]] } };
     }
+    if (r.tanya_asal && b.akun) {
+      const cb = (op: string) => 'b|' + b.id + '|' + op;
+      let hq = '🧾 <b>Bukti dari ' + esc(b.pengirim) + '</b>\n💸 <b>' + (b.nominal ? rp(b.nominal) : 'nominal belum terbaca') + '</b> · ' + tglId(b.tanggal) +
+        '\n📝 ' + esc(b.keterangan || '-') + '\n🏷️ ' + esc(b.kategori || '-') + '\n🏦 ' + esc(b.akun) +
+        '\n\n❓ <b>Ini belanja IMPOR atau LOKAL?</b>\nAdmin Accounting belum bisa memastikan dari buktinya. ' + esc(b.pengirim) + ', pilih salah satu:' +
+        '\n• <b>🌏 Impor</b>: barang dari luar negeri / lewat Mitraco, forwarder, bill kedua, ongkir kiriman impor.' +
+        '\n• <b>🏠 Lokal</b>: beli di toko / marketplace / supplier dalam negeri.' +
+        '\n<i>Lain kali tulis "impor" atau kode IMP di keterangan bukti supaya tidak ditanya.</i>';
+      if (b.catatan) hq += '\n\n<i>' + esc(b.catatan) + '</i>';
+      return { text: hq, markup: { inline_keyboard: [[{ text: '🌏 Impor', callback_data: cb('J') }, { text: '🏠 Lokal', callback_data: cb('H') }],
+        [{ text: '✏️ Ubah', callback_data: cb('u') }, { text: '❌ Bukan', callback_data: cb('x') }]] } };
+    }
     let h ='🧾 <b>Bukti dari ' + esc(b.pengirim) + '</b>\n💸 <b>' + (b.nominal ? rp(b.nominal) : 'nominal belum terbaca') + '</b> · ' + tglId(b.tanggal) +
       '\n📝 ' + esc(b.keterangan || '-') + '\n🏷️ ' + esc(b.kategori || '-') + '\n🏦 ' + (b.akun ? esc(b.akun) : '❓ <b>akun bayar belum dipilih</b> (pilih di bawah)') +
       (r.pembayar && r.pembayar !== b.pengirim ? '\n👤 Dibayar <b>' + esc(r.pembayar) + '</b> (bukti dikirim ' + esc(b.pengirim) + ')' : '');
@@ -417,10 +429,11 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
   const RE_IMPOR = /impor|import|china|cina|tiongkok|mitraco|lintas nusa|melani puspa|procurement|sinovar|forwarder|\bimp ?\d{3,}|\brmb\b|\bcny\b|\busd\b/i;
   function asalBukti(b: Any, r: Any, kategori: string): string {
     const teks = [r && r.penerima, r && r.ringkasan, r && r.ref, b && b.caption, b && b.keterangan].map((x: Any) => String(x || '')).join(' ');
+    if (r && (r.asal === 'impor' || r.asal === 'lokal')) return r.asal;   // sudah dipilih pengirim (tombol 🌏 Impor / 🏠 Lokal)
     if (RE_LOKAL.test(teks)) return 'lokal';   // marketplace / toko / QRIS = beli lokal, walau barangnya "import"
     if (RE_IMPOR.test(teks)) return 'impor';
-    // tanpa petunjuk: impor hanya kalau kategorinya barang dagang / impor DAN dibayar Mike (barang lokal dibeli Viory / Purchasing)
-    return kategori === 'Pembelian barang dagang / impor' && /^mike/i.test(String((b && b.pengirim) || '')) ? 'impor' : 'lokal';
+    // 28 Nov 2026 (usul manajemen): tanpa petunjuk = ragu -> bukti Mike ditanyakan dengan tombol Impor / Lokal, tidak ditebak.
+    return /^mike/i.test(String((b && b.pengirim) || '')) && (BELANJA.indexOf(kategori) > -1 || kategori === 'Ongkos kirim & ekspedisi') ? 'ragu' : 'lokal';
   }
   // Bukti impor biasanya hanya transfer (tanpa rincian barang): tampilkan pengajuan impor yang menunggu dibayar untuk dicentang.
   function pilihImpor(r: Any, belum: Any) {
@@ -670,10 +683,12 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
       // transfer impor tanpa rincian barang: centang pengajuan impor yang dibayar
       // 28 Nov 2026: hanya bukti yang memang impor (supplier / forwarder impor, kode IMP, China) yang ditawari daftar pengajuan impor.
       // Belanja lokal Mike (Shopee, toko, QRIS, VA) tidak lagi memunculkan daftar ini.
-      if (asalBukti(b, r, kategori) === 'impor' && !r.belum_bayar) {
+      const asal = asalBukti(b, r, kategori);
+      if (asal === 'impor' && !r.belum_bayar) {
         const ri = pilihImpor(r, belum);
-        if (ri) { b = await ubah(id, { baca: { ...r, rencana: ri } }); await tampil(b); return; }
+        if (ri) { b = await ubah(id, { baca: { ...r, asal: 'impor', rencana: ri } }); await tampil(b); return; }
       }
+      if (asal === 'ragu' && !r.belum_bayar) { b = await ubah(id, { baca: { ...r, tanya_asal: true } }); await tampil(b); return; }
     }
     // cocokkan ke rincian barang yang dibayar lewat aplikasi (satu screenshot bisa berisi beberapa barang dari beberapa transaksi)
     if (nominal && items.length) {
@@ -848,6 +863,16 @@ export function buatBukti(sb: Any, api: (m: string, isi: Any) => Promise<Any>, T
     // pembayar sebenarnya (caption "dibayar Junior" / nama rekening di bukti) dicatat di accounting: "Junior via Viory"
     const pb = b.baca && b.baca.pembayar ? String(b.baca.pembayar) : '';
     const pengisi = pb && pb !== oleh ? pb + ' via ' + oleh : oleh;
+    // 28 Nov 2026: jawaban "impor atau lokal?" untuk bukti yang tidak bisa dibedakan Admin Accounting.
+    if (op === 'J' || op === 'H') {
+      const r0: Any = { ...(b.baca || {}), tanya_asal: false, asal: op === 'J' ? 'impor' : 'lokal' };
+      if (op === 'H') { const baru = await ubah(id, { baca: { ...r0, rencana: null } }); await tampil(baru); return jawab('Dicatat sebagai belanja lokal. Cek kartunya lalu tekan ✅ Catat.'); }
+      const belum = (await sb.rpc('bb_belum_bayar')).data || {};
+      const ri = pilihImpor(r0, belum);
+      const baru = await ubah(id, { baca: { ...r0, rencana: ri }, ...(b.kategori === 'Biaya lain-lain' ? { kategori: 'Pembelian barang dagang / impor' } : {}) });
+      await tampil(baru);
+      return jawab(ri ? 'Impor. Centang pengajuan impor yang dibayar dengan bukti ini, atau 📝 Catat biasa kalau bukan untuk pengajuan.' : 'Impor. Tidak ada pengajuan impor yang menunggu dibayar: tekan ✅ Catat. Biaya ini muncul di menu Impor untuk disambungkan ke PO.', true);
+    }
     if (op === 'p') {
       const rc = b.baca && b.baca.rencana;
       if (!rc) return jawab('Tidak ada pengajuan yang cocok.');
